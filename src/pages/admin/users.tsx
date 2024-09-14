@@ -128,6 +128,7 @@ const Users = () => {
 			dataSource={data}
 			pagination={tableParams.pagination}
 			loading={loading}
+			//@ts-ignore
 			onChange={handleTableChange}
 			// virtual
 			bordered

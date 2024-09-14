@@ -8,6 +8,8 @@ import { LoadingOutlined } from '@ant-design/icons'
 import Title from 'antd/es/typography/Title'
 import { MaterialReactTable, useMaterialReactTable, type MRT_ColumnDef } from 'material-react-table'
 import { getCronJobs } from '../../@store/slices/cronJobs/thunks/getCronJob'
+import type { TCronJob } from '../../@store/slices/cronJobs/types/cronJobs'
+import { parseExpression } from 'cron-parser'
 
 const CronJobs = () => {
 	const [availableChannels, setAvailableChannels] = useState<string[]>([])
@@ -46,7 +48,7 @@ const CronJobs = () => {
 				accessorKey: 'cron',
 				header: 'Cron',
 				Cell: ({ row }) => {
-					return <span>{row.original.cron.next().toDate().toLocaleString()}</span>
+					return <span>{parseExpression(row.original.cron).next().toDate().toLocaleString()}</span>
 				},
 			},
 		],

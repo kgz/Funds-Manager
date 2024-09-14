@@ -8,7 +8,7 @@ const parser = (value: string) => {
 export const ZCronJob = z.object({
 	id: z.number(),
 	name: z.string(),
-	cron: z.string().transform(parser),
+	cron: z.string(), //.transform(parser),
 	last_run: z.coerce.date(),
 	created_at: z.coerce.date(),
 	deleted_at: z.coerce.date().optional(),

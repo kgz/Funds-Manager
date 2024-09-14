@@ -22,7 +22,6 @@ const slice = createSlice({
 			state.cronJobsLoading = false
 		})
 		builder.addCase(getCronJobs.rejected, (state, action) => {
-			console.log(action.payload)
 			state.cronJobsLoading = false
 		})
 	},

@@ -28,7 +28,6 @@ const slice = createSlice({
 				state.migrationsLoading = false
 			})
 			.addCase(getMigrations.rejected, (state, action) => {
-				console.log(action.payload)
 				state.migrationsLoading = false
 			})
 
@@ -40,7 +39,6 @@ const slice = createSlice({
 				state.migrationsRunning = false
 			})
 			.addCase(runMigrations.rejected, (state, action) => {
-				console.log(action.payload)
 				state.migrationsRunning = false
 			})
 
