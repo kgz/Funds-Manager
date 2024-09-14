@@ -47,8 +47,6 @@ function Template() {
 		}
 	}, [dispatch, paths])
 
-	console.log({ paths })
-
 	if (paths[1] === 'user' && paths[3] === 'reset-password') {
 		return <ResetPassword />
 	}

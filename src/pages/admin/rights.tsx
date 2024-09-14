@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import type { TRight } from '../../@types/admin/rights'
+import { useAppDispatch } from '../../@store/store'
+import { channelActions } from '../../@store/slices/channels'
 
 type TCol = {
 	name: TRight
@@ -31,6 +33,13 @@ const RightsTable = () => {
 
 	const navigate = useNavigate()
 
+	const dispatch = useAppDispatch()
+
+	useEffect(() => {
+		void dispatch(channelActions.getChannels)
+		// console.log(channelActions.getChannels)
+	})
+
 	const columns: TableColumnsType<TCol> = [
 		{
 			title: 'Id',
@@ -49,7 +58,6 @@ const RightsTable = () => {
 				<>
 					<a
 						onClick={() => {
-							// console.log(record)
 							navigate(`/admin/right/${record.name}`)
 						}}
 					>
@@ -77,7 +85,6 @@ const RightsTable = () => {
 		// 			},
 		// 		})
 		// 	})
-		console.log(tableParams)
 		let params_as_url: { [key: string]: string } = {
 			pagination_current: tableParams.pagination?.current?.toString() ?? '1',
 			pagination_page_size: tableParams.pagination?.pageSize?.toString() ?? '10',
@@ -110,7 +117,6 @@ const RightsTable = () => {
 	}, [fetchData])
 
 	const data_as_json = useMemo(() => {
-		console.log({ data })
 		return data.map((item, index) => ({ name: item, id: index }))
 	}, [data])
 

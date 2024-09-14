@@ -97,7 +97,7 @@ const Calender = () => {
 			// start of today
 			return DateTime.local().set({ hour: 0, minute: 0, second: 0, millisecond: 0 })
 		}
-		let start = data
+		const start = data
 			.sort((a, b) => DateTime.fromISO(a.start).toMillis() - DateTime.fromISO(b.start).toMillis())
 			.at(0)?.start
 		if (!start) {
@@ -112,7 +112,7 @@ const Calender = () => {
 			// end of today
 			return DateTime.local().set({ hour: 23, minute: 59, second: 59, millisecond: 999 })
 		}
-		let end = data.sort((a, b) => DateTime.fromISO(a.end).toMillis() - DateTime.fromISO(b.end).toMillis()).at(0)?.end
+		const end = data.sort((a, b) => DateTime.fromISO(a.end).toMillis() - DateTime.fromISO(b.end).toMillis()).at(0)?.end
 		if (!end) {
 			// end of today
 			return DateTime.local().set({ hour: 23, minute: 59, second: 59, millisecond: 999 })
@@ -192,7 +192,7 @@ const Calender = () => {
 
 	const days = useMemo(() => {
 		if (!startDate || !endDate) return []
-		let start = startDate
+		const start = startDate
 		const end = endDate
 
 		const days = end.diff(start, 'days').days

@@ -1,0 +1,6 @@
+Error downloading https://localhost:2020/chaos/api/openapi.json 
+fetch failed
+JSONParserError: Error downloading https://localhost:2020/chaos/api/openapi.json 
+fetch failed
+    at download (/home/mat/.nvm/versions/node/v20.14.0/lib/node_modules/@hey-api/openapi-ts/node_modules/@apidevtools/json-schema-ref-parser/dist/lib/resolvers/http.js:113:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)

@@ -6,6 +6,8 @@ import { useParams } from 'react-router-dom'
 import type { TUser } from '../../@types/user'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
+import { useAppDispatch } from '../../@store/store'
+import { channelActions } from '../../@store/slices/channels'
 
 type TUserHasRight = {
 	user: TUser
@@ -33,9 +35,6 @@ const Right = () => {
 		moveKeys: Key[],
 	) => {
 		setLoading(true)
-		console.log('targetKeys:', nextTargetKeys)
-		console.log('direction:', direction)
-		console.log('moveKeys:', moveKeys)
 
 		// setTargetKeys(nextTargetKeys)
 		switch (direction) {
@@ -79,7 +78,6 @@ const Right = () => {
 
 	const updateRights = async (ids: number[]) => {
 		await axios.post('/chaos/api/admin/users/right/' + right, { user_ids: ids })
-		console.log('updated')
 	}
 
 	const removeRights = async (ids: number[]) => {
@@ -108,10 +106,6 @@ const Right = () => {
 		console.log('onItemSelectAll:', selectedKeys, selected)
 	}
 
-	useEffect(() => {
-		console.log({ targetKeys })
-	}, [targetKeys])
-
 	return (
 		<div>
 			<h1>Right {right}</h1>
@@ -138,16 +132,13 @@ const Right = () => {
 					selectedKeys: listSelectedKeys,
 					disabled: listDisabled,
 				}) => {
-					console.log('filteredItems:', filteredItems, { direction })
 					const rowSelection: TableRowSelection<TUserHasRight> = {
 						onChange(selectedRowKeys) {
-							console.log('onChange:', selectedRowKeys)
 							onItemSelectAll(selectedRowKeys, 'replace')
 						},
 						selectedRowKeys: listSelectedKeys,
 						selections: [Table.SELECTION_ALL, Table.SELECTION_INVERT, Table.SELECTION_NONE],
 						onSelect: (record, selected) => {
-							console.log('onSelect:', record, selected)
 							onItemSelect(record.user.id, selected)
 						},
 					}
@@ -162,12 +153,10 @@ const Right = () => {
 							style={{ pointerEvents: listDisabled ? 'none' : undefined }}
 							onRow={({ user }) => ({
 								onClick: () => {
-									console.log('onRow:', user)
 									onItemSelect(user.id, !listSelectedKeys.includes(user.id))
 								},
 								onSelect: e => {
 									e.preventDefault()
-									console.log('onSelect:', user)
 									onItemSelect(user.id, !listSelectedKeys.includes(user.id))
 								},
 								style: { cursor: 'pointer' },

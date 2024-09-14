@@ -7,6 +7,8 @@ import userSliceSlice from './slices/user'
 import channelsSlice from './slices/channels'
 import { migrationsReducer } from './slices/migrations/migrationsSlice'
 import { cronJobReducer } from './slices/cronJobs/cronJobSlice'
+import { Chaos } from '../apiClient/Chaos'
+
 const reducer = combineReducers({
 	migrationsReducer,
 	userSliceSlice,
@@ -25,8 +27,11 @@ type IAppDispatch = StoreType['dispatch']
 
 export type TRootState = ReturnType<typeof reducer>
 declare module 'react-redux' {
-	export interface DefaultRootState extends TRootState {}
+	export type DefaultRootState = TRootState
 }
+
+
+
 export const useAppDispatch = () => useDispatch<IAppDispatch>()
 export const useAppSelector: TypedUseSelectorHook<DefaultRootState> = useSelector
 export default store

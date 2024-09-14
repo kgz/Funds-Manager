@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
-import axios from 'axios'
+import axios, { type AxiosError } from 'axios'
 import type { CreateRespError, TUser } from '../../@types/user'
 import { getCookie, setCookie } from '../../@middleware/cookie'
 
@@ -37,10 +37,9 @@ export const createUser = createAsyncThunk(
 				.post(`/chaos/api/users/create`, data)
 				.then(response => {
 					resolve(response.data)
-					console.log(response.data)
 				})
-				.catch(error => {
-					reject(rejectWithValue(error.response.data))
+				.catch((error: AxiosError) => {
+					reject(Error(error.message))
 				})
 				.finally(() => {
 					// void dispatch(setMigrationsRunning(false))
@@ -57,16 +56,14 @@ export const loginUser = createAsyncThunk(
 			axios
 				.post<string>(`/chaos/api/users/login`, { ...data, email: '' })
 				.then(response => {
-					// resolve(response.data)
-					console.log(response.data)
 					if (response.status === 200) {
 						resolve(response.data)
 					} else {
-						reject(rejectWithValue(response.data))
+						reject(Error(response.data))
 					}
 				})
-				.catch(error => {
-					reject(rejectWithValue(error.response.data))
+				.catch((error: AxiosError) => {
+					reject(Error(error.message))
 				})
 				.finally(() => {
 					// void dispatch(setMigrationsRunning(false))
@@ -79,7 +76,7 @@ export const getUser = createAsyncThunk('migrations/getUser', async (_, { reject
 	return new Promise<TMe>((resolve, reject) => {
 		const jwt = getCookie('jwt')
 		if (!jwt) {
-			reject(rejectWithValue('UnAuthorised'))
+			reject(Error('UnAuthorised'))
 		}
 		void axios
 			.get<TMe>(`/chaos/api/user`, {
@@ -88,17 +85,15 @@ export const getUser = createAsyncThunk('migrations/getUser', async (_, { reject
 				},
 			})
 			.then(response => {
-				console.log('response')
 				resolve(response.data)
 			})
-			.catch(error => {
+			.catch((error: AxiosError) => {
 				// reject(rejectWithValue(error.response.data))
-				if (error.response.status === 401) {
-					return reject(rejectWithValue('UnAuthorised'))
-					console.log('err', error)
+				if (error.status === 401) {
+					return reject(Error('UnAuthorised'))
 				}
 
-				reject(error)
+				reject(Error(error.message))
 			})
 	})
 })
@@ -124,15 +119,12 @@ const userSlice = createSlice({
 			.addCase(createUser.fulfilled, (state, action) => {
 				state.createLoading = false
 				state.createError = {}
-
-				console.log('fulfilled', action.payload)
 			})
 			.addCase(createUser.pending, (state, action) => {
 				state.createError = {}
 				state.createLoading = true
 			})
 			.addCase(createUser.rejected, (state, action) => {
-				console.log('err', action.payload)
 				state.createError = (action.payload as CreateRespError) || 'An error occurred'
 				state.createLoading = false
 			})
@@ -143,14 +135,12 @@ const userSlice = createSlice({
 				state.loginError = null
 			})
 			.addCase(loginUser.rejected, (state, action) => {
-				console.log('err', action.payload)
 				state.loginError = (action.payload as string) || 'An error occurred'
 				state.loginLoading = false
 			})
 		builder.addCase(loginUser.fulfilled, (state, action) => {
 			// state.current = action.payload
 
-			console.log(action.payload)
 			setCookie('jwt', action.payload, 30)
 			state.loginLoading = false
 		})
@@ -159,7 +149,6 @@ const userSlice = createSlice({
 			state.rights = action.payload.rights
 		})
 		builder.addCase(logout.fulfilled, (state, action) => {
-			console.log('logout')
 			state.current = null
 		})
 

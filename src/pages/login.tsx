@@ -63,10 +63,6 @@ const Login = () => {
 		}
 	}, [dispatch])
 
-	useEffect(() => {
-		console.log({ current })
-	}, [current])
-
 	const validPassword: true | string = useMemo(() => {
 		switch (true) {
 			case password.length < 8:
