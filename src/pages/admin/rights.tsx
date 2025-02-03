@@ -7,7 +7,7 @@ import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import type { TRight } from '../../@types/admin/rights'
 import { useAppDispatch } from '../../@store/store'
-import { channelActions } from '../../@store/slices/channels'
+import { getChannels } from '../../@store/slices/channels'
 
 type TCol = {
 	name: TRight
@@ -36,7 +36,7 @@ const RightsTable = () => {
 	const dispatch = useAppDispatch()
 
 	useEffect(() => {
-		void dispatch(channelActions.getChannels)
+		void dispatch(getChannels)
 		// console.log(channelActions.getChannels)
 	})
 

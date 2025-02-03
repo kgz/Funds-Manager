@@ -5,7 +5,6 @@ import { useLocation, useNavigate } from 'react-router'
 import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace'
 
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
-import { createUser, getUser, loginUser, setLoginError } from '../@store/slices/user'
 import { useAppDispatch, useAppSelector } from '../@store/store'
 import { getCookie } from '../@middleware/cookie'
 import { pink } from '@mui/material/colors'
@@ -22,6 +21,12 @@ import {
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { Tooltip } from '@mui/material'
+import { getUser } from '../@store/thunks/user/getUser'
+import { loginUser } from '../@store/thunks/user/loginUser'
+import { setLoginError } from '../@store/thunks/user/setLoginError'
+import { createUser } from '../@store/thunks/user/createUser'
+import type { UserApiCreateUserRequest } from '../Api'
+
 const Login = () => {
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
@@ -232,7 +237,7 @@ const Login = () => {
 							<form
 								onKeyDown={e => {
 									if (e.key === 'Enter') {
-										void dispatch(loginUser({ username: email, password })).then(() => {
+										void dispatch(loginUser({ loginUserRequest: { email, username: email, password } })).then(() => {
 											void dispatch(getUser())
 										})
 									}
@@ -256,7 +261,7 @@ const Login = () => {
 								</Form.Field>
 								<Button
 									loading={loginLoading}
-									disabled={loginLoading || resetLoading || !validateEmail(email)}
+									disabled={loginLoading || resetLoading} // || !validateEmail(email)}
 									compact
 									fluid
 									style={{
@@ -272,12 +277,12 @@ const Login = () => {
 										e.preventDefault()
 										setResetError(null)
 										setResetSuccess(null)
-										void dispatch(loginUser({ username: email, password })).then(() => {
+										void dispatch(loginUser({ loginUserRequest: { email, username: email, password } })).then(() => {
 											void dispatch(getUser())
 										})
 									}}
 								>
-									Login
+									Login {loginLoading}
 								</Button>
 								<div style={{ marginTop: 10, textAlign: 'center', fontWeight: 'bold' }}>
 									{loginError && <div style={{ color: 'red' }}>{loginError}</div>}{' '}
@@ -338,6 +343,7 @@ const Login = () => {
 											setTimeout(() => {
 												setResetError('An error occurred. Please try again.')
 												setResetSuccess(null)
+												setResetLoading(false)
 											}, 1000)
 										})
 										.finally(() => {
@@ -362,7 +368,7 @@ const Login = () => {
 							<form
 								onKeyDown={e => {
 									if (e.key === 'Enter') {
-										void dispatch(createUser({ username: email, password })).then(() => {
+										void dispatch(createUser({ partialUser: { username: email, password, email } })).then(() => {
 											void dispatch(getUser())
 										})
 									}
@@ -413,11 +419,13 @@ const Login = () => {
 									}}
 									onClick={e => {
 										e.preventDefault()
-										void dispatch(createUser({ email: email, username: email, password })).then(() => {
+										void dispatch(createUser({ partialUser: { email: email, username: email, password } })).then(() => {
 											if (Object.values(createError).length == 0) {
-												void dispatch(loginUser({ username: email, password })).then(() => {
-													void dispatch(getUser())
-												})
+												void dispatch(loginUser({ loginUserRequest: { email, username: email, password } })).then(
+													() => {
+														void dispatch(getUser())
+													},
+												)
 											} else {
 												console.log({ k: Object.values(createError).length })
 											}

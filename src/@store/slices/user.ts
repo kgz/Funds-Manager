@@ -1,15 +1,16 @@
-import { createAsyncThunk, createSlice } from '@reduxjs/toolkit'
-import axios, { type AxiosError } from 'axios'
-import type { CreateRespError, TUser } from '../../@types/user'
-import { getCookie, setCookie } from '../../@middleware/cookie'
+import { createSlice } from '@reduxjs/toolkit'
+import type { CreateRespError } from '../../@types/user'
+import { setCookie } from '../../@middleware/cookie'
 
-type TMe = {
-	user: TUser
-	rights: string[]
-}
+import type { MeResp, Users } from '../../Api'
+import { createUser } from '../thunks/user/createUser'
+import { loginUser } from '../thunks/user/loginUser'
+import { logoutUser } from '../thunks/user/logoutUser'
+import { setLoginError } from '../thunks/user/setLoginError'
+import { getUser } from '../thunks/user/getUser'
 
 export const initialState: {
-	current: TUser | null
+	current: Users | null
 	rights: string[]
 	loginLoading: boolean
 	registerLoading: boolean
@@ -27,89 +28,6 @@ export const initialState: {
 	createLoading: false,
 	systemError: null,
 }
-
-export const createUser = createAsyncThunk(
-	'migrations/createUser',
-	async (data: Partial<TUser>, { rejectWithValue, dispatch }) => {
-		return new Promise<unknown>((resolve, reject) => {
-			// void dispatch(setMigrationsRunning(true))
-			axios
-				.post(`/chaos/api/users/create`, data)
-				.then(response => {
-					resolve(response.data)
-				})
-				.catch((error: AxiosError) => {
-					reject(Error(error.message))
-				})
-				.finally(() => {
-					// void dispatch(setMigrationsRunning(false))
-				})
-		})
-	},
-)
-
-export const loginUser = createAsyncThunk(
-	'migrations/loginUser',
-	async (data: Partial<TUser>, { rejectWithValue, dispatch }) => {
-		return new Promise<string>((resolve, reject) => {
-			// void dispatch(setMigrationsRunning(true))
-			axios
-				.post<string>(`/chaos/api/users/login`, { ...data, email: '' })
-				.then(response => {
-					if (response.status === 200) {
-						resolve(response.data)
-					} else {
-						reject(Error(response.data))
-					}
-				})
-				.catch((error: AxiosError) => {
-					reject(Error(error.message))
-				})
-				.finally(() => {
-					// void dispatch(setMigrationsRunning(false))
-				})
-		})
-	},
-)
-
-export const getUser = createAsyncThunk('migrations/getUser', async (_, { rejectWithValue }) => {
-	return new Promise<TMe>((resolve, reject) => {
-		const jwt = getCookie('jwt')
-		if (!jwt) {
-			reject(Error('UnAuthorised'))
-		}
-		void axios
-			.get<TMe>(`/chaos/api/user`, {
-				headers: {
-					Authorization: `Bearer ${jwt}`,
-				},
-			})
-			.then(response => {
-				resolve(response.data)
-			})
-			.catch((error: AxiosError) => {
-				// reject(rejectWithValue(error.response.data))
-				if (error.status === 401) {
-					return reject(Error('UnAuthorised'))
-				}
-
-				reject(Error(error.message))
-			})
-	})
-})
-
-export const logout = createAsyncThunk('migrations/logout', async (_, { rejectWithValue, dispatch }) => {
-	return new Promise<boolean>((resolve, reject) => {
-		setCookie('jwt', '', -1)
-		resolve(true)
-	})
-})
-
-export const setLoginError = createAsyncThunk('migrations/setLoginError', async (error: string, { dispatch }) => {
-	return new Promise<string>((resolve, reject) => {
-		resolve(error)
-	})
-})
 
 const userSlice = createSlice({
 	name: 'store',
@@ -135,12 +53,13 @@ const userSlice = createSlice({
 				state.loginError = null
 			})
 			.addCase(loginUser.rejected, (state, action) => {
-				state.loginError = (action.payload as string) || 'An error occurred'
+				console.log(action)
+				state.loginError = (action.payload as string) || 'Invalid Username and/or Password'
 				state.loginLoading = false
 			})
 		builder.addCase(loginUser.fulfilled, (state, action) => {
 			// state.current = action.payload
-
+			console.log({ action })
 			setCookie('jwt', action.payload, 30)
 			state.loginLoading = false
 		})
@@ -148,7 +67,7 @@ const userSlice = createSlice({
 			state.current = action.payload.user
 			state.rights = action.payload.rights
 		})
-		builder.addCase(logout.fulfilled, (state, action) => {
+		builder.addCase(logoutUser.fulfilled, (state, action) => {
 			state.current = null
 		})
 
