@@ -4,8 +4,8 @@
 	:global(.ant-layout-sider-children) {
 		display: flex !important;
 		flex-direction: column !important;
-		flex-wrap: wrap;
-	
+		flex-wrap: nowrap;
+		overflow: auto;
 
 		.logo {
 			display: flex;
@@ -22,7 +22,7 @@
 		.label {
 			// width:80%;
 			// margin: 0 auto;
-			margin-left:5%;
+			margin-left: 5%;
 			font-size: 1.5rem;
 			font-weight: 500;
 			// margin: 1rem;
@@ -31,8 +31,6 @@
 			font-size: 13px;
 			font-weight: 600;
 			border: 1px solid #d982e800;
-
-			
 		}
 
 		.link {
@@ -67,8 +65,6 @@
 				color: #5d11a0;
 				// border: 1px solid #5d11a0;
 				opacity: 1;
-
-
 			}
 		}
 	}

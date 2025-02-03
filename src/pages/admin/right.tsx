@@ -7,7 +7,6 @@ import type { TUser } from '../../@types/user'
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { useAppDispatch } from '../../@store/store'
-import { channelActions } from '../../@store/slices/channels'
 
 type TUserHasRight = {
 	user: TUser

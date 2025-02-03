@@ -18,7 +18,6 @@ const ResetPassword = () => {
 	const token = paths[4]
 
 	const validPassword: true | string = useMemo(() => {
-		console.log({ p1 })
 		switch (true) {
 			case p1.length < 8:
 				return 'Password must be at least 8 characters long'
@@ -102,7 +101,7 @@ const ResetPassword = () => {
 										navigate('/login')
 									})
 									.catch(error => {
-										toast.error('Error sending email')
+										toast.error('Error resetting password')
 										setError(true)
 										console.error(error)
 									})

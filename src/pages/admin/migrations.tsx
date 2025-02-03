@@ -17,7 +17,6 @@ import {
 	Popup,
 } from 'semantic-ui-react'
 import type { TUser } from '../../@types/user'
-import { createUser, loginUser, logout } from '../../@store/slices/user'
 import { getMigrations } from '../../@store/slices/migrations/thunks/getMigrations'
 import { runMigrations } from '../../@store/slices/migrations/thunks/runMigrations'
 import { revertMigration } from '../../@store/slices/migrations/thunks/revertMigration'
@@ -50,32 +49,7 @@ export const Migrations = () => {
 				Run Migrations
 			</Button>
 
-			<Button onClick={() => void dispatch(createUser(dummyUser))}>Create User</Button>
-			<Button
-				onClick={() => {
-					console.log('logout')
-					void dispatch(logout())
-				}}
-			>
-				logout
-			</Button>
-
 			<br />
-
-			<Input type="username" placeholder="Username" onChange={e => setUsername(e.target.value)} />
-			<Input type="password" placeholder="Password" onChange={e => setPassword(e.target.value)} />
-			<Button
-				onClick={() =>
-					void dispatch(
-						loginUser({
-							username,
-							password,
-						}),
-					)
-				}
-			>
-				login
-			</Button>
 
 			<Table celled>
 				<TableHeader>

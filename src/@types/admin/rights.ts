@@ -10,7 +10,7 @@ export enum Rights {
 	Comments,
 	UserManagement,
 	RightManagement,
-	MigrationManagment,
+	MigrationManagement,
 	ChannelDataManagement,
 }
 export const Right = z.nativeEnum(Rights)

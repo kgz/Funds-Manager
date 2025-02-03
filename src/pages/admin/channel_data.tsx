@@ -1,10 +1,5 @@
-import { Alert, Button, Result, Spin, Table } from 'antd'
-import Search from 'antd/es/input/Search'
-import axios from 'axios'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppDispatch, useAppSelector } from '../../@store/store'
-import { get_channel_data } from '../../@store/slices/channels'
-import { LoadingOutlined } from '@ant-design/icons'
 import Title from 'antd/es/typography/Title'
 import { MaterialReactTable, useMaterialReactTable, type MRT_ColumnDef } from 'material-react-table'
 import { getCronJobs } from '../../@store/slices/cronJobs/thunks/getCronJob'
@@ -14,7 +9,6 @@ import { parseExpression } from 'cron-parser'
 const CronJobs = () => {
 	const [availableChannels, setAvailableChannels] = useState<string[]>([])
 	const [search, setSearch] = useState<string>('')
-	const { get_data_error, get_data_loading, get_data_success } = useAppSelector(state => state.channelsSlice)
 	const dispatch = useAppDispatch()
 
 	const { cronJobs } = useAppSelector(state => state.cronJobReducer)
