@@ -1,7 +1,7 @@
 import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { useAppSelector } from '../@store/store'
-import style_sidebar from '../@scss/sidebar.module.scss'
+import style_sidebar from '../@scss/sidebar.module.css'
 import { Rights, type TRight } from '../@types/admin/rights'
 
 type TProps = {

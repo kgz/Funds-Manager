@@ -2,7 +2,6 @@ import { combineReducers, configureStore } from '@reduxjs/toolkit'
 import { useDispatch, useSelector } from 'react-redux'
 
 import type { DefaultRootState, TypedUseSelectorHook } from 'react-redux'
-import thunk from 'redux-thunk'
 import userSliceSlice from './slices/user'
 import channelsSlice from './slices/channels'
 import { migrationsReducer } from './slices/migrations/migrationsSlice'
@@ -22,7 +21,7 @@ const reducer = combineReducers({
 
 const store = configureStore({
 	reducer,
-	middleware: getDefaultMiddleware => getDefaultMiddleware().concat(thunk).concat(logger),
+	middleware: getDefaultMiddleware => getDefaultMiddleware().concat(logger),
 })
 
 type StoreType = typeof store

@@ -1,7 +1,0 @@
-🚫 missing input - which OpenAPI specification should we use to generate your client?
-Error: 🚫 missing input - which OpenAPI specification should we use to generate your client?
-    at /home/mat/.nvm/versions/node/v20.14.0/lib/node_modules/@hey-api/openapi-ts/dist/node/index.cjs:1:183524
-    at Array.map (<anonymous>)
-    at Ks (/home/mat/.nvm/versions/node/v20.14.0/lib/node_modules/@hey-api/openapi-ts/dist/node/index.cjs:1:183210)
-    at async exports.createClient (/home/mat/.nvm/versions/node/v20.14.0/lib/node_modules/@hey-api/openapi-ts/dist/node/index.cjs:1:184990)
-    at async start (/home/mat/.nvm/versions/node/v20.14.0/lib/node_modules/@hey-api/openapi-ts/bin/index.cjs:80:5)
