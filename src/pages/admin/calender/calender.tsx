@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import s from './calender.module.scss'
+import s from './calender.module.css'
 import { DateTime } from 'luxon'
 import type { ZShow } from '../../../@types/show'
 import axios from 'axios'
 import type { z } from 'zod'
 import { getBrand } from '../../../components/getBrand'
-import { unescape } from 'lodash'
 const px_per_hour = 200
 
 function decodeEntities(encodedString: string) {
@@ -84,13 +83,6 @@ const Calender = () => {
 	}, [channelsToCheck])
 
 	type TItem = (typeof data)[0]
-	const channels: string[] = useMemo(() => {
-		const channels = new Set<string>()
-		data.forEach(item => {
-			channels.add(item.channel)
-		})
-		return Array.from(channels)
-	}, [data])
 
 	const startDate = useMemo(() => {
 		if (!data.length) {
@@ -217,7 +209,7 @@ const Calender = () => {
 
 	return (
 		<div className={s.container} ref={container_ref}>
-			{/* div required for children to spann acrosse all the way */}
+			{/* div required for children to span across all the way */}
 			<div style={{ position: 'relative' }}>
 				<div
 					style={{
@@ -342,7 +334,7 @@ const Calender = () => {
 									{channel_data
 										.sort((a: TItem, b: TItem) => Date.parse(a.end) - Date.parse(b.end))
 										.map((item, index) => {
-											// const refrence_start = new Date(
+											// const reference_start = new Date(
 											// 	data.sort((a, b) => Date.parse(a.start) - Date.parse(b.start))[0].start,
 											// )
 
@@ -381,11 +373,6 @@ const Calender = () => {
 											let marginTop = 0
 											if (has_overlaps.length) {
 												marginTop = has_overlaps.length * 20
-												const first = has_overlaps[0]
-												const first_start = DateTime.fromISO(first.start)
-												const first_end = DateTime.fromISO(first.end)
-												const first_width = first_end.diff(first_start, 'hours').hours * px_per_hour
-												// marginLeft = start.diff(first_end, 'hours').hours * px_per_hour
 											}
 											return (
 												<div

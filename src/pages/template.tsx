@@ -1,12 +1,11 @@
-import React, { useEffect } from 'react'
-import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Route, Routes, useLocation } from 'react-router-dom'
 
 import { useAppDispatch, useAppSelector } from '../@store/store'
-import { Container, Grid } from 'semantic-ui-react'
-import { Alert, Box } from '@mui/material'
+import { Alert } from '@mui/material'
 import { ConfigProvider, Divider, Flex, Layout, Select, theme } from 'antd'
 
-import style_sidebar from '../@scss/sidebar.module.scss'
+import style_sidebar from '../@scss/sidebar.module.css'
 import Login from './login'
 import Migrations from './admin/migrations'
 import {
@@ -24,7 +23,7 @@ import User from './admin/user'
 import RightsTable from './admin/rights'
 import Right from './admin/right'
 import { getCookie } from '../@middleware/cookie'
-import Calender from './admin/calender/calandar'
+import Calender from './admin/calender/calender'
 import ConditionalLink from '../components/link'
 import { Rights } from '../@types/admin/rights'
 import ChannelData from './admin/channel_data'
@@ -37,7 +36,7 @@ const { defaultAlgorithm, darkAlgorithm } = theme
 const { Header, Footer, Sider, Content } = Layout
 
 function Template() {
-	const { loginLoading, loginError, current, rights } = useAppSelector(state => state.userSliceSlice)
+	const { current } = useAppSelector(state => state.userSliceSlice)
 	const { error } = useAppSelector(state => state.errorReducer)
 	const dispatch = useAppDispatch()
 
@@ -63,10 +62,12 @@ function Template() {
 	// 	console.log({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone })
 	// }, [])
 
+	const IS_DARK: boolean = false
+
 	return (
 		<ConfigProvider
 			theme={{
-				algorithm: 0 ? darkAlgorithm : defaultAlgorithm,
+				algorithm: IS_DARK ? darkAlgorithm : defaultAlgorithm,
 			}}
 		>
 			<Flex style={{ height: '100dvh' }}>

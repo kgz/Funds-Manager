@@ -30,7 +30,15 @@
 	"cSpell.words": [
 		"attractor",
 		"chua",
-		"multiscroll"
+		"luxon",
+		"multiscroll",
+		"openapitools",
+		"Sider",
+		"welldone"
 	],
-	"typescript.tsdk": "node_modules/typescript/lib"
+	"typescript.tsdk": "node_modules/typescript/lib",
+	"eslint.useESLintClass": true,
+	"eslint.useFlatConfig": true,
+	"postman.settings.dotenv-detection-notification-visibility": false,
+	"eslint.debug": true,
 }

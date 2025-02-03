@@ -1,6 +1,6 @@
-import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import styles from '../../@scss/login.module.scss'
-import { Button, Divider, Form, Icon } from 'semantic-ui-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import styles from '../../@scss/login.module.css'
+import { Button, Form } from 'semantic-ui-react'
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -96,7 +96,7 @@ const ResetPassword = () => {
 								setResetLoading(true)
 								void axios
 									.post<void>(`/chaos/api/user/reset_password/${id}/${token}`, { password: p1 })
-									.then(response => {
+									.then(() => {
 										toast.success('Password reset successfully!')
 										navigate('/login')
 									})

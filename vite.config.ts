@@ -1,12 +1,7 @@
-import eslintPlugin from '@nabla/vite-plugin-eslint'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import react from '@vitejs/plugin-react'
-import fs from 'fs'
-import path, { resolve } from 'path'
-import { visualizer } from 'rollup-plugin-visualizer'
+import path from 'path'
 import { defineConfig, loadEnv } from 'vite'
-import babelDev from 'vite-plugin-babel-dev'
-import checker from 'vite-plugin-checker'
 
 const outputConfig = {
 	entryFileNames: 'index.min.js',
@@ -21,50 +16,7 @@ const config = ({ mode }) => {
 	const outputs = [env.VITE_OUTPUT_DIR]
 
 	return defineConfig({
-		plugins: [
-			basicSsl(),
-
-			react({
-				babel: {
-					plugins: [
-						['@babel/plugin-proposal-decorators', { legacy: true }],
-						['@babel/plugin-proposal-class-properties', { loose: true }],
-					],
-				},
-			}),
-			eslintPlugin({}),
-			checker({
-				typescript: true,
-				eslint: {
-					lintCommand: 'eslint "./src/**/*.{ts,tsx}"',
-				},
-			}),
-			visualizer({
-				filename: './.stats/treemap.html',
-				template: 'treemap',
-				sourcemap: true,
-			}),
-			visualizer({
-				filename: './.stats/sunburst.html',
-				template: 'sunburst',
-				sourcemap: true,
-			}),
-			visualizer({
-				filename: './.stats/network.html',
-				template: 'network',
-				sourcemap: true,
-			}),
-			visualizer({
-				filename: './.stats/raw-data.json',
-				template: 'raw-data',
-				sourcemap: true,
-			}),
-			visualizer({
-				filename: './.stats/list.yml',
-				template: 'list',
-				sourcemap: true,
-			}),
-		],
+		plugins: [basicSsl(), react()],
 		build: {
 			rollupOptions: {
 				external: ['moment-timezone'],

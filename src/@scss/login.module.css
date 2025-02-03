@@ -1,4 +1,3 @@
-@use '_root.module' as root;
 .blackout {
 	position: fixed;
 	top: 0;
@@ -10,8 +9,8 @@
 
 	background-color: rgba(0, 0, 0, 0.698);
 
-    display: grid;
-    place-items: center;
+	display: grid;
+	place-items: center;
 
 	.title {
 		text-align: center;
@@ -22,27 +21,25 @@
 		padding-block: 20px;
 		font-weight: 700;
 	}
-	
+
 	.container {
 		width: 700px;
-		// padding-bottom: 5px;
+		/* padding-bottom: 5px; */
 		background-color: var(--primary-bg);
 		border-radius: 5px;
 		box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 
 		display: grid;
-		// 50% column;
+		/* 50% column; */
 		flex-direction: row;
 		grid-template-columns: 0px 0.5fr 0.5fr;
 
-		// make the background a white to l;ight purple gradient
-		// background: linear-gradient(180deg, #fff, #eb0cd9);
+		/* make the background a white to light purple gradient */
+		/* background: linear-gradient(180deg, #fff, #eb0cd9); */
 
-        .login {
-            padding:20px
-        }
-
-		
+		.login {
+			padding: 20px;
+		}
 
 		.input {
 			width: 100%;
@@ -55,7 +52,7 @@
 		form {
 			display: flex;
 			flex-direction: column;
-			// gap: 10px;
+			/* gap: 10px; */
 			margin-bottom: 10px;
 		}
 
@@ -82,35 +79,34 @@
 		}
 
 		.register {
-            background-color: var(--secondary-bg);
-            padding-top:20px;
+			background-color: var(--secondary-bg);
+			padding-top: 20px;
 
-            .title {
-                
-                color: var(--text-secondary) !important;
-            }
+			.title {
+				color: var(--text-secondary) !important;
+			}
 			.content {
 				padding: 20px;
-                padding-top: 0px;
-                .pitch {
-                    margin-bottom: 20px;
-                    color: var(--text-secondary);
-                    font-size: 1.2rem;
-                    font-weight: 700;
-                    display: grid;
-                    grid-template-columns: 0.2fr 0.8fr;
-                    // vertical-align: middle;
-                    // align-content: space-evenly;
+				padding-top: 0px;
+				.pitch {
+					margin-bottom: 20px;
+					color: var(--text-secondary);
+					font-size: 1.2rem;
+					font-weight: 700;
+					display: grid;
+					grid-template-columns: 0.2fr 0.8fr;
+					/* vertical-align: middle; */
+					/* align-content: space-evenly; */
 
-                    i {
-                        align-self: center !important;
-                    }
-                }   
+					i {
+						align-self: center !important;
+					}
+				}
 
-                .register_button{
-                    display: flex;
-                    justify-content: end;
-                }
+				.register_button {
+					display: flex;
+					justify-content: end;
+				}
 			}
 		}
 	}

@@ -1,36 +1,27 @@
-import { Button, ButtonOr, Divider, Form, FormButton, Icon } from 'semantic-ui-react'
-import styles from '../@scss/login.module.scss'
+import { Button, Divider, Form } from 'semantic-ui-react'
+import styles from '../@scss/login.module.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
-import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace'
 
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import { useAppDispatch, useAppSelector } from '../@store/store'
 import { getCookie } from '../@middleware/cookie'
-import { pink } from '@mui/material/colors'
-import { faCalendar, faClock, faFootball, faFootballBall } from '@fortawesome/free-solid-svg-icons'
+import { faFootballBall } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
 	CalendarOutlined,
 	ClockCircleOutlined,
 	FacebookFilled,
-	FacebookOutlined,
 	GooglePlusCircleFilled,
 	TwitterCircleFilled,
 } from '@ant-design/icons'
 import axios from 'axios'
-import toast from 'react-hot-toast'
-import { Tooltip } from '@mui/material'
 import { getUser } from '../@store/thunks/user/getUser'
 import { loginUser } from '../@store/thunks/user/loginUser'
 import { setLoginError } from '../@store/thunks/user/setLoginError'
 import { createUser } from '../@store/thunks/user/createUser'
-import type { UserApiCreateUserRequest } from '../Api'
 
 const Login = () => {
 	const [email, setEmail] = useState('')
 	const [password, setPassword] = useState('')
-	const [confirmPassword, setConfirmPassword] = useState('')
 	const [register, setRegister] = useState(false)
 	const [userGetLoading, setUserGetLoading] = useState(true)
 	const [error, setError] = useState('')
@@ -38,7 +29,7 @@ const Login = () => {
 	const [resetLoading, setResetLoading] = useState(false)
 	const [resetSuccess, setResetSuccess] = useState<null | string>(null)
 	const dispatch = useAppDispatch()
-	const createEmailRef = useRef<HTMLInputElement>()
+	const createEmailRef = useRef<HTMLInputElement | undefined>(null)
 
 	const { loginLoading, loginError, current, createError, createLoading } = useAppSelector(
 		state => state.userSliceSlice,
@@ -125,7 +116,7 @@ const Login = () => {
 										marginBottom: -56,
 									}}
 								>
-									Dont have an account?
+									Don't have an account?
 								</div>
 								<div
 									className={styles.title}
@@ -158,7 +149,7 @@ const Login = () => {
 										{/* <Icon name="football ball" style={{ color: 'white', fontSize: 35 }} />
 										 */}
 										<FontAwesomeIcon icon={faFootballBall} style={{ color: 'white', fontSize: 35 }} />
-										<span>Ability to track and get suggestions based on your favorite sports and teams!</span>
+										<span>Ability to track and get suggestions based on your favourite sports and teams!</span>
 									</div>
 
 									<div>
@@ -333,13 +324,13 @@ const Login = () => {
 
 									void axios
 										.post('/chaos/api/user/email_reset/' + email, { email })
-										.then(res => {
+										.then(() => {
 											setTimeout(() => {
 												setResetSuccess('An email has been sent if a user with that email exists.')
 												setResetError(null)
 											}, 1000)
 										})
-										.catch(err => {
+										.catch(() => {
 											setTimeout(() => {
 												setResetError('An error occurred. Please try again.')
 												setResetSuccess(null)
@@ -400,7 +391,7 @@ const Login = () => {
 										style={{ width: '100%', marginTop: 10 }}
 										type="password"
 										placeholder="Confirm Password"
-										onChange={e => setConfirmPassword(e.target.value)}
+										onChange={e => console.log(e.target.value)}
 									/>
 								</Form.Field>
 								{/* </Form> */}
