@@ -1,4 +1,4 @@
-import { Button, Divider, Form } from 'semantic-ui-react'
+import { Divider, Form } from 'semantic-ui-react'
 import styles from '../@scss/login.module.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
@@ -18,6 +18,7 @@ import { getUser } from '../@store/thunks/user/getUser'
 import { loginUser } from '../@store/thunks/user/loginUser'
 import { setLoginError } from '../@store/thunks/user/setLoginError'
 import { createUser } from '../@store/thunks/user/createUser'
+import { Button } from '@mui/material'
 
 const Login = () => {
 	const [email, setEmail] = useState('')
@@ -182,7 +183,7 @@ const Login = () => {
 											inverted
 											onClick={() => setRegister(!register)}
 											// attached
-											size="mini"
+											size="small"
 										>
 											{/* 2 divs that slide in and out */}
 											<div

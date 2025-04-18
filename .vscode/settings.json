@@ -41,4 +41,5 @@
 	"eslint.useFlatConfig": true,
 	"postman.settings.dotenv-detection-notification-visibility": false,
 	"eslint.debug": true,
+	"mocha.enabled": false,
 }

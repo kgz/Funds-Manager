@@ -51,6 +51,10 @@ const Users = () => {
 			title: 'Active',
 			dataIndex: 'enabled',
 			render: enabled => (enabled ? 'Active' : 'Inactive'),
+			filters: [
+				{ text: 'Active', value: true },
+				{ text: 'Inactive', value: false },
+			],
 		},
 	]
 
@@ -88,6 +92,7 @@ const Users = () => {
 				paginationCurrent: tableParams.pagination?.current?.toString() ?? '1',
 				paginationPageSize: tableParams.pagination?.pageSize?.toString() ?? '10',
 				...tableParams,
+				...tableParams.filters,
 			} as const
 
 			// if (tableParams.sortField) {
@@ -128,7 +133,6 @@ const Users = () => {
 		// 	filters,
 		// 	...sorter,
 		// })
-		type T = typeof sorter
 		fetchData({
 			pagination,
 			filters,

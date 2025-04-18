@@ -22,6 +22,18 @@
 export interface Filters {
     /**
      * 
+     * @type {Array<boolean>}
+     * @memberof Filters
+     */
+    'enabled'?: Array<boolean> | null;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof Filters
+     */
+    'gender'?: Array<string> | null;
+    /**
+     * 
      * @type {number}
      * @memberof Filters
      */
