@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAppDispatch, useAppSelector } from '../@store/store'
 import { Alert } from '@mui/material'
@@ -41,11 +41,13 @@ function Template() {
 	const dispatch = useAppDispatch()
 
 	const paths = useLocation().pathname.split('/')
+	const navigate = useNavigate()
+
 	useEffect(() => {
 		if (!getCookie('jwt')) {
 			void dispatch(logoutUser())
 		}
-	}, [dispatch, paths])
+	}, [dispatch, navigate, paths])
 
 	if (paths[1] === 'user' && paths[3] === 'reset-password') {
 		return <ResetPassword />

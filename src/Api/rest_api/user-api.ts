@@ -80,12 +80,14 @@ export const UserApiAxiosParamCreator = function (configuration?: Configuration)
          * 
          * @param {string} paginationCurrent Page to Retrieve
          * @param {string} paginationPageSize Page Size
-         * @param {string | null} [sortField] Page Size
-         * @param {string | null} [sortOrder] Page Size
+         * @param {string | null} [sortField] Sorted Column
+         * @param {string | null} [sortOrder] Sorting Order
+         * @param {Array<string> | null} [gender] Sorting Order
+         * @param {Array<boolean> | null} [enabled] Sorting Order
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getAllUsers: async (paginationCurrent: string, paginationPageSize: string, sortField?: string | null, sortOrder?: string | null, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getAllUsers: async (paginationCurrent: string, paginationPageSize: string, sortField?: string | null, sortOrder?: string | null, gender?: Array<string> | null, enabled?: Array<boolean> | null, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'paginationCurrent' is not null or undefined
             assertParamExists('getAllUsers', 'paginationCurrent', paginationCurrent)
             // verify required parameter 'paginationPageSize' is not null or undefined
@@ -116,6 +118,14 @@ export const UserApiAxiosParamCreator = function (configuration?: Configuration)
 
             if (sortOrder !== undefined) {
                 localVarQueryParameter['sort_order'] = sortOrder;
+            }
+
+            if (gender) {
+                localVarQueryParameter['gender'] = gender;
+            }
+
+            if (enabled) {
+                localVarQueryParameter['enabled'] = enabled;
             }
 
 
@@ -328,13 +338,15 @@ export const UserApiFp = function(configuration?: Configuration) {
          * 
          * @param {string} paginationCurrent Page to Retrieve
          * @param {string} paginationPageSize Page Size
-         * @param {string | null} [sortField] Page Size
-         * @param {string | null} [sortOrder] Page Size
+         * @param {string | null} [sortField] Sorted Column
+         * @param {string | null} [sortOrder] Sorting Order
+         * @param {Array<string> | null} [gender] Sorting Order
+         * @param {Array<boolean> | null} [enabled] Sorting Order
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getAllUsers(paginationCurrent: string, paginationPageSize: string, sortField?: string | null, sortOrder?: string | null, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Response>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getAllUsers(paginationCurrent, paginationPageSize, sortField, sortOrder, options);
+        async getAllUsers(paginationCurrent: string, paginationPageSize: string, sortField?: string | null, sortOrder?: string | null, gender?: Array<string> | null, enabled?: Array<boolean> | null, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAllUsers(paginationCurrent, paginationPageSize, sortField, sortOrder, gender, enabled, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['UserApi.getAllUsers']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -425,7 +437,7 @@ export const UserApiFactory = function (configuration?: Configuration, basePath?
          * @throws {RequiredError}
          */
         getAllUsers(requestParameters: UserApiGetAllUsersRequest, options?: RawAxiosRequestConfig): AxiosPromise<Response> {
-            return localVarFp.getAllUsers(requestParameters.paginationCurrent, requestParameters.paginationPageSize, requestParameters.sortField, requestParameters.sortOrder, options).then((request) => request(axios, basePath));
+            return localVarFp.getAllUsers(requestParameters.paginationCurrent, requestParameters.paginationPageSize, requestParameters.sortField, requestParameters.sortOrder, requestParameters.gender, requestParameters.enabled, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -509,18 +521,32 @@ export interface UserApiGetAllUsersRequest {
     readonly paginationPageSize: string
 
     /**
-     * Page Size
+     * Sorted Column
      * @type {string}
      * @memberof UserApiGetAllUsers
      */
     readonly sortField?: string | null
 
     /**
-     * Page Size
+     * Sorting Order
      * @type {string}
      * @memberof UserApiGetAllUsers
      */
     readonly sortOrder?: string | null
+
+    /**
+     * Sorting Order
+     * @type {Array<string>}
+     * @memberof UserApiGetAllUsers
+     */
+    readonly gender?: Array<string> | null
+
+    /**
+     * Sorting Order
+     * @type {Array<boolean>}
+     * @memberof UserApiGetAllUsers
+     */
+    readonly enabled?: Array<boolean> | null
 }
 
 /**
@@ -612,7 +638,7 @@ export class UserApi extends BaseAPI {
      * @memberof UserApi
      */
     public getAllUsers(requestParameters: UserApiGetAllUsersRequest, options?: RawAxiosRequestConfig) {
-        return UserApiFp(this.configuration).getAllUsers(requestParameters.paginationCurrent, requestParameters.paginationPageSize, requestParameters.sortField, requestParameters.sortOrder, options).then((request) => request(this.axios, this.basePath));
+        return UserApiFp(this.configuration).getAllUsers(requestParameters.paginationCurrent, requestParameters.paginationPageSize, requestParameters.sortField, requestParameters.sortOrder, requestParameters.gender, requestParameters.enabled, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
