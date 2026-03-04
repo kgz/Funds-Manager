@@ -48,10 +48,10 @@ export const Statements = () => {
 	// --- Calculate Missing Statement Periods ---
 	const missingPeriods = useMemo(() => {
 		if (!statements || statements.length < 2) {
-			return []; // Need at least two statements to find a gap
+			// If only 0 or 1 statement, we can still check against the current date
+			// return []; // Old logic: Need at least two statements to find a gap
 		}
 
-		// 1. Sort statements by date ascending
 		const sortedStatements = [...statements].sort((a, b) =>
 			DateTime.fromISO(a.date).toMillis() - DateTime.fromISO(b.date).toMillis()
 		);
@@ -59,7 +59,7 @@ export const Statements = () => {
 		const missing: string[] = [];
 		// 2. Iterate and find gaps (assuming monthly statements)
 		for (let i = 1; i < sortedStatements.length; i++) {
-			const prevDate = DateTime.fromISO(sortedStatements[i - 1].date);
+			const prevDate = DateTime.fromISO(sortedStatements[i - 1].date).startOf('month'); // Use start of month
 			const currDate = DateTime.fromISO(sortedStatements[i].date);
 
 			if (!prevDate.isValid || !currDate.isValid) {
@@ -69,17 +69,35 @@ export const Statements = () => {
 
 			// Calculate the difference in months
 			// Ensure we compare based on the start of the month for accurate diff
-			const monthsDiff = currDate.startOf('month').diff(prevDate.startOf('month'), 'months').months;
+			const monthsDiff = currDate.startOf('month').diff(prevDate, 'months').months;
 
 			// If difference is more than 1 month, there's a gap
 			if (monthsDiff > 1) {
 				let missingDate = prevDate.plus({ months: 1 });
 				// Get the start of the month for the current date for comparison
 				const currDateStartOfMonth = currDate.startOf('month');
-				// Loop while the *start* of the missing month is strictly less than the *start* of the current statement's month
-				while (missingDate.startOf('month') < currDateStartOfMonth) { // <-- Updated condition
+				while (missingDate < currDateStartOfMonth) {
 					missing.push(missingDate.toFormat("LLL yyyy")); // e.g., "Feb 2024"
 					missingDate = missingDate.plus({ months: 1 });
+				}
+			}
+		}
+
+		// 3. Check gap between the last statement and the current date
+		if (sortedStatements.length > 0) {
+			const lastStatementDate = DateTime.fromISO(sortedStatements[sortedStatements.length - 1].date).startOf('month');
+			const currentMonthStart = DateTime.now().startOf('month');
+
+			if (lastStatementDate.isValid) {
+				const monthsDiffToNow = currentMonthStart.diff(lastStatementDate, 'months').months;
+
+				if (monthsDiffToNow > 1) {
+					let missingDate = lastStatementDate.plus({ months: 1 });
+					// Loop while the missing month is strictly less than the current month
+					while (missingDate < currentMonthStart) {
+						missing.push(missingDate.toFormat("LLL yyyy"));
+						missingDate = missingDate.plus({ months: 1 });
+					}
 				}
 			}
 		}
