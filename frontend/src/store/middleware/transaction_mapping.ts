@@ -23,9 +23,9 @@ export const transactionWatcherMiddleware: Middleware<{}, RootState> =
         const result = next(action); // Pass the action along first
 
         if (TRANSACTION_UPDATE_ACTIONS.includes(action.type)) {
-			const mappings = store.getState().MappingReducer.mappings;
 			const transactions = store.getState().TransactionsReducer.transactions;
 			const categories = store.getState().CategoryReducer.categories.filter(x=>x.deleted_at===null);
+			const mappings = store.getState().MappingReducer.mappings.filter(x=>categories.find(y=>Number(y.id)===Number(x.category_id)));
 
 			const n = [...transactions].map(tx => {
 				let matchedCategoryId: number | null = null;

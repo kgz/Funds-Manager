@@ -11,7 +11,7 @@ export const deleteMapping = createAsyncThunk(
 	"mapping/delete", 
 	async (id: number, { rejectWithValue }) => { 
 		try {
-			const response = await axios.delete(`/api/category_mappings/${id}}`)
+			const response = await axios.delete(`/api/category_mappings/${id}`)
 			return response.data;
 		} catch (error) {
             if (axios.isAxiosError(error)) {

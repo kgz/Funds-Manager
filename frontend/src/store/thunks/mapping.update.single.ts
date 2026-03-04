@@ -18,8 +18,9 @@ type UpdateMappingPayload = {
 export const editMapping = createAsyncThunk(
 	"mapping/update", 
 	async (data: Partial<CategoryMapping> & {id: number}, { rejectWithValue }) => { 
+		console.log(`/api/category_mappings/${data.id}}`)
 		try {
-			const response = await axios.put(`/api/category_mappings/${data.id}}`, data)
+			const response = await axios.put(`/api/category_mappings/${data.id}`, data)
 			return response.data;
 		} catch (error) {
             if (axios.isAxiosError(error)) {

@@ -6,9 +6,10 @@ import { getAllTransactions, type Transaction } from '../store/thunks/transactio
 import { Table, type TColumn } from "@/components/table"; // Import the Table component
 import { cn } from "@/lib/utils/cn"; // Import the cn utility
 import { DateTime } from "luxon"; // Import Luxon for date formatting
-import { AlertTriangle, Loader2, TrendingDown, TrendingUp } from 'lucide-react'; // Import necessary icons
-import { getAllCategories } from '@/store/thunks/category.get.all';
+import { AlertTriangle, Loader2, Search, TrendingDown, TrendingUp, X } from 'lucide-react'; // Import necessary icons
+import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import { getMappings } from '@/store/thunks/mapping.get.all';
+import { useDebounce } from '@/hooks/useDebounce'; // Import the debounce hook
 
 // Helper function for currency formatting (assuming amounts/balances are in cents)
 // You might want to move this to a shared utility file
@@ -27,6 +28,15 @@ type ProcessedTransaction = Transaction & {
 const TransactionsPage: React.FC = () => {
     const dispatch = useAppDispatch();
 
+    // State for the "uncategorized only" filter
+    const [showUncategorizedOnly, setShowUncategorizedOnly] = useState<boolean>(() => {
+        // Initialize state from localStorage or default to false
+        return localStorage.getItem('showUncategorizedOnly') === 'true';
+    });
+    // State for the search term
+    const [searchTerm, setSearchTerm] = useState<string>('');
+    // Debounced search term for filtering
+    const debouncedSearchTerm = useDebounce(searchTerm, 300); // 300ms delay
     // Select data from the Redux store
     const { transactions, transactionsLoading, transactionsError } = useAppSelector(
         (state) => state.TransactionsReducer
@@ -41,15 +51,22 @@ const TransactionsPage: React.FC = () => {
             dispatch(getAllTransactions());
         }
     }, [dispatch]); // Dependencies
-
-	const {categories} = useAppSelector(state=>state.CategoryReducer)
-
+    
+	const { categories } = useAppSelector(state => state.CategoryReducer);
+    
 	useEffect(()=>{
-		void dispatch(getMappings()).then(()=>{
-			void dispatch(getAllCategories())
-		})
-	}, [])
-
+        // Fetch categories if needed (e.g., for displaying names)
+        if (categories.length === 0) {
+            void dispatch(getAllCategories());
+        }
+        // Consider if mappings need to be fetched here or elsewhere
+		void dispatch(getMappings());
+	}, [dispatch, categories.length]);
+    
+    // Effect to save filter state to localStorage whenever it changes
+    useEffect(() => {
+        localStorage.setItem('showUncategorizedOnly', String(showUncategorizedOnly));
+    }, [showUncategorizedOnly]);
 	
 
     // Define columns for the Transaction Table
@@ -113,13 +130,13 @@ const TransactionsPage: React.FC = () => {
             label: "Category ID",
             sortable: false, // Sorting might be complex, disable for now
             render: (v) => {
-
-				if (!v) return '';
+                if (!v) return <span className="text-xs text-gray-500 italic">Uncategorized</span>;
                 // Just print the category ID for now, or 'N/A' if null/undefined
-                const category = categories.find((x)=>  Number(x.id) === Number(v));
-				return (<div className='' style={{background: category?.colour}}>
-
-					{category?.name}
+                const category = categories.find((cat: Category) => String(cat.id) === String(v));
+				return (<div className='inline-block px-2 py-0.5 rounded text-xs text-white/90' style={{backgroundColor: category?.colour ?? '#4b5563'}}> {/* Default grey if no colour */}
+                    {/* Optional: Add colour indicator span */}
+                    {/* {category?.colour && <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: category.colour }}></span>} */}
+					{category?.name ?? `ID: ${v}`} {/* Show name or ID */}
 				</div>) 
 
             },
@@ -128,6 +145,25 @@ const TransactionsPage: React.FC = () => {
         },
         // Add more columns if needed (e.g., Actions)
     ];
+
+    // Filter transactions based on the state
+    const filteredTransactions = useMemo(() => {
+        let results = transactions;
+
+        // Apply "uncategorized only" filter first
+        if (showUncategorizedOnly) {
+            results = results.filter(tx => tx.category_id === null || tx.category_id === undefined);
+        }
+
+        // Apply search term filter
+        const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
+        if (lowerCaseSearchTerm) {
+            results = results.filter(tx =>
+                tx.description.toLowerCase().includes(lowerCaseSearchTerm)
+            );
+        }
+        return results;
+    }, [transactions, showUncategorizedOnly, debouncedSearchTerm]); // Add debouncedSearchTerm to dependencies
 
     // --- Render Logic ---
 
@@ -158,16 +194,42 @@ const TransactionsPage: React.FC = () => {
     // Main content with Table
     return (
         <div className="flex flex-col h-screen w-full">
-            {/* Optional: Add a header or title area if needed */}
-            {/* <div className="p-4 border-b border-secondary-default/20">
-                <h1 className="text-xl font-semibold">Transactions</h1>
-            </div> */}
+            {/* Header with Filter */}
+            <div className="p-4 border-b border-secondary-default/20 flex flex-wrap justify-between items-center gap-4">
+                <h1 className="text-xl font-semibold text-white">Transactions</h1>
+                {/* Search Bar */}
+                <div className="relative flex-grow max-w-xs">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                        type="text"
+                        placeholder="Search descriptions..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-8 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded focus:ring-secondary-default focus:border-secondary-default text-white placeholder-gray-400"
+                    />
+                    {searchTerm && (
+                        <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white">
+                            <X size={16} />
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center space-x-2">
+                    <input
+                        type="checkbox"
+                        id="uncategorizedFilter"
+                        checked={showUncategorizedOnly}
+                        onChange={(e) => setShowUncategorizedOnly(e.target.checked)}
+                        className="form-checkbox h-4 w-4 text-secondary-default bg-gray-800 border-gray-600 rounded focus:ring-secondary-default"
+                    />
+                    <label htmlFor="uncategorizedFilter" className="text-sm text-white/80 cursor-pointer">Show uncategorized only</label>
+                </div>
+            </div>
 
             {/* Table container */}
             <div className="flex-grow overflow-hidden"> {/* Allows table to scroll */}
                 <Table<ProcessedTransaction> // Use ProcessedTransaction type
                     columns={columns}
-                    data={transactions} // Pass the processed data
+                    data={filteredTransactions} // Pass the filtered data
                     header={{ sticky: true }}
                     loading={transactionsLoading} // Show table's internal loading indicator during refetches
                     // Optional: Add row clicking or other features if needed
@@ -175,7 +237,7 @@ const TransactionsPage: React.FC = () => {
                     // rowClassName="cursor-pointer hover:bg-white/5"
                     // Provide a message when data is empty
                     // emptyStateMessage={!transactionsLoading ? "No transactions found." : "Loading..."}
-                />
+                    emptyStateMessage={!transactionsLoading ? (filteredTransactions.length === 0 ? "No matching transactions found." : "No transactions found.") : "Loading..."}                />
             </div>
         </div>
     );

@@ -1,4 +1,5 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useState } from 'react';
 
 // --- Helper Functions (Consider moving to a shared utils file) ---
 
@@ -41,6 +42,9 @@ type CategoryPieChartProps = {
 
 // --- Reusable Pie Chart Component ---
 export const CategoryPieChart = ({ data, title, dataKey = "value" }: CategoryPieChartProps) => {
+    // State to track the name of the hovered slice
+    const [hoveredSliceName, setHoveredSliceName] = useState<string | null>(null);
+
     if (data.length === 0) {
         return <p className="text-center text-white/50 h-[300px] flex items-center justify-center">No data available for {title}.</p>;
     }
@@ -50,11 +54,34 @@ export const CategoryPieChart = ({ data, title, dataKey = "value" }: CategoryPie
             <h3 className="text-lg font-semibold text-white/90 mb-4 text-center">{title}</h3>
             <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
-                    <Pie data={data} dataKey={dataKey} nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false}>
-                        {data.map((entry, index) => (<Cell key={`cell-${title.replace(/\s+/g, '-')}-${index}`} fill={entry.color} />))}
+                    <Pie
+                        data={data}
+                        dataKey={dataKey}
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        labelLine={false}
+                        onMouseEnter={(data) => {
+                            setHoveredSliceName(data.name);
+                        }}
+                        onMouseLeave={() => {
+                            setHoveredSliceName(null);
+                        }}
+                    >
+                        {data.map((entry, index) => (
+                            <Cell
+                                key={`cell-${title.replace(/\s+/g, '-')}-${index}`}
+                                fill={entry.color}
+                                // Adjust opacity based on hover state
+                                fillOpacity={hoveredSliceName === null || hoveredSliceName === entry.name ? 1 : 0.3}
+                            />
+                        ))}
                     </Pie>
                     <Tooltip content={renderCustomTooltip} />
-                    <Legend layout="vertical" align="right" verticalAlign="middle" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
+                    <Legend layout="vertical" align="right" verticalAlign="middle" iconSize={10} wrapperStyle={{ fontSize: '12px' }} onMouseEnter={(e) => setHoveredSliceName(e.value)} onMouseLeave={() => setHoveredSliceName(null)} formatter={(value, entry) => {
+                        return hoveredSliceName === value ? <span className="font-bold text-white cursor-pointer">{value}</span> : <span className="text-white/80 cursor-pointer">{value}</span>;
+                    }}/>
                 </PieChart>
             </ResponsiveContainer>
         </div>
