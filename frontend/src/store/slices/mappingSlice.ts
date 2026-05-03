@@ -22,10 +22,12 @@ export type CategoryMapping = {
 
 type InitialState = {
 	mappings: CategoryMapping[],
+	mappingsLoading: boolean,
 }
 
 const initialState: InitialState = {
 	mappings: [],
+	mappingsLoading: false,
 	
 }
 
