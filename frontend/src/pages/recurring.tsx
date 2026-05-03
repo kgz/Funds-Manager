@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import { getAllTransactions } from '@/store/thunks/transactions.get.all';
@@ -9,7 +9,8 @@ import {
 	type RecurringCandidate,
 } from '@/lib/recurringExpenseDetection';
 import { Table, type TColumn } from '@/components/table';
-import { Loader2, Repeat } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
+import { ChevronDown, ChevronRight, Loader2, Repeat } from 'lucide-react';
 
 const formatMoney = (n: number) =>
 	`$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -144,6 +145,171 @@ function sectionToAggRow(section: RecurringSection): RecurringCategoryAggRow {
 	};
 }
 
+type SortDir = 'asc' | 'desc';
+
+type SectionSortKey =
+	| 'label'
+	| 'typical'
+	| 'occurrences'
+	| 'firstDate'
+	| 'lastDate'
+	| 'confidence';
+
+type PatternSortKey =
+	| 'labelSample'
+	| 'cadenceLabel'
+	| 'medianGapDays'
+	| 'typicalAmountDollars'
+	| 'minAmountDollars'
+	| 'occurrences'
+	| 'firstDate'
+	| 'lastDate'
+	| 'confidence';
+
+function sectionSortKeyFromAggKey(
+	k: keyof RecurringCategoryAggRow
+): SectionSortKey | null {
+	if (k === 'labelSample') {
+		return 'label';
+	}
+	if (k === 'typicalAmountDollars') {
+		return 'typical';
+	}
+	if (k === 'occurrences') {
+		return 'occurrences';
+	}
+	if (k === 'firstDate') {
+		return 'firstDate';
+	}
+	if (k === 'lastDate') {
+		return 'lastDate';
+	}
+	if (k === 'confidence') {
+		return 'confidence';
+	}
+	return null;
+}
+
+function sortSectionsList(
+	sections: RecurringSection[],
+	key: SectionSortKey,
+	dir: SortDir
+): RecurringSection[] {
+	const out = [...sections];
+	const mult = dir === 'asc' ? 1 : -1;
+	out.sort((a, b) => {
+		const ra = sectionToAggRow(a);
+		const rb = sectionToAggRow(b);
+		switch (key) {
+			case 'label': {
+				if (a.categoryId === null && b.categoryId !== null) {
+					return 1;
+				}
+				if (a.categoryId !== null && b.categoryId === null) {
+					return -1;
+				}
+				return mult * ra.labelSample.localeCompare(rb.labelSample);
+			}
+			case 'typical':
+				return (
+					mult *
+					(ra.spendingMonthly +
+						ra.incomeMonthly -
+						(rb.spendingMonthly + rb.incomeMonthly))
+				);
+			case 'occurrences':
+				return mult * (ra.occurrences - rb.occurrences);
+			case 'firstDate':
+				return mult * ra.firstDate.localeCompare(rb.firstDate);
+			case 'lastDate':
+				return mult * ra.lastDate.localeCompare(rb.lastDate);
+			case 'confidence':
+				return mult * (ra.confidence - rb.confidence);
+			default:
+				return 0;
+		}
+	});
+	return out;
+}
+
+function patternSortKeyFromColumnKey(
+	k: keyof RecurringCandidate
+): PatternSortKey | null {
+	switch (k) {
+		case 'labelSample':
+		case 'cadenceLabel':
+		case 'medianGapDays':
+		case 'typicalAmountDollars':
+		case 'minAmountDollars':
+		case 'occurrences':
+		case 'firstDate':
+		case 'lastDate':
+		case 'confidence':
+			return k;
+		default:
+			return null;
+	}
+}
+
+function sortPatterns(
+	bucket: RecurringCandidate[],
+	key: PatternSortKey,
+	dir: SortDir,
+	categoryList: Category[]
+): RecurringCandidate[] {
+	const out = [...bucket];
+	const mult = dir === 'asc' ? 1 : -1;
+	const catName = (id: number | null) => {
+		if (id === null) {
+			return '\uffff';
+		}
+		const c = categoryList.find((x) => String(x.id) === String(id));
+		return c?.name ?? String(id);
+	};
+	out.sort((a, b) => {
+		switch (key) {
+			case 'labelSample': {
+				const byCat = catName(a.modeCategoryId).localeCompare(
+					catName(b.modeCategoryId)
+				);
+				if (byCat !== 0) {
+					return mult * byCat;
+				}
+				return mult * a.labelSample.localeCompare(b.labelSample);
+			}
+			case 'cadenceLabel':
+				return mult * a.cadenceLabel.localeCompare(b.cadenceLabel);
+			case 'medianGapDays':
+				return mult * (a.medianGapDays - b.medianGapDays);
+			case 'typicalAmountDollars': {
+				const byMo = a.estimatedMonthlyDollars - b.estimatedMonthlyDollars;
+				if (byMo !== 0) {
+					return mult * byMo;
+				}
+				return mult * (a.typicalAmountDollars - b.typicalAmountDollars);
+			}
+			case 'minAmountDollars':
+				return mult * (a.minAmountDollars - b.minAmountDollars);
+			case 'occurrences':
+				return mult * (a.occurrences - b.occurrences);
+			case 'firstDate':
+				return mult * a.firstDate.localeCompare(b.firstDate);
+			case 'lastDate':
+				return mult * a.lastDate.localeCompare(b.lastDate);
+			case 'confidence':
+				return mult * (a.confidence - b.confidence);
+			default:
+				return 0;
+		}
+	});
+	return out;
+}
+
+const DEFAULT_PATTERN_SORT: { key: PatternSortKey; dir: SortDir } = {
+	key: 'confidence',
+	dir: 'desc',
+};
+
 const RecurringExpensesPage = () => {
 	const dispatch = useAppDispatch();
 	const { transactions, transactionsLoading, transactionsError } =
@@ -167,6 +333,17 @@ const RecurringExpensesPage = () => {
 	useEffect(() => {
 		localStorage.setItem('recurringGroupByCategory', String(groupByCategory));
 	}, [groupByCategory]);
+
+	const [expandedSections, setExpandedSections] = useState<Set<string>>(
+		() => new Set()
+	);
+	const [sectionSort, setSectionSort] = useState<{
+		key: SectionSortKey;
+		dir: SortDir;
+	}>({ key: 'label', dir: 'asc' });
+	const [subSortBySection, setSubSortBySection] = useState<
+		Record<string, { key: PatternSortKey; dir: SortDir }>
+	>({});
 
 	const fetchOnceRef = useRef(false);
 	useEffect(() => {
@@ -206,12 +383,59 @@ const RecurringExpensesPage = () => {
 		return merged;
 	}, [expenseRows, incomeRows]);
 
-	const categoryAggregateRows = useMemo((): RecurringCategoryAggRow[] => {
+	const sections = useMemo(() => {
 		if (!groupByCategory || rows.length === 0) {
 			return [];
 		}
-		return buildRecurringSections(rows, categoryList).map(sectionToAggRow);
+		return buildRecurringSections(rows, categoryList);
 	}, [groupByCategory, rows, categoryList]);
+
+	const sortedSections = useMemo(
+		() => sortSectionsList(sections, sectionSort.key, sectionSort.dir),
+		[sections, sectionSort]
+	);
+
+	const subSortFor = (sectionKey: string) =>
+		subSortBySection[sectionKey] ?? DEFAULT_PATTERN_SORT;
+
+	const cycleSectionSort = (key: SectionSortKey) => {
+		setSectionSort((prev) => {
+			if (prev.key === key) {
+				return { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' };
+			}
+			const numeric = key !== 'label';
+			return { key, dir: numeric ? 'desc' : 'asc' };
+		});
+	};
+
+	const cyclePatternSort = (sectionKey: string, key: PatternSortKey) => {
+		setSubSortBySection((prev) => {
+			const cur = prev[sectionKey] ?? DEFAULT_PATTERN_SORT;
+			if (cur.key === key) {
+				return {
+					...prev,
+					[sectionKey]: { key, dir: cur.dir === 'asc' ? 'desc' : 'asc' },
+				};
+			}
+			const numeric = key !== 'labelSample';
+			return {
+				...prev,
+				[sectionKey]: { key, dir: numeric ? 'desc' : 'asc' },
+			};
+		});
+	};
+
+	const toggleSection = (sectionKey: string) => {
+		setExpandedSections((prev) => {
+			const next = new Set(prev);
+			if (next.has(sectionKey)) {
+				next.delete(sectionKey);
+			} else {
+				next.add(sectionKey);
+			}
+			return next;
+		});
+	};
 
 	const {
 		estimatedMonthlyTotal,
@@ -483,7 +707,7 @@ const RecurringExpensesPage = () => {
 							</div>
 							<p className="text-[10px] text-white/40 mt-1">
 								{row.patternCount} pattern{row.patternCount === 1 ? '' : 's'} ·
-								click row for details (soon)
+								click to expand
 							</p>
 						</div>
 					);
@@ -610,7 +834,7 @@ const RecurringExpensesPage = () => {
 
 	const tableEmpty =
 		groupByCategory
-			? categoryAggregateRows.length === 0 && !transactionsLoading
+			? sections.length === 0 && !transactionsLoading
 			: rows.length === 0 && !transactionsLoading;
 
 	return (
@@ -624,8 +848,8 @@ const RecurringExpensesPage = () => {
 					<p className="text-sm text-white/60 mt-1 max-w-2xl">
 						Heuristic only: repeat patterns from descriptions and median spacing.
 						<span className="font-medium text-white/75"> Group by category</span>{' '}
-						shows one row per category (patterns hidden until you drill in — coming
-						soon). Not bank-confirmed.
+						shows one row per category; click a row to expand patterns. Not
+						bank-confirmed.
 					</p>
 				</div>
 				<div className="flex flex-col items-end gap-2">
@@ -707,21 +931,218 @@ const RecurringExpensesPage = () => {
 
 			<div className="flex-grow overflow-hidden min-h-0">
 				{groupByCategory ? (
-					<Table<RecurringCategoryAggRow>
-						columns={categoryColumns}
-						data={categoryAggregateRows}
-						rowKey="rowId"
-						header={{ sticky: true }}
-						loading={transactionsLoading}
-						onRowClick={() => {
-							/* sub-table per category: TODO */
-						}}
-						emptyStateMessage={
-							tableEmpty
-								? 'No repeat patterns found — lower “minimum occurrences” or add more history.'
-								: 'Loading…'
-						}
-					/>
+					<div className="flex flex-col h-full bg-primary-default text-gray-200">
+						<div className="flex-grow overflow-auto min-h-0">
+							<table className="w-full min-w-[960px]">
+								<thead
+									className={cn(
+										'bg-gray-900 border-b border-white/10',
+										'sticky top-0 z-10'
+									)}
+								>
+									<tr>
+										<th className="px-4 py-3 w-10" />
+										{categoryColumns.map((col) => {
+											const sk = sectionSortKeyFromAggKey(col.key);
+											const headerSortable =
+												Boolean(col.sortable) && sk !== null;
+											return (
+												<th
+													key={String(col.key)}
+													className={cn(
+														'px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-400',
+														col.headerClassName
+													)}
+												>
+													{headerSortable && sk !== null ? (
+														<button
+															type="button"
+															onClick={() => cycleSectionSort(sk)}
+															className={cn(
+																'w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
+																col.headerClassName,
+																sectionSort.key === sk
+																	? 'text-secondary-default'
+																	: 'text-gray-400'
+															)}
+														>
+															{col.label}
+															{sectionSort.key === sk
+																? sectionSort.dir === 'asc'
+																	? ' ▲'
+																	: ' ▼'
+																: ''}
+														</button>
+													) : (
+														<span className="text-gray-400">
+															{col.label}
+														</span>
+													)}
+												</th>
+											);
+										})}
+									</tr>
+								</thead>
+								<tbody className="divide-y divide-white/10">
+									{transactionsLoading && sortedSections.length === 0
+										? Array.from({ length: 8 }).map((_, rowIndex) => (
+												<tr key={`skel-${String(rowIndex)}`} className="animate-pulse">
+													<td className="px-4 py-3">
+														<div className="h-4 w-4 rounded bg-gray-700" />
+													</td>
+													{categoryColumns.map((_, colIndex) => (
+														<td
+															key={`skel-${String(rowIndex)}-${String(colIndex)}`}
+															className="px-4 py-3"
+														>
+															<div className="h-4 w-3/4 rounded bg-gray-700" />
+														</td>
+													))}
+												</tr>
+											))
+										: null}
+									{!transactionsLoading && sortedSections.length === 0 ? (
+										<tr>
+											<td
+												colSpan={1 + categoryColumns.length}
+												className="text-center py-10 px-4 text-gray-500"
+											>
+												{tableEmpty
+													? 'No repeat patterns found — lower “minimum occurrences” or add more history.'
+													: 'Loading…'}
+											</td>
+										</tr>
+									) : null}
+									{sortedSections.map((section) => {
+										const isOpen = expandedSections.has(section.sectionKey);
+										const agg = sectionToAggRow(section);
+										const subSort = subSortFor(section.sectionKey);
+										const sortedPatterns = sortPatterns(
+											section.rows,
+											subSort.key,
+											subSort.dir,
+											categoryList
+										);
+										return (
+											<Fragment key={section.sectionKey}>
+												<tr
+													className="hover:bg-white/5 cursor-pointer transition-colors"
+													onClick={() => toggleSection(section.sectionKey)}
+												>
+													<td className="px-4 py-3 align-middle text-white/50">
+														{isOpen ? (
+															<ChevronDown className="w-4 h-4" />
+														) : (
+															<ChevronRight className="w-4 h-4" />
+														)}
+													</td>
+													{categoryColumns.map((col) => (
+														<td
+															key={String(col.key)}
+															className={cn(
+																'px-4 py-3 whitespace-nowrap text-sm text-gray-300',
+																col.cellClassName
+															)}
+														>
+															{col.render
+																? col.render(agg[col.key], agg)
+																: String(agg[col.key] ?? '')}
+														</td>
+													))}
+												</tr>
+												{isOpen ? (
+													<>
+														<tr
+															className="bg-gray-950/95 border-y border-white/5"
+															onClick={(e) => e.stopPropagation()}
+														>
+															<td className="px-4 py-2" />
+															{detailColumns.map((col) => {
+																const pk = patternSortKeyFromColumnKey(
+																	col.key
+																);
+																const subHeaderSortable =
+																	Boolean(col.sortable) && pk !== null;
+																return (
+																	<td
+																		key={String(col.key)}
+																		className={cn(
+																			'px-4 py-2',
+																			col.headerClassName
+																		)}
+																	>
+																		{subHeaderSortable && pk !== null ? (
+																			<button
+																				type="button"
+																				onClick={() =>
+																					cyclePatternSort(
+																						section.sectionKey,
+																						pk
+																					)
+																				}
+																				className={cn(
+																					'text-[10px] font-medium uppercase tracking-wider w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
+																					col.headerClassName,
+																					subSort.key === pk
+																						? 'text-secondary-default'
+																						: 'text-gray-500'
+																				)}
+																			>
+																				{col.label}
+																				{subSort.key === pk
+																					? subSort.dir === 'asc'
+																						? ' ▲'
+																						: ' ▼'
+																					: ''}
+																			</button>
+																		) : (
+																			<span
+																				className={cn(
+																					'text-[10px] font-medium uppercase tracking-wider text-gray-500',
+																					col.headerClassName
+																				)}
+																			>
+																				{col.label}
+																			</span>
+																		)}
+																	</td>
+																);
+															})}
+														</tr>
+														{sortedPatterns.map((pattern) => (
+															<tr
+																key={pattern.rowId}
+																className="bg-gray-950/60 hover:bg-gray-900/50"
+																onClick={(e) => e.stopPropagation()}
+															>
+																<td className="px-4 py-2" />
+																{detailColumns.map((col) => (
+																	<td
+																		key={String(col.key)}
+																		className={cn(
+																			'px-4 py-2 whitespace-nowrap text-sm text-gray-300',
+																			col.cellClassName
+																		)}
+																	>
+																		{col.render
+																			? col.render(
+																					pattern[col.key],
+																					pattern
+																				)
+																			: String(pattern[col.key] ?? '')}
+																	</td>
+																))}
+															</tr>
+														))}
+													</>
+												) : null}
+											</Fragment>
+										);
+									})}
+								</tbody>
+							</table>
+						</div>
+					</div>
 				) : (
 					<Table<RecurringCandidate>
 						columns={detailColumns}
