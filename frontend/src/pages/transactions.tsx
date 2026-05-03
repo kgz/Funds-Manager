@@ -1,15 +1,21 @@
 // src/pages/transactions.tsx
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store';
-import { getAllTransactions, type Transaction } from '../store/thunks/transactions.get.all'; // Adjust path if needed
+import {
+    getAllTransactions,
+    type Transaction,
+} from '../store/thunks/transactions.get.all'; // Adjust path if needed
 import { Table, type TColumn } from "@/components/table"; // Import the Table component
 import { cn } from "@/lib/utils/cn"; // Import the cn utility
 import { DateTime } from "luxon"; // Import Luxon for date formatting
 import { AlertTriangle, Loader2, Search, X } from 'lucide-react'; // Import necessary icons
+import { createCategory } from '@/store/thunks/category.create.single';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import { getMappings } from '@/store/thunks/mapping.get.all';
 import { useDebounce } from '@/hooks/useDebounce'; // Import the debounce hook
+import { patchTransactionCategory } from '@/store/thunks/transaction.patch.category';
+import { recategorizeUncategorizedTransactions } from '@/store/thunks/transaction.recategorize.uncategorized';
 
 // Helper function for currency formatting (assuming amounts/balances are in cents)
 // You might want to move this to a shared utility file
@@ -17,6 +23,24 @@ const formatCurrency = (amount: number): string => {
     const absAmount = Math.abs(amount / 100).toFixed(2);
     return `${amount < 0 ? '-' : ''}$${absAmount}`;
 };
+
+function readThunkRejectMessage(err: unknown): string {
+    if (typeof err === 'string') {
+        return err;
+    }
+    if (!err || typeof err !== 'object') {
+        return 'Failed to create category';
+    }
+    const payload = Reflect.get(err, 'payload');
+    if (typeof payload === 'string') {
+        return payload;
+    }
+    const message = Reflect.get(err, 'message');
+    if (typeof message === 'string') {
+        return message;
+    }
+    return 'Failed to create category';
+}
 
 // Type for transaction with potential category ID
 type ProcessedTransaction = Transaction & {
@@ -71,6 +95,74 @@ const TransactionsPage = () => {
     const categoryList = useMemo<Category[]>(() => {
         return Array.isArray(categories) ? categories : [];
     }, [categories]);
+
+    const activeCategories = useMemo(
+        () =>
+            categoryList
+                .filter((c) => !c.deleted_at)
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name)),
+        [categoryList]
+    );
+
+    const [busyCategoryTxId, setBusyCategoryTxId] = useState<number | null>(null);
+    const [bulkRecategorizeRunning, setBulkRecategorizeRunning] = useState(false);
+    const [inlineNewCategoryOpen, setInlineNewCategoryOpen] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [creatingCategory, setCreatingCategory] = useState(false);
+    const [createCategoryInlineError, setCreateCategoryInlineError] = useState<string | null>(null);
+
+    const handleInlineCreateCategory = useCallback(async () => {
+        const name = newCategoryName.trim();
+        if (name.length === 0) {
+            setCreateCategoryInlineError('Name is required');
+            return;
+        }
+        setCreateCategoryInlineError(null);
+        setCreatingCategory(true);
+        try {
+            await dispatch(createCategory({ name })).unwrap();
+            setNewCategoryName('');
+            setInlineNewCategoryOpen(false);
+            void dispatch(getAllCategories());
+        } catch (err: unknown) {
+            setCreateCategoryInlineError(readThunkRejectMessage(err));
+        } finally {
+            setCreatingCategory(false);
+        }
+    }, [dispatch, newCategoryName]);
+
+    const handleCategoryChange = useCallback(
+        async (transactionId: number, selectValue: string) => {
+            const categoryId =
+                selectValue === '' ? null : Number.parseInt(selectValue, 10);
+            if (categoryId !== null && !Number.isFinite(categoryId)) {
+                return;
+            }
+            setBusyCategoryTxId(transactionId);
+            try {
+                await dispatch(
+                    patchTransactionCategory({ transactionId, categoryId })
+                ).unwrap();
+            } catch {
+                void dispatch(getAllTransactions({ force: true }));
+            } finally {
+                setBusyCategoryTxId(null);
+            }
+        },
+        [dispatch]
+    );
+
+    const handleRecategorizeUncategorized = useCallback(async () => {
+        setBulkRecategorizeRunning(true);
+        try {
+            await dispatch(recategorizeUncategorizedTransactions()).unwrap();
+        } catch {
+            void dispatch(getAllTransactions({ force: true }));
+        } finally {
+            setBulkRecategorizeRunning(false);
+        }
+    }, [dispatch]);
 
     const categoriesAutoFetchCommittedRef = useRef(false);
     
@@ -158,19 +250,44 @@ const TransactionsPage = () => {
             headerClassName: "text-center",
         },
 		{
-            key: "category_id", // Use the key from ProcessedTransaction
-            label: "Category ID",
-            sortable: false, // Sorting might be complex, disable for now
-            render: (v) => {
-                if (!v) return <span className="text-xs text-gray-500 italic">Uncategorized</span>;
-                // Just print the category ID for now, or 'N/A' if null/undefined
-                const category = categoryList.find((cat: Category) => String(cat.id) === String(v));
-				return (<div className='inline-block px-2 py-0.5 rounded text-xs text-white/90' style={{backgroundColor: category?.colour ?? '#4b5563'}}> {/* Default grey if no colour */}
-                    {/* Optional: Add colour indicator span */}
-                    {/* {category?.colour && <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: category.colour }}></span>} */}
-					{category?.name ?? `ID: ${v}`} {/* Show name or ID */}
-				</div>) 
-
+            key: "category_id",
+            label: "Category",
+            sortable: false,
+            render: (v, row) => {
+                const current =
+                    v === null || v === undefined ? '' : String(v);
+                const activeIds = new Set(
+                    activeCategories.map((cat) => cat.id)
+                );
+                const missingActiveOption =
+                    current !== '' && !activeIds.has(current);
+                const namedCategory = categoryList.find(
+                    (cat) => String(cat.id) === current
+                );
+                return (
+                    <select
+                        value={current}
+                        disabled={busyCategoryTxId === row.id}
+                        onChange={(e) => {
+                            void handleCategoryChange(row.id, e.target.value);
+                        }}
+                        className="max-w-[14rem] text-xs bg-gray-800 border border-gray-600 rounded px-1 py-1 text-white"
+                    >
+                        <option value="">Uncategorized</option>
+                        {missingActiveOption ? (
+                            <option value={current}>
+                                {namedCategory
+                                    ? `${namedCategory.name}${namedCategory.deleted_at ? ' (deleted)' : ''}`
+                                    : `Category #${current}`}
+                            </option>
+                        ) : null}
+                        {activeCategories.map((cat) => (
+                            <option key={cat.id} value={cat.id}>
+                                {cat.name}
+                            </option>
+                        ))}
+                    </select>
+                );
             },
             cellClassName: "text-center",
             headerClassName: "text-center",
@@ -184,7 +301,9 @@ const TransactionsPage = () => {
 
         // Apply "uncategorized only" filter first
         if (showUncategorizedOnly) {
-            results = results.filter(tx => tx.category_id === null || tx.category_id === undefined);
+            results = results.filter(
+                (tx) => tx.category_id === null || tx.category_id === undefined
+            );
         }
 
         // Apply search term filter
@@ -194,7 +313,16 @@ const TransactionsPage = () => {
                 tx.description.toLowerCase().includes(lowerCaseSearchTerm)
             );
         }
-        return results;
+        return results.slice().sort((a, b) => {
+            const ma = DateTime.fromISO(a.transaction_date);
+            const mb = DateTime.fromISO(b.transaction_date);
+            const aMs = ma.isValid ? ma.toMillis() : Number.NEGATIVE_INFINITY;
+            const bMs = mb.isValid ? mb.toMillis() : Number.NEGATIVE_INFINITY;
+            if (bMs !== aMs) {
+                return bMs - aMs;
+            }
+            return b.id - a.id;
+        });
     }, [transactionList, showUncategorizedOnly, debouncedSearchTerm]); // Add debouncedSearchTerm to dependencies
 
     // --- Render Logic ---
@@ -245,7 +373,75 @@ const TransactionsPage = () => {
                         </button>
                     )}
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-3">
+                    <button
+                        type="button"
+                        disabled={bulkRecategorizeRunning}
+                        onClick={() => void handleRecategorizeUncategorized()}
+                        className="text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 disabled:opacity-50"
+                    >
+                        {bulkRecategorizeRunning ? 'Recategorizing…' : 'Recategorize uncategorized'}
+                    </button>
+                    {!inlineNewCategoryOpen ? (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setInlineNewCategoryOpen(true);
+                                setCreateCategoryInlineError(null);
+                            }}
+                            className="text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600"
+                        >
+                            New category
+                        </button>
+                    ) : (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <input
+                                type="text"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        void handleInlineCreateCategory();
+                                    }
+                                    if (e.key === 'Escape') {
+                                        setInlineNewCategoryOpen(false);
+                                        setNewCategoryName('');
+                                        setCreateCategoryInlineError(null);
+                                    }
+                                }}
+                                placeholder="Category name"
+                                disabled={creatingCategory}
+                                autoFocus
+                                className="w-44 text-sm px-2 py-1.5 rounded bg-gray-800 border border-gray-600 text-white placeholder-gray-500"
+                            />
+                            <button
+                                type="button"
+                                disabled={creatingCategory}
+                                onClick={() => void handleInlineCreateCategory()}
+                                className="text-sm px-3 py-1.5 rounded bg-secondary-default text-white disabled:opacity-50"
+                            >
+                                {creatingCategory ? 'Adding…' : 'Add'}
+                            </button>
+                            <button
+                                type="button"
+                                disabled={creatingCategory}
+                                onClick={() => {
+                                    setInlineNewCategoryOpen(false);
+                                    setNewCategoryName('');
+                                    setCreateCategoryInlineError(null);
+                                }}
+                                className="text-sm px-2 py-1.5 text-gray-400 hover:text-white"
+                            >
+                                Cancel
+                            </button>
+                            {createCategoryInlineError ? (
+                                <span className="text-xs text-red-400 w-full sm:w-auto">
+                                    {createCategoryInlineError}
+                                </span>
+                            ) : null}
+                        </div>
+                    )}
                     <input
                         type="checkbox"
                         id="uncategorizedFilter"
