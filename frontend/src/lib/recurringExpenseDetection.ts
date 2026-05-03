@@ -8,8 +8,9 @@ export type RecurringCandidate = {
 	modeCategoryId: number | null;
 	flow: 'expense' | 'income';
 	cadenceLabel: string;
+	/** Median days between active days, or mean when short gaps burst-skew the median (matches cadence). */
 	medianGapDays: number;
-	/** typical × 30 / median gap (days); matches summary “Est. monthly”. */
+	/** From median gap, capped by actual dollars/day over first→last date (stops burst “daily” overestimate). */
 	estimatedMonthlyDollars: number;
 	typicalAmountDollars: number;
 	minAmountDollars: number;
@@ -63,6 +64,8 @@ export function canonicalExpenseGroupKey(description: string): string {
 	const variants = variantKeys(normalized);
 	return variants[variants.length - 1] ?? normalized;
 }
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function parseDay(iso: string): number {
 	return new Date(iso).setHours(0, 0, 0, 0);
@@ -185,7 +188,7 @@ function detectRecurring(
 		}
 		const gaps: number[] = [];
 		for (let i = 1; i < dates.length; i++) {
-			gaps.push((dates[i]! - dates[i - 1]!) / (24 * 60 * 60 * 1000));
+			gaps.push((dates[i]! - dates[i - 1]!) / MS_PER_DAY);
 		}
 		const medGap = median(gaps);
 		const gapSpread =
@@ -202,11 +205,31 @@ function detectRecurring(
 				: 0;
 		const amountCv = medAmt > 0 ? amtDev / medAmt : 1;
 		const mcat = modeCategoryId(g.categoryIds);
-		const medianGapDays = Math.round(medGap * 10) / 10;
-		const estimatedMonthlyDollars =
-			medianGapDays > 0
-				? Math.round(((medAmt * 30) / medianGapDays) * 100) / 100
+		const meanGap =
+			gaps.length > 0
+				? gaps.reduce((s, x) => s + x, 0) / gaps.length
+				: medGap;
+		const spanDays =
+			dates.length >= 2
+				? (dates[dates.length - 1]! - dates[0]!) / MS_PER_DAY
 				: 0;
+		const sumAmt = g.amounts.reduce((s, x) => s + x, 0);
+		const fromMedianGap = medGap > 0 ? (medAmt * 30) / medGap : 0;
+		const fromObservedSpan =
+			spanDays > 0 ? (sumAmt / spanDays) * 30 : 0;
+		let estimatedMonthlyDollars = 0;
+		if (fromMedianGap > 0 && fromObservedSpan > 0) {
+			estimatedMonthlyDollars = Math.min(fromMedianGap, fromObservedSpan);
+		} else if (fromObservedSpan > 0) {
+			estimatedMonthlyDollars = fromObservedSpan;
+		} else {
+			estimatedMonthlyDollars = fromMedianGap;
+		}
+		estimatedMonthlyDollars =
+			Math.round(estimatedMonthlyDollars * 100) / 100;
+		const cadenceGapForLabel =
+			meanGap > medGap + 1 && medGap < meanGap * 0.55 ? meanGap : medGap;
+		const gapDaysRounded = Math.round(cadenceGapForLabel * 10) / 10;
 
 		out.push({
 			rowId: `${flow}:${key}`,
@@ -214,8 +237,8 @@ function detectRecurring(
 			labelSample: g.sample,
 			modeCategoryId: mcat,
 			flow,
-			cadenceLabel: cadenceFromMedianGap(medGap),
-			medianGapDays,
+			cadenceLabel: cadenceFromMedianGap(cadenceGapForLabel),
+			medianGapDays: gapDaysRounded,
 			estimatedMonthlyDollars,
 			typicalAmountDollars: Math.round(medAmt * 100) / 100,
 			minAmountDollars: Math.round(minAmt * 100) / 100,
