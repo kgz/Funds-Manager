@@ -8,6 +8,7 @@ import "./App.css"
 import { Statements } from "./pages/statements";
 import { CategoriesPage } from "./pages/categories";
 import TransactionsPage from "./pages/transactions";
+import RecurringExpensesPage from "./pages/recurring";
 import { CategoryMappings } from "./components/categories/CategoryMappings";
 const App = () => {
   const [theme, setTheme] = useState("light");
@@ -40,6 +41,7 @@ const App = () => {
             <Route path="/statements" element={<Statements />} />
 			<Route path="/categories" element={<CategoriesPage />} />
 			<Route path="/transactions" element={<TransactionsPage />} />
+			<Route path="/recurring" element={<RecurringExpensesPage />} />
 			<Route path="/category_mapping/:id" element={<CategoryMappings />} />
           </Routes>
         </div>

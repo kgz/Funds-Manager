@@ -26,14 +26,33 @@ function readNullableString(value: unknown): string | null {
 	return typeof value === "string" ? value : null;
 }
 
+function readIdAsString(value: unknown): string | null {
+	if (typeof value === "string" && value.length > 0) {
+		return value;
+	}
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return String(Math.trunc(value));
+	}
+	return null;
+}
+
+function readOptionalIdAsString(value: unknown): string | null {
+	if (value === null || value === undefined) {
+		return null;
+	}
+	return readIdAsString(value);
+}
+
 function normalizeCategory(raw: unknown): Category | null {
 	if (!raw || typeof raw !== "object") {
 		return null;
 	}
 
-	const id = readString(Reflect.get(raw, "id"));
+	const id = readIdAsString(Reflect.get(raw, "id"));
 	const name = readString(Reflect.get(raw, "name"));
-	const parentCategoryId = readNullableString(Reflect.get(raw, "parent_category_id"));
+	const parentCategoryId = readOptionalIdAsString(
+		Reflect.get(raw, "parent_category_id")
+	);
 	const deletedAt = readNullableString(Reflect.get(raw, "deleted_at"));
 	const colourValue = Reflect.get(raw, "colour");
 	const colour =

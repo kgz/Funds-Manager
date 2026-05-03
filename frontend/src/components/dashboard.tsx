@@ -170,28 +170,38 @@ export const Dashboard = () => {
 	}, [transactionList, categoryList, groupByParentCategory]); // Add groupByParentCategory dependency
 
 	const monthlySummary = useMemo(() => {
-		const summary: { [month: string]: { spending: number; receiving: number } } = {};
+		const summary: Record<
+			string,
+			{ spending: number; receiving: number; label: string }
+		> = {};
 
-		transactionList.forEach(tx => {
+		transactionList.forEach((tx) => {
 			const date = new Date(tx.transaction_date);
-			const month = date.toLocaleString("en-US", { year: "numeric", month: "short" });
+			const sortKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+			const label = date.toLocaleString("en-US", {
+				year: "numeric",
+				month: "short",
+			});
 			const amount = tx.amount / 100;
 
-			if (!summary[month]) {
-				summary[month] = { spending: 0, receiving: 0 };
+			if (!summary[sortKey]) {
+				summary[sortKey] = { spending: 0, receiving: 0, label };
 			}
 
 			if (amount < 0) {
-				summary[month].spending += Math.abs(amount);
+				summary[sortKey].spending += Math.abs(amount);
 			} else {
-				summary[month].receiving += amount;
+				summary[sortKey].receiving += amount;
 			}
 		});
 
-		return Object.entries(summary).map(([month, values]) => ({
-			month,
-			...values,
-		}));
+		return Object.entries(summary)
+			.sort(([a], [b]) => a.localeCompare(b))
+			.map(([, values]) => ({
+				month: values.label,
+				spending: values.spending,
+				receiving: values.receiving,
+			}));
 	}, [transactionList]);
 
 	const runningTotalData = useMemo(()=>{

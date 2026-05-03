@@ -45,26 +45,36 @@ export const transactionWatcherMiddleware: Middleware<object, RootState> =
 
 			const n = transactions.map((tx) => {
 				let matchedCategoryId: number | null = null;
-				for (const mapping of mappings) { // Mappings are pre-sorted by priority
+				for (const mapping of mappings) {
 					try {
 						const patternMatches = mapping.match_type === 'Exact'
-							? tx.description.toLowerCase() === mapping.pattern.toLowerCase() // Case-insensitive exact match
-							: new RegExp(mapping.pattern, 'i').test(tx.description); // Case-insensitive regex match
-	
+							? tx.description.toLowerCase() === mapping.pattern.toLowerCase()
+							: new RegExp(mapping.pattern, 'i').test(tx.description);
+
 						if (patternMatches) {
 							matchedCategoryId = mapping.category_id;
-							break; // Stop at the first match (highest priority)
+							break;
 						}
 					} catch (e) {
 						console.warn(`Invalid regex pattern skipped for mapping ID ${mapping.id}: ${mapping.pattern}`, e);
 					}
 				}
 
-				const category = categories.find((x) => Number(x.id) === Number(matchedCategoryId));
+				let resolvedCategoryId: number | undefined =
+					typeof tx.category_id === 'number' ? tx.category_id : undefined;
+
+				if (matchedCategoryId !== null) {
+					const mappingCategory = categories.find(
+						(x) => Number(x.id) === Number(matchedCategoryId)
+					);
+					if (mappingCategory) {
+						resolvedCategoryId = matchedCategoryId;
+					}
+				}
 
 				const nextTx: Transaction = {
 					...tx,
-					category_id: category ? matchedCategoryId ?? undefined : undefined,
+					category_id: resolvedCategoryId,
 				};
 
 				return nextTx;

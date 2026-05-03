@@ -17,7 +17,7 @@ export type Transaction = {
 	status: string; // Consider using a specific literal type if statuses are fixed: 'parsed' | 'pending' etc.
 	balance: number;
 	// not actuallyin the db
-	category_id?:number
+	category_id?: number | null;
 };
 
 function readString(value: unknown): string | null {
@@ -47,11 +47,13 @@ function readFiniteNumber(value: unknown): number | null {
 	return null;
 }
 
-function readOptionalFiniteNumber(value: unknown): number | undefined {
+function readCategoryIdField(value: unknown): number | null | undefined {
 	if (value === undefined) {
 		return undefined;
 	}
-
+	if (value === null) {
+		return null;
+	}
 	const parsed = readFiniteNumber(value);
 	return parsed === null ? undefined : parsed;
 }
@@ -71,7 +73,7 @@ function normalizeTransaction(raw: unknown): Transaction | null {
 	const createdAt = readString(Reflect.get(raw, "created_at"));
 	const status = readString(Reflect.get(raw, "status"));
 	const balance = readFiniteNumber(Reflect.get(raw, "balance"));
-	const categoryId = readOptionalFiniteNumber(Reflect.get(raw, "category_id"));
+	const categoryId = readCategoryIdField(Reflect.get(raw, "category_id"));
 
 	if (
 		id === null ||
@@ -126,10 +128,12 @@ type TransactionsLoadingSlice = {
 	TransactionsReducer: { transactionsLoading: boolean };
 };
 
+export type GetAllTransactionsArg = void | { force?: boolean };
+
 // This thunk fetches an array of Transactions
 export const getAllTransactions = createAsyncThunk(
 	"transactions/getAll", // Updated slice/action naming convention
-	async (_, { rejectWithValue }) => { // Added rejectWithValue for better error handling
+	async (_arg: GetAllTransactionsArg, { rejectWithValue }) => { // Added rejectWithValue for better error handling
 		try {
 			const response = await axios.get(`/api/transactions`);
 			const parsed = parseTransactionsPayload(response.data);
@@ -153,7 +157,10 @@ export const getAllTransactions = createAsyncThunk(
         }
 	},
 	{
-		condition: (_, { getState }) => {
+		condition: (arg, { getState }) => {
+			if (arg && typeof arg === "object" && arg.force === true) {
+				return true;
+			}
 			const state = getState() as TransactionsLoadingSlice;
 			return !state.TransactionsReducer.transactionsLoading;
 		},
