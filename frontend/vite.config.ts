@@ -24,8 +24,29 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-      mkcert(),
+      ...(mode !== 'production' ? [mkcert()] : []),
     ],
+    build:
+      mode === 'production'
+        ? {
+            outDir: '../app/static',
+            emptyOutDir: true,
+            assetsDir: '',
+            rollupOptions: {
+              output: {
+                entryFileNames: 'index.min.js',
+                chunkFileNames: 'js/[name]-[hash].js',
+                assetFileNames: (info) => {
+                  const name = info.names[0]
+                  if (name?.endsWith('.css')) {
+                    return 'index.min.css'
+                  }
+                  return 'assets/[name]-[hash][extname]'
+                },
+              },
+            },
+          }
+        : undefined,
     server: {
       port,
       https: httpsKeyPath && httpsCertPath
