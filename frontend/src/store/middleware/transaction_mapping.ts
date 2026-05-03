@@ -1,7 +1,11 @@
-import { Middleware, MiddlewareAPI, Dispatch, AnyAction, type Action } from '@reduxjs/toolkit';
+import { Middleware, MiddlewareAPI } from '@reduxjs/toolkit';
 import type { RootState, AppDispatch } from '../store'; // Import AppDispatch
 import { setTransactions } from '../slices/transactionsSlice';
 import type { Transaction } from '../thunks/transactions.get.all';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
 
 // --- Action Type Identification ---
 // TODO: Replace these with the actual action types dispatched by your transaction slice
@@ -17,17 +21,29 @@ const TRANSACTION_UPDATE_ACTIONS = [
     // Add any other relevant action types here
 ];
 
-// @ts-expect-error
-export const transactionWatcherMiddleware: Middleware<{}, RootState> =
-    (store: MiddlewareAPI<AppDispatch, RootState>) => (next: AppDispatch) => (action: Action) => {
+export const transactionWatcherMiddleware: Middleware<object, RootState> =
+    (store: MiddlewareAPI<AppDispatch, RootState>) => (next) => (action: unknown) => {
         const result = next(action); // Pass the action along first
+
+        if (!isRecord(action) || typeof action.type !== "string") {
+			return result;
+		}
 
         if (TRANSACTION_UPDATE_ACTIONS.includes(action.type)) {
 			const transactions = store.getState().TransactionsReducer.transactions;
-			const categories = store.getState().CategoryReducer.categories.filter(x=>x.deleted_at===null);
-			const mappings = store.getState().MappingReducer.mappings.filter(x=>categories.find(y=>Number(y.id)===Number(x.category_id)));
+			const categoriesRaw = store.getState().CategoryReducer.categories;
+			const mappingsRaw = store.getState().MappingReducer.mappings;
 
-			const n = [...transactions].map(tx => {
+			if (!Array.isArray(transactions) || !Array.isArray(categoriesRaw) || !Array.isArray(mappingsRaw)) {
+				return result;
+			}
+
+			const categories = categoriesRaw.filter((category) => category.deleted_at === null);
+			const mappings = mappingsRaw.filter((mapping) =>
+				categories.some((category) => Number(category.id) === Number(mapping.category_id))
+			);
+
+			const n = transactions.map((tx) => {
 				let matchedCategoryId: number | null = null;
 				for (const mapping of mappings) { // Mappings are pre-sorted by priority
 					try {
@@ -44,14 +60,15 @@ export const transactionWatcherMiddleware: Middleware<{}, RootState> =
 					}
 				}
 
-				const category = categories.find(x=> Number(x.id) === Number(matchedCategoryId))
-				
-				return {
+				const category = categories.find((x) => Number(x.id) === Number(matchedCategoryId));
+
+				const nextTx: Transaction = {
 					...tx,
-					category_id: Boolean(category) ? matchedCategoryId : null
-				} as Transaction;
+					category_id: category ? matchedCategoryId ?? undefined : undefined,
+				};
+
+				return nextTx;
 			});
-            console.log('Transaction update detected, running category mapping...', {n, mappings});
             store.dispatch(setTransactions(n));
         }
 

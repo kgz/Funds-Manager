@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 import mkcert from 'vite-plugin-mkcert'
 import fs from 'fs'
+import https from 'node:https'
+
+const apiProxyHttpsAgent = new https.Agent({
+  rejectUnauthorized: false,
+  keepAlive: true,
+})
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -12,6 +18,7 @@ export default defineConfig(({ mode }) => {
 
   const httpsKeyPath = env.VITE_HTTPS_KEY_PATH
   const httpsCertPath = env.VITE_HTTPS_CERT_PATH
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET ?? 'https://127.0.0.1:2020'
 
   return {
     plugins: [
@@ -27,6 +34,17 @@ export default defineConfig(({ mode }) => {
             cert: fs.readFileSync(httpsCertPath),
           }
         : undefined,
+      cors: true,
+      proxy: {
+        '/api': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+          secure: false,
+          agent: apiProxyHttpsAgent,
+          timeout: 60_000,
+          proxyTimeout: 60_000,
+        },
+      },
     },
     resolve: {
       alias: {

@@ -4,7 +4,7 @@ import { getAllTransactionsThunkActions, type Transaction } from '../thunks/tran
 
 type InitialState = {
 	transactionsLoading: boolean,
-	transactions: Transaction[],
+	transactions?: Transaction[] | null,
 	transactionsError: string | null
 }
 
@@ -21,8 +21,6 @@ const slice = createSlice({
 	reducers:{
 		setTransactions: (state, action: PayloadAction<Transaction[]>) => {
 			state.transactions = action.payload;
-			state.transactionsLoading = false; // Assuming setting directly means loading is done
-			state.transactionsError = null;
 		}
 	},
 	extraReducers(builder) {

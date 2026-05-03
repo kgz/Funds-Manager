@@ -20,13 +20,125 @@ export type Transaction = {
 	category_id?:number
 };
 
+function readString(value: unknown): string | null {
+	return typeof value === "string" ? value : null;
+}
+
+function readNullableString(value: unknown): string | null {
+	if (value === null) {
+		return null;
+	}
+
+	return typeof value === "string" ? value : null;
+}
+
+function readFiniteNumber(value: unknown): number | null {
+	if (typeof value === "number" && Number.isFinite(value)) {
+		return value;
+	}
+
+	if (typeof value === "string" && value.trim().length > 0) {
+		const parsed = Number(value);
+		if (Number.isFinite(parsed)) {
+			return parsed;
+		}
+	}
+
+	return null;
+}
+
+function readOptionalFiniteNumber(value: unknown): number | undefined {
+	if (value === undefined) {
+		return undefined;
+	}
+
+	const parsed = readFiniteNumber(value);
+	return parsed === null ? undefined : parsed;
+}
+
+function normalizeTransaction(raw: unknown): Transaction | null {
+	if (!raw || typeof raw !== "object") {
+		return null;
+	}
+
+	const id = readFiniteNumber(Reflect.get(raw, "id"));
+	const statementId = readFiniteNumber(Reflect.get(raw, "statement_id"));
+	const description = readString(Reflect.get(raw, "description"));
+	const amount = readFiniteNumber(Reflect.get(raw, "amount"));
+	const transactionDate = readString(Reflect.get(raw, "transaction_date"));
+	const lastUpdated = readString(Reflect.get(raw, "last_updated"));
+	const deletedAt = readNullableString(Reflect.get(raw, "deleted_at"));
+	const createdAt = readString(Reflect.get(raw, "created_at"));
+	const status = readString(Reflect.get(raw, "status"));
+	const balance = readFiniteNumber(Reflect.get(raw, "balance"));
+	const categoryId = readOptionalFiniteNumber(Reflect.get(raw, "category_id"));
+
+	if (
+		id === null ||
+		statementId === null ||
+		description === null ||
+		amount === null ||
+		transactionDate === null ||
+		lastUpdated === null ||
+		createdAt === null ||
+		status === null ||
+		balance === null
+	) {
+		return null;
+	}
+
+	return {
+		id,
+		statement_id: statementId,
+		description,
+		amount,
+		transaction_date: transactionDate,
+		last_updated: lastUpdated,
+		deleted_at: deletedAt,
+		created_at: createdAt,
+		status,
+		balance,
+		category_id: categoryId,
+	};
+}
+
+function parseTransactionsPayload(payload: unknown): Transaction[] | string {
+	if (!Array.isArray(payload)) {
+		return "Invalid transactions response (expected an array)";
+	}
+
+	const normalized: Transaction[] = [];
+
+	for (const item of payload) {
+		const transaction = normalizeTransaction(item);
+
+		if (!transaction) {
+			return "Invalid transactions response (unexpected item shape)";
+		}
+
+		normalized.push(transaction);
+	}
+
+	return normalized;
+}
+
+type TransactionsLoadingSlice = {
+	TransactionsReducer: { transactionsLoading: boolean };
+};
+
 // This thunk fetches an array of Transactions
 export const getAllTransactions = createAsyncThunk(
 	"transactions/getAll", // Updated slice/action naming convention
 	async (_, { rejectWithValue }) => { // Added rejectWithValue for better error handling
 		try {
-			const response = await axios.get<Transaction[]>(`/api/transactions`);
-			return response.data;
+			const response = await axios.get(`/api/transactions`);
+			const parsed = parseTransactionsPayload(response.data);
+
+			if (typeof parsed === "string") {
+				return rejectWithValue(parsed);
+			}
+
+			return parsed;
 		} catch (error) {
             // Handle potential errors from axios or the API
             if (axios.isAxiosError(error)) {
@@ -37,8 +149,14 @@ export const getAllTransactions = createAsyncThunk(
                 // Handle unexpected errors
                 console.error("Unexpected error fetching transactions:", error);
                 return rejectWithValue('An unexpected error occurred');
-            }
+			}
         }
+	},
+	{
+		condition: (_, { getState }) => {
+			const state = getState() as TransactionsLoadingSlice;
+			return !state.TransactionsReducer.transactionsLoading;
+		},
 	}
 );
 
@@ -60,11 +178,13 @@ export const getAllTransactionsThunkActions = (builder: TTransactionsReducer) =>
 			state.transactionsError = null; // Clear any previous errors
 		})
 		.addCase(getAllTransactions.rejected, (state, action) => {
+			if (action.meta.condition) {
+				return;
+			}
 			state.transactionsLoading = false;
 			console.error("Error fetching transactions:", action.error);
-			state.transactionsError = action.error.message ?? null;
-			// Store the error message (using rejectWithValue payload)
-            // Assuming 'statementsError' is the correct state field for errors
-            // Optionally clear the data on failure, or keep stale data
-            // state.statements = [];
+			const payloadMessage =
+				typeof action.payload === "string" ? action.payload : null;
+
+			state.transactionsError = payloadMessage ?? action.error.message ?? null;
 		});

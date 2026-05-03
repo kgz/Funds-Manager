@@ -1,12 +1,12 @@
 // src/pages/transactions.tsx
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import { getAllTransactions, type Transaction } from '../store/thunks/transactions.get.all'; // Adjust path if needed
 import { Table, type TColumn } from "@/components/table"; // Import the Table component
 import { cn } from "@/lib/utils/cn"; // Import the cn utility
 import { DateTime } from "luxon"; // Import Luxon for date formatting
-import { AlertTriangle, Loader2, Search, TrendingDown, TrendingUp, X } from 'lucide-react'; // Import necessary icons
+import { AlertTriangle, Loader2, Search, X } from 'lucide-react'; // Import necessary icons
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import { getMappings } from '@/store/thunks/mapping.get.all';
 import { useDebounce } from '@/hooks/useDebounce'; // Import the debounce hook
@@ -25,7 +25,7 @@ type ProcessedTransaction = Transaction & {
 
 
 // Component Definition
-const TransactionsPage: React.FC = () => {
+const TransactionsPage = () => {
     const dispatch = useAppDispatch();
 
     // State for the "uncategorized only" filter
@@ -42,26 +42,58 @@ const TransactionsPage: React.FC = () => {
         (state) => state.TransactionsReducer
     );
 
+    const transactionList = useMemo<Transaction[]>(() => {
+        return Array.isArray(transactions) ? transactions : [];
+    }, [transactions]);
+
+    const transactionsAutoFetchCommittedRef = useRef(false);
 
     // Fetch transactions on mount if needed
     useEffect(() => {
-        // Only fetch if the transactions array is empty and not currently loading.
-        // Consider if you need more sophisticated refetching logic.
-        if (transactions.length === 0 && !transactionsLoading) {
-            dispatch(getAllTransactions());
+        if (transactionList.length > 0) {
+            return;
         }
-    }, [dispatch]); // Dependencies
-    
-	const { categories } = useAppSelector(state => state.CategoryReducer);
-    
-	useEffect(()=>{
-        // Fetch categories if needed (e.g., for displaying names)
-        if (categories.length === 0) {
-            void dispatch(getAllCategories());
+        if (transactionsError !== null) {
+            return;
         }
-        // Consider if mappings need to be fetched here or elsewhere
+        if (transactionsLoading) {
+            return;
+        }
+        if (transactionsAutoFetchCommittedRef.current) {
+            return;
+        }
+        transactionsAutoFetchCommittedRef.current = true;
+        void dispatch(getAllTransactions());
+    }, [dispatch, transactionList.length, transactionsLoading, transactionsError]);
+    
+	const { categories, categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
+
+    const categoryList = useMemo<Category[]>(() => {
+        return Array.isArray(categories) ? categories : [];
+    }, [categories]);
+
+    const categoriesAutoFetchCommittedRef = useRef(false);
+    
+	useEffect(() => {
 		void dispatch(getMappings());
-	}, [dispatch, categories.length]);
+	}, [dispatch]);
+
+	useEffect(() => {
+        if (categoryList.length > 0) {
+            return;
+        }
+        if (categoriesError !== null) {
+            return;
+        }
+        if (categoriesLoading) {
+            return;
+        }
+        if (categoriesAutoFetchCommittedRef.current) {
+            return;
+        }
+        categoriesAutoFetchCommittedRef.current = true;
+        void dispatch(getAllCategories());
+	}, [dispatch, categoryList.length, categoriesLoading, categoriesError]);
     
     // Effect to save filter state to localStorage whenever it changes
     useEffect(() => {
@@ -132,7 +164,7 @@ const TransactionsPage: React.FC = () => {
             render: (v) => {
                 if (!v) return <span className="text-xs text-gray-500 italic">Uncategorized</span>;
                 // Just print the category ID for now, or 'N/A' if null/undefined
-                const category = categories.find((cat: Category) => String(cat.id) === String(v));
+                const category = categoryList.find((cat: Category) => String(cat.id) === String(v));
 				return (<div className='inline-block px-2 py-0.5 rounded text-xs text-white/90' style={{backgroundColor: category?.colour ?? '#4b5563'}}> {/* Default grey if no colour */}
                     {/* Optional: Add colour indicator span */}
                     {/* {category?.colour && <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ backgroundColor: category.colour }}></span>} */}
@@ -148,7 +180,7 @@ const TransactionsPage: React.FC = () => {
 
     // Filter transactions based on the state
     const filteredTransactions = useMemo(() => {
-        let results = transactions;
+        let results: Transaction[] = transactionList;
 
         // Apply "uncategorized only" filter first
         if (showUncategorizedOnly) {
@@ -163,12 +195,12 @@ const TransactionsPage: React.FC = () => {
             );
         }
         return results;
-    }, [transactions, showUncategorizedOnly, debouncedSearchTerm]); // Add debouncedSearchTerm to dependencies
+    }, [transactionList, showUncategorizedOnly, debouncedSearchTerm]); // Add debouncedSearchTerm to dependencies
 
     // --- Render Logic ---
 
     // Display full-page loader if initially loading transactions OR mappings
-    const initialLoading = (transactionsLoading && transactions.length === 0) &&  !transactionsError;
+    const initialLoading = (transactionsLoading && transactionList.length === 0) &&  !transactionsError;
     if (initialLoading) {
         return (
             <div className="flex items-center justify-center h-screen w-full">

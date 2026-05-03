@@ -2,10 +2,10 @@ import { useAppDispatch, useAppSelector } from "@/store/store";
 import { getAllCategories, type Category } from "@/store/thunks/category.get.all";
 // import { getMappings } from "@/store/thunks/mapping.get.all"; // Only import if used directly here
 import { getAllTransactions, type Transaction } from "@/store/thunks/transactions.get.all";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie'; // Import the new component and type
 import { MonthlyBarGraph } from "@/graphs/bar";
-import { Brush, CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Loader2 } from "lucide-react";
 import { getMappings } from "@/store/thunks/mapping.get.all";
 
@@ -28,25 +28,72 @@ export const Dashboard = () => {
 			(state) => state.TransactionsReducer
 		);
 	
-		const { categories, categoriesLoading } = useAppSelector(state => state.CategoryReducer);
+		const { categories, categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
+
+		const transactionList = useMemo<Transaction[]>(() => {
+			return Array.isArray(transactions) ? transactions : [];
+		}, [transactions]);
+
+		const categoryList = useMemo<Category[]>(() => {
+			return Array.isArray(categories) ? categories : [];
+		}, [categories]);
 
 		// State to control grouping
 		const [groupByParentCategory, setGroupByParentCategory] = useState<boolean>(() => {
 			// Initialize state from localStorage or default to false
 			return localStorage.getItem('groupByParentCategory') === 'true';
 		});
+
+		const categoriesAutoFetchCommittedRef = useRef(false);
+		const transactionsAutoFetchCommittedRef = useRef(false);
 	
-		useEffect(()=>{
-			// Fetch only if needed
-			if (categories.length === 0 && !categoriesLoading) {
-				void dispatch(getAllCategories());
+		useEffect(() => {
+			void dispatch(getMappings());
+		}, [dispatch]);
+
+		useEffect(() => {
+			if (categoryList.length > 0) {
+				return;
 			}
-			if (transactions.length === 0 && !transactionsLoading) {
-				void dispatch(getAllTransactions());
+			if (categoriesError !== null) {
+				return;
 			}
-			// Mappings might be needed implicitly by category_mapping, ensure they are loaded somewhere appropriate
-			void dispatch(getMappings()); // Consider if this is the best place
-		}, [dispatch, categories.length, transactions.length, categoriesLoading, transactionsLoading]); // Refined Dependencies
+			if (categoriesLoading) {
+				return;
+			}
+			if (categoriesAutoFetchCommittedRef.current) {
+				return;
+			}
+			categoriesAutoFetchCommittedRef.current = true;
+			void dispatch(getAllCategories());
+		}, [
+			dispatch,
+			categoryList.length,
+			categoriesLoading,
+			categoriesError,
+		]);
+
+		useEffect(() => {
+			if (transactionList.length > 0) {
+				return;
+			}
+			if (transactionsError !== null) {
+				return;
+			}
+			if (transactionsLoading) {
+				return;
+			}
+			if (transactionsAutoFetchCommittedRef.current) {
+				return;
+			}
+			transactionsAutoFetchCommittedRef.current = true;
+			void dispatch(getAllTransactions());
+		}, [
+			dispatch,
+			transactionList.length,
+			transactionsLoading,
+			transactionsError,
+		]);
 
 		// Effect to save grouping state to localStorage whenever it changes
 		useEffect(() => {
@@ -58,33 +105,31 @@ export const Dashboard = () => {
 
 		const spending: Record<string, PieChartDataItem> = {};
 		const income: Record<string, PieChartDataItem> = {};
-
-		transactions.forEach((tx) => {
+		transactionList.forEach((tx) => {
 			let groupCategoryId: string | number | null = tx.category_id ?? 'unknown';
-			let categoryForGrouping: Category | undefined | null = categories.find(cat => String(cat.id) === String(tx.category_id));
+			const categoryForGrouping: Category | undefined | null = categoryList.find(cat => String(cat.id) === String(tx.category_id));
 			let categoryName: string;
-			let categoryColor: string | null | undefined;
 
 			if (groupByParentCategory && categoryForGrouping?.parent_category_id) {
 				// Find the parent category
-				const parentCategory = categories.find(cat => String(cat.id) === String(categoryForGrouping?.parent_category_id));
+				const parentCategory = categoryList.find(cat => String(cat.id) === String(categoryForGrouping?.parent_category_id));
 				if (parentCategory) {
 					groupCategoryId = parentCategory.id;
 					categoryName = parentCategory.name;
-					categoryColor = parentCategory.colour;
 				} else { // Parent not found, treat as unknown or keep original? Let's treat as unknown for now.
 					groupCategoryId = 'unknown';
 					categoryName = 'Unknown';
 				}
 			} else {
 				categoryName = categoryForGrouping?.name ?? 'Unknown';
-				categoryColor = categoryForGrouping?.colour;
 			}
 			const amount = tx.amount / 100; // Convert cents to dollars
-			const category = categories.find(x=>Number(x.id) === groupCategoryId);
+			const category = categoryList.find(x=>Number(x.id) === groupCategoryId);
 			// Assign color consistently
 			// Consider a more robust fallback mechanism if needed (like the previous FALLBACK_COLORS array)
-			const color = category?.colour ?? (groupCategoryId === 'unknown' ? '#6c757d' : '#8884d8'); // Grey for unknown, default purple otherwise
+			const color =
+				category?.colour ??
+				(groupCategoryId === 'unknown' ? '#6c757d' : '#8884d8'); // Grey for unknown, default purple otherwise
 
 			const key = String(groupCategoryId); // Use the determined group ID as the key
 
@@ -122,12 +167,12 @@ export const Dashboard = () => {
 
 		return { spendingByCategory: spendingData, incomeByCategory: incomeData };
 
-	}, [transactions, categories, groupByParentCategory]); // Add groupByParentCategory dependency
+	}, [transactionList, categoryList, groupByParentCategory]); // Add groupByParentCategory dependency
 
 	const monthlySummary = useMemo(() => {
 		const summary: { [month: string]: { spending: number; receiving: number } } = {};
 
-		transactions.forEach(tx => {
+		transactionList.forEach(tx => {
 			const date = new Date(tx.transaction_date);
 			const month = date.toLocaleString("en-US", { year: "numeric", month: "short" });
 			const amount = tx.amount / 100;
@@ -147,10 +192,10 @@ export const Dashboard = () => {
 			month,
 			...values,
 		}));
-	}, [transactions]);
+	}, [transactionList]);
 
 	const runningTotalData = useMemo(()=>{
-		const sorted = [...transactions].sort(
+		const sorted = [...transactionList].sort(
 			(a, b) =>
 				new Date(a.transaction_date).getTime() -
 				new Date(b.transaction_date).getTime()
@@ -162,18 +207,16 @@ export const Dashboard = () => {
 			}
 		})
 
-		console.log({data})
-
 		return data
 
 
-	}, [transactions])
+	}, [transactionList])
 
 	// --- Loading and Error States ---
 	const isLoading = transactionsLoading || categoriesLoading;
 	const error = transactionsError; // Combine errors if needed
 
-	if (isLoading && transactions.length === 0) {
+	if (isLoading && transactionList.length === 0) {
 		return (
 			<div className="flex items-center justify-center h-64 w-full">
 				<Loader2 className="w-12 h-12 animate-spin text-secondary-default" />
@@ -224,8 +267,10 @@ export const Dashboard = () => {
 					<Line type="monotone" dataKey="val" name="Balance" stroke="#82ca9d" dot={false} />
 					<ReferenceLine
 						y={
-							runningTotalData.reduce((sum, d) => sum + d.val, 0) /
-							runningTotalData.length
+							runningTotalData.length === 0
+								? 0
+								: runningTotalData.reduce((sum, d) => sum + d.val, 0) /
+									runningTotalData.length
 						}
 						stroke="#ffc658" // Yellow for Average
 						// strokeDasharray="3 3"
@@ -234,7 +279,9 @@ export const Dashboard = () => {
 					/>
 					<ReferenceLine
 						y={
-							Math.min(...runningTotalData.map((d) =>  d.val)) 
+							runningTotalData.length === 0
+								? 0
+								: Math.min(...runningTotalData.map((d) => d.val))
 						}
 						stroke="#f87171" // Red for Min
 						// strokeDasharray="3 3"
@@ -243,7 +290,9 @@ export const Dashboard = () => {
 					/>
 					<ReferenceLine
 						y={
-							Math.max(...runningTotalData.map((d) =>  d.val)) 
+							runningTotalData.length === 0
+								? 0
+								: Math.max(...runningTotalData.map((d) => d.val))
 						}
 						stroke="#4ade80" // Green for Max
 						// strokeDasharray="3 3"
