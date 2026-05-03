@@ -9,6 +9,7 @@ import { Statements } from "./pages/statements";
 import { CategoriesPage } from "./pages/categories";
 import TransactionsPage from "./pages/transactions";
 import RecurringExpensesPage from "./pages/recurring";
+import BreakdownPage from "./pages/breakdown";
 import { CategoryMappings } from "./components/categories/CategoryMappings";
 const App = () => {
   const [theme, setTheme] = useState("light");
@@ -42,6 +43,7 @@ const App = () => {
 			<Route path="/categories" element={<CategoriesPage />} />
 			<Route path="/transactions" element={<TransactionsPage />} />
 			<Route path="/recurring" element={<RecurringExpensesPage />} />
+			<Route path="/breakdown" element={<BreakdownPage />} />
 			<Route path="/category_mapping/:id" element={<CategoryMappings />} />
           </Routes>
         </div>
