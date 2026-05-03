@@ -8,7 +8,11 @@ import {
 	detectRecurringIncome,
 	type RecurringCandidate,
 } from '@/lib/recurringExpenseDetection';
-import { Table, type TColumn } from '@/components/table';
+import {
+	Table,
+	type SortDirection,
+	type TColumn,
+} from '@/components/table';
 import { cn } from '@/lib/utils/cn';
 import { ChevronDown, ChevronRight, Loader2, Repeat } from 'lucide-react';
 
@@ -344,6 +348,10 @@ const RecurringExpensesPage = () => {
 	const [subSortBySection, setSubSortBySection] = useState<
 		Record<string, { key: PatternSortKey; dir: SortDir }>
 	>({});
+	const [detailSort, setDetailSort] = useState<{
+		key: keyof RecurringCandidate;
+		direction: SortDirection;
+	}>({ key: 'confidence', direction: 'desc' });
 
 	const fetchOnceRef = useRef(false);
 	useEffect(() => {
@@ -382,6 +390,38 @@ const RecurringExpensesPage = () => {
 		merged.sort((a, b) => b.confidence - a.confidence);
 		return merged;
 	}, [expenseRows, incomeRows]);
+
+	const handleDetailSortChange = (
+		sortKey: keyof RecurringCandidate | null,
+		direction: SortDirection
+	) => {
+		if (sortKey === null) {
+			return;
+		}
+		setDetailSort((prev) => {
+			if (prev.key === sortKey) {
+				return { key: sortKey, direction };
+			}
+			const numeric = sortKey !== 'labelSample';
+			return {
+				key: sortKey,
+				direction: numeric ? 'desc' : 'asc',
+			};
+		});
+	};
+
+	const sortedDetailRows = useMemo(() => {
+		const pk = patternSortKeyFromColumnKey(detailSort.key);
+		if (pk === null) {
+			return rows;
+		}
+		return sortPatterns(
+			rows,
+			pk,
+			detailSort.direction === 'asc' ? 'asc' : 'desc',
+			categoryList
+		);
+	}, [rows, detailSort, categoryList]);
 
 	const sections = useMemo(() => {
 		if (!groupByCategory || rows.length === 0) {
@@ -974,7 +1014,12 @@ const RecurringExpensesPage = () => {
 																: ''}
 														</button>
 													) : (
-														<span className="text-gray-400">
+														<span
+															className={cn(
+																'text-gray-400',
+																col.headerClassName
+															)}
+														>
 															{col.label}
 														</span>
 													)}
@@ -1146,10 +1191,15 @@ const RecurringExpensesPage = () => {
 				) : (
 					<Table<RecurringCandidate>
 						columns={detailColumns}
-						data={rows}
+						data={sortedDetailRows}
 						rowKey="rowId"
 						header={{ sticky: true }}
 						loading={transactionsLoading}
+						sortState={{
+							key: detailSort.key,
+							direction: detailSort.direction,
+						}}
+						onSortChange={handleDetailSortChange}
 						emptyStateMessage={
 							tableEmpty
 								? 'No repeat patterns found — lower “minimum occurrences” or add more history.'
