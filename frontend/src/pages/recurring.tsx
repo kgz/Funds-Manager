@@ -20,6 +20,130 @@ const mainAmountClass = (flow: RecurringCandidate['flow']) =>
 const rangeAmountClass = (flow: RecurringCandidate['flow']) =>
 	flow === 'income' ? 'text-green-400/90' : 'text-red-300/90';
 
+type RecurringSection = {
+	sectionKey: string;
+	categoryId: number | null;
+	label: string;
+	colour: string | undefined;
+	rows: RecurringCandidate[];
+	spendingMonthly: number;
+	incomeMonthly: number;
+};
+
+function buildRecurringSections(
+	rows: RecurringCandidate[],
+	categoryList: Category[]
+): RecurringSection[] {
+	const byKey = new Map<string, RecurringCandidate[]>();
+	for (const r of rows) {
+		const k =
+			r.modeCategoryId === null || r.modeCategoryId === undefined
+				? '__uncat__'
+				: String(r.modeCategoryId);
+		const bucket = byKey.get(k) ?? [];
+		bucket.push(r);
+		byKey.set(k, bucket);
+	}
+	const sections: RecurringSection[] = [];
+	for (const [k, bucket] of byKey) {
+		bucket.sort((a, b) => b.confidence - a.confidence);
+		const categoryId = k === '__uncat__' ? null : Number(k);
+		const cat =
+			categoryId !== null
+				? categoryList.find((c) => String(c.id) === String(categoryId))
+				: undefined;
+		const label =
+			categoryId === null
+				? 'Uncategorized'
+				: cat?.name ?? `Category ${String(categoryId)}`;
+		let spendingMonthly = 0;
+		let incomeMonthly = 0;
+		for (const r of bucket) {
+			if (r.flow === 'expense') {
+				spendingMonthly += r.estimatedMonthlyDollars;
+			} else {
+				incomeMonthly += r.estimatedMonthlyDollars;
+			}
+		}
+		sections.push({
+			sectionKey: k,
+			categoryId,
+			label,
+			colour: cat?.colour,
+			rows: bucket,
+			spendingMonthly: Math.round(spendingMonthly * 100) / 100,
+			incomeMonthly: Math.round(incomeMonthly * 100) / 100,
+		});
+	}
+	sections.sort((a, b) => {
+		if (a.categoryId === null && b.categoryId !== null) {
+			return 1;
+		}
+		if (a.categoryId !== null && b.categoryId === null) {
+			return -1;
+		}
+		return a.label.localeCompare(b.label);
+	});
+	return sections;
+}
+
+/** One table row per category when “Group by category” is on. */
+type RecurringCategoryAggRow = {
+	rowId: string;
+	labelSample: string;
+	modeCategoryId: number | null;
+	patternCount: number;
+	cadenceLabel: string;
+	medianGapDays: number;
+	typicalAmountDollars: number;
+	spendingMonthly: number;
+	incomeMonthly: number;
+	minAmountDollars: number;
+	maxAmountDollars: number;
+	occurrences: number;
+	firstDate: string;
+	lastDate: string;
+	confidence: number;
+	flow: 'expense';
+};
+
+function sectionToAggRow(section: RecurringSection): RecurringCategoryAggRow {
+	let firstDate = section.rows[0]?.firstDate ?? '';
+	let lastDate = section.rows[0]?.lastDate ?? '';
+	let maxConf = 0;
+	let hits = 0;
+	for (const r of section.rows) {
+		if (r.firstDate < firstDate) {
+			firstDate = r.firstDate;
+		}
+		if (r.lastDate > lastDate) {
+			lastDate = r.lastDate;
+		}
+		if (r.confidence > maxConf) {
+			maxConf = r.confidence;
+		}
+		hits += r.occurrences;
+	}
+	return {
+		rowId: `agg:${section.sectionKey}`,
+		labelSample: section.label,
+		modeCategoryId: section.categoryId,
+		patternCount: section.rows.length,
+		cadenceLabel: '—',
+		medianGapDays: 0,
+		typicalAmountDollars: 0,
+		spendingMonthly: section.spendingMonthly,
+		incomeMonthly: section.incomeMonthly,
+		minAmountDollars: 0,
+		maxAmountDollars: 0,
+		occurrences: hits,
+		firstDate,
+		lastDate,
+		confidence: maxConf,
+		flow: 'expense',
+	};
+}
+
 const RecurringExpensesPage = () => {
 	const dispatch = useAppDispatch();
 	const { transactions, transactionsLoading, transactionsError } =
@@ -33,6 +157,16 @@ const RecurringExpensesPage = () => {
 	}, [categories]);
 
 	const [minOccurrences, setMinOccurrences] = useState(3);
+	const [groupByCategory, setGroupByCategory] = useState<boolean>(() => {
+		if (typeof window === 'undefined') {
+			return false;
+		}
+		return localStorage.getItem('recurringGroupByCategory') === 'true';
+	});
+
+	useEffect(() => {
+		localStorage.setItem('recurringGroupByCategory', String(groupByCategory));
+	}, [groupByCategory]);
 
 	const fetchOnceRef = useRef(false);
 	useEffect(() => {
@@ -71,6 +205,13 @@ const RecurringExpensesPage = () => {
 		merged.sort((a, b) => b.confidence - a.confidence);
 		return merged;
 	}, [expenseRows, incomeRows]);
+
+	const categoryAggregateRows = useMemo((): RecurringCategoryAggRow[] => {
+		if (!groupByCategory || rows.length === 0) {
+			return [];
+		}
+		return buildRecurringSections(rows, categoryList).map(sectionToAggRow);
+	}, [groupByCategory, rows, categoryList]);
 
 	const {
 		estimatedMonthlyTotal,
@@ -117,7 +258,7 @@ const RecurringExpensesPage = () => {
 		};
 	}, [incomeRows]);
 
-	const columns: TColumn<RecurringCandidate>[] = useMemo(
+	const detailColumns: TColumn<RecurringCandidate>[] = useMemo(
 		() => [
 			{
 				key: 'labelSample',
@@ -254,7 +395,7 @@ const RecurringExpensesPage = () => {
 						{formatMoney(row.maxAmountDollars)}
 					</span>
 				),
-				sortFunction: (a, b, rowA, rowB) =>
+				sortFunction: (_a, _b, rowA, rowB) =>
 					rowA.minAmountDollars - rowB.minAmountDollars,
 			},
 			{
@@ -297,6 +438,159 @@ const RecurringExpensesPage = () => {
 		[categoryList]
 	);
 
+	const categoryColumns: TColumn<RecurringCategoryAggRow>[] = useMemo(
+		() => [
+			{
+				key: 'labelSample',
+				label: 'Category',
+				sortable: true,
+				sortFunction: (a, b) => a.localeCompare(b),
+				render: (_v, row) => {
+					const cat =
+						row.modeCategoryId !== null
+							? categoryList.find(
+									(c) => String(c.id) === String(row.modeCategoryId)
+								)
+							: undefined;
+					const showDeleted =
+						cat?.deleted_at && row.modeCategoryId !== null;
+					return (
+						<div className="max-w-md">
+							<div className="flex flex-wrap items-center gap-2">
+								{row.modeCategoryId !== null && cat && !cat.deleted_at ? (
+									<span
+										className="inline-block px-2 py-0.5 rounded text-xs shrink-0"
+										style={{
+											backgroundColor: cat.colour ?? '#4b5563',
+											color: contrastTextColor(cat.colour ?? '#4b5563'),
+										}}
+									>
+										{cat.name}
+									</span>
+								) : row.modeCategoryId !== null && showDeleted ? (
+									<span className="inline-block px-2 py-0.5 rounded text-xs text-white/80 bg-gray-600 shrink-0">
+										{cat?.name ?? `ID ${row.modeCategoryId}`} (deleted)
+									</span>
+								) : row.modeCategoryId !== null && !cat ? (
+									<span className="inline-block px-2 py-0.5 rounded text-xs text-white/80 bg-gray-600 shrink-0">
+										ID: {row.modeCategoryId}
+									</span>
+								) : (
+									<span className="inline-block px-2 py-0.5 rounded text-xs italic text-gray-400 bg-gray-700 shrink-0">
+										Uncategorized
+									</span>
+								)}
+							</div>
+							<p className="text-[10px] text-white/40 mt-1">
+								{row.patternCount} pattern{row.patternCount === 1 ? '' : 's'} ·
+								click row for details (soon)
+							</p>
+						</div>
+					);
+				},
+			},
+			{
+				key: 'cadenceLabel',
+				label: 'Cadence',
+				sortable: false,
+				render: () => <span className="text-sm text-white/35">—</span>,
+			},
+			{
+				key: 'medianGapDays',
+				label: 'Median gap (days)',
+				sortable: false,
+				render: () => (
+					<span className="font-mono text-sm text-white/35">—</span>
+				),
+			},
+			{
+				key: 'typicalAmountDollars',
+				label: 'Typical · est./mo',
+				sortable: true,
+				sortFunction: (_a, _b, rowA, rowB) => {
+					const t =
+						rowA.spendingMonthly +
+						rowA.incomeMonthly -
+						(rowB.spendingMonthly + rowB.incomeMonthly);
+					if (t !== 0) {
+						return t;
+					}
+					return rowA.labelSample.localeCompare(rowB.labelSample);
+				},
+				render: (_v, row) => (
+					<div className="flex flex-col gap-1 py-0.5 min-w-[6.75rem]">
+						{row.spendingMonthly > 0 ? (
+							<span className="font-mono text-sm tabular-nums text-red-300 leading-none">
+								{formatMoney(row.spendingMonthly)}
+								<span className="text-white/35 font-sans font-normal text-[10px] ml-1">
+									spend/mo
+								</span>
+							</span>
+						) : null}
+						{row.incomeMonthly > 0 ? (
+							<span className="font-mono text-sm tabular-nums text-green-400 leading-none">
+								{formatMoney(row.incomeMonthly)}
+								<span className="text-white/35 font-sans font-normal text-[10px] ml-1">
+									income/mo
+								</span>
+							</span>
+						) : null}
+						{row.spendingMonthly === 0 && row.incomeMonthly === 0 ? (
+							<span className="text-white/35 text-sm">—</span>
+						) : null}
+					</div>
+				),
+			},
+			{
+				key: 'minAmountDollars',
+				label: 'Min / max',
+				sortable: false,
+				render: () => (
+					<span className="font-mono text-sm text-white/35">—</span>
+				),
+			},
+			{
+				key: 'occurrences',
+				label: 'Hits',
+				sortable: true,
+				sortFunction: (a, b) => a - b,
+				render: (v) => <span className="text-center">{v}</span>,
+				cellClassName: 'text-center',
+				headerClassName: 'text-center',
+			},
+			{
+				key: 'firstDate',
+				label: 'First',
+				sortable: true,
+			},
+			{
+				key: 'lastDate',
+				label: 'Last',
+				sortable: true,
+			},
+			{
+				key: 'confidence',
+				label: 'Score',
+				sortable: true,
+				sortFunction: (a, b) => a - b,
+				render: (v) => (
+					<span
+						className={
+							v >= 70
+								? 'text-green-400'
+								: v >= 45
+									? 'text-amber-300'
+									: 'text-gray-400'
+						}
+					>
+						{v}
+					</span>
+				),
+			},
+		],
+		[categoryList]
+	);
+
 	const initialLoading =
 		transactionsLoading && list.length === 0 && !transactionsError;
 
@@ -314,6 +608,11 @@ const RecurringExpensesPage = () => {
 		);
 	}
 
+	const tableEmpty =
+		groupByCategory
+			? categoryAggregateRows.length === 0 && !transactionsLoading
+			: rows.length === 0 && !transactionsLoading;
+
 	return (
 		<div className="flex flex-col h-screen w-full p-4">
 			<div className="flex flex-wrap items-start justify-between gap-4 border-b border-secondary-default/20 pb-4 mb-4">
@@ -323,8 +622,10 @@ const RecurringExpensesPage = () => {
 						Repeat payments
 					</h1>
 					<p className="text-sm text-white/60 mt-1 max-w-2xl">
-						Heuristic only: groups similar transaction descriptions (spending and
-						income) by median spacing. Not bank-confirmed.
+						Heuristic only: repeat patterns from descriptions and median spacing.
+						<span className="font-medium text-white/75"> Group by category</span>{' '}
+						shows one row per category (patterns hidden until you drill in — coming
+						soon). Not bank-confirmed.
 					</p>
 				</div>
 				<div className="flex flex-col items-end gap-2">
@@ -374,37 +675,67 @@ const RecurringExpensesPage = () => {
 							</div>
 						</div>
 					) : null}
-					<label className="flex items-center gap-2 text-sm text-white/80">
-						<span>Minimum occurrences</span>
-						<select
-							value={minOccurrences}
-							onChange={(e) =>
-								setMinOccurrences(Number.parseInt(e.target.value, 10))
-							}
-							className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white"
-						>
-							<option value={2}>2</option>
-							<option value={3}>3</option>
-							<option value={4}>4</option>
-							<option value={5}>5</option>
-						</select>
-					</label>
+					<div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
+						<label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
+							<input
+								id="recurring-group-by-category"
+								type="checkbox"
+								checked={groupByCategory}
+								onChange={(e) => setGroupByCategory(e.target.checked)}
+								className="rounded border-gray-600 bg-gray-800 text-secondary-default focus:ring-secondary-default"
+							/>
+							<span>Group by category</span>
+						</label>
+						<label className="flex items-center gap-2 text-sm text-white/80">
+							<span>Minimum occurrences</span>
+							<select
+								value={minOccurrences}
+								onChange={(e) =>
+									setMinOccurrences(Number.parseInt(e.target.value, 10))
+								}
+								className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white"
+							>
+								<option value={2}>2</option>
+								<option value={3}>3</option>
+								<option value={4}>4</option>
+								<option value={5}>5</option>
+							</select>
+						</label>
+					</div>
 				</div>
 			</div>
 
 			<div className="flex-grow overflow-hidden min-h-0">
-				<Table<RecurringCandidate>
-					columns={columns}
-					data={rows}
-					rowKey="rowId"
-					header={{ sticky: true }}
-					loading={transactionsLoading}
-					emptyStateMessage={
-						rows.length === 0 && !transactionsLoading
-							? 'No repeat patterns found — lower “minimum occurrences” or add more history.'
-							: 'Loading…'
-					}
-				/>
+				{groupByCategory ? (
+					<Table<RecurringCategoryAggRow>
+						columns={categoryColumns}
+						data={categoryAggregateRows}
+						rowKey="rowId"
+						header={{ sticky: true }}
+						loading={transactionsLoading}
+						onRowClick={() => {
+							/* sub-table per category: TODO */
+						}}
+						emptyStateMessage={
+							tableEmpty
+								? 'No repeat patterns found — lower “minimum occurrences” or add more history.'
+								: 'Loading…'
+						}
+					/>
+				) : (
+					<Table<RecurringCandidate>
+						columns={detailColumns}
+						data={rows}
+						rowKey="rowId"
+						header={{ sticky: true }}
+						loading={transactionsLoading}
+						emptyStateMessage={
+							tableEmpty
+								? 'No repeat patterns found — lower “minimum occurrences” or add more history.'
+								: 'Loading…'
+						}
+					/>
+				)}
 			</div>
 		</div>
 	);
