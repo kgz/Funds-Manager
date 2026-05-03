@@ -1,11 +1,19 @@
 import type { Transaction } from '@/store/thunks/transactions.get.all';
 
 export type RecurringCandidate = {
+	/** Stable id for table rows; distinct across income vs expense for the same description key. */
+	rowId: string;
 	key: string;
 	labelSample: string;
+	modeCategoryId: number | null;
+	flow: 'expense' | 'income';
 	cadenceLabel: string;
 	medianGapDays: number;
+	/** typical × 30 / median gap (days); matches summary “Est. monthly”. */
+	estimatedMonthlyDollars: number;
 	typicalAmountDollars: number;
+	minAmountDollars: number;
+	maxAmountDollars: number;
 	occurrences: number;
 	firstDate: string;
 	lastDate: string;
@@ -99,30 +107,69 @@ function confidenceScore(args: {
 	return Math.round(Math.min(100, countScore + gapScore + amtScore));
 }
 
-export function detectRecurringExpenses(
+function modeCategoryId(
+	ids: Array<number | null | undefined>
+): number | null {
+	const tallies = new Map<number, number>();
+	for (const id of ids) {
+		if (id === null || id === undefined) {
+			continue;
+		}
+		tallies.set(id, (tallies.get(id) ?? 0) + 1);
+	}
+	let bestId: number | null = null;
+	let bestCount = 0;
+	for (const [id, count] of tallies) {
+		if (count > bestCount) {
+			bestCount = count;
+			bestId = id;
+		}
+	}
+	return bestId;
+}
+
+function detectRecurring(
 	transactions: Transaction[],
-	minOccurrences: number
+	minOccurrences: number,
+	flow: 'expense' | 'income'
 ): RecurringCandidate[] {
-	const expenses = transactions.filter((tx) => tx.amount < 0 && !tx.deleted_at);
+	const filtered = transactions.filter((tx) => {
+		if (tx.deleted_at) {
+			return false;
+		}
+		if (flow === 'expense') {
+			return tx.amount < 0;
+		}
+		return tx.amount > 0;
+	});
 	const groups = new Map<
 		string,
-		{ amounts: number[]; dates: number[]; sample: string }
+		{
+			amounts: number[];
+			dates: number[];
+			categoryIds: Array<number | null | undefined>;
+			sample: string;
+		}
 	>();
 
-	for (const tx of expenses) {
+	for (const tx of filtered) {
 		const key = canonicalExpenseGroupKey(tx.description);
 		const entry = groups.get(key);
-		const absAmt = Math.abs(tx.amount) / 100;
+		const dollarAmt =
+			flow === 'expense' ? Math.abs(tx.amount) / 100 : tx.amount / 100;
 		const day = parseDay(tx.transaction_date);
+		const cid = tx.category_id;
 		if (!entry) {
 			groups.set(key, {
-				amounts: [absAmt],
+				amounts: [dollarAmt],
 				dates: [day],
+				categoryIds: [cid],
 				sample: tx.description,
 			});
 		} else {
-			entry.amounts.push(absAmt);
+			entry.amounts.push(dollarAmt);
 			entry.dates.push(day);
+			entry.categoryIds.push(cid);
 		}
 	}
 
@@ -146,18 +193,33 @@ export function detectRecurringExpenses(
 				? median(gaps.map((x) => Math.abs(x - medGap)))
 				: 99;
 		const medAmt = median(g.amounts);
+		const sortedAmt = [...g.amounts].sort((a, b) => a - b);
+		const minAmt = sortedAmt[0] ?? 0;
+		const maxAmt = sortedAmt[sortedAmt.length - 1] ?? 0;
 		const amtDev =
 			g.amounts.length > 0
 				? median(g.amounts.map((x) => Math.abs(x - medAmt)))
 				: 0;
 		const amountCv = medAmt > 0 ? amtDev / medAmt : 1;
+		const mcat = modeCategoryId(g.categoryIds);
+		const medianGapDays = Math.round(medGap * 10) / 10;
+		const estimatedMonthlyDollars =
+			medianGapDays > 0
+				? Math.round(((medAmt * 30) / medianGapDays) * 100) / 100
+				: 0;
 
 		out.push({
+			rowId: `${flow}:${key}`,
 			key,
 			labelSample: g.sample,
+			modeCategoryId: mcat,
+			flow,
 			cadenceLabel: cadenceFromMedianGap(medGap),
-			medianGapDays: Math.round(medGap * 10) / 10,
+			medianGapDays,
+			estimatedMonthlyDollars,
 			typicalAmountDollars: Math.round(medAmt * 100) / 100,
+			minAmountDollars: Math.round(minAmt * 100) / 100,
+			maxAmountDollars: Math.round(maxAmt * 100) / 100,
 			occurrences: g.amounts.length,
 			firstDate: new Date(dates[0]!).toISOString().slice(0, 10),
 			lastDate: new Date(dates[dates.length - 1]!).toISOString().slice(0, 10),
@@ -171,4 +233,18 @@ export function detectRecurringExpenses(
 
 	out.sort((a, b) => b.confidence - a.confidence);
 	return out;
+}
+
+export function detectRecurringExpenses(
+	transactions: Transaction[],
+	minOccurrences: number
+): RecurringCandidate[] {
+	return detectRecurring(transactions, minOccurrences, 'expense');
+}
+
+export function detectRecurringIncome(
+	transactions: Transaction[],
+	minOccurrences: number
+): RecurringCandidate[] {
+	return detectRecurring(transactions, minOccurrences, 'income');
 }
