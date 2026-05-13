@@ -1,0 +1,17 @@
+[Unit]
+Description=my_funds API (Actix)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mat
+Group=mat
+WorkingDirectory=%h/funds
+EnvironmentFile=-%h/funds/.env
+ExecStart=%h/funds/server_v2
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
