@@ -367,7 +367,12 @@ export const Dashboard = () => {
 							</p>
 							<h2 className="text-lg font-semibold text-white">{spendingBreakdownTitle}</h2>
 							<p className="mt-1 text-sm text-white/70">
-								Total {formatCurrencyWithCommas(spendingBreakdownTotal)} · {spendingBreakdownRows.length}{' '}
+								Total{' '}
+								<span className="font-medium tabular-nums text-red-400">
+									{formatCurrencyWithCommas(-spendingBreakdownTotal)}
+								</span>
+								{' · '}
+								{spendingBreakdownRows.length}{' '}
 								{spendingBreakdownRows.length === 1 ? 'transaction' : 'transactions'}
 							</p>
 						</div>
@@ -409,8 +414,8 @@ export const Dashboard = () => {
 										className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
 									>
 										<div className="flex justify-between gap-2 text-white">
-											<span className="font-medium tabular-nums text-emerald-300/90">
-												{formatCurrencyWithCommas(row.totalDollars)}
+											<span className="font-medium tabular-nums text-red-400">
+												{formatCurrencyWithCommas(-row.totalDollars)}
 											</span>
 											<span className="shrink-0 text-white/50">
 												{row.count}×
@@ -423,15 +428,17 @@ export const Dashboard = () => {
 						) : (
 							<ul className="space-y-2">
 								{spendingBreakdownRows.map((tx) => {
-									const dollars = Math.abs(tx.amount) / 100;
+									const dollars = tx.amount / 100;
 									const when = tx.transaction_date.slice(0, 10);
+									const amountClass =
+										dollars < 0 ? 'text-red-400' : 'text-emerald-300/90';
 									return (
 										<li
 											key={tx.id}
 											className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
 										>
 											<div className="flex justify-between gap-2 text-white">
-												<span className="font-medium tabular-nums text-emerald-300/90">
+												<span className={`font-medium tabular-nums ${amountClass}`}>
 													{formatCurrencyWithCommas(dollars)}
 												</span>
 												<span className="shrink-0 text-white/50">{when}</span>
