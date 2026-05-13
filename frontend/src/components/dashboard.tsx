@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie'; // Import the new component and type
 import { MonthlyBarGraph } from "@/graphs/bar";
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { getMappings } from "@/store/thunks/mapping.get.all";
 
 // --- Helper Functions (Consider moving to a utils file) ---
@@ -17,6 +17,29 @@ const formatCurrencyWithCommas = (value: number | null | undefined): string => {
     const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
     return `$${value.toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits: 2 })}`;
 };
+
+function spendingGroupKeyForTransaction(
+	tx: Transaction,
+	categoryList: Category[],
+	groupByParentCategory: boolean
+): string {
+	const categoryForGrouping = categoryList.find(
+		(cat) => String(cat.id) === String(tx.category_id)
+	);
+
+	if (groupByParentCategory && categoryForGrouping?.parent_category_id) {
+		const parentCategory = categoryList.find(
+			(cat) =>
+				String(cat.id) === String(categoryForGrouping.parent_category_id)
+		);
+		if (parentCategory) {
+			return String(parentCategory.id);
+		}
+		return 'unknown';
+	}
+
+	return String(tx.category_id ?? 'unknown');
+}
 
 
 export const Dashboard = () => {
@@ -43,6 +66,8 @@ export const Dashboard = () => {
 			// Initialize state from localStorage or default to false
 			return localStorage.getItem('groupByParentCategory') === 'true';
 		});
+
+		const [spendingBreakdownGroupKey, setSpendingBreakdownGroupKey] = useState<string | null>(null);
 
 		const categoriesAutoFetchCommittedRef = useRef(false);
 		const transactionsAutoFetchCommittedRef = useRef(false);
@@ -131,17 +156,31 @@ export const Dashboard = () => {
 				category?.colour ??
 				(groupCategoryId === 'unknown' ? '#6c757d' : '#8884d8'); // Grey for unknown, default purple otherwise
 
-			const key = String(groupCategoryId); // Use the determined group ID as the key
+			const key = spendingGroupKeyForTransaction(tx, categoryList, groupByParentCategory);
 
 			if (amount < 0) {
 				const absAmount = Math.abs(amount);
 				if (!spending[key]) {
-					spending[key] = { name: categoryName, value: 0, color: color, categoryId: groupCategoryId === 'unknown' ? null : groupCategoryId, percent: 0 };
+					spending[key] = {
+						name: categoryName,
+						value: 0,
+						color: color,
+						categoryId: groupCategoryId === 'unknown' ? null : groupCategoryId,
+						percent: 0,
+						groupKey: key,
+					};
 				}
 				spending[key].value += absAmount;
 			} else if (amount > 0) {
 				if (!income[key]) {
-					income[key] = { name: categoryName, value: 0, color: color, categoryId: groupCategoryId === 'unknown' ? null : groupCategoryId, percent: 0 };
+					income[key] = {
+						name: categoryName,
+						value: 0,
+						color: color,
+						categoryId: groupCategoryId === 'unknown' ? null : groupCategoryId,
+						percent: 0,
+						groupKey: key,
+					};
 				}
 				income[key].value += amount;
 			}
@@ -173,6 +212,39 @@ export const Dashboard = () => {
 		return { spendingByCategory: spendingData, incomeByCategory: incomeData };
 
 	}, [transactionList, categoryList, groupByParentCategory]); // Add groupByParentCategory dependency
+
+	const spendingBreakdownTitle = useMemo(() => {
+		if (spendingBreakdownGroupKey === null) {
+			return '';
+		}
+		const row = spendingByCategory.find((d) => d.groupKey === spendingBreakdownGroupKey);
+		return row?.name ?? 'Category';
+	}, [spendingByCategory, spendingBreakdownGroupKey]);
+
+	const spendingBreakdownRows = useMemo(() => {
+		if (spendingBreakdownGroupKey === null) {
+			return [];
+		}
+		return transactionList
+			.filter((tx) => tx.amount < 0)
+			.filter(
+				(tx) =>
+					spendingGroupKeyForTransaction(tx, categoryList, groupByParentCategory) ===
+					spendingBreakdownGroupKey
+			)
+			.sort((a, b) => b.transaction_date.localeCompare(a.transaction_date));
+	}, [
+		transactionList,
+		categoryList,
+		groupByParentCategory,
+		spendingBreakdownGroupKey,
+	]);
+
+	const spendingBreakdownTotal = useMemo(() => {
+		const sum =
+			spendingBreakdownRows.reduce((s, tx) => s + Math.abs(tx.amount), 0) / 100;
+		return parseFloat(sum.toFixed(2));
+	}, [spendingBreakdownRows]);
 
 	const monthlySummary = useMemo(() => {
 		const summary: Record<
@@ -245,6 +317,67 @@ export const Dashboard = () => {
 
     return (
       <div className="p-4 md:p-6 space-y-8">
+		{spendingBreakdownGroupKey !== null ? (
+			<>
+				<div
+					role="presentation"
+					className="fixed inset-0 z-40 bg-black/50"
+					onClick={() => {
+						setSpendingBreakdownGroupKey(null);
+					}}
+				/>
+				<aside className="fixed top-0 right-0 z-50 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-gray-950 shadow-2xl">
+					<div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/10 p-4">
+						<div>
+							<p className="text-xs font-medium uppercase tracking-wide text-white/50">
+								Spending breakdown
+							</p>
+							<h2 className="text-lg font-semibold text-white">{spendingBreakdownTitle}</h2>
+							<p className="mt-1 text-sm text-white/70">
+								Total {formatCurrencyWithCommas(spendingBreakdownTotal)} · {spendingBreakdownRows.length}{' '}
+								{spendingBreakdownRows.length === 1 ? 'transaction' : 'transactions'}
+							</p>
+						</div>
+						<button
+							type="button"
+							className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"
+							aria-label="Close"
+							onClick={() => {
+								setSpendingBreakdownGroupKey(null);
+							}}
+						>
+							<X className="h-5 w-5" />
+						</button>
+					</div>
+					<div className="min-h-0 flex-1 overflow-y-auto p-4">
+						{spendingBreakdownRows.length === 0 ? (
+							<p className="text-center text-sm text-white/50">No spending transactions in this group.</p>
+						) : (
+							<ul className="space-y-2">
+								{spendingBreakdownRows.map((tx) => {
+									const dollars = Math.abs(tx.amount) / 100;
+									const when = tx.transaction_date.slice(0, 10);
+									return (
+										<li
+											key={tx.id}
+											className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+										>
+											<div className="flex justify-between gap-2 text-white">
+												<span className="font-medium tabular-nums text-emerald-300/90">
+													{formatCurrencyWithCommas(dollars)}
+												</span>
+												<span className="shrink-0 text-white/50">{when}</span>
+											</div>
+											<p className="mt-1 break-words text-white/80">{tx.description}</p>
+										</li>
+									);
+								})}
+							</ul>
+						)}
+					</div>
+				</aside>
+			</>
+		) : null}
 		<div className="flex flex-wrap justify-between items-center gap-4 mb-6">
 			<h2 className="text-2xl font-semibold text-white">Spending & Income Overview</h2>
 			{/* Grouping Toggle */}
@@ -261,7 +394,13 @@ export const Dashboard = () => {
 
 		<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 			{/* Spending Pie Chart */}
-				<CategoryPieChart data={spendingByCategory} title="Spending by Category" />
+			<CategoryPieChart
+				data={spendingByCategory}
+				title="Spending by Category"
+				onSliceClick={(item) => {
+					setSpendingBreakdownGroupKey(item.groupKey);
+				}}
+			/>
 
 			{/* Income Pie Chart */}
 				<CategoryPieChart data={incomeByCategory} title="Income by Category" />
