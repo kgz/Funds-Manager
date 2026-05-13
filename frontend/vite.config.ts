@@ -13,6 +13,14 @@ const apiProxyHttpsAgent = new https.Agent({
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
+  const prodBaseRaw = env.VITE_BASE?.trim()
+  const base =
+    mode === 'production' && prodBaseRaw !== undefined && prodBaseRaw.length > 0
+      ? prodBaseRaw.endsWith('/')
+        ? prodBaseRaw
+        : `${prodBaseRaw}/`
+      : '/'
+
   const portEnv = env.VITE_PORT
   const port = portEnv ? Number(portEnv) : 3000
 
@@ -21,6 +29,7 @@ export default defineConfig(({ mode }) => {
   const apiProxyTarget = env.VITE_API_PROXY_TARGET ?? 'https://127.0.0.1:2020'
 
   return {
+    base,
     plugins: [
       react(),
       tailwindcss(),

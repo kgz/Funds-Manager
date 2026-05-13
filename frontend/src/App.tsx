@@ -29,7 +29,13 @@ const App = () => {
   }, [theme]);
 
   return (
-    <Router>
+    <Router
+      basename={
+        import.meta.env.BASE_URL.replace(/\/$/, '') === ''
+          ? undefined
+          : import.meta.env.BASE_URL.replace(/\/$/, '')
+      }
+    >
       <div className={`
 		min-h-screen  transition-all
 			bg-black/70
