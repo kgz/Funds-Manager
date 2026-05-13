@@ -153,11 +153,16 @@ export const Dashboard = () => {
 		const totalIncome = Object.values(income).reduce((sum, item) => sum + item.value, 0);
 
 		// Convert to array format for Recharts, rounding values
-		const spendingData: PieChartDataItem[] = Object.values(spending).map(item => {
-			const value = parseFloat(item.value.toFixed(2));
-			const percent = totalSpending > 0 ? parseFloat(((item.value / totalSpending) * 100).toFixed(1)) : 0;
-			return { ...item, value, percent };
-		});
+		const spendingData: PieChartDataItem[] = Object.values(spending)
+			.map((item) => {
+				const value = parseFloat(item.value.toFixed(2));
+				const percent =
+					totalSpending > 0
+						? parseFloat(((item.value / totalSpending) * 100).toFixed(1))
+						: 0;
+				return { ...item, value, percent };
+			})
+			.sort((a, b) => b.value - a.value);
 
 		const incomeData: PieChartDataItem[] = Object.values(income).map(item => {
 			const value = parseFloat(item.value.toFixed(2));
