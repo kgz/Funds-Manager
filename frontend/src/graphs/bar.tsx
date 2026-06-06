@@ -8,6 +8,8 @@ import {
     CartesianGrid,
     ResponsiveContainer,
 } from "recharts";
+import type { TooltipProps } from "recharts";
+import { chartTheme, chartTooltipClass } from "@/graphs/theme";
 
 type MonthlySummary = {
     month: string;
@@ -17,12 +19,9 @@ type MonthlySummary = {
 
 type Props = {
     data: MonthlySummary[];
-	title?: String
 };
 
-// Helper function for currency formatting with commas
 const formatCurrencyWithCommas = (value: number): string => {
-    // Show decimals only if they are not .00
     const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
     return `$${value.toLocaleString('en-US', {
         minimumFractionDigits: minimumFractionDigits,
@@ -30,45 +29,64 @@ const formatCurrencyWithCommas = (value: number): string => {
     })}`;
 };
 
-// Custom Tooltip Content
-const renderCustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-        const data = payload[0].payload as MonthlySummary; // Access the data for the hovered bar group
-        const receiving = data.receiving;
-        const spending = data.spending;
-        const difference = receiving - spending;
-
-        return (
-            <div className="bg-gray-800/90 text-white p-2 rounded border border-gray-600 text-sm shadow-lg">
-                <p className="font-semibold mb-1">{label}</p>
-                <p style={{ color: '#4ade80' }}>{`Receiving: ${formatCurrencyWithCommas(receiving)}`}</p>
-                <p style={{ color: '#f87171' }}>{`Spending: ${formatCurrencyWithCommas(spending)}`}</p>
-                <hr className="border-gray-600 my-1" />
-                <p className={difference >= 0 ? 'text-green-400' : 'text-red-400'}>
-                    {`Difference: ${difference >= 0 ? '+' : ''}${formatCurrencyWithCommas(difference)}`}
-                </p>
-            </div>
-        );
+function isMonthlySummary(value: unknown): value is MonthlySummary {
+    if (typeof value !== 'object' || value === null) {
+        return false;
     }
-    return null;
+    const month = Reflect.get(value, 'month');
+    const spending = Reflect.get(value, 'spending');
+    const receiving = Reflect.get(value, 'receiving');
+    return (
+        typeof month === 'string' &&
+        typeof spending === 'number' &&
+        typeof receiving === 'number'
+    );
+}
+
+const renderCustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+    if (!active || payload === undefined || payload.length === 0) {
+        return null;
+    }
+    const nested = payload[0]?.payload;
+    if (!isMonthlySummary(nested)) {
+        return null;
+    }
+    const receiving = nested.receiving;
+    const spending = nested.spending;
+    const difference = receiving - spending;
+
+    return (
+        <div className={chartTooltipClass}>
+            <p className="mb-1 font-semibold">{label}</p>
+            <p style={{ color: '#4ade80' }}>{`Receiving: ${formatCurrencyWithCommas(receiving)}`}</p>
+            <p style={{ color: '#f87171' }}>{`Spending: ${formatCurrencyWithCommas(spending)}`}</p>
+            <hr className="my-1 border-white/15" />
+            <p className={difference >= 0 ? 'text-green-400' : 'text-red-400'}>
+                {`Difference: ${difference >= 0 ? '+' : ''}${formatCurrencyWithCommas(difference)}`}
+            </p>
+        </div>
+    );
 };
 
-export const MonthlyBarGraph = ({ data, title }: Props) => {
+export const MonthlyBarGraph = ({ data }: Props) => {
     return (
-        <div className="p-4">
-            {title && <h3 className="text-lg font-semibold text-white/90 mb-4 text-center">{title}</h3>}
-            
-            <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={data} margin={{ top: 5, right: 20, left: 30, bottom: 5 }}> {/* Adjust margins for labels */}
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis tickFormatter={(val) => `${formatCurrencyWithCommas(val)}`} />
-                    <Tooltip content={renderCustomTooltip} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }} />
-                    <Legend wrapperStyle={{ paddingTop: '20px' }} /> {/* Add padding to avoid overlap */}
-                    <Bar dataKey="receiving" fill="#4ade80" name="Receiving" />
-                    <Bar dataKey="spending" fill="#f87171" name="Spending" />
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
+        <ResponsiveContainer width="100%" height={350}>
+            <BarChart data={data} margin={{ top: 5, right: 20, left: 30, bottom: 5 }}>
+                <CartesianGrid
+                    stroke={chartTheme.grid.stroke}
+                    strokeDasharray={chartTheme.grid.strokeDasharray}
+                />
+                <XAxis dataKey="month" stroke={chartTheme.axis.stroke} tick={chartTheme.axis.tick} />
+                <YAxis
+                    stroke={chartTheme.axis.stroke}
+                    tick={chartTheme.axis.tick}
+                    tickFormatter={(val) => `${formatCurrencyWithCommas(val)}`}
+                />
+                <Tooltip content={renderCustomTooltip} cursor={{ fill: 'rgba(255, 255, 255, 0.08)' }} />
+                <Legend wrapperStyle={chartTheme.legend.wrapperStyle} />
+                <Bar dataKey="receiving" fill="#4ade80" name="Receiving" />
+                <Bar dataKey="spending" fill="#f87171" name="Spending" />
+            </BarChart>
+        </ResponsiveContainer>
     );
 };
