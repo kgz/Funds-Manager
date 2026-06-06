@@ -8,6 +8,8 @@ use serde::Serialize;
 pub struct DashboardQuery {
     #[serde(default)]
     pub group_by_parent: bool,
+    pub start: Option<String>,
+    pub end: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -69,7 +71,15 @@ fn total_pages(total: i64, per_page: i64) -> i64 {
 
 async fn get_dashboard(query: web::Query<DashboardQuery>) -> Result<impl Responder, actix_web::Error> {
     let group_by_parent = query.group_by_parent;
-    let data = web::block(move || analytics::dashboard(group_by_parent))
+    let start = match &query.start {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    let end = match &query.end {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    let data = web::block(move || analytics::dashboard(group_by_parent, start, end))
         .await
         .map_err(|e| {
             eprintln!("Blocking error loading dashboard analytics: {:?}", e);

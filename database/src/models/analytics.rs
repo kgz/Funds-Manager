@@ -142,7 +142,11 @@ fn category_display(
     (Some(id), cat.name.clone(), cat.colour.clone())
 }
 
-pub fn dashboard(group_by_parent: bool) -> Result<DashboardAnalytics, diesel::result::Error> {
+pub fn dashboard(
+    group_by_parent: bool,
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+) -> Result<DashboardAnalytics, diesel::result::Error> {
     let conn = &mut get_dbo();
     let categories = Category::all(false)?;
 
@@ -155,10 +159,14 @@ pub fn dashboard(group_by_parent: bool) -> Result<DashboardAnalytics, diesel::re
         FROM transaction_data
         WHERE deleted_at IS NULL
           AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+          AND ($1::date IS NULL OR transaction_date::date >= $1)
+          AND ($2::date IS NULL OR transaction_date::date <= $2)
         GROUP BY date_trunc('month', transaction_date)
         ORDER BY date_trunc('month', transaction_date)
         "#,
     )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
     .load(conn)?;
 
     let monthly_summary: Vec<MonthlySummaryRow> = monthly_rows
@@ -178,9 +186,13 @@ pub fn dashboard(group_by_parent: bool) -> Result<DashboardAnalytics, diesel::re
         FROM transaction_data
         WHERE deleted_at IS NULL
           AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+          AND ($1::date IS NULL OR transaction_date::date >= $1)
+          AND ($2::date IS NULL OR transaction_date::date <= $2)
         ORDER BY transaction_date::date, transaction_date DESC, id DESC
         "#,
     )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
     .load(conn)?;
 
     let balance_series: Vec<BalancePoint> = balance_rows
@@ -191,13 +203,25 @@ pub fn dashboard(group_by_parent: bool) -> Result<DashboardAnalytics, diesel::re
         })
         .collect();
 
-    let slim: Vec<(Option<i32>, i32)> = filter_active_statement(
+    let mut category_query = filter_active_statement(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .into_boxed(),
-    )
-    .select((transaction_data::category_id, transaction_data::amount))
-    .load(conn)?;
+    );
+    if let Some(start_date) = start {
+        category_query = category_query.filter(
+            transaction_data::transaction_date.ge(start_date.and_hms_opt(0, 0, 0).expect("midnight")),
+        );
+    }
+    if let Some(end_date) = end {
+        if let Some(end_exclusive) = end_date.succ_opt().and_then(|d| d.and_hms_opt(0, 0, 0)) {
+            category_query =
+                category_query.filter(transaction_data::transaction_date.lt(end_exclusive));
+        }
+    }
+    let slim: Vec<(Option<i32>, i32)> = category_query
+        .select((transaction_data::category_id, transaction_data::amount))
+        .load(conn)?;
 
     let mut spending: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
     let mut income: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
