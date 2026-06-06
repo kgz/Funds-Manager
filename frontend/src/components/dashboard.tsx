@@ -82,12 +82,46 @@ function toPieItems(
 	}));
 }
 
+function DashboardStickyHeader({
+	period,
+	onPeriodChange,
+	pending,
+}: {
+	period: DashboardPeriod;
+	onPeriodChange: (value: DashboardPeriod) => void;
+	pending: boolean;
+}) {
+	return (
+		<div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-white/10 bg-gray-950/90 px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6">
+			<div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 shadow-lg shadow-black/20">
+				<div className="flex flex-wrap items-center justify-between gap-4">
+					<h2 className="text-2xl font-semibold text-white">Spending & Income Overview</h2>
+					<PeriodFilter value={period} onChange={onPeriodChange} pending={pending} />
+				</div>
+				<div
+					className={cn(
+						'mt-3 h-0.5 overflow-hidden rounded-full bg-white/10 transition-opacity duration-300',
+						pending ? 'opacity-100' : 'opacity-0'
+					)}
+					aria-hidden={!pending}
+				>
+					<div className="h-full w-2/5 animate-pulse rounded-full bg-secondary-default/80 motion-reduce:animate-none" />
+				</div>
+			</div>
+		</div>
+	);
+}
+
 function DashboardSkeleton() {
 	return (
 		<div className="p-4 md:p-6 space-y-8 animate-pulse">
-			<div className="flex flex-wrap justify-between items-center gap-4">
-				<div className="h-8 w-56 rounded-md bg-white/10" />
-				<div className="h-9 w-72 rounded-md bg-white/10" />
+			<div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-white/10 bg-gray-950/90 px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6">
+				<div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+					<div className="flex flex-wrap justify-between items-center gap-4">
+						<div className="h-8 w-56 rounded-md bg-white/10" />
+						<div className="h-9 w-72 rounded-md bg-white/10" />
+					</div>
+				</div>
 			</div>
 			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
 				{Array.from({ length: 4 }, (_, i) => (
@@ -525,25 +559,16 @@ export const Dashboard = () => {
 				</>
 			) : null}
 
-			<div className="flex flex-wrap justify-between items-center gap-4">
-				<h2 className="text-2xl font-semibold text-white">Spending & Income Overview</h2>
-				<PeriodFilter value={period} onChange={setPeriod} pending={isRefreshing} />
-			</div>
+			<DashboardStickyHeader
+				period={period}
+				onPeriodChange={setPeriod}
+				pending={isRefreshing}
+			/>
 
 			<div className="relative">
 				<div
 					className={cn(
-						'h-0.5 overflow-hidden rounded-full bg-white/10 transition-opacity duration-300',
-						isRefreshing ? 'opacity-100' : 'opacity-0'
-					)}
-					aria-hidden={!isRefreshing}
-				>
-					<div className="h-full w-2/5 animate-pulse rounded-full bg-secondary-default/80 motion-reduce:animate-none" />
-				</div>
-
-				<div
-					className={cn(
-						'mt-2 space-y-8 transition-opacity duration-300 ease-out',
+						'space-y-8 transition-opacity duration-300 ease-out',
 						isRefreshing && 'opacity-55'
 					)}
 					aria-busy={isRefreshing}
