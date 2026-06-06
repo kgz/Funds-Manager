@@ -69,12 +69,13 @@ export type PieChartDataItem = {
 type CategoryPieChartProps = {
     data: PieChartDataItem[];
     title: string;
-    dataKey?: string; // Optional: If data key is different from 'value'
+    subtitle?: string;
+    dataKey?: string;
     onSliceClick?: (item: PieChartDataItem) => void;
 };
 
 // --- Reusable Pie Chart Component ---
-export const CategoryPieChart = ({ data, title, dataKey = "value", onSliceClick }: CategoryPieChartProps) => {
+export const CategoryPieChart = ({ data, title, subtitle, dataKey = "value", onSliceClick }: CategoryPieChartProps) => {
     // State to track the name of the hovered slice
     const [hoveredSliceName, setHoveredSliceName] = useState<string | null>(null);
 
@@ -84,9 +85,16 @@ export const CategoryPieChart = ({ data, title, dataKey = "value", onSliceClick 
 
     const sliceCursor = onSliceClick !== undefined ? 'pointer' : 'default';
 
+    const legendCursor = onSliceClick !== undefined ? 'pointer' : 'default';
+
     return (
-        <div className=" p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-white/90 mb-4 text-center">{title}</h3>
+        <div className="p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-white/90 text-center">{title}</h3>
+            {subtitle !== undefined && subtitle.length > 0 ? (
+                <p className="mt-1 mb-4 text-center text-xs text-white/50">{subtitle}</p>
+            ) : (
+                <div className="mb-4" />
+            )}
             <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                     <Pie
@@ -111,23 +119,33 @@ export const CategoryPieChart = ({ data, title, dataKey = "value", onSliceClick 
                             }
                         }}
                     >
-                        {data.map((entry, index) => (
-                            <Cell
-                                key={`cell-${title.replace(/\s+/g, '-')}-${index}`}
-                                fill={entry.color}
-                                // Adjust opacity based on hover state
-                                fillOpacity={hoveredSliceName === null || hoveredSliceName === entry.name ? 1 : 0.3}
-                            />
-                        ))}
+                        {data.map((entry, index) => {
+                            const isHovered = hoveredSliceName === entry.name;
+                            return (
+                                <Cell
+                                    key={`cell-${title.replace(/\s+/g, '-')}-${index}`}
+                                    fill={entry.color}
+                                    fillOpacity={hoveredSliceName === null || isHovered ? 1 : 0.35}
+                                    stroke={isHovered ? 'rgba(255,255,255,0.85)' : 'transparent'}
+                                    strokeWidth={isHovered ? 2 : 0}
+                                    style={{
+                                        transform: isHovered ? 'scale(1.03)' : 'scale(1)',
+                                        transformOrigin: 'center',
+                                        transition: 'transform 150ms ease-out',
+                                    }}
+                                />
+                            );
+                        })}
                     </Pie>
                     <Tooltip content={renderCustomTooltip} />
-                    <Legend layout="vertical" align="right" verticalAlign="middle" iconSize={10} wrapperStyle={{ fontSize: '12px', cursor: sliceCursor }} onMouseEnter={(e) => setHoveredSliceName(e.value)} onMouseLeave={() => setHoveredSliceName(null)} onClick={(legendItem) => {
+                    <Legend layout="vertical" align="right" verticalAlign="middle" iconSize={10} wrapperStyle={{ fontSize: '12px', cursor: legendCursor }} onMouseEnter={(e) => setHoveredSliceName(e.value)} onMouseLeave={() => setHoveredSliceName(null)} onClick={(legendItem) => {
                         const item = datumFromLegendItem(legendItem, data);
                         if (item !== undefined) {
                             onSliceClick?.(item);
                         }
                     }} formatter={(value) => {
-                        return hoveredSliceName === value ? <span className="font-bold text-white cursor-pointer">{value}</span> : <span className="text-white/80 cursor-pointer">{value}</span>;
+                        const cursorClass = onSliceClick !== undefined ? 'cursor-pointer' : '';
+                        return hoveredSliceName === value ? <span className={`font-bold text-white ${cursorClass}`}>{value}</span> : <span className={`text-white/80 ${cursorClass}`}>{value}</span>;
                     }}/>
                 </PieChart>
             </ResponsiveContainer>

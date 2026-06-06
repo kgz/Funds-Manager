@@ -1,0 +1,23 @@
+schema: spec-driven
+
+context: |
+  Personal finance app (my_funds).
+
+  Stack:
+  - Backend: Rust (Actix Web) in app/ (server_v2), MySQL via Diesel in database/
+  - Frontend: React 19 + TypeScript + Vite in frontend/
+  - Crates: statement-parser (PDF bank statements), statement-parser-cli, category-predict-cli (tktax)
+
+  Workspace members (Cargo.toml): app, database, crates/statement-parser, crates/statement-parser-cli.
+
+  Key domains:
+  - Bank statement PDF upload and parsing (heritage parser)
+  - Transactions, categories, category mappings
+  - Auto-categorization via CategoryPredictor (learned descriptions + regex/exact mappings)
+  - OpenAPI via utoipa at /chaos/api/openapi.json
+
+  Conventions:
+  - Rust edition 2021
+  - TypeScript: no `any`, no `as` casts
+  - Minimal diffs; match existing patterns
+  - Comments only for non-obvious logic

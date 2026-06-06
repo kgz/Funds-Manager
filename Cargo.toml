@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "app",
+    "database",
+    "crates/statement-parser",
+    "crates/statement-parser-cli",
+]
+resolver = "2"

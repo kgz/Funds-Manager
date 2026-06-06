@@ -6,7 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie'; // Import the new component and type
 import { MonthlyBarGraph } from "@/graphs/bar";
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Loader2, X } from "lucide-react";
+import { AlertCircle, FileArchive, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import { getMappings } from "@/store/thunks/mapping.get.all";
 
 // --- Helper Functions (Consider moving to a utils file) ---
@@ -41,6 +42,95 @@ function spendingGroupKeyForTransaction(
 	return String(tx.category_id ?? 'unknown');
 }
 
+function DashboardSkeleton() {
+	return (
+		<div className="p-4 md:p-6 space-y-8 animate-pulse">
+			<div className="flex flex-wrap justify-between items-center gap-4">
+				<div className="h-8 w-56 rounded-md bg-white/10" />
+				<div className="h-9 w-44 rounded-md bg-white/10" />
+			</div>
+			<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+				<div className="h-[360px] rounded-xl border border-white/10 bg-white/5" />
+				<div className="h-[360px] rounded-xl border border-white/10 bg-white/5" />
+				<div className="lg:col-span-2 h-[400px] rounded-xl border border-white/10 bg-white/5" />
+				<div className="lg:col-span-2 h-[340px] rounded-xl border border-white/10 bg-white/5" />
+			</div>
+		</div>
+	);
+}
+
+function DashboardEmptyState() {
+	return (
+		<div className="flex min-h-[50vh] items-center justify-center p-4 md:p-6">
+			<div className="max-w-md rounded-xl border border-white/10 bg-white/5 p-8 text-center">
+				<FileArchive className="mx-auto h-12 w-12 text-white/40" />
+				<h2 className="mt-4 text-lg font-semibold text-white">No transactions yet</h2>
+				<p className="mt-2 text-sm text-white/60">
+					Upload a bank statement PDF to see spending, income, and balance charts here.
+				</p>
+				<Link
+					to="/statements"
+					className="mt-6 inline-flex rounded-md border border-secondary-default bg-secondary-default/20 px-4 py-2 text-sm font-medium text-white hover:bg-secondary-default/30"
+				>
+					Upload statements
+				</Link>
+			</div>
+		</div>
+	);
+}
+
+function DashboardErrorState({ message }: { message: string }) {
+	return (
+		<div className="flex min-h-[50vh] items-center justify-center p-4 md:p-6">
+			<div className="max-w-md rounded-xl border border-red-500/30 bg-red-950/40 p-8 text-center">
+				<AlertCircle className="mx-auto h-12 w-12 text-red-400" />
+				<h2 className="mt-4 text-lg font-semibold text-white">Could not load dashboard</h2>
+				<p className="mt-2 text-sm text-white/70">{message}</p>
+			</div>
+		</div>
+	);
+}
+
+function GroupByParentToggle({
+	enabled,
+	onChange,
+}: {
+	enabled: boolean;
+	onChange: (value: boolean) => void;
+}) {
+	return (
+		<div
+			className="inline-flex rounded-md border border-white/20 p-0.5"
+			role="group"
+			aria-label="Category grouping"
+		>
+			<button
+				type="button"
+				className={`rounded px-3 py-1.5 text-sm transition-colors ${
+					!enabled
+						? 'border-secondary-default bg-secondary-default/20 text-white'
+						: 'text-white/70 hover:text-white'
+				}`}
+				aria-pressed={!enabled}
+				onClick={() => onChange(false)}
+			>
+				By category
+			</button>
+			<button
+				type="button"
+				className={`rounded px-3 py-1.5 text-sm transition-colors ${
+					enabled
+						? 'border-secondary-default bg-secondary-default/20 text-white'
+						: 'text-white/70 hover:text-white'
+				}`}
+				aria-pressed={enabled}
+				onClick={() => onChange(true)}
+			>
+				By parent
+			</button>
+		</div>
+	);
+}
 
 export const Dashboard = () => {
 
@@ -331,20 +421,19 @@ export const Dashboard = () => {
 
 	}, [transactionList])
 
-	// --- Loading and Error States ---
 	const isLoading = transactionsLoading || categoriesLoading;
-	const error = transactionsError; // Combine errors if needed
+	const loadError = transactionsError ?? categoriesError;
 
 	if (isLoading && transactionList.length === 0) {
-		return (
-			<div className="flex items-center justify-center h-64 w-full">
-				<Loader2 className="w-12 h-12 animate-spin text-secondary-default" />
-			</div>
-		);
+		return <DashboardSkeleton />;
 	}
 
-	if (error) {
-		return <div className="p-4 text-red-400">Error loading data: {error}</div>;
+	if (loadError !== null) {
+		return <DashboardErrorState message={loadError} />;
+	}
+
+	if (transactionList.length === 0) {
+		return <DashboardEmptyState />;
 	}
 
     return (
@@ -455,16 +544,10 @@ export const Dashboard = () => {
 		) : null}
 		<div className="flex flex-wrap justify-between items-center gap-4 mb-6">
 			<h2 className="text-2xl font-semibold text-white">Spending & Income Overview</h2>
-			{/* Grouping Toggle */}
-			<div className="flex items-center space-x-2">
-				<input
-					type="checkbox"
-					id="groupByParent"
-					checked={groupByParentCategory}
-					onChange={(e) => setGroupByParentCategory(e.target.checked)}
-					className="form-checkbox h-4 w-4 text-secondary-default bg-gray-800 border-gray-600 rounded focus:ring-secondary-default" />
-				<label htmlFor="groupByParent" className="text-sm text-white/80 cursor-pointer">Group by Parent Category</label>
-			</div>
+			<GroupByParentToggle
+				enabled={groupByParentCategory}
+				onChange={setGroupByParentCategory}
+			/>
 		</div>
 
 		<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -472,6 +555,7 @@ export const Dashboard = () => {
 			<CategoryPieChart
 				data={spendingByCategory}
 				title="Spending by Category"
+				subtitle="Click a slice to see transactions"
 				onSliceClick={(item) => {
 					setSpendingBreakdownGroupKey(item.groupKey);
 				}}
