@@ -1,1 +1,13 @@
 frontend/.env
+
+# Rust
+/target/
+**/target/
+
+# Local ML / CLI data
+*.parquet
+categories.json
+dataset_info.json
+
+# Uploaded PDFs at repo root
+/*.pdf
