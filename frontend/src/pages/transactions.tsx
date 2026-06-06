@@ -1,24 +1,22 @@
-// src/pages/transactions.tsx
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import {
-    getAllTransactions,
+    fetchTransactionsPage,
     type Transaction,
-} from '../store/thunks/transactions.get.all'; // Adjust path if needed
-import { Table, type TColumn } from "@/components/table"; // Import the Table component
-import { cn } from "@/lib/utils/cn"; // Import the cn utility
-import { DateTime } from "luxon"; // Import Luxon for date formatting
-import { AlertTriangle, Loader2, Search, X } from 'lucide-react'; // Import necessary icons
+} from '../store/thunks/transactions.get.all';
+import { Table, type TColumn } from "@/components/table";
+import { cn } from "@/lib/utils/cn";
+import { DateTime } from "luxon";
+import { AlertTriangle, Loader2, Search, X } from 'lucide-react';
 import { createCategory } from '@/store/thunks/category.create.single';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import { getMappings } from '@/store/thunks/mapping.get.all';
-import { useDebounce } from '@/hooks/useDebounce'; // Import the debounce hook
+import { useDebounce } from '@/hooks/useDebounce';
 import { patchTransactionCategory } from '@/store/thunks/transaction.patch.category';
 import { recategorizeUncategorizedTransactions } from '@/store/thunks/transaction.recategorize.uncategorized';
 
-// Helper function for currency formatting (assuming amounts/balances are in cents)
-// You might want to move this to a shared utility file
+const PER_PAGE = 50;
+
 const formatCurrency = (amount: number): string => {
     const absAmount = Math.abs(amount / 100).toFixed(2);
     return `${amount < 0 ? '-' : ''}$${absAmount}`;
@@ -42,55 +40,78 @@ function readThunkRejectMessage(err: unknown): string {
     return 'Failed to create category';
 }
 
-// Type for transaction with potential category ID
 type ProcessedTransaction = Transaction & {
-    matchedCategoryId?: number | null; // Use a distinct name to avoid conflict with potential future 'category_id' from backend
+    matchedCategoryId?: number | null;
 };
 
-
-// Component Definition
 const TransactionsPage = () => {
     const dispatch = useAppDispatch();
 
-    // State for the "uncategorized only" filter
     const [showUncategorizedOnly, setShowUncategorizedOnly] = useState<boolean>(() => {
-        // Initialize state from localStorage or default to false
         return localStorage.getItem('showUncategorizedOnly') === 'true';
     });
-    // State for the search term
     const [searchTerm, setSearchTerm] = useState<string>('');
-    // Debounced search term for filtering
-    const debouncedSearchTerm = useDebounce(searchTerm, 300); // 300ms delay
-    // Select data from the Redux store
-    const { transactions, transactionsLoading, transactionsError } = useAppSelector(
-        (state) => state.TransactionsReducer
-    );
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-    const transactionList = useMemo<Transaction[]>(() => {
-        return Array.isArray(transactions) ? transactions : [];
-    }, [transactions]);
+    const [page, setPage] = useState(1);
+    const [items, setItems] = useState<Transaction[]>([]);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    const transactionsAutoFetchCommittedRef = useRef(false);
+    const fetchGenerationRef = useRef(0);
 
-    // Fetch transactions on mount if needed
+    const reloadPage = useCallback(async (targetPage: number) => {
+        const generation = fetchGenerationRef.current + 1;
+        fetchGenerationRef.current = generation;
+        setLoading(true);
+        setError(null);
+
+        try {
+            const result = await fetchTransactionsPage({
+                page: targetPage,
+                perPage: PER_PAGE,
+                search: debouncedSearchTerm,
+                uncategorizedOnly: showUncategorizedOnly,
+            });
+
+            if (fetchGenerationRef.current !== generation) {
+                return;
+            }
+
+            setItems(result.items);
+            setTotal(result.total);
+            setTotalPages(result.total_pages);
+            setPage(result.page);
+        } catch (err: unknown) {
+            if (fetchGenerationRef.current !== generation) {
+                return;
+            }
+            if (err instanceof Error) {
+                setError(err.message);
+            } else {
+                setError('Failed to fetch transactions');
+            }
+            setItems([]);
+            setTotal(0);
+            setTotalPages(0);
+        } finally {
+            if (fetchGenerationRef.current === generation) {
+                setLoading(false);
+            }
+        }
+    }, [debouncedSearchTerm, showUncategorizedOnly]);
+
     useEffect(() => {
-        if (transactionList.length > 0) {
-            return;
-        }
-        if (transactionsError !== null) {
-            return;
-        }
-        if (transactionsLoading) {
-            return;
-        }
-        if (transactionsAutoFetchCommittedRef.current) {
-            return;
-        }
-        transactionsAutoFetchCommittedRef.current = true;
-        void dispatch(getAllTransactions());
-    }, [dispatch, transactionList.length, transactionsLoading, transactionsError]);
-    
-	const { categories, categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
+        setPage(1);
+    }, [debouncedSearchTerm, showUncategorizedOnly]);
+
+    useEffect(() => {
+        void reloadPage(page);
+    }, [page, reloadPage]);
+
+    const { categories, categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
 
     const categoryList = useMemo<Category[]>(() => {
         return Array.isArray(categories) ? categories : [];
@@ -145,32 +166,33 @@ const TransactionsPage = () => {
                     patchTransactionCategory({ transactionId, categoryId })
                 ).unwrap();
             } catch {
-                void dispatch(getAllTransactions({ force: true }));
+                void reloadPage(page);
             } finally {
                 setBusyCategoryTxId(null);
             }
         },
-        [dispatch]
+        [dispatch, page, reloadPage]
     );
 
     const handleRecategorizeUncategorized = useCallback(async () => {
         setBulkRecategorizeRunning(true);
         try {
             await dispatch(recategorizeUncategorizedTransactions()).unwrap();
+            void reloadPage(page);
         } catch {
-            void dispatch(getAllTransactions({ force: true }));
+            void reloadPage(page);
         } finally {
             setBulkRecategorizeRunning(false);
         }
-    }, [dispatch]);
+    }, [dispatch, page, reloadPage]);
 
     const categoriesAutoFetchCommittedRef = useRef(false);
-    
-	useEffect(() => {
-		void dispatch(getMappings());
-	}, [dispatch]);
 
-	useEffect(() => {
+    useEffect(() => {
+        void dispatch(getMappings());
+    }, [dispatch]);
+
+    useEffect(() => {
         if (categoryList.length > 0) {
             return;
         }
@@ -185,30 +207,27 @@ const TransactionsPage = () => {
         }
         categoriesAutoFetchCommittedRef.current = true;
         void dispatch(getAllCategories());
-	}, [dispatch, categoryList.length, categoriesLoading, categoriesError]);
-    
-    // Effect to save filter state to localStorage whenever it changes
+    }, [dispatch, categoryList.length, categoriesLoading, categoriesError]);
+
     useEffect(() => {
         localStorage.setItem('showUncategorizedOnly', String(showUncategorizedOnly));
     }, [showUncategorizedOnly]);
-	
 
-    // Define columns for the Transaction Table
     const columns: TColumn<ProcessedTransaction>[] = [
         {
             key: "transaction_date",
             label: "Date",
             sortable: true,
-            render: (v) => DateTime.fromISO(v).isValid ? DateTime.fromISO(v).toFormat("DD T") : "Invalid Date", // Format: 25 14:30
+            render: (v) => DateTime.fromISO(v).isValid ? DateTime.fromISO(v).toFormat("DD T") : "Invalid Date",
             sortFunction: (a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis(),
-            cellClassName: "text-xs text-gray-400 whitespace-nowrap", // Example styling
+            cellClassName: "text-xs text-gray-400 whitespace-nowrap",
         },
         {
             key: "description",
             label: "Description",
             sortable: true,
             render: (v) => v,
-            cellClassName: "max-w-xs truncate", // Prevent overly long descriptions
+            cellClassName: "max-w-xs truncate",
         },
         {
             key: "amount",
@@ -216,19 +235,16 @@ const TransactionsPage = () => {
             sortable: true,
             render: (v) => {
                 const isPositive = v >= 0;
-                // Optional: Add icons like in statements profit/loss
                 return (
                     <span className={cn(
                         "flex items-center gap-1 font-mono",
                         isPositive ? "text-green-400" : "text-red-400"
                     )}>
-                        {/* Optionally add icons based on amount sign */}
-                        {/* {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />} */}
                         {formatCurrency(v)}
                     </span>
                 );
             },
-            sortFunction: (a, b) => a - b, // Simple numeric sort
+            sortFunction: (a, b) => a - b,
             cellClassName: "text-right",
             headerClassName: "text-right",
         },
@@ -245,11 +261,11 @@ const TransactionsPage = () => {
             key: "status",
             label: "Status",
             sortable: true,
-            render: (v) => <span className="capitalize text-xs px-2 py-0.5 bg-gray-700 rounded">{v}</span>, // Example status badge
+            render: (v) => <span className="capitalize text-xs px-2 py-0.5 bg-gray-700 rounded">{v}</span>,
             cellClassName: "text-center",
             headerClassName: "text-center",
         },
-		{
+        {
             key: "category_id",
             label: "Category",
             sortable: false,
@@ -292,43 +308,9 @@ const TransactionsPage = () => {
             cellClassName: "text-center",
             headerClassName: "text-center",
         },
-        // Add more columns if needed (e.g., Actions)
     ];
 
-    // Filter transactions based on the state
-    const filteredTransactions = useMemo(() => {
-        let results: Transaction[] = transactionList;
-
-        // Apply "uncategorized only" filter first
-        if (showUncategorizedOnly) {
-            results = results.filter(
-                (tx) => tx.category_id === null || tx.category_id === undefined
-            );
-        }
-
-        // Apply search term filter
-        const lowerCaseSearchTerm = debouncedSearchTerm.toLowerCase();
-        if (lowerCaseSearchTerm) {
-            results = results.filter(tx =>
-                tx.description.toLowerCase().includes(lowerCaseSearchTerm)
-            );
-        }
-        return results.slice().sort((a, b) => {
-            const ma = DateTime.fromISO(a.transaction_date);
-            const mb = DateTime.fromISO(b.transaction_date);
-            const aMs = ma.isValid ? ma.toMillis() : Number.NEGATIVE_INFINITY;
-            const bMs = mb.isValid ? mb.toMillis() : Number.NEGATIVE_INFINITY;
-            if (bMs !== aMs) {
-                return bMs - aMs;
-            }
-            return b.id - a.id;
-        });
-    }, [transactionList, showUncategorizedOnly, debouncedSearchTerm]); // Add debouncedSearchTerm to dependencies
-
-    // --- Render Logic ---
-
-    // Display full-page loader if initially loading transactions OR mappings
-    const initialLoading = (transactionsLoading && transactionList.length === 0) &&  !transactionsError;
+    const initialLoading = loading && items.length === 0 && error === null;
     if (initialLoading) {
         return (
             <div className="flex items-center justify-center h-screen w-full">
@@ -337,27 +319,35 @@ const TransactionsPage = () => {
         );
     }
 
-    // Display error message prominently if an error occurred (show transaction or mapping error)
-    const displayError = transactionsError;
-    if (displayError) {
+    if (error && items.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-screen w-full text-red-400 p-4">
-                 <AlertTriangle size={48} className="mb-4" />
-                 <h2 className="text-xl font-semibold mb-2">Error Loading Data</h2>
-                 <p className="text-center">{displayError}</p>
-                 {/* Optionally add a retry button */}
-                 {/* <button onClick={() => dispatch(getAllTransactions())} className="mt-4 ...">Retry</button> */}
+                <AlertTriangle size={48} className="mb-4" />
+                <h2 className="text-xl font-semibold mb-2">Error Loading Data</h2>
+                <p className="text-center">{error}</p>
+                <button
+                    type="button"
+                    onClick={() => void reloadPage(page)}
+                    className="mt-4 text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600"
+                >
+                    Retry
+                </button>
             </div>
         );
     }
 
-    // Main content with Table
     return (
         <div className="flex flex-col h-screen w-full">
-            {/* Header with Filter */}
             <div className="p-4 border-b border-secondary-default/20 flex flex-wrap justify-between items-center gap-4">
-                <h1 className="text-xl font-semibold text-white">Transactions</h1>
-                {/* Search Bar */}
+                <div className="flex items-center gap-3">
+                    <h1 className="text-xl font-semibold text-white">Transactions</h1>
+                    {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-secondary-default" aria-label="Loading" />
+                    ) : null}
+                    {!loading && total > 0 ? (
+                        <span className="text-sm text-gray-400">{total.toLocaleString()} total</span>
+                    ) : null}
+                </div>
                 <div className="relative flex-grow max-w-xs">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                     <input
@@ -367,11 +357,11 @@ const TransactionsPage = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-8 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded focus:ring-secondary-default focus:border-secondary-default text-white placeholder-gray-400"
                     />
-                    {searchTerm && (
-                        <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white">
+                    {searchTerm ? (
+                        <button type="button" onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white">
                             <X size={16} />
                         </button>
-                    )}
+                    ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                     <button
@@ -453,19 +443,36 @@ const TransactionsPage = () => {
                 </div>
             </div>
 
-            {/* Table container */}
-            <div className="flex-grow overflow-hidden"> {/* Allows table to scroll */}
-                <Table<ProcessedTransaction> // Use ProcessedTransaction type
+            {error ? (
+                <div className="px-4 py-2 text-sm text-red-400 bg-red-950/40 border-b border-red-900/40">
+                    {error}
+                </div>
+            ) : null}
+
+            <div className="flex-grow overflow-hidden">
+                <Table<ProcessedTransaction>
                     columns={columns}
-                    data={filteredTransactions} // Pass the filtered data
+                    data={items}
                     header={{ sticky: true }}
-                    loading={transactionsLoading} // Show table's internal loading indicator during refetches
-                    // Optional: Add row clicking or other features if needed
-                    // onRowClick={(row) => console.log("Clicked row:", row)}
-                    // rowClassName="cursor-pointer hover:bg-white/5"
-                    // Provide a message when data is empty
-                    // emptyStateMessage={!transactionsLoading ? "No transactions found." : "Loading..."}
-                    emptyStateMessage={!transactionsLoading ? (filteredTransactions.length === 0 ? "No matching transactions found." : "No transactions found.") : "Loading..."}                />
+                    loading={loading}
+                    itemsPerPage={PER_PAGE}
+                    serverPagination={{
+                        page,
+                        totalPages: Math.max(totalPages, 1),
+                        totalItems: total,
+                        canPrevious: page > 1,
+                        canNext: page < totalPages,
+                        onPrevious: () => setPage((p) => Math.max(1, p - 1)),
+                        onNext: () => setPage((p) => p + 1),
+                    }}
+                    emptyStateMessage={
+                        loading
+                            ? "Loading..."
+                            : debouncedSearchTerm || showUncategorizedOnly
+                                ? "No matching transactions found."
+                                : "No transactions found."
+                    }
+                />
             </div>
         </div>
     );
