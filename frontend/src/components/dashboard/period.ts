@@ -64,7 +64,7 @@ export function readStoredPeriod(): DashboardPeriod {
 	if (stored !== null && isDashboardPeriod(stored)) {
 		return stored;
 	}
-	return 'all';
+	return 'last-6-months';
 }
 
 export function periodDateRange(period: DashboardPeriod): { start?: string; end?: string } {
