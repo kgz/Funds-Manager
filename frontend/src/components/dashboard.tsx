@@ -13,6 +13,7 @@ import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie';
 import { MonthlyBarGraph } from "@/graphs/bar";
 import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 import { ChartCard } from '@/components/ChartCard';
+import { KpiCards } from '@/components/dashboard/KpiCards';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipProps } from 'recharts';
 import { AlertCircle, FileArchive, X } from "lucide-react";
@@ -61,6 +62,11 @@ function toPieItems(
 function DashboardSkeleton() {
 	return (
 		<div className="p-4 md:p-6 space-y-8 animate-pulse">
+			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+				{Array.from({ length: 4 }, (_, i) => (
+					<div key={i} className="h-24 rounded-xl border border-white/10 bg-white/5" />
+				))}
+			</div>
 			<div className="flex flex-wrap justify-between items-center gap-4">
 				<div className="h-8 w-56 rounded-md bg-white/10" />
 				<div className="h-9 w-44 rounded-md bg-white/10" />
@@ -286,6 +292,22 @@ export const Dashboard = () => {
 		[analytics]
 	);
 
+	const kpiMetrics = useMemo(() => {
+		if (analytics === null) {
+			return null;
+		}
+		const spending = analytics.spendingByCategory.reduce((sum, row) => sum + row.value, 0);
+		const income = analytics.incomeByCategory.reduce((sum, row) => sum + row.value, 0);
+		const series = analytics.balanceSeries;
+		const balance = series.length > 0 ? series[series.length - 1].balance : null;
+		return {
+			balance,
+			spending,
+			income,
+			net: income - spending,
+		};
+	}, [analytics]);
+
 	const spendingBreakdownTitle = useMemo(() => {
 		if (spendingBreakdownGroupKey === null) {
 			return '';
@@ -453,7 +475,11 @@ export const Dashboard = () => {
 				</aside>
 			</>
 		) : null}
-		<div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+		{kpiMetrics !== null ? (
+			<KpiCards metrics={kpiMetrics} formatCurrency={formatCurrencyWithCommas} />
+		) : null}
+
+		<div className="flex flex-wrap justify-between items-center gap-4">
 			<h2 className="text-2xl font-semibold text-white">Spending & Income Overview</h2>
 			<GroupByParentToggle
 				enabled={groupByParentCategory}
