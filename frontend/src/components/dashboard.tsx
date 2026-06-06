@@ -3,9 +3,12 @@ import { getAllCategories, type Category } from "@/store/thunks/category.get.all
 // import { getMappings } from "@/store/thunks/mapping.get.all"; // Only import if used directly here
 import { getAllTransactions, type Transaction } from "@/store/thunks/transactions.get.all";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie'; // Import the new component and type
+import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie';
 import { MonthlyBarGraph } from "@/graphs/bar";
+import { chartTheme, chartTooltipClass } from '@/graphs/theme';
+import { ChartCard } from '@/components/ChartCard';
 import { CartesianGrid, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import type { TooltipProps } from 'recharts';
 import { AlertCircle, FileArchive, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getMappings } from "@/store/thunks/mapping.get.all";
@@ -18,6 +21,22 @@ const formatCurrencyWithCommas = (value: number | null | undefined): string => {
     const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
     return `$${value.toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits: 2 })}`;
 };
+
+function balanceTooltip({ active, payload, label }: TooltipProps<number, string>) {
+	if (!active || payload === undefined || payload.length === 0) {
+		return null;
+	}
+	const value = payload[0]?.value;
+	if (typeof value !== 'number') {
+		return null;
+	}
+	return (
+		<div className={chartTooltipClass}>
+			<p className="font-semibold">{label}</p>
+			<p>{formatCurrencyWithCommas(value)}</p>
+		</div>
+	);
+}
 
 function spendingGroupKeyForTransaction(
 	tx: Transaction,
@@ -551,80 +570,78 @@ export const Dashboard = () => {
 		</div>
 
 		<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-			{/* Spending Pie Chart */}
-			<CategoryPieChart
-				data={spendingByCategory}
+			<ChartCard
 				title="Spending by Category"
 				subtitle="Click a slice to see transactions"
-				onSliceClick={(item) => {
-					setSpendingBreakdownGroupKey(item.groupKey);
-				}}
-			/>
+			>
+				<CategoryPieChart
+					data={spendingByCategory}
+					chartLabel="Spending by Category"
+					onSliceClick={(item) => {
+						setSpendingBreakdownGroupKey(item.groupKey);
+					}}
+				/>
+			</ChartCard>
 
-			{/* Income Pie Chart */}
-				<CategoryPieChart data={incomeByCategory} title="Income by Category" />
-			{/* Monthly Bar Graph - Spanning 2 columns on large screens */}
-			<div className="lg:col-span-2">
-				<MonthlyBarGraph data={monthlySummary} title="Monthly Profit / Loss"/>
-			</div>
-			<div className="lg:col-span-2">
-			<h2 className="text-lg font-semibold mb-2 text-center text-white/90">Balance Over Time</h2>
+			<ChartCard title="Income by Category">
+				<CategoryPieChart data={incomeByCategory} chartLabel="Income by Category" />
+			</ChartCard>
 
-			<ResponsiveContainer width="100%" height={300}>
-				<LineChart data={runningTotalData}>
-					<CartesianGrid strokeDasharray="3 3" />
-					<XAxis dataKey="date" />
-					<YAxis dataKey="val" tickFormatter={formatCurrencyWithCommas} />
-					<Tooltip formatter={(value: number) => formatCurrencyWithCommas(value)} />
-					<Legend wrapperStyle={{ paddingTop: '20px' }}/>
-					<Line type="monotone" dataKey="val" name="Balance" stroke="#82ca9d" dot={false} />
-					<ReferenceLine
-						y={
-							runningTotalData.length === 0
-								? 0
-								: runningTotalData.reduce((sum, d) => sum + d.val, 0) /
-									runningTotalData.length
-						}
-						stroke="#ffc658" // Yellow for Average
-						// strokeDasharray="3 3"
-						label={{ value: "Avg", position: "right", fill: "#ffc658" }}
-						name="Average Balance" // Add name for Legend
-					/>
-					<ReferenceLine
-						y={
-							runningTotalData.length === 0
-								? 0
-								: Math.min(...runningTotalData.map((d) => d.val))
-						}
-						stroke="#f87171" // Red for Min
-						// strokeDasharray="3 3"
-						label={{ value: "Min", position: "right", fill: "#f87171" }}
-						name="Min Balance" // Add name for Legend
-					/>
-					<ReferenceLine
-						y={
-							runningTotalData.length === 0
-								? 0
-								: Math.max(...runningTotalData.map((d) => d.val))
-						}
-						stroke="#4ade80" // Green for Max
-						// strokeDasharray="3 3"
-						label={{ value: "Max", position: "right", fill: "#4ade80" }}
-						name="Max Balance" // Add name for Legend
-					/>
-					{/* <Brush
-						dataKey="date"
-						height={30}
-						stroke="#82ca9d"
-						onChange={(newRange) => {
-							if (newRange && newRange.hasOwnProperty("startIndex") && newRange.hasOwnProperty("endIndex")) {
-								setSelectedRange([newRange.startIndex ?? 0, newRange.endIndex ?? 0]);
+			<ChartCard title="Monthly Profit / Loss" className="lg:col-span-2">
+				<MonthlyBarGraph data={monthlySummary} />
+			</ChartCard>
+
+			<ChartCard title="Balance Over Time" className="lg:col-span-2">
+				<ResponsiveContainer width="100%" height={300}>
+					<LineChart data={runningTotalData}>
+						<CartesianGrid
+							stroke={chartTheme.grid.stroke}
+							strokeDasharray={chartTheme.grid.strokeDasharray}
+						/>
+						<XAxis dataKey="date" stroke={chartTheme.axis.stroke} tick={chartTheme.axis.tick} />
+						<YAxis
+							dataKey="val"
+							stroke={chartTheme.axis.stroke}
+							tick={chartTheme.axis.tick}
+							tickFormatter={formatCurrencyWithCommas}
+						/>
+						<Tooltip content={balanceTooltip} />
+						<Legend wrapperStyle={chartTheme.legend.wrapperStyle} />
+						<Line type="monotone" dataKey="val" name="Balance" stroke="#82ca9d" dot={false} />
+						<ReferenceLine
+							y={
+								runningTotalData.length === 0
+									? 0
+									: runningTotalData.reduce((sum, d) => sum + d.val, 0) /
+										runningTotalData.length
 							}
-						}}
-					/> */}
-				</LineChart>
-			</ResponsiveContainer>
-			</div>
+							stroke="#ffc658"
+							label={{ value: "Avg", position: "right", fill: "#ffc658" }}
+							name="Average Balance"
+						/>
+						<ReferenceLine
+							y={
+								runningTotalData.length === 0
+									? 0
+									: Math.min(...runningTotalData.map((d) => d.val))
+							}
+							stroke="#f87171"
+							label={{ value: "Min", position: "right", fill: "#f87171" }}
+							name="Min Balance"
+						/>
+						<ReferenceLine
+							y={
+								runningTotalData.length === 0
+									? 0
+									: Math.max(...runningTotalData.map((d) => d.val))
+							}
+							stroke="#4ade80"
+							label={{ value: "Max", position: "right", fill: "#4ade80" }}
+							name="Max Balance"
+						/>
+					</LineChart>
+				</ResponsiveContainer>
+			</ChartCard>
 		</div>
       </div>
     );

@@ -1,6 +1,7 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import type { TooltipProps } from 'recharts';
 import { useState } from 'react';
+import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 
 // --- Helper Functions (Consider moving to a shared utils file) ---
 
@@ -48,7 +49,7 @@ const renderCustomTooltip = ({ active, payload }: TooltipProps<number, string>) 
     if (!isPieChartDataItem(nested)) return null;
     const percentValue = nested.percent;
     return (
-        <div className="bg-gray-800/90 text-white p-2 rounded border border-gray-600 text-sm">
+        <div className={chartTooltipClass}>
             <p className="font-semibold">{nested.name}</p>
             <p>{`Amount: ${formatCurrency(nested.value * 100)}`}</p>
             <p>{`Percent: ${Number.isNaN(percentValue) ? 'N/A' : percentValue.toFixed(1) + '%'}`}</p>
@@ -68,19 +69,22 @@ export type PieChartDataItem = {
 
 type CategoryPieChartProps = {
     data: PieChartDataItem[];
-    title: string;
-    subtitle?: string;
+    chartLabel: string;
     dataKey?: string;
     onSliceClick?: (item: PieChartDataItem) => void;
 };
 
 // --- Reusable Pie Chart Component ---
-export const CategoryPieChart = ({ data, title, subtitle, dataKey = "value", onSliceClick }: CategoryPieChartProps) => {
+export const CategoryPieChart = ({ data, chartLabel, dataKey = "value", onSliceClick }: CategoryPieChartProps) => {
     // State to track the name of the hovered slice
     const [hoveredSliceName, setHoveredSliceName] = useState<string | null>(null);
 
     if (data.length === 0) {
-        return <p className="text-center text-white/50 h-[300px] flex items-center justify-center">No data available for {title}.</p>;
+        return (
+            <p className="flex h-[300px] items-center justify-center text-center text-white/50">
+                No data available for {chartLabel}.
+            </p>
+        );
     }
 
     const sliceCursor = onSliceClick !== undefined ? 'pointer' : 'default';
@@ -88,14 +92,7 @@ export const CategoryPieChart = ({ data, title, subtitle, dataKey = "value", onS
     const legendCursor = onSliceClick !== undefined ? 'pointer' : 'default';
 
     return (
-        <div className="p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-white/90 text-center">{title}</h3>
-            {subtitle !== undefined && subtitle.length > 0 ? (
-                <p className="mt-1 mb-4 text-center text-xs text-white/50">{subtitle}</p>
-            ) : (
-                <div className="mb-4" />
-            )}
-            <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                     <Pie
                         data={data}
@@ -123,7 +120,7 @@ export const CategoryPieChart = ({ data, title, subtitle, dataKey = "value", onS
                             const isHovered = hoveredSliceName === entry.name;
                             return (
                                 <Cell
-                                    key={`cell-${title.replace(/\s+/g, '-')}-${index}`}
+                                    key={`cell-${chartLabel.replace(/\s+/g, '-')}-${index}`}
                                     fill={entry.color}
                                     fillOpacity={hoveredSliceName === null || isHovered ? 1 : 0.35}
                                     stroke={isHovered ? 'rgba(255,255,255,0.85)' : 'transparent'}
@@ -138,7 +135,7 @@ export const CategoryPieChart = ({ data, title, subtitle, dataKey = "value", onS
                         })}
                     </Pie>
                     <Tooltip content={renderCustomTooltip} />
-                    <Legend layout="vertical" align="right" verticalAlign="middle" iconSize={10} wrapperStyle={{ fontSize: '12px', cursor: legendCursor }} onMouseEnter={(e) => setHoveredSliceName(e.value)} onMouseLeave={() => setHoveredSliceName(null)} onClick={(legendItem) => {
+                    <Legend layout="vertical" align="right" verticalAlign="middle" iconSize={10} wrapperStyle={{ ...chartTheme.legend.wrapperStyle, cursor: legendCursor }} onMouseEnter={(e) => setHoveredSliceName(e.value)} onMouseLeave={() => setHoveredSliceName(null)} onClick={(legendItem) => {
                         const item = datumFromLegendItem(legendItem, data);
                         if (item !== undefined) {
                             onSliceClick?.(item);
@@ -149,6 +146,5 @@ export const CategoryPieChart = ({ data, title, subtitle, dataKey = "value", onS
                     }}/>
                 </PieChart>
             </ResponsiveContainer>
-        </div>
     );
 };
