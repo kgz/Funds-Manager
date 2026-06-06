@@ -1,7 +1,6 @@
 import { Table, type TColumn } from "@/components/table";
 import { useAppDispatch, useAppSelector } from "@/store/store";
 import { getAllStatements } from "@/store/thunks/statements.get.all";
-import { getAllTransactions } from "@/store/thunks/transactions.get.all";
 // Import necessary icons
 import { AlertTriangle, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud } from "lucide-react"; // Added AlertTriangle
 import { useEffect, useState, ChangeEvent, DragEvent, useMemo } from "react"; // Added useMemo
@@ -147,7 +146,6 @@ export const Statements = () => {
 
 			console.log("Upload successful:", await response.json());
 			void dispatch(getAllStatements());
-			void dispatch(getAllTransactions({ force: true }));
 			// Clear any previous upload error on success
 			setUploadError(null);
 
@@ -213,7 +211,6 @@ export const Statements = () => {
 			}
 			console.log(`Statement ${statementId} deleted successfully.`);
 			void dispatch(getAllStatements());
-			void dispatch(getAllTransactions({ force: true }));
 		} catch (error) {
 			console.error("Delete error:", error);
 			alert(`Failed to delete statement: ${error instanceof Error ? error.message : 'Unknown error'}`);

@@ -1,13 +1,11 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
-import { getAllTransactions } from '@/store/thunks/transactions.get.all';
-import { contrastTextColor } from '@/lib/contrastTextColor';
 import {
-	detectRecurringExpenses,
-	detectRecurringIncome,
-	type RecurringCandidate,
-} from '@/lib/recurringExpenseDetection';
+	fetchRecurringAnalytics,
+	type RecurringCandidateRow,
+} from '@/store/thunks/analytics';
+import { contrastTextColor } from '@/lib/contrastTextColor';
 import {
 	Table,
 	type SortDirection,
@@ -19,10 +17,10 @@ import { ChevronDown, ChevronRight, Loader2, Repeat } from 'lucide-react';
 const formatMoney = (n: number) =>
 	`$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const mainAmountClass = (flow: RecurringCandidate['flow']) =>
+const mainAmountClass = (flow: RecurringCandidateRow['flow']) =>
 	flow === 'income' ? 'text-green-400' : 'text-red-300';
 
-const rangeAmountClass = (flow: RecurringCandidate['flow']) =>
+const rangeAmountClass = (flow: RecurringCandidateRow['flow']) =>
 	flow === 'income' ? 'text-green-400/90' : 'text-red-300/90';
 
 type RecurringSection = {
@@ -30,16 +28,16 @@ type RecurringSection = {
 	categoryId: number | null;
 	label: string;
 	colour: string | undefined;
-	rows: RecurringCandidate[];
+	rows: RecurringCandidateRow[];
 	spendingMonthly: number;
 	incomeMonthly: number;
 };
 
 function buildRecurringSections(
-	rows: RecurringCandidate[],
+	rows: RecurringCandidateRow[],
 	categoryList: Category[]
 ): RecurringSection[] {
-	const byKey = new Map<string, RecurringCandidate[]>();
+	const byKey = new Map<string, RecurringCandidateRow[]>();
 	for (const r of rows) {
 		const k =
 			r.modeCategoryId === null || r.modeCategoryId === undefined
@@ -237,7 +235,7 @@ function sortSectionsList(
 }
 
 function patternSortKeyFromColumnKey(
-	k: keyof RecurringCandidate
+	k: keyof RecurringCandidateRow
 ): PatternSortKey | null {
 	switch (k) {
 		case 'labelSample':
@@ -256,11 +254,11 @@ function patternSortKeyFromColumnKey(
 }
 
 function sortPatterns(
-	bucket: RecurringCandidate[],
+	bucket: RecurringCandidateRow[],
 	key: PatternSortKey,
 	dir: SortDir,
 	categoryList: Category[]
-): RecurringCandidate[] {
+): RecurringCandidateRow[] {
 	const out = [...bucket];
 	const mult = dir === 'asc' ? 1 : -1;
 	const catName = (id: number | null) => {
@@ -316,17 +314,17 @@ const DEFAULT_PATTERN_SORT: { key: PatternSortKey; dir: SortDir } = {
 
 const RecurringExpensesPage = () => {
 	const dispatch = useAppDispatch();
-	const { transactions, transactionsLoading, transactionsError } =
-		useAppSelector((s) => s.TransactionsReducer);
 	const { categories, categoriesLoading, categoriesError } = useAppSelector(
 		(s) => s.CategoryReducer
 	);
-	const list = Array.isArray(transactions) ? transactions : [];
 	const categoryList = useMemo<Category[]>(() => {
 		return Array.isArray(categories) ? categories : [];
 	}, [categories]);
 
 	const [minOccurrences, setMinOccurrences] = useState(3);
+	const [apiRows, setApiRows] = useState<RecurringCandidateRow[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 	const [groupByCategory, setGroupByCategory] = useState<boolean>(() => {
 		if (typeof window === 'undefined') {
 			return false;
@@ -349,21 +347,21 @@ const RecurringExpensesPage = () => {
 		Record<string, { key: PatternSortKey; dir: SortDir }>
 	>({});
 	const [detailSort, setDetailSort] = useState<{
-		key: keyof RecurringCandidate;
+		key: keyof RecurringCandidateRow;
 		direction: SortDirection;
 	}>({ key: 'confidence', direction: 'desc' });
 
-	const fetchOnceRef = useRef(false);
 	useEffect(() => {
-		if (list.length > 0 || transactionsError || transactionsLoading) {
-			return;
-		}
-		if (fetchOnceRef.current) {
-			return;
-		}
-		fetchOnceRef.current = true;
-		void dispatch(getAllTransactions());
-	}, [dispatch, list.length, transactionsError, transactionsLoading]);
+		setLoading(true);
+		setError(null);
+		void fetchRecurringAnalytics(minOccurrences)
+			.then((rows) => setApiRows(rows))
+			.catch((err: unknown) => {
+				setApiRows([]);
+				setError(err instanceof Error ? err.message : 'Failed to load recurring patterns');
+			})
+			.finally(() => setLoading(false));
+	}, [minOccurrences]);
 
 	const categoriesFetchRef = useRef(false);
 	useEffect(() => {
@@ -378,21 +376,21 @@ const RecurringExpensesPage = () => {
 	}, [dispatch, categoryList.length, categoriesError, categoriesLoading]);
 
 	const expenseRows = useMemo(
-		() => detectRecurringExpenses(list, minOccurrences),
-		[list, minOccurrences]
+		() => apiRows.filter((r) => r.flow === 'expense'),
+		[apiRows]
 	);
 	const incomeRows = useMemo(
-		() => detectRecurringIncome(list, minOccurrences),
-		[list, minOccurrences]
+		() => apiRows.filter((r) => r.flow === 'income'),
+		[apiRows]
 	);
 	const rows = useMemo(() => {
-		const merged = [...expenseRows, ...incomeRows];
+		const merged = [...apiRows];
 		merged.sort((a, b) => b.confidence - a.confidence);
 		return merged;
-	}, [expenseRows, incomeRows]);
+	}, [apiRows]);
 
 	const handleDetailSortChange = (
-		sortKey: keyof RecurringCandidate | null,
+		sortKey: keyof RecurringCandidateRow | null,
 		direction: SortDirection
 	) => {
 		if (sortKey === null) {
@@ -522,7 +520,7 @@ const RecurringExpensesPage = () => {
 		};
 	}, [incomeRows]);
 
-	const detailColumns: TColumn<RecurringCandidate>[] = useMemo(
+	const detailColumns: TColumn<RecurringCandidateRow>[] = useMemo(
 		() => [
 			{
 				key: 'labelSample',
@@ -855,8 +853,7 @@ const RecurringExpensesPage = () => {
 		[categoryList]
 	);
 
-	const initialLoading =
-		transactionsLoading && list.length === 0 && !transactionsError;
+	const initialLoading = loading && apiRows.length === 0 && !error;
 
 	if (initialLoading) {
 		return (
@@ -866,16 +863,16 @@ const RecurringExpensesPage = () => {
 		);
 	}
 
-	if (transactionsError) {
+	if (error) {
 		return (
-			<div className="p-6 text-red-400">Error: {transactionsError}</div>
+			<div className="p-6 text-red-400">Error: {error}</div>
 		);
 	}
 
 	const tableEmpty =
 		groupByCategory
-			? sections.length === 0 && !transactionsLoading
-			: rows.length === 0 && !transactionsLoading;
+			? sections.length === 0 && !loading
+			: rows.length === 0 && !loading;
 
 	return (
 		<div className="flex flex-col h-screen w-full p-4">
@@ -1029,7 +1026,7 @@ const RecurringExpensesPage = () => {
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-white/10">
-									{transactionsLoading && sortedSections.length === 0
+									{loading && sortedSections.length === 0
 										? Array.from({ length: 8 }).map((_, rowIndex) => (
 												<tr key={`skel-${String(rowIndex)}`} className="animate-pulse">
 													<td className="px-4 py-3">
@@ -1046,7 +1043,7 @@ const RecurringExpensesPage = () => {
 												</tr>
 											))
 										: null}
-									{!transactionsLoading && sortedSections.length === 0 ? (
+									{!loading && sortedSections.length === 0 ? (
 										<tr>
 											<td
 												colSpan={1 + categoryColumns.length}
@@ -1189,12 +1186,12 @@ const RecurringExpensesPage = () => {
 						</div>
 					</div>
 				) : (
-					<Table<RecurringCandidate>
+					<Table<RecurringCandidateRow>
 						columns={detailColumns}
 						data={sortedDetailRows}
 						rowKey="rowId"
 						header={{ sticky: true }}
-						loading={transactionsLoading}
+						loading={loading}
 						sortState={{
 							key: detailSort.key,
 							direction: detailSort.direction,
