@@ -1,7 +1,13 @@
 import { useAppDispatch, useAppSelector } from "@/store/store";
-import { getAllCategories, type Category } from "@/store/thunks/category.get.all";
-// import { getMappings } from "@/store/thunks/mapping.get.all"; // Only import if used directly here
-import { getAllTransactions, type Transaction } from "@/store/thunks/transactions.get.all";
+import { getAllCategories } from "@/store/thunks/category.get.all";
+import {
+	fetchDashboardAnalytics,
+	fetchSpendingDrilldown,
+	fetchSpendingDrilldownByName,
+	type DashboardAnalytics,
+	type SpendingNameRow,
+} from "@/store/thunks/analytics";
+import type { Transaction } from "@/types/transaction";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie';
 import { MonthlyBarGraph } from "@/graphs/bar";
@@ -38,27 +44,18 @@ function balanceTooltip({ active, payload, label }: TooltipProps<number, string>
 	);
 }
 
-function spendingGroupKeyForTransaction(
-	tx: Transaction,
-	categoryList: Category[],
-	groupByParentCategory: boolean
-): string {
-	const categoryForGrouping = categoryList.find(
-		(cat) => String(cat.id) === String(tx.category_id)
-	);
-
-	if (groupByParentCategory && categoryForGrouping?.parent_category_id) {
-		const parentCategory = categoryList.find(
-			(cat) =>
-				String(cat.id) === String(categoryForGrouping.parent_category_id)
-		);
-		if (parentCategory) {
-			return String(parentCategory.id);
-		}
-		return 'unknown';
-	}
-
-	return String(tx.category_id ?? 'unknown');
+function toPieItems(
+	rows: DashboardAnalytics['spendingByCategory'],
+	fallbackColor: string
+): PieChartDataItem[] {
+	return rows.map((row) => ({
+		name: row.name,
+		value: row.value,
+		color: row.colour ?? fallbackColor,
+		percent: row.percent,
+		categoryId: row.categoryId,
+		groupKey: row.groupKey,
+	}));
 }
 
 function DashboardSkeleton() {
@@ -154,46 +151,36 @@ function GroupByParentToggle({
 export const Dashboard = () => {
 
 	 const dispatch = useAppDispatch();
-	
-		// Select data from the Redux store
-		const { transactions, transactionsLoading, transactionsError } = useAppSelector(
-			(state) => state.TransactionsReducer
-		);
-	
-		const { categories, categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
+		const { categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
 
-		const transactionList = useMemo<Transaction[]>(() => {
-			return Array.isArray(transactions) ? transactions : [];
-		}, [transactions]);
-
-		const categoryList = useMemo<Category[]>(() => {
-			return Array.isArray(categories) ? categories : [];
-		}, [categories]);
-
-		// State to control grouping
 		const [groupByParentCategory, setGroupByParentCategory] = useState<boolean>(() => {
-			// Initialize state from localStorage or default to false
 			return localStorage.getItem('groupByParentCategory') === 'true';
 		});
 
+		const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+		const [analyticsLoading, setAnalyticsLoading] = useState(true);
+		const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+
 		const [spendingBreakdownGroupKey, setSpendingBreakdownGroupKey] = useState<string | null>(null);
 		const [breakdownGroupByName, setBreakdownGroupByName] = useState(false);
+		const [drilldownRows, setDrilldownRows] = useState<Transaction[]>([]);
+		const [drilldownByNameRows, setDrilldownByNameRows] = useState<SpendingNameRow[]>([]);
+		const [drilldownTotal, setDrilldownTotal] = useState(0);
+		const [drilldownPage, setDrilldownPage] = useState(1);
+		const [drilldownTotalPages, setDrilldownTotalPages] = useState(0);
+		const [drilldownLoading, setDrilldownLoading] = useState(false);
+
+		const DRILLDOWN_PER_PAGE = 50;
 
 		const categoriesAutoFetchCommittedRef = useRef(false);
-		const transactionsAutoFetchCommittedRef = useRef(false);
+		const analyticsGenRef = useRef(0);
 	
 		useEffect(() => {
 			void dispatch(getMappings());
 		}, [dispatch]);
 
 		useEffect(() => {
-			if (categoryList.length > 0) {
-				return;
-			}
-			if (categoriesError !== null) {
-				return;
-			}
-			if (categoriesLoading) {
+			if (categoriesLoading || categoriesError !== null) {
 				return;
 			}
 			if (categoriesAutoFetchCommittedRef.current) {
@@ -201,133 +188,103 @@ export const Dashboard = () => {
 			}
 			categoriesAutoFetchCommittedRef.current = true;
 			void dispatch(getAllCategories());
-		}, [
-			dispatch,
-			categoryList.length,
-			categoriesLoading,
-			categoriesError,
-		]);
+		}, [dispatch, categoriesLoading, categoriesError]);
 
-		useEffect(() => {
-			if (transactionList.length > 0) {
-				return;
-			}
-			if (transactionsError !== null) {
-				return;
-			}
-			if (transactionsLoading) {
-				return;
-			}
-			if (transactionsAutoFetchCommittedRef.current) {
-				return;
-			}
-			transactionsAutoFetchCommittedRef.current = true;
-			void dispatch(getAllTransactions());
-		}, [
-			dispatch,
-			transactionList.length,
-			transactionsLoading,
-			transactionsError,
-		]);
-
-		// Effect to save grouping state to localStorage whenever it changes
 		useEffect(() => {
 			localStorage.setItem('groupByParentCategory', String(groupByParentCategory));
 		}, [groupByParentCategory]);
 
 		useEffect(() => {
+			const gen = analyticsGenRef.current + 1;
+			analyticsGenRef.current = gen;
+			setAnalyticsLoading(true);
+			setAnalyticsError(null);
+			void fetchDashboardAnalytics(groupByParentCategory)
+				.then((data) => {
+					if (analyticsGenRef.current !== gen) {
+						return;
+					}
+					setAnalytics(data);
+				})
+				.catch((err: unknown) => {
+					if (analyticsGenRef.current !== gen) {
+						return;
+					}
+					setAnalyticsError(err instanceof Error ? err.message : 'Failed to load dashboard');
+					setAnalytics(null);
+				})
+				.finally(() => {
+					if (analyticsGenRef.current === gen) {
+						setAnalyticsLoading(false);
+					}
+				});
+		}, [groupByParentCategory]);
+
+		useEffect(() => {
+			setDrilldownPage(1);
+		}, [spendingBreakdownGroupKey, groupByParentCategory, breakdownGroupByName]);
+
+		useEffect(() => {
 			if (spendingBreakdownGroupKey === null) {
 				setBreakdownGroupByName(false);
+				setDrilldownRows([]);
+				setDrilldownByNameRows([]);
+				setDrilldownTotal(0);
+				setDrilldownTotalPages(0);
+				return;
 			}
-		}, [spendingBreakdownGroupKey]);
-
-	// --- Data Processing for Charts ---
-	const { spendingByCategory, incomeByCategory } = useMemo(() => {
-
-		const spending: Record<string, PieChartDataItem> = {};
-		const income: Record<string, PieChartDataItem> = {};
-		transactionList.forEach((tx) => {
-			let groupCategoryId: string | number | null = tx.category_id ?? 'unknown';
-			const categoryForGrouping: Category | undefined | null = categoryList.find(cat => String(cat.id) === String(tx.category_id));
-			let categoryName: string;
-
-			if (groupByParentCategory && categoryForGrouping?.parent_category_id) {
-				// Find the parent category
-				const parentCategory = categoryList.find(cat => String(cat.id) === String(categoryForGrouping?.parent_category_id));
-				if (parentCategory) {
-					groupCategoryId = parentCategory.id;
-					categoryName = parentCategory.name;
-				} else { // Parent not found, treat as unknown or keep original? Let's treat as unknown for now.
-					groupCategoryId = 'unknown';
-					categoryName = 'Unknown';
-				}
-			} else {
-				categoryName = categoryForGrouping?.name ?? 'Unknown';
+			setDrilldownLoading(true);
+			if (breakdownGroupByName) {
+				void fetchSpendingDrilldownByName({
+					groupKey: spendingBreakdownGroupKey,
+					groupByParent: groupByParentCategory,
+				})
+					.then((rows) => {
+						setDrilldownByNameRows(rows);
+						setDrilldownRows([]);
+						setDrilldownTotal(rows.reduce((sum, row) => sum + row.count, 0));
+						setDrilldownTotalPages(0);
+					})
+					.finally(() => setDrilldownLoading(false));
+				return;
 			}
-			const amount = tx.amount / 100; // Convert cents to dollars
-			const category = categoryList.find(x=>Number(x.id) === groupCategoryId);
-			// Assign color consistently
-			// Consider a more robust fallback mechanism if needed (like the previous FALLBACK_COLORS array)
-			const color =
-				category?.colour ??
-				(groupCategoryId === 'unknown' ? '#6c757d' : '#8884d8'); // Grey for unknown, default purple otherwise
-
-			const key = spendingGroupKeyForTransaction(tx, categoryList, groupByParentCategory);
-
-			if (amount < 0) {
-				const absAmount = Math.abs(amount);
-				if (!spending[key]) {
-					spending[key] = {
-						name: categoryName,
-						value: 0,
-						color: color,
-						categoryId: groupCategoryId === 'unknown' ? null : groupCategoryId,
-						percent: 0,
-						groupKey: key,
-					};
-				}
-				spending[key].value += absAmount;
-			} else if (amount > 0) {
-				if (!income[key]) {
-					income[key] = {
-						name: categoryName,
-						value: 0,
-						color: color,
-						categoryId: groupCategoryId === 'unknown' ? null : groupCategoryId,
-						percent: 0,
-						groupKey: key,
-					};
-				}
-				income[key].value += amount;
-			}
-		});
-
-		// Calculate total spending for percentage calculation
-		const totalSpending = Object.values(spending).reduce((sum, item) => sum + item.value, 0);
-		// Calculate total income for percentage calculation
-		const totalIncome = Object.values(income).reduce((sum, item) => sum + item.value, 0);
-
-		// Convert to array format for Recharts, rounding values
-		const spendingData: PieChartDataItem[] = Object.values(spending)
-			.map((item) => {
-				const value = parseFloat(item.value.toFixed(2));
-				const percent =
-					totalSpending > 0
-						? parseFloat(((item.value / totalSpending) * 100).toFixed(1))
-						: 0;
-				return { ...item, value, percent };
+			void fetchSpendingDrilldown({
+				groupKey: spendingBreakdownGroupKey,
+				groupByParent: groupByParentCategory,
+				page: drilldownPage,
+				perPage: DRILLDOWN_PER_PAGE,
 			})
-			.sort((a, b) => b.value - a.value);
+				.then((page) => {
+					setDrilldownRows(page.items);
+					setDrilldownByNameRows([]);
+					setDrilldownTotal(page.total);
+					setDrilldownTotalPages(page.totalPages);
+				})
+				.finally(() => setDrilldownLoading(false));
+		}, [
+			spendingBreakdownGroupKey,
+			groupByParentCategory,
+			breakdownGroupByName,
+			drilldownPage,
+		]);
 
-		const incomeData: PieChartDataItem[] = Object.values(income).map(item => {
-			const value = parseFloat(item.value.toFixed(2));
-			const percent = totalIncome > 0 ? parseFloat(((item.value / totalIncome) * 100).toFixed(1)) : 0;
-			return { ...item, value, percent }; // Add percent property
-		});
-
-		return { spendingByCategory: spendingData, incomeByCategory: incomeData };
-
-	}, [transactionList, categoryList, groupByParentCategory]); // Add groupByParentCategory dependency
+	const spendingByCategory = useMemo(
+		() => toPieItems(analytics?.spendingByCategory ?? [], '#8884d8'),
+		[analytics]
+	);
+	const incomeByCategory = useMemo(
+		() => toPieItems(analytics?.incomeByCategory ?? [], '#82ca9d'),
+		[analytics]
+	);
+	const monthlySummary = analytics?.monthlySummary ?? [];
+	const runningTotalData = useMemo(
+		() =>
+			(analytics?.balanceSeries ?? []).map((point) => ({
+				date: new Date(point.date).toLocaleDateString('en-AU'),
+				val: point.balance,
+			})),
+		[analytics]
+	);
 
 	const spendingBreakdownTitle = useMemo(() => {
 		if (spendingBreakdownGroupKey === null) {
@@ -337,113 +294,17 @@ export const Dashboard = () => {
 		return row?.name ?? 'Category';
 	}, [spendingByCategory, spendingBreakdownGroupKey]);
 
-	const spendingBreakdownRows = useMemo(() => {
-		if (spendingBreakdownGroupKey === null) {
-			return [];
-		}
-		return transactionList
-			.filter((tx) => tx.amount < 0)
-			.filter(
-				(tx) =>
-					spendingGroupKeyForTransaction(tx, categoryList, groupByParentCategory) ===
-					spendingBreakdownGroupKey
-			)
-			.sort((a, b) => b.transaction_date.localeCompare(a.transaction_date));
-	}, [
-		transactionList,
-		categoryList,
-		groupByParentCategory,
-		spendingBreakdownGroupKey,
-	]);
+	const spendingBreakdownRows = drilldownRows;
 
 	const spendingBreakdownTotal = useMemo(() => {
-		const sum =
-			spendingBreakdownRows.reduce((s, tx) => s + Math.abs(tx.amount), 0) / 100;
-		return parseFloat(sum.toFixed(2));
-	}, [spendingBreakdownRows]);
+		const row = spendingByCategory.find((d) => d.groupKey === spendingBreakdownGroupKey);
+		return row?.value ?? 0;
+	}, [spendingByCategory, spendingBreakdownGroupKey]);
 
-	type SpendingBreakdownNameRow = {
-		name: string;
-		totalDollars: number;
-		count: number;
-	};
+	const isLoading = analyticsLoading || categoriesLoading;
+	const loadError = analyticsError ?? categoriesError;
 
-	const spendingBreakdownGroupedByName = useMemo((): SpendingBreakdownNameRow[] => {
-		const map = new Map<string, Transaction[]>();
-		for (const tx of spendingBreakdownRows) {
-			const name = tx.description.trim().length > 0 ? tx.description.trim() : '(no description)';
-			const arr = map.get(name) ?? [];
-			arr.push(tx);
-			map.set(name, arr);
-		}
-		const rows: SpendingBreakdownNameRow[] = [];
-		for (const [name, txs] of map) {
-			const totalDollars = parseFloat(
-				(txs.reduce((s, t) => s + Math.abs(t.amount), 0) / 100).toFixed(2)
-			);
-			rows.push({ name, totalDollars, count: txs.length });
-		}
-		rows.sort((a, b) => b.totalDollars - a.totalDollars);
-		return rows;
-	}, [spendingBreakdownRows]);
-
-	const monthlySummary = useMemo(() => {
-		const summary: Record<
-			string,
-			{ spending: number; receiving: number; label: string }
-		> = {};
-
-		transactionList.forEach((tx) => {
-			const date = new Date(tx.transaction_date);
-			const sortKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-			const label = date.toLocaleString("en-US", {
-				year: "numeric",
-				month: "short",
-			});
-			const amount = tx.amount / 100;
-
-			if (!summary[sortKey]) {
-				summary[sortKey] = { spending: 0, receiving: 0, label };
-			}
-
-			if (amount < 0) {
-				summary[sortKey].spending += Math.abs(amount);
-			} else {
-				summary[sortKey].receiving += amount;
-			}
-		});
-
-		return Object.entries(summary)
-			.sort(([a], [b]) => a.localeCompare(b))
-			.map(([, values]) => ({
-				month: values.label,
-				spending: values.spending,
-				receiving: values.receiving,
-			}));
-	}, [transactionList]);
-
-	const runningTotalData = useMemo(()=>{
-		const sorted = [...transactionList].sort(
-			(a, b) =>
-				new Date(a.transaction_date).getTime() -
-				new Date(b.transaction_date).getTime()
-		);
-		const data = sorted.map((x)=>{
-			return {
-				date: new Date(x.transaction_date).toLocaleDateString("en-AU"),
-				val: x.balance/100 // Using the balance property directly
-			}
-		})
-
-		return data
-
-
-	}, [transactionList])
-
-	const isLoading = transactionsLoading || categoriesLoading;
-	const loadError = transactionsError ?? categoriesError;
-
-	if (isLoading && transactionList.length === 0) {
+	if (isLoading && analytics === null) {
 		return <DashboardSkeleton />;
 	}
 
@@ -451,7 +312,7 @@ export const Dashboard = () => {
 		return <DashboardErrorState message={loadError} />;
 	}
 
-	if (transactionList.length === 0) {
+	if (analytics === null || (spendingByCategory.length === 0 && incomeByCategory.length === 0 && monthlySummary.length === 0)) {
 		return <DashboardEmptyState />;
 	}
 
@@ -480,8 +341,8 @@ export const Dashboard = () => {
 									{formatCurrencyWithCommas(-spendingBreakdownTotal)}
 								</span>
 								{' · '}
-								{spendingBreakdownRows.length}{' '}
-								{spendingBreakdownRows.length === 1 ? 'transaction' : 'transactions'}
+								{drilldownTotal}{' '}
+								{drilldownTotal === 1 ? 'transaction' : 'transactions'}
 							</p>
 						</div>
 						<button
@@ -512,11 +373,14 @@ export const Dashboard = () => {
 						</button>
 					</div>
 					<div className="min-h-0 flex-1 overflow-y-auto p-4">
-						{spendingBreakdownRows.length === 0 ? (
-							<p className="text-center text-sm text-white/50">No spending transactions in this group.</p>
+						{drilldownLoading ? (
+							<p className="text-center text-sm text-white/50">Loading transactions…</p>
 						) : breakdownGroupByName ? (
+							drilldownByNameRows.length === 0 ? (
+								<p className="text-center text-sm text-white/50">No spending transactions in this group.</p>
+							) : (
 							<ul className="space-y-2">
-								{spendingBreakdownGroupedByName.map((row) => (
+								{drilldownByNameRows.map((row) => (
 									<li
 										key={row.name}
 										className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
@@ -533,6 +397,9 @@ export const Dashboard = () => {
 									</li>
 								))}
 							</ul>
+							)
+						) : spendingBreakdownRows.length === 0 ? (
+							<p className="text-center text-sm text-white/50">No spending transactions in this group.</p>
 						) : (
 							<ul className="space-y-2">
 								{spendingBreakdownRows.map((tx) => {
@@ -557,6 +424,31 @@ export const Dashboard = () => {
 								})}
 							</ul>
 						)}
+						{!breakdownGroupByName && drilldownTotalPages > 1 ? (
+							<div className="mt-4 flex items-center justify-between gap-2 border-t border-white/10 pt-4">
+								<button
+									type="button"
+									className="rounded-md border border-white/20 px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 disabled:opacity-40"
+									disabled={drilldownPage <= 1 || drilldownLoading}
+									onClick={() => setDrilldownPage((p) => Math.max(1, p - 1))}
+								>
+									Previous
+								</button>
+								<span className="text-xs text-white/50">
+									Page {drilldownPage} of {drilldownTotalPages}
+								</span>
+								<button
+									type="button"
+									className="rounded-md border border-white/20 px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 disabled:opacity-40"
+									disabled={drilldownPage >= drilldownTotalPages || drilldownLoading}
+									onClick={() =>
+										setDrilldownPage((p) => Math.min(drilldownTotalPages, p + 1))
+									}
+								>
+									Next
+								</button>
+							</div>
+						) : null}
 					</div>
 				</aside>
 			</>

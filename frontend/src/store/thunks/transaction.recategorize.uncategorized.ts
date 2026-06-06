@@ -1,6 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { getAllTransactions } from "./transactions.get.all";
 
 export type RecategorizeResponse = {
 	updated: number;
@@ -8,15 +7,11 @@ export type RecategorizeResponse = {
 
 export const recategorizeUncategorizedTransactions = createAsyncThunk(
 	"transactions/recategorizeUncategorized",
-	async (_, { rejectWithValue, dispatch }) => {
+	async (_, { rejectWithValue }) => {
 		try {
 			const response = await axios.post<RecategorizeResponse>(
 				"/api/transactions/recategorize-uncategorized"
 			);
-			const refreshed = await dispatch(getAllTransactions({ force: true }));
-			if (getAllTransactions.rejected.match(refreshed)) {
-				return rejectWithValue("Recategorized but failed to refresh list");
-			}
 			return response.data;
 		} catch (error) {
 			if (axios.isAxiosError(error)) {

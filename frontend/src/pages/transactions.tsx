@@ -40,10 +40,6 @@ function readThunkRejectMessage(err: unknown): string {
     return 'Failed to create category';
 }
 
-type ProcessedTransaction = Transaction & {
-    matchedCategoryId?: number | null;
-};
-
 const TransactionsPage = () => {
     const dispatch = useAppDispatch();
 
@@ -213,7 +209,7 @@ const TransactionsPage = () => {
         localStorage.setItem('showUncategorizedOnly', String(showUncategorizedOnly));
     }, [showUncategorizedOnly]);
 
-    const columns: TColumn<ProcessedTransaction>[] = [
+    const columns: TColumn<Transaction>[] = [
         {
             key: "transaction_date",
             label: "Date",
@@ -450,7 +446,7 @@ const TransactionsPage = () => {
             ) : null}
 
             <div className="flex-grow overflow-hidden">
-                <Table<ProcessedTransaction>
+                <Table<Transaction>
                     columns={columns}
                     data={items}
                     header={{ sticky: true }}
