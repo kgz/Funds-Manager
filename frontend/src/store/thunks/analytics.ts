@@ -72,13 +72,25 @@ export type PaginatedTransactionsResponse = {
 	totalPages: number;
 };
 
+export type DashboardDateRange = {
+	start?: string;
+	end?: string;
+};
+
 export async function fetchDashboardAnalytics(
 	groupByParent: boolean,
+	dateRange?: DashboardDateRange,
 	signal?: AbortSignal
 ): Promise<DashboardAnalytics> {
 	const params = new URLSearchParams();
 	if (groupByParent) {
 		params.set('group_by_parent', 'true');
+	}
+	if (dateRange?.start !== undefined) {
+		params.set('start', dateRange.start);
+	}
+	if (dateRange?.end !== undefined) {
+		params.set('end', dateRange.end);
 	}
 	const response = await axios.get(`/api/analytics/dashboard?${params.toString()}`, {
 		signal,
