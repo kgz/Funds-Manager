@@ -1,12 +1,43 @@
 schema: spec-driven
 
 context: |
-  Personal finance app (my_funds).
+  # Funds Manager — OpenSpec project context
 
-  Stack:
-  - Backend: Rust (Actix Web) in app/ (server_v2), MySQL via Diesel in database/
-  - Frontend: React 19 + TypeScript + Vite in frontend/
-  - Crates: statement-parser (PDF bank statements), statement-parser-cli, category-predict-cli (tktax)
+  ## Repository
+  - GitHub: `kgz/Funds-Manager`
+  - Default branch: `main`
+  - Submodules: `app/` (Rust API), `database/` (Diesel + migrations)
+
+  ## AI delivery loop (required)
+  Full step-by-step: `.cursor/rules/funds-manager-workflow.mdc`
+
+  1. **Ticket** — GitHub issue on [Project #5](https://github.com/users/kgz/projects/5/views/1); `./bin/board-status.sh in-progress <issue>`
+  2. **Branch** — `feature/<issue>-<slug>` from `main`
+  3. **Spec** — `/opsx:propose` on `main` → `openspec/changes/<change-name>/`
+  4. **Explore / apply** — `/opsx:explore` (optional), `/opsx:apply` on feature branch
+  5. **Test & quality** — `cargo test` in affected crates; `pnpm run build` in `frontend/` when UI changes
+  6. **PR** — link `Closes #N` to ticket(s)
+  7. **Archive spec** — `openspec archive <change-name> -y`
+  8. **Merge** — after review
+  9. **Done** — close issue, board Done, delete branch
+
+  ## Git branch policy
+  - **Propose** (`/opsx:propose`): on `main`
+  - **Apply** (`/opsx:apply`, `/opsx:archive`): on `feature/<n>-<slug>` for that change
+
+  Preflight:
+  ```bash
+  git branch --show-current
+  git status -sb
+  ```
+
+  ## GitHub Project #5
+  https://github.com/users/kgz/projects/5/views/1 — Backlog → Ready → In progress → In review → Done
+
+  ## Stack
+  - Backend: Rust (Actix Web) in `app/`, MySQL via Diesel in `database/`
+  - Frontend: React 19 + TypeScript + Vite in `frontend/`
+  - Crates: statement-parser, statement-parser-cli, category-predict-cli (tktax)
 
   Workspace members (Cargo.toml): app, database, crates/statement-parser, crates/statement-parser-cli.
 
@@ -21,3 +52,13 @@ context: |
   - TypeScript: no `any`, no `as` casts
   - Minimal diffs; match existing patterns
   - Comments only for non-obvious logic
+
+rules:
+  proposal:
+    - Run git branch preflight. New change: must be on `main`.
+  specs:
+    - Run git branch preflight. Must be on delivery branch for active change.
+  design:
+    - Run git branch preflight. Must be on delivery branch for active change.
+  tasks:
+    - Run git branch preflight. Must be on delivery branch for active change.
