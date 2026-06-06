@@ -1,0 +1,31 @@
+[package]
+name = "database"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "benchmark_seed"
+path = "src/bin/benchmark_seed.rs"
+
+[dependencies]
+argon2 = "0.5.3"
+automod = "1.0.14"
+chrono = { version = "0.4.38", features = ["serde"] }
+diesel = { version = "2.2.4", features = ["chrono", "postgres", "time"] }
+diesel_migrations = "2.2.0"
+dotenv = "0.15.0"
+enum-iterator = "2.1.0"
+hmac = "0.12.1"
+jwt = "0.16.0"
+moka = { version = "0.12.8", features = ["future"] }
+rand = "0.8.5"
+serde = { version = "1.0.210", features = ["derive"] }
+sha2 = "0.10.8"
+strum = "0.26.3"
+strum_macros = "0.26.4"
+uuid = "1.10.0"
+fake = { version = "2.9.2", features = ["chrono", "derive", "dummy"] }
+time = "0.3.36"
+utoipa = { version = "5.2.0", features = ["actix_extras", "chrono", "macros", "time"] }
+serde_json = "1.0.138"
+regex = "1.11.1"

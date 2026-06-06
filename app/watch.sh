@@ -1,0 +1,1 @@
+cargo watch -c -w . -x run -C .
