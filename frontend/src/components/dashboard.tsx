@@ -41,6 +41,17 @@ const formatCurrencyWithCommas = (value: number | null | undefined): string => {
 	return `$${value.toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits: 2 })}`;
 };
 
+function balanceChartDomain(values: number[]): [number, number] | undefined {
+	if (values.length === 0) {
+		return undefined;
+	}
+	const min = Math.min(...values);
+	const max = Math.max(...values);
+	const span = max - min;
+	const pad = span === 0 ? Math.max(Math.abs(max) * 0.05, 1) : span * 0.08;
+	return [min - pad, max + pad];
+}
+
 function balanceTooltip({ active, payload, label }: TooltipProps<number, string>) {
 	if (!active || payload === undefined || payload.length === 0) {
 		return null;
@@ -298,6 +309,11 @@ export const Dashboard = () => {
 		}
 		return runningTotalData.reduce((sum, d) => sum + d.val, 0) / runningTotalData.length;
 	}, [runningTotalData]);
+
+	const balanceYDomain = useMemo(
+		() => balanceChartDomain(runningTotalData.map((d) => d.val)),
+		[runningTotalData]
+	);
 
 	const kpiMetrics = useMemo(() => {
 		if (analytics === null) {
@@ -606,9 +622,11 @@ export const Dashboard = () => {
 										<XAxis dataKey="date" stroke={chartTheme.axis.stroke} tick={chartTheme.axis.tick} />
 										<YAxis
 											dataKey="val"
+											domain={balanceYDomain}
 											stroke={chartTheme.axis.stroke}
 											tick={chartTheme.axis.tick}
 											tickFormatter={formatCurrencyWithCommas}
+											width={88}
 										/>
 										<Tooltip content={balanceTooltip} />
 										<Line
