@@ -6,24 +6,26 @@ const PERIODS: DashboardPeriod[] = ['this-month', 'last-3-months', 'all'];
 type PeriodFilterProps = {
 	value: DashboardPeriod;
 	onChange: (value: DashboardPeriod) => void;
+	pending?: boolean;
 };
 
-export function PeriodFilter({ value, onChange }: PeriodFilterProps) {
+export function PeriodFilter({ value, onChange, pending = false }: PeriodFilterProps) {
 	return (
 		<div
-			className="inline-flex rounded-md border border-white/20 p-0.5"
+			className="inline-flex rounded-md border border-white/20 p-0.5 transition-opacity duration-300"
 			role="group"
 			aria-label="Dashboard period"
+			aria-busy={pending}
 		>
 			{PERIODS.map((period) => (
 				<button
 					key={period}
 					type="button"
-					className={`cursor-pointer rounded px-3 py-1.5 text-sm transition-colors ${
+					className={`cursor-pointer rounded px-3 py-1.5 text-sm transition-all duration-200 ease-out ${
 						value === period
-							? 'border-secondary-default bg-secondary-default/20 text-white'
-							: 'text-white/70 hover:text-white'
-					}`}
+							? 'border-secondary-default bg-secondary-default/20 text-white shadow-sm'
+							: 'text-white/70 hover:bg-white/5 hover:text-white'
+					} ${pending && value === period ? 'opacity-80' : 'opacity-100'}`}
 					aria-pressed={value === period}
 					onClick={() => onChange(period)}
 				>
