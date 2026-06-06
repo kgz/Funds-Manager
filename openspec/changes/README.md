@@ -6,13 +6,13 @@ Broken into independent OpenSpec changes. Recommended order:
 |---|--------|------------|--------|
 | 1 | `dashboard-chart-shell` | — | Small |
 | 2 | `dashboard-ux-polish` | — (chart-shell nice-to-have) | Small |
-| 3 | `dashboard-background` | — | Small |
-| 4 | `dashboard-kpi-cards` | — | Small |
-| 5 | `dashboard-date-filter` | — | Medium |
-| 6 | `dashboard-layout` | kpi-cards, chart-shell | Small |
-| 7 | `dashboard-spending-donut` | chart-shell | Medium |
-| 8 | `dashboard-balance-chart` | chart-shell | Small |
-| — | `dashboard-remove-parent-grouping` | ux-polish (done) | Small |
+| 3 | `dashboard-background` | — | Small ✓ archived |
+| 4 | `dashboard-kpi-cards` | — | Small ✓ archived |
+| 5 | `dashboard-date-filter` | — | Medium ✓ archived |
+| 6 | `dashboard-layout` | kpi-cards, chart-shell | Small ✓ archived |
+| 7 | `dashboard-spending-donut` | chart-shell | Medium ✓ archived |
+| 8 | `dashboard-balance-chart` | chart-shell | Small ✓ archived |
+| — | `dashboard-remove-parent-grouping` | ux-polish (done) | Small ✓ archived |
 
 **Future / cleanup:** `dashboard-remove-parent-grouping` — drop unused group-by-parent dashboard toggle (auto-cat assigns leaf categories; use `/breakdown` instead).
 

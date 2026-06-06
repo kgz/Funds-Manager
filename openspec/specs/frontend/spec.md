@@ -47,15 +47,15 @@ The transactions page SHALL persist `showUncategorizedOnly` filter in localStora
 - **THEN** the filter state is restored
 
 ### Requirement: Dashboard preferences
-The dashboard SHALL persist `groupByParentCategory` in localStorage. Negative transaction amounts SHALL be treated as spending in charts.
+The dashboard SHALL treat negative transaction amounts as spending in charts. Pie charts and spending drill-down SHALL aggregate by assigned `category_id` only, not parent category rollup.
 
-#### Scenario: Parent grouping
-- **WHEN** group-by-parent is enabled
-- **THEN** pie chart aggregates subcategories under their parent
+#### Scenario: Chart by assigned category
+- **WHEN** user views spending or income pie charts
+- **THEN** each slice reflects the transaction's assigned `category_id`
 
 #### Scenario: Spending drill-down
 - **WHEN** user clicks a pie segment
-- **THEN** a sidebar shows transactions for that category group
+- **THEN** a sidebar shows transactions for that assigned category group
 
 ### Requirement: Statements missing periods
 The statements page SHALL detect gaps between consecutive statement months and from the last statement to the current month.
@@ -84,13 +84,6 @@ Production frontend build (`pnpm build` in `frontend/`) SHALL output minified as
 #### Scenario: Release build gate
 - **WHEN** `cargo build --release` runs for `app`
 - **THEN** build fails if embedded static assets are missing
-
-### Requirement: Dashboard group-by toggle
-The dashboard SHALL present "Group by parent category" as a styled toggle control (not a raw HTML checkbox), using the app's dark-theme border and accent tokens.
-
-#### Scenario: Toggle visible and accessible
-- **WHEN** user views the dashboard header controls
-- **THEN** the grouping option is a button-style or switch control with clear on/off state
 
 ### Requirement: Spending pie click affordance
 When the spending pie supports drill-down, the dashboard SHALL display hint text indicating slices are clickable.
@@ -126,4 +119,61 @@ Recharts axes, grids, and tick labels on the dashboard SHALL use colours tuned f
 #### Scenario: Grid visibility
 - **WHEN** a chart with CartesianGrid renders on the dashboard
 - **THEN** grid lines are subtle and do not overpower data series
+
+### Requirement: Local app background
+The application shell background SHALL NOT depend on external image URLs. It SHALL use CSS-only styling (gradient or subtle pattern).
+
+#### Scenario: No external assets
+- **WHEN** the app loads without network access to image CDNs
+- **THEN** the background still renders correctly
+
+### Requirement: Dashboard KPI summary row
+The dashboard SHALL display a row of summary cards above charts showing current balance, total spending, total income, and net savings for the selected period.
+
+#### Scenario: KPI values from analytics
+- **WHEN** dashboard analytics are loaded
+- **THEN** summary cards show computed dollar amounts with consistent currency formatting
+
+#### Scenario: No transactions
+- **WHEN** no data exists for the selected period
+- **THEN** summary cards show placeholder or zero values without error
+
+### Requirement: Dashboard date range filter
+The dashboard SHALL provide a period selector (this month, rolling 3/6/12 months, all time). All dashboard charts and summary metrics SHALL respect the selected period via server-side date filtering.
+
+#### Scenario: Filter charts
+- **WHEN** user selects a period
+- **THEN** pie, bar, line charts and KPI cards only include data from that range
+
+#### Scenario: Persist selection
+- **WHEN** user changes the period and reloads the page
+- **THEN** the previously selected period is restored from localStorage
+
+### Requirement: Dashboard section order
+The dashboard SHALL render sections in this order: sticky period header, summary KPIs, monthly profit/loss bar chart, spending and income pie charts, then balance over time line chart.
+
+#### Scenario: Visual hierarchy
+- **WHEN** user opens the dashboard on a large screen
+- **THEN** monthly trends appear above category pie charts
+
+### Requirement: Spending donut chart
+The spending-by-category chart SHALL render as a donut with the total spending amount displayed in the centre.
+
+#### Scenario: Centre total
+- **WHEN** spending data is available
+- **THEN** the donut centre shows the sum of all spending slices as formatted currency
+
+### Requirement: Spending category list
+The spending chart SHALL include a ranked list of categories with amount and percentage, replacing the default side legend.
+
+#### Scenario: Ranked breakdown
+- **WHEN** user views the spending chart
+- **THEN** categories appear sorted by amount descending with percent of total
+
+### Requirement: Balance chart clarity
+The balance-over-time chart SHALL display a linear regression trend line alongside the balance series. Min, max, and horizontal average reference lines MUST NOT be shown.
+
+#### Scenario: Trend overlay
+- **WHEN** user views the balance chart with data
+- **THEN** the balance line and dashed trend line are visible
 

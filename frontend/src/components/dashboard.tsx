@@ -28,18 +28,52 @@ import {
 	type DashboardPeriod,
 } from '@/components/dashboard/period';
 import type { KpiComparison } from '@/components/dashboard/KpiCards';
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipProps } from 'recharts';
 import { AlertCircle, FileArchive, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getMappings } from "@/store/thunks/mapping.get.all";
 import { cn } from '@/lib/utils/cn';
+import {
+	chartDateSpanDays,
+	formatChartAxisDate,
+	formatChartTooltipDate,
+	formatMonthLabel,
+	formatTransactionDate,
+} from '@/lib/utils/dates';
 
 const formatCurrencyWithCommas = (value: number | null | undefined): string => {
 	if (value === null || value === undefined) return '$--';
 	const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
 	return `$${value.toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits: 2 })}`;
 };
+
+function linearTrend(values: number[]): number[] {
+	if (values.length === 0) {
+		return [];
+	}
+	if (values.length === 1) {
+		return [values[0]];
+	}
+	const n = values.length;
+	let sumX = 0;
+	let sumY = 0;
+	let sumXY = 0;
+	let sumXX = 0;
+	for (let i = 0; i < n; i++) {
+		sumX += i;
+		sumY += values[i];
+		sumXY += i * values[i];
+		sumXX += i * i;
+	}
+	const denom = n * sumXX - sumX * sumX;
+	if (denom === 0) {
+		return values.map(() => sumY / n);
+	}
+	const slope = (n * sumXY - sumX * sumY) / denom;
+	const intercept = (sumY - slope * sumX) / n;
+	return values.map((_, i) => slope * i + intercept);
+}
 
 function balanceChartDomain(values: number[]): [number, number] | undefined {
 	if (values.length === 0) {
@@ -52,18 +86,24 @@ function balanceChartDomain(values: number[]): [number, number] | undefined {
 	return [min - pad, max + pad];
 }
 
-function balanceTooltip({ active, payload, label }: TooltipProps<number, string>) {
+function balanceTooltip({ active, payload, label }: TooltipProps) {
 	if (!active || payload === undefined || payload.length === 0) {
 		return null;
 	}
-	const value = payload[0]?.value;
-	if (typeof value !== 'number') {
-		return null;
-	}
+	const heading =
+		typeof label === 'string' ? formatChartTooltipDate(label) : label;
 	return (
 		<div className={chartTooltipClass}>
-			<p className="font-semibold">{label}</p>
-			<p>{formatCurrencyWithCommas(value)}</p>
+			<p className="font-semibold">{heading}</p>
+			{payload.map((entry) => {
+				const value = entry.value;
+				if (typeof value !== 'number') {
+					return null;
+				}
+				return (
+					<p key={entry.name ?? entry.dataKey}>{entry.name}: {formatCurrencyWithCommas(value)}</p>
+				);
+			})}
 		</div>
 	);
 }
@@ -327,26 +367,34 @@ export const Dashboard = () => {
 		() => toPieItems(analytics?.incomeByCategory ?? [], '#82ca9d'),
 		[analytics]
 	);
-	const monthlySummary = analytics?.monthlySummary ?? [];
-	const runningTotalData = useMemo(
+	const monthlySummary = useMemo(
 		() =>
-			(analytics?.balanceSeries ?? []).map((point) => ({
-				date: new Date(point.date).toLocaleDateString('en-AU'),
-				val: point.balance,
+			(analytics?.monthlySummary ?? []).map((row) => ({
+				...row,
+				month: formatMonthLabel(row.month),
 			})),
 		[analytics]
 	);
-
-	const averageBalance = useMemo(() => {
-		if (runningTotalData.length === 0) {
-			return 0;
-		}
-		return runningTotalData.reduce((sum, d) => sum + d.val, 0) / runningTotalData.length;
-	}, [runningTotalData]);
+	const balanceChartData = useMemo(() => {
+		const points = (analytics?.balanceSeries ?? []).map((point) => ({
+			date: point.date,
+			val: point.balance,
+		}));
+		const trend = linearTrend(points.map((point) => point.val));
+		return points.map((point, index) => ({
+			...point,
+			trend: trend[index],
+		}));
+	}, [analytics]);
 
 	const balanceYDomain = useMemo(
-		() => balanceChartDomain(runningTotalData.map((d) => d.val)),
-		[runningTotalData]
+		() => balanceChartDomain(balanceChartData.flatMap((point) => [point.val, point.trend])),
+		[balanceChartData]
+	);
+
+	const balanceDateSpanDays = useMemo(
+		() => chartDateSpanDays(balanceChartData.map((point) => point.date)),
+		[balanceChartData]
 	);
 
 	const kpiMetrics = useMemo(() => {
@@ -509,7 +557,7 @@ export const Dashboard = () => {
 								<ul className="space-y-2">
 									{drilldownRows.map((tx) => {
 										const dollars = tx.amount / 100;
-										const when = tx.transaction_date.slice(0, 10);
+										const when = formatTransactionDate(tx.transaction_date);
 										const amountClass =
 											dollars < 0 ? 'text-red-400' : 'text-emerald-300/90';
 										return (
@@ -639,12 +687,19 @@ export const Dashboard = () => {
 
 							<ChartCard title="Balance Over Time">
 								<ResponsiveContainer width="100%" height={300}>
-									<LineChart data={runningTotalData}>
+									<LineChart data={balanceChartData}>
 										<CartesianGrid
 											stroke={chartTheme.grid.stroke}
 											strokeDasharray={chartTheme.grid.strokeDasharray}
 										/>
-										<XAxis dataKey="date" stroke={chartTheme.axis.stroke} tick={chartTheme.axis.tick} />
+										<XAxis
+											dataKey="date"
+											stroke={chartTheme.axis.stroke}
+											tick={chartTheme.axis.tick}
+											tickFormatter={(iso) => formatChartAxisDate(iso, balanceDateSpanDays)}
+											interval="preserveStartEnd"
+											minTickGap={40}
+										/>
 										<YAxis
 											dataKey="val"
 											domain={balanceYDomain}
@@ -664,11 +719,16 @@ export const Dashboard = () => {
 											isAnimationActive={!isRefreshing}
 											animationDuration={400}
 										/>
-										<ReferenceLine
-											y={averageBalance}
-											stroke="#94a3b8"
-											strokeDasharray="6 4"
-											ifOverflow="extendDomain"
+										<Line
+											type="linear"
+											dataKey="trend"
+											name="Trend"
+											stroke="#fbbf24"
+											strokeWidth={1.5}
+											strokeDasharray="8 4"
+											dot={false}
+											isAnimationActive={!isRefreshing}
+											animationDuration={400}
 										/>
 									</LineChart>
 								</ResponsiveContainer>
