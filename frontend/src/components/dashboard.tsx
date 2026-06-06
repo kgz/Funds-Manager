@@ -33,6 +33,7 @@ import type { TooltipProps } from 'recharts';
 import { AlertCircle, FileArchive, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getMappings } from "@/store/thunks/mapping.get.all";
+import { cn } from '@/lib/utils/cn';
 
 const formatCurrencyWithCommas = (value: number | null | undefined): string => {
 	if (value === null || value === undefined) return '$--';
@@ -197,7 +198,6 @@ export const Dashboard = () => {
 		analyticsGenRef.current = gen;
 		setAnalyticsLoading(true);
 		setAnalyticsError(null);
-		setPreviousKpis(null);
 
 		const previousFetch =
 			previousDateRange !== null
@@ -338,6 +338,7 @@ export const Dashboard = () => {
 	const breakdownIsSpending = activeBreakdown?.flow === 'spending';
 
 	const isLoading = analyticsLoading || categoriesLoading;
+	const isRefreshing = analyticsLoading && analytics !== null;
 	const loadError = analyticsError ?? categoriesError;
 	const hasChartData =
 		spendingByCategory.length > 0 ||
@@ -354,9 +355,16 @@ export const Dashboard = () => {
 
 	if (analytics === null || !hasChartData) {
 		return (
-			<DashboardEmptyState
-				periodLabel={period !== 'all' ? periodLabel : undefined}
-			/>
+			<div
+				className={cn(
+					'transition-opacity duration-300 ease-out',
+					isRefreshing ? 'opacity-70' : 'opacity-100'
+				)}
+			>
+				<DashboardEmptyState
+					periodLabel={period !== 'all' ? periodLabel : undefined}
+				/>
+			</div>
 		);
 	}
 
@@ -366,12 +374,12 @@ export const Dashboard = () => {
 				<>
 					<div
 						role="presentation"
-						className="fixed inset-0 z-40 cursor-pointer bg-black/50"
+						className="fixed inset-0 z-40 cursor-pointer bg-black/50 transition-opacity duration-200"
 						onClick={() => {
 							setActiveBreakdown(null);
 						}}
 					/>
-					<aside className="fixed top-0 right-0 z-50 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-gray-950 shadow-2xl">
+					<aside className="fixed top-0 right-0 z-50 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-gray-950 shadow-2xl transition-transform duration-300 ease-out">
 						<div className="flex shrink-0 flex-col gap-3 border-b border-white/10 p-4">
 							<div className="flex items-start justify-between gap-3">
 								<div>
@@ -520,87 +528,110 @@ export const Dashboard = () => {
 
 			<div className="flex flex-wrap justify-between items-center gap-4">
 				<h2 className="text-2xl font-semibold text-white">Spending & Income Overview</h2>
-				<PeriodFilter value={period} onChange={setPeriod} />
+				<PeriodFilter value={period} onChange={setPeriod} pending={isRefreshing} />
 			</div>
 
-			{kpiMetrics !== null ? (
-				<KpiCards
-					metrics={kpiMetrics}
-					periodLabel={periodLabel}
-					comparisonLabel={comparisonLabel}
-					previousMetrics={previousKpis}
-					formatCurrency={formatCurrencyWithCommas}
-				/>
-			) : null}
-
-			<ChartCard title="Monthly Profit / Loss">
-				<MonthlyBarGraph data={monthlySummary} />
-			</ChartCard>
-
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-				<ChartCard
-					title="Spending by Category"
-					subtitle="Click a slice to see transactions"
+			<div className="relative">
+				<div
+					className={cn(
+						'h-0.5 overflow-hidden rounded-full bg-white/10 transition-opacity duration-300',
+						isRefreshing ? 'opacity-100' : 'opacity-0'
+					)}
+					aria-hidden={!isRefreshing}
 				>
-					<CategoryPieChart
-						data={spendingByCategory}
-						chartLabel="Spending by Category"
-						variant="donut"
-						showRankedList
-						onSliceClick={(item) => {
-							setActiveBreakdown({ flow: 'spending', groupKey: item.groupKey });
-						}}
-					/>
-				</ChartCard>
+					<div className="h-full w-2/5 animate-pulse rounded-full bg-secondary-default/80 motion-reduce:animate-none" />
+				</div>
 
-				<ChartCard
-					title="Income by Category"
-					subtitle="Click a slice to see transactions"
+				<div
+					className={cn(
+						'mt-2 space-y-8 transition-opacity duration-300 ease-out',
+						isRefreshing && 'pointer-events-none opacity-55'
+					)}
+					aria-busy={isRefreshing}
 				>
-					<CategoryPieChart
-						data={incomeByCategory}
-						chartLabel="Income by Category"
-						variant="donut"
-						showRankedList
-						onSliceClick={(item) => {
-							setActiveBreakdown({ flow: 'income', groupKey: item.groupKey });
-						}}
-					/>
-				</ChartCard>
+					{kpiMetrics !== null ? (
+						<KpiCards
+							metrics={kpiMetrics}
+							periodLabel={periodLabel}
+							comparisonLabel={comparisonLabel}
+							previousMetrics={previousKpis}
+							isRefreshing={isRefreshing}
+							formatCurrency={formatCurrencyWithCommas}
+						/>
+					) : null}
+
+					<ChartCard title="Monthly Profit / Loss">
+						<MonthlyBarGraph data={monthlySummary} />
+					</ChartCard>
+
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+						<ChartCard
+							title="Spending by Category"
+							subtitle="Click a slice to see transactions"
+						>
+							<CategoryPieChart
+								data={spendingByCategory}
+								chartLabel="Spending by Category"
+								variant="donut"
+								showRankedList
+								onSliceClick={(item) => {
+									setActiveBreakdown({ flow: 'spending', groupKey: item.groupKey });
+								}}
+							/>
+						</ChartCard>
+
+						<ChartCard
+							title="Income by Category"
+							subtitle="Click a slice to see transactions"
+						>
+							<CategoryPieChart
+								data={incomeByCategory}
+								chartLabel="Income by Category"
+								variant="donut"
+								showRankedList
+								onSliceClick={(item) => {
+									setActiveBreakdown({ flow: 'income', groupKey: item.groupKey });
+								}}
+							/>
+						</ChartCard>
+					</div>
+
+					<ChartCard title="Balance Over Time">
+						<ResponsiveContainer width="100%" height={300}>
+							<LineChart data={runningTotalData}>
+								<CartesianGrid
+									stroke={chartTheme.grid.stroke}
+									strokeDasharray={chartTheme.grid.strokeDasharray}
+								/>
+								<XAxis dataKey="date" stroke={chartTheme.axis.stroke} tick={chartTheme.axis.tick} />
+								<YAxis
+									dataKey="val"
+									stroke={chartTheme.axis.stroke}
+									tick={chartTheme.axis.tick}
+									tickFormatter={formatCurrencyWithCommas}
+								/>
+								<Tooltip content={balanceTooltip} />
+								<Line
+									type="monotone"
+									dataKey="val"
+									name="Balance"
+									stroke="#6ee7b7"
+									strokeWidth={2}
+									dot={false}
+									isAnimationActive={!isRefreshing}
+									animationDuration={400}
+								/>
+								<ReferenceLine
+									y={averageBalance}
+									stroke="#94a3b8"
+									strokeDasharray="6 4"
+									ifOverflow="extendDomain"
+								/>
+							</LineChart>
+						</ResponsiveContainer>
+					</ChartCard>
+				</div>
 			</div>
-
-			<ChartCard title="Balance Over Time">
-				<ResponsiveContainer width="100%" height={300}>
-					<LineChart data={runningTotalData}>
-						<CartesianGrid
-							stroke={chartTheme.grid.stroke}
-							strokeDasharray={chartTheme.grid.strokeDasharray}
-						/>
-						<XAxis dataKey="date" stroke={chartTheme.axis.stroke} tick={chartTheme.axis.tick} />
-						<YAxis
-							dataKey="val"
-							stroke={chartTheme.axis.stroke}
-							tick={chartTheme.axis.tick}
-							tickFormatter={formatCurrencyWithCommas}
-						/>
-						<Tooltip content={balanceTooltip} />
-						<Line
-							type="monotone"
-							dataKey="val"
-							name="Balance"
-							stroke="#6ee7b7"
-							strokeWidth={2}
-							dot={false}
-						/>
-						<ReferenceLine
-							y={averageBalance}
-							stroke="#94a3b8"
-							strokeDasharray="6 4"
-							ifOverflow="extendDomain"
-						/>
-					</LineChart>
-				</ResponsiveContainer>
-			</ChartCard>
 		</div>
 	);
 };
