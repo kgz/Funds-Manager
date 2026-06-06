@@ -29,6 +29,16 @@ export type SortState<T> = {
 // Define a base constraint for data items, assuming they have a unique key (default 'id')
 type BaseDataItem = { id: string | number } | Record<string, any>;
 
+export type ServerPagination = {
+	page: number;
+	totalPages: number;
+	totalItems: number;
+	onPrevious: () => void;
+	onNext: () => void;
+	canPrevious: boolean;
+	canNext: boolean;
+};
+
 // Update TableProps for internal pagination handling
 type TableProps<T extends BaseDataItem> = {
 	columns: TColumn<T>[];
@@ -39,6 +49,7 @@ type TableProps<T extends BaseDataItem> = {
 	loading?: boolean;
 	// --- Pagination Config ---
 	itemsPerPage?: number; // How many items to show per page
+	serverPagination?: ServerPagination;
 	// --- Sorting Props (Parent Controlled) ---
 	sortState?: SortState<T>;
 	onSortChange?: (sortKey: keyof T | null, direction: SortDirection) => void;
@@ -56,6 +67,7 @@ export const Table = <T extends BaseDataItem>(
 		header,
 		loading,
 		itemsPerPage, // Use this directly
+		serverPagination,
 		sortState,
 		onSortChange,
 		rowKey = 'id', // Default to 'id' for row keys
@@ -73,32 +85,49 @@ export const Table = <T extends BaseDataItem>(
 	}, [data.length, itemsPerPage]); // Reset when total items or items per page changes
 
 	// --- Pagination Calculations ---
-	const totalItems = data.length;
-	const paginationEnabled = typeof itemsPerPage === 'number' && itemsPerPage > 0 && totalItems > itemsPerPage;
-	const totalPages = paginationEnabled ? Math.ceil(totalItems / itemsPerPage) : 1;
-	const validCurrentPage = Math.max(1, Math.min(currentPage, totalPages));
+	const totalItems = serverPagination?.totalItems ?? data.length;
+	const paginationEnabled =
+		serverPagination !== undefined ||
+		(typeof itemsPerPage === 'number' && itemsPerPage > 0 && data.length > itemsPerPage);
+	const totalPages = serverPagination?.totalPages
+		?? (paginationEnabled && typeof itemsPerPage === 'number' && itemsPerPage > 0
+			? Math.ceil(data.length / itemsPerPage)
+			: 1);
+	const validCurrentPage = serverPagination?.page
+		?? Math.max(1, Math.min(currentPage, totalPages));
 
 	// --- Data Slicing for Current Page ---
 	const paginatedData = useMemo(() => {
-		if (!paginationEnabled) {
-			return data; // Return all data if pagination is not active
+		if (serverPagination !== undefined) {
+			return data;
+		}
+		if (!paginationEnabled || typeof itemsPerPage !== 'number' || itemsPerPage <= 0) {
+			return data;
 		}
 		const startIndex = (validCurrentPage - 1) * itemsPerPage;
 		const endIndex = startIndex + itemsPerPage;
 		return data.slice(startIndex, endIndex);
-	}, [data, validCurrentPage, itemsPerPage, paginationEnabled]);
+	}, [data, validCurrentPage, itemsPerPage, paginationEnabled, serverPagination]);
 
 	// --- Pagination Handlers ---
-	const canGoPrevious = validCurrentPage > 1;
-	const canGoNext = validCurrentPage < totalPages;
+	const canGoPrevious = serverPagination?.canPrevious ?? validCurrentPage > 1;
+	const canGoNext = serverPagination?.canNext ?? validCurrentPage < totalPages;
 
 	const handlePreviousPage = () => {
+		if (serverPagination) {
+			serverPagination.onPrevious();
+			return;
+		}
 		if (canGoPrevious) {
 			setCurrentPage(prev => prev - 1);
 		}
 	};
 
 	const handleNextPage = () => {
+		if (serverPagination) {
+			serverPagination.onNext();
+			return;
+		}
 		if (canGoNext) {
 			setCurrentPage(prev => prev + 1);
 		}
@@ -221,7 +250,7 @@ export const Table = <T extends BaseDataItem>(
 			</div>
 
 			{/* --- Pagination Controls --- */}
-			{paginationEnabled && !loading && totalPages > 1 && (
+			{paginationEnabled && (loading || totalPages > 1 || (serverPagination && totalItems > 0)) && (
 				// Use slightly lighter background for footer, matching header
 				<div className="flex items-center justify-between px-4 py-3 border-t border-white/10 bg-gray-900 mt-auto"> {/* Adjusted border and background */}
 					<div className="text-sm text-gray-400"> {/* Dimmer text */}
@@ -232,7 +261,7 @@ export const Table = <T extends BaseDataItem>(
 						{/* Style buttons using gray/secondary */}
 						<button
 							onClick={handlePreviousPage}
-							disabled={!canGoPrevious}
+							disabled={loading || !canGoPrevious}
 							aria-label="Go to previous page"
 							className={cn(
 								"inline-flex items-center px-3 py-1 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800",
@@ -245,7 +274,7 @@ export const Table = <T extends BaseDataItem>(
 						</button>
 						<button
 							onClick={handleNextPage}
-							disabled={!canGoNext}
+							disabled={loading || !canGoNext}
 							aria-label="Go to next page"
 							className={cn(
 								"inline-flex items-center px-3 py-1 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800",

@@ -58,7 +58,7 @@ function readCategoryIdField(value: unknown): number | null | undefined {
 	return parsed === null ? undefined : parsed;
 }
 
-function normalizeTransaction(raw: unknown): Transaction | null {
+export function normalizeTransaction(raw: unknown): Transaction | null {
 	if (!raw || typeof raw !== "object") {
 		return null;
 	}
@@ -129,6 +129,80 @@ type TransactionsLoadingSlice = {
 };
 
 export type GetAllTransactionsArg = void | { force?: boolean };
+
+export type PaginatedTransactionsResponse = {
+	items: Transaction[];
+	total: number;
+	page: number;
+	per_page: number;
+	total_pages: number;
+};
+
+export type FetchTransactionsPageParams = {
+	page: number;
+	perPage?: number;
+	search?: string;
+	uncategorizedOnly?: boolean;
+	signal?: AbortSignal;
+};
+
+function parsePaginatedTransactionsPayload(
+	payload: unknown
+): PaginatedTransactionsResponse | string {
+	if (!payload || typeof payload !== "object") {
+		return "Invalid transactions response (expected paginated object)";
+	}
+
+	const itemsRaw = Reflect.get(payload, "items");
+	const total = readFiniteNumber(Reflect.get(payload, "total"));
+	const page = readFiniteNumber(Reflect.get(payload, "page"));
+	const perPage = readFiniteNumber(Reflect.get(payload, "per_page"));
+	const totalPages = readFiniteNumber(Reflect.get(payload, "total_pages"));
+
+	if (
+		!Array.isArray(itemsRaw) ||
+		total === null ||
+		page === null ||
+		perPage === null ||
+		totalPages === null
+	) {
+		return "Invalid transactions response (unexpected paginated shape)";
+	}
+
+	const items: Transaction[] = [];
+	for (const item of itemsRaw) {
+		const transaction = normalizeTransaction(item);
+		if (!transaction) {
+			return "Invalid transactions response (unexpected item shape)";
+		}
+		items.push(transaction);
+	}
+
+	return { items, total, page, per_page: perPage, total_pages: totalPages };
+}
+
+export async function fetchTransactionsPage(
+	params: FetchTransactionsPageParams
+): Promise<PaginatedTransactionsResponse> {
+	const searchParams = new URLSearchParams();
+	searchParams.set("page", String(params.page));
+	searchParams.set("per_page", String(params.perPage ?? 50));
+	if (params.search && params.search.trim().length > 0) {
+		searchParams.set("search", params.search.trim());
+	}
+	if (params.uncategorizedOnly === true) {
+		searchParams.set("uncategorized_only", "true");
+	}
+
+	const response = await axios.get(`/api/transactions?${searchParams.toString()}`, {
+		signal: params.signal,
+	});
+	const parsed = parsePaginatedTransactionsPayload(response.data);
+	if (typeof parsed === "string") {
+		throw new Error(parsed);
+	}
+	return parsed;
+}
 
 // This thunk fetches an array of Transactions
 export const getAllTransactions = createAsyncThunk(
