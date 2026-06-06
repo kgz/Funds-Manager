@@ -1,118 +1,95 @@
 import { Table, type TColumn } from "@/components/table";
-import { useAppDispatch, useAppSelector } from "@/store/store";
-import { getAllStatements } from "@/store/thunks/statements.get.all";
-// Import necessary icons
-import { AlertTriangle, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud } from "lucide-react"; // Added AlertTriangle
-import { useEffect, useState, ChangeEvent, DragEvent, useMemo } from "react"; // Added useMemo
-import { DateTime, Interval } from "luxon"; // Added Interval
+import {
+	fetchMissingStatementPeriods,
+	fetchStatementsPage,
+	type Statement,
+} from "@/types/statement";
+import { AlertTriangle, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, ChangeEvent, DragEvent } from "react";
+import { DateTime } from "luxon";
 import { cn } from "@/lib/utils/cn";
-// --- Assume you have a delete thunk like this ---
-// import { deleteStatement } from "@/store/thunks/statements.delete";
-// --- End of assumption ---
 
-// Define the Statement type based on your Redux store structure
-export type Statement = {
-	id: number;
-	date: string; // Assuming ISO date string for the start of the period
-	account_id: string;
-	opening_balance: number;
-	closing_balance: number;
-	deleted_at: string | null; // Allow null if it can be null
-	created_at: string; // Assuming this is always present
-};
+const PER_PAGE = 50;
 
-// Helper function for currency formatting (optional, adjust as needed)
 const formatCurrency = (amount: number): string => {
-	// Basic formatting, consider using Intl.NumberFormat for more robust localization
-	const absAmount = Math.abs(amount / 100).toFixed(2); // Assuming balances are in cents
+	const absAmount = Math.abs(amount / 100).toFixed(2);
 	return `${amount < 0 ? '-' : ''}$${absAmount}`;
 };
 
-
 export const Statements = () => {
-	const dispatch = useAppDispatch();
-	// Use the defined Statement type for the selector
-	const { statements, statementsLoading } = useAppSelector(
-		(state): { statements: Statement[], statementsLoading: boolean } => state.StatementsReducer
-	);
+	const [page, setPage] = useState(1);
+	const [items, setItems] = useState<Statement[]>([]);
+	const [total, setTotal] = useState(0);
+	const [totalPages, setTotalPages] = useState(0);
+	const [loading, setLoading] = useState(true);
+	const [missingPeriods, setMissingPeriods] = useState<string[]>([]);
+	const [missingLoading, setMissingLoading] = useState(true);
+
 	const [isUploading, setIsUploading] = useState(false);
 	const [uploadError, setUploadError] = useState<string | null>(null);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
-	// State to track if a file is being dragged over the drop zone
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
 
+	const fetchGenerationRef = useRef(0);
+
+	const reloadPage = useCallback(async (targetPage: number) => {
+		const generation = fetchGenerationRef.current + 1;
+		fetchGenerationRef.current = generation;
+		setLoading(true);
+
+		try {
+			const result = await fetchStatementsPage({ page: targetPage, perPage: PER_PAGE });
+			if (fetchGenerationRef.current !== generation) {
+				return;
+			}
+			setItems(result.items);
+			setTotal(result.total);
+			setTotalPages(result.total_pages);
+			setPage(result.page);
+		} catch {
+			if (fetchGenerationRef.current !== generation) {
+				return;
+			}
+			setItems([]);
+			setTotal(0);
+			setTotalPages(0);
+		} finally {
+			if (fetchGenerationRef.current === generation) {
+				setLoading(false);
+			}
+		}
+	}, []);
+
+	const reloadMissing = useCallback(async () => {
+		setMissingLoading(true);
+		try {
+			const periods = await fetchMissingStatementPeriods();
+			setMissingPeriods(periods);
+		} catch {
+			setMissingPeriods([]);
+		} finally {
+			setMissingLoading(false);
+		}
+	}, []);
+
+	const refreshAll = useCallback(async () => {
+		await Promise.all([reloadPage(page), reloadMissing()]);
+	}, [page, reloadPage, reloadMissing]);
+
 	useEffect(() => {
-		void dispatch(getAllStatements());
-	}, [dispatch]);
+		void reloadPage(page);
+	}, [page, reloadPage]);
 
-	// --- Calculate Missing Statement Periods ---
-	const missingPeriods = useMemo(() => {
-		if (!statements || statements.length < 2) {
-			// If only 0 or 1 statement, we can still check against the current date
-			// return []; // Old logic: Need at least two statements to find a gap
-		}
+	useEffect(() => {
+		void reloadMissing();
+	}, [reloadMissing]);
 
-		const sortedStatements = [...statements].sort((a, b) =>
-			DateTime.fromISO(a.date).toMillis() - DateTime.fromISO(b.date).toMillis()
-		);
-
-		const missing: string[] = [];
-		// 2. Iterate and find gaps (assuming monthly statements)
-		for (let i = 1; i < sortedStatements.length; i++) {
-			const prevDate = DateTime.fromISO(sortedStatements[i - 1].date).startOf('month'); // Use start of month
-			const currDate = DateTime.fromISO(sortedStatements[i].date);
-
-			if (!prevDate.isValid || !currDate.isValid) {
-				console.warn("Invalid date found while checking for missing statements, skipping comparison.");
-				continue; // Skip if dates are invalid
-			}
-
-			// Calculate the difference in months
-			// Ensure we compare based on the start of the month for accurate diff
-			const monthsDiff = currDate.startOf('month').diff(prevDate, 'months').months;
-
-			// If difference is more than 1 month, there's a gap
-			if (monthsDiff > 1) {
-				let missingDate = prevDate.plus({ months: 1 });
-				// Get the start of the month for the current date for comparison
-				const currDateStartOfMonth = currDate.startOf('month');
-				while (missingDate < currDateStartOfMonth) {
-					missing.push(missingDate.toFormat("LLL yyyy")); // e.g., "Feb 2024"
-					missingDate = missingDate.plus({ months: 1 });
-				}
-			}
-		}
-
-		// 3. Check gap between the last statement and the current date
-		if (sortedStatements.length > 0) {
-			const lastStatementDate = DateTime.fromISO(sortedStatements[sortedStatements.length - 1].date).startOf('month');
-			const currentMonthStart = DateTime.now().startOf('month');
-
-			if (lastStatementDate.isValid) {
-				const monthsDiffToNow = currentMonthStart.diff(lastStatementDate, 'months').months;
-
-				if (monthsDiffToNow > 1) {
-					let missingDate = lastStatementDate.plus({ months: 1 });
-					// Loop while the missing month is strictly less than the current month
-					while (missingDate < currentMonthStart) {
-						missing.push(missingDate.toFormat("LLL yyyy"));
-						missingDate = missingDate.plus({ months: 1 });
-					}
-				}
-			}
-		}
-
-		return missing;
-	}, [statements]);
-
-	// --- Updated handleFileUpload to accept FileList ---
 	const handleFileUpload = async (files: FileList | null) => {
 		if (!files || files.length === 0) {
 			setUploadError("No files selected or dropped.");
-			return; // No files selected or dropped
+			return;
 		}
 
-		// Optional: Filter for PDF files if needed (especially for drag-and-drop)
 		const pdfFiles = Array.from(files).filter(file => file.type === "application/pdf");
 		if (pdfFiles.length === 0) {
 			setUploadError("No PDF files found. Please upload PDF statements only.");
@@ -120,17 +97,14 @@ export const Statements = () => {
 		}
 		if (pdfFiles.length < files.length) {
 			setUploadError("Some non-PDF files were ignored. Only PDF files can be uploaded.");
-			// Continue with only the PDF files
 		} else {
-			setUploadError(null); // Reset error if all files are PDFs
+			setUploadError(null);
 		}
 
-
 		setIsUploading(true);
-		// setUploadError(null); // Error is handled above now
 		const formData = new FormData();
 		for (let i = 0; i < pdfFiles.length; i++) {
-			formData.append("files", pdfFiles[i]); // Use "files" as the key
+			formData.append("files", pdfFiles[i]);
 		}
 
 		try {
@@ -144,30 +118,26 @@ export const Statements = () => {
 				throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
 			}
 
-			console.log("Upload successful:", await response.json());
-			void dispatch(getAllStatements());
-			// Clear any previous upload error on success
+			await response.json();
 			setUploadError(null);
-
+			setPage(1);
+			await reloadPage(1);
+			await reloadMissing();
 		} catch (error) {
-			console.error("Upload error:", error);
 			setUploadError(error instanceof Error ? error.message : "An unknown error occurred during upload.");
 		} finally {
 			setIsUploading(false);
-			// Reset the file input specifically (drag-and-drop doesn't need this)
 			const fileInput = document.getElementById("file-upload") as HTMLInputElement;
 			if (fileInput) {
 				fileInput.value = '';
 			}
 		}
 	};
-	// --- End handleFileUpload update ---
 
-	// --- Drag and Drop Handlers ---
 	const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
-		event.preventDefault(); // Necessary to allow dropping
+		event.preventDefault();
 		event.stopPropagation();
-		if (!isUploading) { // Only show effect if not already uploading
+		if (!isUploading) {
 			setIsDraggingOver(true);
 		}
 	};
@@ -181,21 +151,14 @@ export const Statements = () => {
 	const handleDrop = (event: DragEvent<HTMLDivElement>) => {
 		event.preventDefault();
 		event.stopPropagation();
-		setIsDraggingOver(false); // Reset visual state
-
-		if (isUploading) return; // Don't process drop if already uploading
-
-		const files = event.dataTransfer.files;
-		void handleFileUpload(files); // Pass dropped files to the handler
+		setIsDraggingOver(false);
+		if (isUploading) return;
+		void handleFileUpload(event.dataTransfer.files);
 	};
-	// --- End Drag and Drop Handlers ---
 
-
-	// --- Handler for file input change ---
 	const handleInputChange = (event: ChangeEvent<HTMLInputElement>) => {
 		void handleFileUpload(event.target.files);
 	};
-	// --- End Input Change Handler ---
 
 	const handleDeleteStatement = async (statementId: number) => {
 		if (!window.confirm(`Are you sure you want to delete statement ID ${statementId}? This action cannot be undone.`)) {
@@ -203,16 +166,13 @@ export const Statements = () => {
 		}
 		setDeletingId(statementId);
 		try {
-			// Placeholder for API call
 			const response = await fetch(`/api/statements/${statementId}`, { method: 'DELETE' });
 			if (!response.ok) {
 				const errorData = await response.json().catch(() => ({ message: "Delete failed" }));
 				throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
 			}
-			console.log(`Statement ${statementId} deleted successfully.`);
-			void dispatch(getAllStatements());
+			await refreshAll();
 		} catch (error) {
-			console.error("Delete error:", error);
 			alert(`Failed to delete statement: ${error instanceof Error ? error.message : 'Unknown error'}`);
 		} finally {
 			setDeletingId(null);
@@ -264,7 +224,6 @@ export const Statements = () => {
 				</div>
 			)}
 
-			{/* --- Upload Area --- */}
 			<div
 				className={cn(
 					"w-full p-4 border-b-1 border-secondary-default/20 bg-black transition-colors duration-200 ease-in-out",
@@ -303,10 +262,8 @@ export const Statements = () => {
 					<p className="text-center text-red-500 mt-2 text-sm">{uploadError}</p>
 				)}
 			</div>
-			{/* --- End Upload Area --- */}
 
-			{/* --- Missing Statements Warning --- */}
-			{missingPeriods.length > 0 && !statementsLoading && (
+			{missingPeriods.length > 0 && !missingLoading && (
 				<div className="w-full p-3 bg-yellow-900/30 border-b border-yellow-600/50 text-yellow-300 text-sm">
 					<div className="flex items-center gap-2 max-w-screen-lg mx-auto">
 						<AlertTriangle size={18} className="flex-shrink-0" />
@@ -319,15 +276,24 @@ export const Statements = () => {
 					</div>
 				</div>
 			)}
-			{/* --- End Missing Statements Warning --- */}
-
 
 			<div className={cn("w-full flex-grow overflow-hidden", isUploading && "opacity-50")}>
-				<Table<Statement, keyof Statement>
+				<Table<Statement>
 					columns={columns}
-					data={statements} // Pass original data, table handles its own sorting state
+					data={items}
 					header={{ sticky: true }}
-					loading={statementsLoading && !isUploading}
+					loading={loading && !isUploading}
+					itemsPerPage={PER_PAGE}
+					serverPagination={{
+						page,
+						totalPages: Math.max(totalPages, 1),
+						totalItems: total,
+						canPrevious: page > 1,
+						canNext: page < totalPages,
+						onPrevious: () => setPage((p) => Math.max(1, p - 1)),
+						onNext: () => setPage((p) => p + 1),
+					}}
+					emptyStateMessage={loading ? "Loading..." : "No statements found."}
 				/>
 			</div>
 		</div>
