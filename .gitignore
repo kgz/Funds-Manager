@@ -4,6 +4,9 @@ frontend/.env
 /target/
 **/target/
 
+# Local database data
+database/postgres/
+
 # Local ML / CLI data
 *.parquet
 categories.json
