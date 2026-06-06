@@ -327,7 +327,7 @@ export const Dashboard = () => {
 				<>
 					<div
 						role="presentation"
-						className="fixed inset-0 z-40 bg-black/50"
+						className="fixed inset-0 z-40 cursor-pointer bg-black/50"
 						onClick={() => {
 							setSpendingBreakdownGroupKey(null);
 						}}
@@ -352,7 +352,7 @@ export const Dashboard = () => {
 								</div>
 								<button
 									type="button"
-									className="rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"
+									className="cursor-pointer rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"
 									aria-label="Close"
 									onClick={() => {
 										setSpendingBreakdownGroupKey(null);
@@ -363,7 +363,7 @@ export const Dashboard = () => {
 							</div>
 							<button
 								type="button"
-								className={`self-start rounded-md border px-3 py-1.5 text-sm ${
+								className={`cursor-pointer self-start rounded-md border px-3 py-1.5 text-sm ${
 									breakdownGroupByName
 										? 'border-secondary-default bg-secondary-default/20 text-white'
 										: 'border-white/20 text-white/85 hover:bg-white/10'
@@ -433,7 +433,7 @@ export const Dashboard = () => {
 								<div className="mt-4 flex items-center justify-between gap-2 border-t border-white/10 pt-4">
 									<button
 										type="button"
-										className="rounded-md border border-white/20 px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 disabled:opacity-40"
+										className="cursor-pointer rounded-md border border-white/20 px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
 										disabled={drilldownPage <= 1 || drilldownLoading}
 										onClick={() => setDrilldownPage((p) => Math.max(1, p - 1))}
 									>
@@ -444,7 +444,7 @@ export const Dashboard = () => {
 									</span>
 									<button
 										type="button"
-										className="rounded-md border border-white/20 px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 disabled:opacity-40"
+										className="cursor-pointer rounded-md border border-white/20 px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
 										disabled={drilldownPage >= drilldownTotalPages || drilldownLoading}
 										onClick={() =>
 											setDrilldownPage((p) => Math.min(drilldownTotalPages, p + 1))

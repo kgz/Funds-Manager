@@ -87,15 +87,13 @@ function RankedCategoryList({
 	rows: PieChartDataItem[];
 	onRowClick?: (item: PieChartDataItem) => void;
 }) {
+	const clickable = onRowClick !== undefined;
+
 	return (
 		<ul className="mt-4 space-y-1.5">
-			{rows.map((row) => (
-				<li key={row.groupKey}>
-					<button
-						type="button"
-						className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-white/5"
-						onClick={() => onRowClick?.(row)}
-					>
+			{rows.map((row) => {
+				const content = (
+					<>
 						<span className="flex min-w-0 items-center gap-2 text-white/85">
 							<span
 								className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -106,9 +104,26 @@ function RankedCategoryList({
 						<span className="shrink-0 tabular-nums text-white/60">
 							{formatDollars(row.value)} · {row.percent.toFixed(1)}%
 						</span>
-					</button>
-				</li>
-			))}
+					</>
+				);
+				return (
+					<li key={row.groupKey}>
+						{clickable ? (
+							<button
+								type="button"
+								className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-white/5"
+								onClick={() => onRowClick(row)}
+							>
+								{content}
+							</button>
+						) : (
+							<div className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm">
+								{content}
+							</div>
+						)}
+					</li>
+				);
+			})}
 		</ul>
 	);
 }
@@ -165,7 +180,7 @@ export const CategoryPieChart = ({
 	const outerRadius = 100;
 
 	return (
-		<div>
+		<div className={onSliceClick !== undefined ? '[&_.recharts-pie-sector]:cursor-pointer' : undefined}>
 			<ResponsiveContainer width="100%" height={300}>
 				<PieChart>
 					<Pie
@@ -204,6 +219,7 @@ export const CategoryPieChart = ({
 										transform: isHovered ? 'scale(1.03)' : 'scale(1)',
 										transformOrigin: 'center',
 										transition: 'transform 150ms ease-out',
+										cursor: onSliceClick !== undefined ? 'pointer' : 'default',
 									}}
 								/>
 							);
@@ -256,11 +272,15 @@ export const CategoryPieChart = ({
 			{showRankedList ? (
 				<RankedCategoryList
 					rows={otherRow !== null ? [...rankedRows, otherRow] : rankedRows}
-					onRowClick={(row) => {
-						if (row.groupKey !== '__other__') {
-							onSliceClick?.(row);
-						}
-					}}
+					onRowClick={
+						onSliceClick !== undefined
+							? (row) => {
+									if (row.groupKey !== '__other__') {
+										onSliceClick(row);
+									}
+								}
+							: undefined
+					}
 				/>
 			) : null}
 		</div>
