@@ -493,7 +493,12 @@ export const Dashboard = () => {
 				</ChartCard>
 
 				<ChartCard title="Income by Category">
-					<CategoryPieChart data={incomeByCategory} chartLabel="Income by Category" />
+					<CategoryPieChart
+						data={incomeByCategory}
+						chartLabel="Income by Category"
+						variant="donut"
+						showRankedList
+					/>
 				</ChartCard>
 			</div>
 
