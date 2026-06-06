@@ -5,6 +5,8 @@ frontend/.env
 **/target/
 
 # Local database data
+app/mysql/
+database/mysql/
 database/postgres/
 
 # Local ML / CLI data

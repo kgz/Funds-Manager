@@ -1,0 +1,68 @@
+
+[package]
+name = "server_v2"
+version = "0.1.0"
+edition = "2021"
+
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-cors = "*"
+actix-web = { version = "*", features = ["rustls", "openssl"] }
+argon2 = "*"
+automod = "*"
+chrono = { version = "0.4.38", features = ["serde"] }
+chrono-tz = "*"
+cron-job = "*"
+cron = "*"
+curl = "*"
+diesel = { version = "*", features = ["postgres", "chrono"] }
+diesel_migrations = "*"
+dotenv = "*"
+enum-iterator = "2.0.1"
+env_logger = "*"
+hmac = "*"
+html_parser = "0.7.0"
+html-escape = "0.2.13"
+jwt = "*"
+lettre = "0.11"
+maud = { version = "*", features = ["actix-web"] }
+moka = { version = "0.12.7", features = ["future"] }
+openssl = { version = "0.10.35", features = ["vendored"] }
+rand = "*"
+reqwest = { version = "0.12.4", features = ["json"] }
+roxmltree = "0.19.0"
+rusqlite = { version = "*", features = ["bundled"] }
+rustls = "0.20.4"
+rustls-pemfile = "1.0.0"
+rustrict = "*"
+serde = { version = "*", features = ["derive"] }
+serde_derive = "1.0.200"
+serde_json = "*"
+sha2 = "*"
+strum_macros = "*"
+strum = "*"
+tokio = { version = "1", features = ["full"] }
+unescape = "0.1.0"
+urlencoding = "*"
+xmlparser = "0.13.6"
+uuid = { version = "*", features = ["v4"] }
+bcrypt = "*"
+tokio-util = "*"
+database = { version = "0.1.0", path = "../database" }
+utoipa = { version = "5.2.0", features = ["actix_extras", "chrono", "macros", "time"] }
+utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
+utoipauto = "0.1.14"
+serde_qs = "0.13.0"
+serde_urlencoded = "0.7.1"
+serde_html_form = "0.2.7"
+utoipa-redoc = { version = "6.0.0", features = ["actix-web"] }
+actix-multipart = "0.7.2"
+futures-util = "0.3.31"
+sanitize-filename = "0.6.0"
+statement-parser = { version = "0.1.0", path = "../crates/statement-parser" }
+rust-embed = "8"
+
+[dev-dependencies]
+utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
