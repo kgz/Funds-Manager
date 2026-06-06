@@ -2,6 +2,8 @@ import { useAppDispatch, useAppSelector } from "@/store/store";
 import { getAllCategories } from "@/store/thunks/category.get.all";
 import {
 	fetchDashboardAnalytics,
+	fetchIncomeDrilldown,
+	fetchIncomeDrilldownByName,
 	fetchSpendingDrilldown,
 	fetchSpendingDrilldownByName,
 	type DashboardAnalytics,
@@ -113,6 +115,13 @@ function DashboardEmptyState({ periodLabel }: { periodLabel?: string }) {
 	);
 }
 
+type BreakdownFlow = 'spending' | 'income';
+
+type ActiveBreakdown = {
+	flow: BreakdownFlow;
+	groupKey: string;
+};
+
 function DashboardErrorState({ message }: { message: string }) {
 	return (
 		<div className="flex min-h-[50vh] items-center justify-center p-4 md:p-6">
@@ -134,7 +143,7 @@ export const Dashboard = () => {
 	const [analyticsLoading, setAnalyticsLoading] = useState(true);
 	const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
-	const [spendingBreakdownGroupKey, setSpendingBreakdownGroupKey] = useState<string | null>(null);
+	const [activeBreakdown, setActiveBreakdown] = useState<ActiveBreakdown | null>(null);
 	const [breakdownGroupByName, setBreakdownGroupByName] = useState(false);
 	const [drilldownRows, setDrilldownRows] = useState<Transaction[]>([]);
 	const [drilldownByNameRows, setDrilldownByNameRows] = useState<SpendingNameRow[]>([]);
@@ -201,10 +210,10 @@ export const Dashboard = () => {
 
 	useEffect(() => {
 		setDrilldownPage(1);
-	}, [spendingBreakdownGroupKey, breakdownGroupByName]);
+	}, [activeBreakdown, breakdownGroupByName]);
 
 	useEffect(() => {
-		if (spendingBreakdownGroupKey === null) {
+		if (activeBreakdown === null) {
 			setBreakdownGroupByName(false);
 			setDrilldownRows([]);
 			setDrilldownByNameRows([]);
@@ -213,9 +222,12 @@ export const Dashboard = () => {
 			return;
 		}
 		setDrilldownLoading(true);
+		const { flow, groupKey } = activeBreakdown;
 		if (breakdownGroupByName) {
-			void fetchSpendingDrilldownByName({
-				groupKey: spendingBreakdownGroupKey,
+			const fetchByName =
+				flow === 'spending' ? fetchSpendingDrilldownByName : fetchIncomeDrilldownByName;
+			void fetchByName({
+				groupKey,
 				groupByParent: false,
 			})
 				.then((rows) => {
@@ -227,8 +239,9 @@ export const Dashboard = () => {
 				.finally(() => setDrilldownLoading(false));
 			return;
 		}
-		void fetchSpendingDrilldown({
-			groupKey: spendingBreakdownGroupKey,
+		const fetchPage = flow === 'spending' ? fetchSpendingDrilldown : fetchIncomeDrilldown;
+		void fetchPage({
+			groupKey,
 			groupByParent: false,
 			page: drilldownPage,
 			perPage: DRILLDOWN_PER_PAGE,
@@ -240,7 +253,7 @@ export const Dashboard = () => {
 				setDrilldownTotalPages(page.totalPages);
 			})
 			.finally(() => setDrilldownLoading(false));
-	}, [spendingBreakdownGroupKey, breakdownGroupByName, drilldownPage]);
+	}, [activeBreakdown, breakdownGroupByName, drilldownPage]);
 
 	const spendingByCategory = useMemo(
 		() => toPieItems(analytics?.spendingByCategory ?? [], '#8884d8'),
@@ -283,20 +296,27 @@ export const Dashboard = () => {
 		};
 	}, [analytics]);
 
-	const spendingBreakdownTitle = useMemo(() => {
-		if (spendingBreakdownGroupKey === null) {
+	const breakdownTitle = useMemo(() => {
+		if (activeBreakdown === null) {
 			return '';
 		}
-		const row = spendingByCategory.find((d) => d.groupKey === spendingBreakdownGroupKey);
+		const rows =
+			activeBreakdown.flow === 'spending' ? spendingByCategory : incomeByCategory;
+		const row = rows.find((d) => d.groupKey === activeBreakdown.groupKey);
 		return row?.name ?? 'Category';
-	}, [spendingByCategory, spendingBreakdownGroupKey]);
+	}, [activeBreakdown, spendingByCategory, incomeByCategory]);
 
-	const spendingBreakdownRows = drilldownRows;
-
-	const spendingBreakdownTotal = useMemo(() => {
-		const row = spendingByCategory.find((d) => d.groupKey === spendingBreakdownGroupKey);
+	const breakdownTotal = useMemo(() => {
+		if (activeBreakdown === null) {
+			return 0;
+		}
+		const rows =
+			activeBreakdown.flow === 'spending' ? spendingByCategory : incomeByCategory;
+		const row = rows.find((d) => d.groupKey === activeBreakdown.groupKey);
 		return row?.value ?? 0;
-	}, [spendingByCategory, spendingBreakdownGroupKey]);
+	}, [activeBreakdown, spendingByCategory, incomeByCategory]);
+
+	const breakdownIsSpending = activeBreakdown?.flow === 'spending';
 
 	const isLoading = analyticsLoading || categoriesLoading;
 	const loadError = analyticsError ?? categoriesError;
@@ -323,13 +343,13 @@ export const Dashboard = () => {
 
 	return (
 		<div className="p-4 md:p-6 space-y-8">
-			{spendingBreakdownGroupKey !== null ? (
+			{activeBreakdown !== null ? (
 				<>
 					<div
 						role="presentation"
 						className="fixed inset-0 z-40 cursor-pointer bg-black/50"
 						onClick={() => {
-							setSpendingBreakdownGroupKey(null);
+							setActiveBreakdown(null);
 						}}
 					/>
 					<aside className="fixed top-0 right-0 z-50 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-gray-950 shadow-2xl">
@@ -337,13 +357,19 @@ export const Dashboard = () => {
 							<div className="flex items-start justify-between gap-3">
 								<div>
 									<p className="text-xs font-medium uppercase tracking-wide text-white/50">
-										Spending breakdown
+										{breakdownIsSpending ? 'Spending breakdown' : 'Income breakdown'}
 									</p>
-									<h2 className="text-lg font-semibold text-white">{spendingBreakdownTitle}</h2>
+									<h2 className="text-lg font-semibold text-white">{breakdownTitle}</h2>
 									<p className="mt-1 text-sm text-white/70">
 										Total{' '}
-										<span className="font-medium tabular-nums text-red-400">
-											{formatCurrencyWithCommas(-spendingBreakdownTotal)}
+										<span
+											className={`font-medium tabular-nums ${
+												breakdownIsSpending ? 'text-red-400' : 'text-emerald-400'
+											}`}
+										>
+											{breakdownIsSpending
+												? formatCurrencyWithCommas(-breakdownTotal)
+												: formatCurrencyWithCommas(breakdownTotal)}
 										</span>
 										{' · '}
 										{drilldownTotal}{' '}
@@ -355,7 +381,7 @@ export const Dashboard = () => {
 									className="cursor-pointer rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"
 									aria-label="Close"
 									onClick={() => {
-										setSpendingBreakdownGroupKey(null);
+										setActiveBreakdown(null);
 									}}
 								>
 									<X className="h-5 w-5" />
@@ -382,7 +408,11 @@ export const Dashboard = () => {
 								<p className="text-center text-sm text-white/50">Loading transactions…</p>
 							) : breakdownGroupByName ? (
 								drilldownByNameRows.length === 0 ? (
-									<p className="text-center text-sm text-white/50">No spending transactions in this group.</p>
+									<p className="text-center text-sm text-white/50">
+										{breakdownIsSpending
+											? 'No spending transactions in this group.'
+											: 'No income transactions in this group.'}
+									</p>
 								) : (
 									<ul className="space-y-2">
 										{drilldownByNameRows.map((row) => (
@@ -391,8 +421,14 @@ export const Dashboard = () => {
 												className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
 											>
 												<div className="flex justify-between gap-2 text-white">
-													<span className="font-medium tabular-nums text-red-400">
-														{formatCurrencyWithCommas(-row.totalDollars)}
+													<span
+														className={`font-medium tabular-nums ${
+															breakdownIsSpending ? 'text-red-400' : 'text-emerald-400'
+														}`}
+													>
+														{breakdownIsSpending
+															? formatCurrencyWithCommas(-row.totalDollars)
+															: formatCurrencyWithCommas(row.totalDollars)}
 													</span>
 													<span className="shrink-0 text-white/50">
 														{row.count}×
@@ -403,11 +439,15 @@ export const Dashboard = () => {
 										))}
 									</ul>
 								)
-							) : spendingBreakdownRows.length === 0 ? (
-								<p className="text-center text-sm text-white/50">No spending transactions in this group.</p>
+							) : drilldownRows.length === 0 ? (
+								<p className="text-center text-sm text-white/50">
+									{breakdownIsSpending
+										? 'No spending transactions in this group.'
+										: 'No income transactions in this group.'}
+								</p>
 							) : (
 								<ul className="space-y-2">
-									{spendingBreakdownRows.map((tx) => {
+									{drilldownRows.map((tx) => {
 										const dollars = tx.amount / 100;
 										const when = tx.transaction_date.slice(0, 10);
 										const amountClass =
@@ -487,17 +527,23 @@ export const Dashboard = () => {
 						variant="donut"
 						showRankedList
 						onSliceClick={(item) => {
-							setSpendingBreakdownGroupKey(item.groupKey);
+							setActiveBreakdown({ flow: 'spending', groupKey: item.groupKey });
 						}}
 					/>
 				</ChartCard>
 
-				<ChartCard title="Income by Category">
+				<ChartCard
+					title="Income by Category"
+					subtitle="Click a slice to see transactions"
+				>
 					<CategoryPieChart
 						data={incomeByCategory}
 						chartLabel="Income by Category"
 						variant="donut"
 						showRankedList
+						onSliceClick={(item) => {
+							setActiveBreakdown({ flow: 'income', groupKey: item.groupKey });
+						}}
 					/>
 				</ChartCard>
 			</div>

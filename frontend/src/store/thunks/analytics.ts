@@ -148,6 +148,62 @@ export async function fetchSpendingDrilldownByName(params: {
 	return data;
 }
 
+export async function fetchIncomeDrilldownByName(params: {
+	groupKey: string;
+	groupByParent: boolean;
+	signal?: AbortSignal;
+}): Promise<SpendingNameRow[]> {
+	const search = new URLSearchParams({ group_key: params.groupKey });
+	if (params.groupByParent) {
+		search.set('group_by_parent', 'true');
+	}
+	const response = await axios.get(
+		`/api/analytics/income-drilldown-by-name?${search.toString()}`,
+		{ signal: params.signal }
+	);
+	const data = response.data as Array<{
+		name: string;
+		totalDollars: number;
+		count: number;
+	}>;
+	return data;
+}
+
+export async function fetchIncomeDrilldown(params: {
+	groupKey: string;
+	groupByParent: boolean;
+	page: number;
+	perPage?: number;
+	signal?: AbortSignal;
+}): Promise<PaginatedTransactionsResponse> {
+	const search = new URLSearchParams({
+		group_key: params.groupKey,
+		page: String(params.page),
+		per_page: String(params.perPage ?? 50),
+	});
+	if (params.groupByParent) {
+		search.set('group_by_parent', 'true');
+	}
+	const response = await axios.get(
+		`/api/analytics/income-drilldown?${search.toString()}`,
+		{ signal: params.signal }
+	);
+	const data = response.data as {
+		items: Transaction[];
+		total: number;
+		page: number;
+		per_page: number;
+		total_pages: number;
+	};
+	return {
+		items: data.items,
+		total: data.total,
+		page: data.page,
+		perPage: data.per_page,
+		totalPages: data.total_pages,
+	};
+}
+
 export async function fetchSpendingDrilldown(params: {
 	groupKey: string;
 	groupByParent: boolean;
