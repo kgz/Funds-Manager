@@ -1,15 +1,11 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
-
 #root {
-	/* @apply bg-[url('https://designshack.net/wp-content/uploads/best-subtle-black-white-background-textures.jpg')] bg-cover bg-center; */
-	background: url('https://designshack.net/wp-content/uploads/best-subtle-black-white-background-textures.jpg');
-	background: url('https://designshack.net/wp-content/uploads/Slate-Texture-BW-Background.jpg');
-	background: url('https://img.freepik.com/free-vector/dark-black-background-design-with-stripes_1017-38064.jpg?semt=ais_hybrid&w=740');
-	background-size: cover;
-	background-position: center;
-	background-repeat: no-repeat;
+	min-height: 100vh;
+	background-color: #030712;
+	background-image:
+		radial-gradient(ellipse 80% 50% at 50% -20%, rgb(30 41 59 / 0.45), transparent),
+		linear-gradient(to bottom, #030712, #0f172a 45%, #030712);
 	background-attachment: fixed;
-
 }

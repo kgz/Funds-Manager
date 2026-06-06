@@ -1,5 +1,6 @@
 use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
+use diesel::OptionalExtension;
 use diesel::sql_query;
 use diesel::dsl::count_star;
 use diesel::pg::sql_types::Array;
@@ -40,6 +41,29 @@ pub struct CategoryTotalRow {
 pub struct BalancePoint {
     pub date: String,
     pub balance: f64,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardKpiSummary {
+    pub spending: f64,
+    pub income: f64,
+    pub net: f64,
+    pub balance: Option<f64>,
+}
+
+#[derive(QueryableByName, Debug)]
+struct KpiTotalsRow {
+    #[diesel(sql_type = BigInt)]
+    spending_cents: i64,
+    #[diesel(sql_type = BigInt)]
+    income_cents: i64,
+}
+
+#[derive(QueryableByName, Debug)]
+struct KpiBalanceRow {
+    #[diesel(sql_type = Integer)]
+    balance: i32,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -142,7 +166,76 @@ fn category_display(
     (Some(id), cat.name.clone(), cat.colour.clone())
 }
 
-pub fn dashboard(group_by_parent: bool) -> Result<DashboardAnalytics, diesel::result::Error> {
+pub fn dashboard_kpis(
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+) -> Result<DashboardKpiSummary, diesel::result::Error> {
+    let conn = &mut get_dbo();
+
+    let totals: KpiTotalsRow = sql_query(
+        r#"
+        SELECT
+            COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0)::bigint AS spending_cents,
+            COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0)::bigint AS income_cents
+        FROM transaction_data
+        WHERE deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+          AND ($1::date IS NULL OR transaction_date::date >= $1)
+          AND ($2::date IS NULL OR transaction_date::date <= $2)
+        "#,
+    )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
+    .get_result(conn)?;
+
+    let spending = round2(cents_to_dollars(totals.spending_cents));
+    let income = round2(cents_to_dollars(totals.income_cents));
+
+    let balance = if let Some(end_date) = end {
+        sql_query(
+            r#"
+            SELECT balance
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+              AND transaction_date::date <= $1
+            ORDER BY transaction_date DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind::<Date, _>(end_date)
+        .get_result::<KpiBalanceRow>(conn)
+        .optional()?
+        .map(|row| round2(cents_to_dollars(i64::from(row.balance))))
+    } else {
+        sql_query(
+            r#"
+            SELECT balance
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+            ORDER BY transaction_date DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .get_result::<KpiBalanceRow>(conn)
+        .optional()?
+        .map(|row| round2(cents_to_dollars(i64::from(row.balance))))
+    };
+
+    Ok(DashboardKpiSummary {
+        spending,
+        income,
+        net: round2(income - spending),
+        balance,
+    })
+}
+
+pub fn dashboard(
+    group_by_parent: bool,
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+) -> Result<DashboardAnalytics, diesel::result::Error> {
     let conn = &mut get_dbo();
     let categories = Category::all(false)?;
 
@@ -155,10 +248,14 @@ pub fn dashboard(group_by_parent: bool) -> Result<DashboardAnalytics, diesel::re
         FROM transaction_data
         WHERE deleted_at IS NULL
           AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+          AND ($1::date IS NULL OR transaction_date::date >= $1)
+          AND ($2::date IS NULL OR transaction_date::date <= $2)
         GROUP BY date_trunc('month', transaction_date)
         ORDER BY date_trunc('month', transaction_date)
         "#,
     )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
     .load(conn)?;
 
     let monthly_summary: Vec<MonthlySummaryRow> = monthly_rows
@@ -178,9 +275,13 @@ pub fn dashboard(group_by_parent: bool) -> Result<DashboardAnalytics, diesel::re
         FROM transaction_data
         WHERE deleted_at IS NULL
           AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+          AND ($1::date IS NULL OR transaction_date::date >= $1)
+          AND ($2::date IS NULL OR transaction_date::date <= $2)
         ORDER BY transaction_date::date, transaction_date DESC, id DESC
         "#,
     )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
     .load(conn)?;
 
     let balance_series: Vec<BalancePoint> = balance_rows
@@ -191,13 +292,25 @@ pub fn dashboard(group_by_parent: bool) -> Result<DashboardAnalytics, diesel::re
         })
         .collect();
 
-    let slim: Vec<(Option<i32>, i32)> = filter_active_statement(
+    let mut category_query = filter_active_statement(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .into_boxed(),
-    )
-    .select((transaction_data::category_id, transaction_data::amount))
-    .load(conn)?;
+    );
+    if let Some(start_date) = start {
+        category_query = category_query.filter(
+            transaction_data::transaction_date.ge(start_date.and_hms_opt(0, 0, 0).expect("midnight")),
+        );
+    }
+    if let Some(end_date) = end {
+        if let Some(end_exclusive) = end_date.succ_opt().and_then(|d| d.and_hms_opt(0, 0, 0)) {
+            category_query =
+                category_query.filter(transaction_data::transaction_date.lt(end_exclusive));
+        }
+    }
+    let slim: Vec<(Option<i32>, i32)> = category_query
+        .select((transaction_data::category_id, transaction_data::amount))
+        .load(conn)?;
 
     let mut spending: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
     let mut income: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
@@ -527,6 +640,114 @@ pub fn spending_drilldown(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .filter(transaction_data::amount.lt(0))
+            .into_boxed(),
+    );
+
+    match matching_category_ids(group_key, group_by_parent, &categories) {
+        None => {
+            count_query = count_query.filter(transaction_data::category_id.is_null());
+            items_query = items_query.filter(transaction_data::category_id.is_null());
+        }
+        Some(ids) if ids.is_empty() => {
+            return Ok((Vec::new(), 0));
+        }
+        Some(ids) => {
+            count_query = count_query.filter(transaction_data::category_id.eq_any(ids.clone()));
+            items_query = items_query.filter(transaction_data::category_id.eq_any(ids));
+        }
+    }
+
+    let total: i64 = count_query.select(count_star()).get_result(conn)?;
+
+    let items = items_query
+        .order((
+            transaction_data::transaction_date.desc(),
+            transaction_data::id.desc(),
+        ))
+        .limit(per_page)
+        .offset(offset)
+        .select(Transaction::as_select())
+        .load(conn)?;
+
+    Ok((items, total))
+}
+
+pub fn income_drilldown_by_name(
+    group_key: &str,
+    group_by_parent: bool,
+) -> Result<Vec<SpendingNameRow>, diesel::result::Error> {
+    let conn = &mut get_dbo();
+    let categories = Category::all(false)?;
+
+    let rows: Vec<SpendingNameAggRow> = match matching_category_ids(group_key, group_by_parent, &categories)
+    {
+        None => sql_query(&format!(
+            r#"
+            SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
+                   COALESCE(SUM(amount), 0)::bigint AS total_cents,
+                   COUNT(*)::integer AS count
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND amount > 0
+              AND {ACTIVE_STATEMENT_WHERE}
+              AND category_id IS NULL
+            GROUP BY {SPENDING_NAME_GROUP_EXPR}
+            ORDER BY total_cents DESC
+            "#
+        ))
+        .load(conn)?,
+        Some(ids) if ids.is_empty() => return Ok(Vec::new()),
+        Some(ids) => sql_query(&format!(
+            r#"
+            SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
+                   COALESCE(SUM(amount), 0)::bigint AS total_cents,
+                   COUNT(*)::integer AS count
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND amount > 0
+              AND {ACTIVE_STATEMENT_WHERE}
+              AND category_id = ANY($1)
+            GROUP BY {SPENDING_NAME_GROUP_EXPR}
+            ORDER BY total_cents DESC
+            "#
+        ))
+        .bind::<Array<Integer>, _>(ids)
+        .load(conn)?,
+    };
+
+    Ok(rows
+        .into_iter()
+        .map(|r| SpendingNameRow {
+            name: r.name,
+            total_dollars: round2(cents_to_dollars(r.total_cents)),
+            count: r.count,
+        })
+        .collect())
+}
+
+pub fn income_drilldown(
+    group_key: &str,
+    group_by_parent: bool,
+    page: i64,
+    per_page: i64,
+) -> Result<(Vec<Transaction>, i64), diesel::result::Error> {
+    let conn = &mut get_dbo();
+    let categories = Category::all(false)?;
+    let page = page.max(1);
+    let per_page = per_page.clamp(1, 200);
+    let offset = (page - 1) * per_page;
+
+    let mut count_query = filter_active_statement(
+        transaction_data::table
+            .filter(transaction_data::deleted_at.is_null())
+            .filter(transaction_data::amount.gt(0))
+            .into_boxed(),
+    );
+
+    let mut items_query = filter_active_statement(
+        transaction_data::table
+            .filter(transaction_data::deleted_at.is_null())
+            .filter(transaction_data::amount.gt(0))
             .into_boxed(),
     );
 
