@@ -1,8 +1,12 @@
 // src/components/table.tsx
 
 import { cn } from "@/lib/utils/cn";
-import React, { useState, useMemo, useEffect } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+
+const VIRTUALIZE_AT = 25;
+const ROW_HEIGHT_PX = 52;
 
 // TColumn definition remains the same
 export type TColumn<TData> = {
@@ -164,10 +168,51 @@ export const Table = <T extends BaseDataItem>(
 		return key != null ? String(key) : index;
 	}
 
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const useVirtualRows = !loading && paginatedData.length >= VIRTUALIZE_AT;
+	const virtualizer = useVirtualizer({
+		count: useVirtualRows ? paginatedData.length : 0,
+		getScrollElement: () => scrollRef.current,
+		estimateSize: () => ROW_HEIGHT_PX,
+		overscan: 10,
+	});
+	const virtualItems = useVirtualRows ? virtualizer.getVirtualItems() : [];
+	const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+	const paddingBottom =
+		virtualItems.length > 0
+			? virtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end
+			: 0;
+
+	const renderDataRow = (row: T, rowIndex: number) => (
+		<tr
+			key={getRowKey(row, rowIndex)}
+			className={cn(
+				"hover:bg-white/5 transition-colors duration-150",
+				getRowClassName(row, rowIndex)
+			)}
+			onClick={() => onRowClick?.(row)}
+		>
+			{columns.map((column) => (
+				<td
+					key={`${getRowKey(row, rowIndex)}-${String(column.key)}`}
+					className={cn(
+						"px-4 py-3 whitespace-nowrap text-sm text-gray-300",
+						column.cellClassName
+					)}
+				>
+					{column.render
+						? column.render(row[column.key], row)
+						: <>{String(row[column.key] ?? '')}</>
+					}
+				</td>
+			))}
+		</tr>
+	);
+
 	return (
 		// Use primary background (or a slightly lighter gray if primary is too dark)
 		<div className="flex flex-col h-full bg-primary-default text-gray-200"> {/* Adjusted text color */}
-			<div className="flex-grow overflow-auto">
+			<div ref={scrollRef} className="flex-grow overflow-auto">
 				<table className="w-full min-w-[600px]">
 					<colgroup>
 						{columns.map((column, index) => (
@@ -218,33 +263,27 @@ export const Table = <T extends BaseDataItem>(
 								</td>
 							</tr>
 						)}
-						{/* Data rows */}
-						{!loading && paginatedData.map((row, rowIndex) => (
-							<tr
-								key={getRowKey(row, rowIndex)} // Use unique key from data
-								className={cn(
-									// Use white/alpha for hover background
-									"hover:bg-white/5 transition-colors duration-150",
-									getRowClassName(row, rowIndex)
-								)}
-								onClick={() => onRowClick?.(row)}
-							>
-								{columns.map((column, colIndex) => (
-									<td
-										key={`${getRowKey(row, rowIndex)}-${String(column.key)}`} // More stable cell key
-										className={cn(
-											"px-4 py-3 whitespace-nowrap text-sm text-gray-300", // Slightly brighter cell text
-											column.cellClassName
-										)}
-									>
-										{column.render
-											? column.render(row[column.key], row)
-											: <>{String(row[column.key] ?? '')}</>
-										}
-									</td>
-								))}
+						{!loading && useVirtualRows && paddingTop > 0 ? (
+							<tr aria-hidden="true" className="border-0">
+								<td colSpan={columns.length} style={{ height: paddingTop, padding: 0, border: 0 }} />
 							</tr>
-						))}
+						) : null}
+						{!loading && useVirtualRows
+							? virtualItems.map((virtualRow) => {
+								const row = paginatedData[virtualRow.index];
+								if (!row) {
+									return null;
+								}
+								return renderDataRow(row, virtualRow.index);
+							})
+							: !loading
+								? paginatedData.map((row, rowIndex) => renderDataRow(row, rowIndex))
+								: null}
+						{!loading && useVirtualRows && paddingBottom > 0 ? (
+							<tr aria-hidden="true" className="border-0">
+								<td colSpan={columns.length} style={{ height: paddingBottom, padding: 0, border: 0 }} />
+							</tr>
+						) : null}
 					</tbody>
 				</table>
 			</div>
