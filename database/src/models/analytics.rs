@@ -582,3 +582,111 @@ pub fn spending_drilldown(
 
     Ok((items, total))
 }
+
+pub fn income_drilldown_by_name(
+    group_key: &str,
+    group_by_parent: bool,
+) -> Result<Vec<SpendingNameRow>, diesel::result::Error> {
+    let conn = &mut get_dbo();
+    let categories = Category::all(false)?;
+
+    let rows: Vec<SpendingNameAggRow> = match matching_category_ids(group_key, group_by_parent, &categories)
+    {
+        None => sql_query(&format!(
+            r#"
+            SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
+                   COALESCE(SUM(amount), 0)::bigint AS total_cents,
+                   COUNT(*)::integer AS count
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND amount > 0
+              AND {ACTIVE_STATEMENT_WHERE}
+              AND category_id IS NULL
+            GROUP BY {SPENDING_NAME_GROUP_EXPR}
+            ORDER BY total_cents DESC
+            "#
+        ))
+        .load(conn)?,
+        Some(ids) if ids.is_empty() => return Ok(Vec::new()),
+        Some(ids) => sql_query(&format!(
+            r#"
+            SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
+                   COALESCE(SUM(amount), 0)::bigint AS total_cents,
+                   COUNT(*)::integer AS count
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND amount > 0
+              AND {ACTIVE_STATEMENT_WHERE}
+              AND category_id = ANY($1)
+            GROUP BY {SPENDING_NAME_GROUP_EXPR}
+            ORDER BY total_cents DESC
+            "#
+        ))
+        .bind::<Array<Integer>, _>(ids)
+        .load(conn)?,
+    };
+
+    Ok(rows
+        .into_iter()
+        .map(|r| SpendingNameRow {
+            name: r.name,
+            total_dollars: round2(cents_to_dollars(r.total_cents)),
+            count: r.count,
+        })
+        .collect())
+}
+
+pub fn income_drilldown(
+    group_key: &str,
+    group_by_parent: bool,
+    page: i64,
+    per_page: i64,
+) -> Result<(Vec<Transaction>, i64), diesel::result::Error> {
+    let conn = &mut get_dbo();
+    let categories = Category::all(false)?;
+    let page = page.max(1);
+    let per_page = per_page.clamp(1, 200);
+    let offset = (page - 1) * per_page;
+
+    let mut count_query = filter_active_statement(
+        transaction_data::table
+            .filter(transaction_data::deleted_at.is_null())
+            .filter(transaction_data::amount.gt(0))
+            .into_boxed(),
+    );
+
+    let mut items_query = filter_active_statement(
+        transaction_data::table
+            .filter(transaction_data::deleted_at.is_null())
+            .filter(transaction_data::amount.gt(0))
+            .into_boxed(),
+    );
+
+    match matching_category_ids(group_key, group_by_parent, &categories) {
+        None => {
+            count_query = count_query.filter(transaction_data::category_id.is_null());
+            items_query = items_query.filter(transaction_data::category_id.is_null());
+        }
+        Some(ids) if ids.is_empty() => {
+            return Ok((Vec::new(), 0));
+        }
+        Some(ids) => {
+            count_query = count_query.filter(transaction_data::category_id.eq_any(ids.clone()));
+            items_query = items_query.filter(transaction_data::category_id.eq_any(ids));
+        }
+    }
+
+    let total: i64 = count_query.select(count_star()).get_result(conn)?;
+
+    let items = items_query
+        .order((
+            transaction_data::transaction_date.desc(),
+            transaction_data::id.desc(),
+        ))
+        .limit(per_page)
+        .offset(offset)
+        .select(Transaction::as_select())
+        .load(conn)?;
+
+    Ok((items, total))
+}

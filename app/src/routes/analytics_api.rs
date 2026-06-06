@@ -173,6 +173,56 @@ async fn get_spending_drilldown(
     }))
 }
 
+async fn get_income_drilldown_by_name(
+    query: web::Query<DrilldownQuery>,
+) -> Result<impl Responder, actix_web::Error> {
+    let group_key = query.group_key.clone();
+    let group_by_parent = query.group_by_parent;
+
+    let rows = web::block(move || analytics::income_drilldown_by_name(&group_key, group_by_parent))
+        .await
+        .map_err(|e| {
+            eprintln!("Blocking error loading income drilldown by name: {:?}", e);
+            actix_web::error::ErrorInternalServerError("Failed to load income drilldown by name")
+        })?
+        .map_err(|e| {
+            eprintln!("Database error loading income drilldown by name: {}", e);
+            actix_web::error::ErrorInternalServerError("Failed to load income drilldown by name")
+        })?;
+
+    Ok(HttpResponse::Ok().json(rows))
+}
+
+async fn get_income_drilldown(
+    query: web::Query<DrilldownQuery>,
+) -> Result<impl Responder, actix_web::Error> {
+    let group_key = query.group_key.clone();
+    let group_by_parent = query.group_by_parent;
+    let page = query.page;
+    let per_page = query.per_page;
+
+    let (items, total) = web::block(move || {
+        analytics::income_drilldown(&group_key, group_by_parent, page, per_page)
+    })
+    .await
+    .map_err(|e| {
+        eprintln!("Blocking error loading income drilldown: {:?}", e);
+        actix_web::error::ErrorInternalServerError("Failed to load income drilldown")
+    })?
+    .map_err(|e| {
+        eprintln!("Database error loading income drilldown: {}", e);
+        actix_web::error::ErrorInternalServerError("Failed to load income drilldown")
+    })?;
+
+    Ok(HttpResponse::Ok().json(PaginatedTransactions {
+        items,
+        total,
+        page,
+        per_page,
+        total_pages: total_pages(total, per_page),
+    }))
+}
+
 pub fn analytics_service() -> Scope {
     web::scope("/analytics")
         .route("/dashboard", web::get().to(get_dashboard))
@@ -182,5 +232,10 @@ pub fn analytics_service() -> Scope {
         .route(
             "/spending-drilldown-by-name",
             web::get().to(get_spending_drilldown_by_name),
+        )
+        .route("/income-drilldown", web::get().to(get_income_drilldown))
+        .route(
+            "/income-drilldown-by-name",
+            web::get().to(get_income_drilldown_by_name),
         )
 }
