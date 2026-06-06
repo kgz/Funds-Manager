@@ -225,7 +225,7 @@ export const Dashboard = () => {
 					setAnalyticsLoading(false);
 				}
 			});
-	}, [dateRange, previousDateRange]);
+	}, [period, dateRange.start, dateRange.end, previousDateRange?.start, previousDateRange?.end]);
 
 	useEffect(() => {
 		setDrilldownPage(1);
@@ -349,24 +349,7 @@ export const Dashboard = () => {
 		return <DashboardSkeleton />;
 	}
 
-	if (loadError !== null) {
-		return <DashboardErrorState message={loadError} />;
-	}
-
-	if (analytics === null || !hasChartData) {
-		return (
-			<div
-				className={cn(
-					'transition-opacity duration-300 ease-out',
-					isRefreshing ? 'opacity-70' : 'opacity-100'
-				)}
-			>
-				<DashboardEmptyState
-					periodLabel={period !== 'all' ? periodLabel : undefined}
-				/>
-			</div>
-		);
-	}
+	const showFilteredEmpty = analytics !== null && !hasChartData;
 
 	return (
 		<div className="p-4 md:p-6 space-y-8">
@@ -545,11 +528,15 @@ export const Dashboard = () => {
 				<div
 					className={cn(
 						'mt-2 space-y-8 transition-opacity duration-300 ease-out',
-						isRefreshing && 'pointer-events-none opacity-55'
+						isRefreshing && 'opacity-55'
 					)}
 					aria-busy={isRefreshing}
 				>
-					{kpiMetrics !== null ? (
+					{loadError !== null ? (
+						<DashboardErrorState message={loadError} />
+					) : null}
+
+					{loadError === null && kpiMetrics !== null ? (
 						<KpiCards
 							metrics={kpiMetrics}
 							periodLabel={periodLabel}
@@ -560,76 +547,91 @@ export const Dashboard = () => {
 						/>
 					) : null}
 
-					<ChartCard title="Monthly Profit / Loss">
-						<MonthlyBarGraph data={monthlySummary} />
-					</ChartCard>
+					{loadError === null && showFilteredEmpty ? (
+						<DashboardEmptyState
+							periodLabel={period !== 'all' ? periodLabel : undefined}
+						/>
+					) : null}
 
-					<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-						<ChartCard
-							title="Spending by Category"
-							subtitle="Click a slice to see transactions"
+					{loadError === null && hasChartData ? (
+						<div
+							className={cn(
+								'space-y-8 transition-opacity duration-300 ease-out',
+								isRefreshing && 'pointer-events-none'
+							)}
 						>
-							<CategoryPieChart
-								data={spendingByCategory}
-								chartLabel="Spending by Category"
-								variant="donut"
-								showRankedList
-								onSliceClick={(item) => {
-									setActiveBreakdown({ flow: 'spending', groupKey: item.groupKey });
-								}}
-							/>
-						</ChartCard>
+							<ChartCard title="Monthly Profit / Loss">
+								<MonthlyBarGraph data={monthlySummary} />
+							</ChartCard>
 
-						<ChartCard
-							title="Income by Category"
-							subtitle="Click a slice to see transactions"
-						>
-							<CategoryPieChart
-								data={incomeByCategory}
-								chartLabel="Income by Category"
-								variant="donut"
-								showRankedList
-								onSliceClick={(item) => {
-									setActiveBreakdown({ flow: 'income', groupKey: item.groupKey });
-								}}
-							/>
-						</ChartCard>
-					</div>
+							<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+								<ChartCard
+									title="Spending by Category"
+									subtitle="Click a slice to see transactions"
+								>
+									<CategoryPieChart
+										data={spendingByCategory}
+										chartLabel="Spending by Category"
+										variant="donut"
+										showRankedList
+										onSliceClick={(item) => {
+											setActiveBreakdown({ flow: 'spending', groupKey: item.groupKey });
+										}}
+									/>
+								</ChartCard>
 
-					<ChartCard title="Balance Over Time">
-						<ResponsiveContainer width="100%" height={300}>
-							<LineChart data={runningTotalData}>
-								<CartesianGrid
-									stroke={chartTheme.grid.stroke}
-									strokeDasharray={chartTheme.grid.strokeDasharray}
-								/>
-								<XAxis dataKey="date" stroke={chartTheme.axis.stroke} tick={chartTheme.axis.tick} />
-								<YAxis
-									dataKey="val"
-									stroke={chartTheme.axis.stroke}
-									tick={chartTheme.axis.tick}
-									tickFormatter={formatCurrencyWithCommas}
-								/>
-								<Tooltip content={balanceTooltip} />
-								<Line
-									type="monotone"
-									dataKey="val"
-									name="Balance"
-									stroke="#6ee7b7"
-									strokeWidth={2}
-									dot={false}
-									isAnimationActive={!isRefreshing}
-									animationDuration={400}
-								/>
-								<ReferenceLine
-									y={averageBalance}
-									stroke="#94a3b8"
-									strokeDasharray="6 4"
-									ifOverflow="extendDomain"
-								/>
-							</LineChart>
-						</ResponsiveContainer>
-					</ChartCard>
+								<ChartCard
+									title="Income by Category"
+									subtitle="Click a slice to see transactions"
+								>
+									<CategoryPieChart
+										data={incomeByCategory}
+										chartLabel="Income by Category"
+										variant="donut"
+										showRankedList
+										onSliceClick={(item) => {
+											setActiveBreakdown({ flow: 'income', groupKey: item.groupKey });
+										}}
+									/>
+								</ChartCard>
+							</div>
+
+							<ChartCard title="Balance Over Time">
+								<ResponsiveContainer width="100%" height={300}>
+									<LineChart data={runningTotalData}>
+										<CartesianGrid
+											stroke={chartTheme.grid.stroke}
+											strokeDasharray={chartTheme.grid.strokeDasharray}
+										/>
+										<XAxis dataKey="date" stroke={chartTheme.axis.stroke} tick={chartTheme.axis.tick} />
+										<YAxis
+											dataKey="val"
+											stroke={chartTheme.axis.stroke}
+											tick={chartTheme.axis.tick}
+											tickFormatter={formatCurrencyWithCommas}
+										/>
+										<Tooltip content={balanceTooltip} />
+										<Line
+											type="monotone"
+											dataKey="val"
+											name="Balance"
+											stroke="#6ee7b7"
+											strokeWidth={2}
+											dot={false}
+											isAnimationActive={!isRefreshing}
+											animationDuration={400}
+										/>
+										<ReferenceLine
+											y={averageBalance}
+											stroke="#94a3b8"
+											strokeDasharray="6 4"
+											ifOverflow="extendDomain"
+										/>
+									</LineChart>
+								</ResponsiveContainer>
+							</ChartCard>
+						</div>
+					) : null}
 				</div>
 			</div>
 		</div>
