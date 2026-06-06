@@ -1,0 +1,6 @@
+[submodule "app"]
+	path = app
+	url = https://github.com/kgz/sports_schedular.git
+[submodule "database"]
+	path = database
+	url = https://github.com/kgz/sports_schedular_database.git
