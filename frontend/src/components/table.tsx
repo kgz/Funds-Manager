@@ -1,8 +1,12 @@
 // src/components/table.tsx
 
 import { cn } from "@/lib/utils/cn";
-import React, { useState, useMemo, useEffect } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+
+const VIRTUALIZE_AT = 25;
+const ROW_HEIGHT_PX = 52;
 
 // TColumn definition remains the same
 export type TColumn<TData> = {
@@ -29,6 +33,16 @@ export type SortState<T> = {
 // Define a base constraint for data items, assuming they have a unique key (default 'id')
 type BaseDataItem = { id: string | number } | Record<string, any>;
 
+export type ServerPagination = {
+	page: number;
+	totalPages: number;
+	totalItems: number;
+	onPrevious: () => void;
+	onNext: () => void;
+	canPrevious: boolean;
+	canNext: boolean;
+};
+
 // Update TableProps for internal pagination handling
 type TableProps<T extends BaseDataItem> = {
 	columns: TColumn<T>[];
@@ -39,6 +53,7 @@ type TableProps<T extends BaseDataItem> = {
 	loading?: boolean;
 	// --- Pagination Config ---
 	itemsPerPage?: number; // How many items to show per page
+	serverPagination?: ServerPagination;
 	// --- Sorting Props (Parent Controlled) ---
 	sortState?: SortState<T>;
 	onSortChange?: (sortKey: keyof T | null, direction: SortDirection) => void;
@@ -56,6 +71,7 @@ export const Table = <T extends BaseDataItem>(
 		header,
 		loading,
 		itemsPerPage, // Use this directly
+		serverPagination,
 		sortState,
 		onSortChange,
 		rowKey = 'id', // Default to 'id' for row keys
@@ -73,32 +89,49 @@ export const Table = <T extends BaseDataItem>(
 	}, [data.length, itemsPerPage]); // Reset when total items or items per page changes
 
 	// --- Pagination Calculations ---
-	const totalItems = data.length;
-	const paginationEnabled = typeof itemsPerPage === 'number' && itemsPerPage > 0 && totalItems > itemsPerPage;
-	const totalPages = paginationEnabled ? Math.ceil(totalItems / itemsPerPage) : 1;
-	const validCurrentPage = Math.max(1, Math.min(currentPage, totalPages));
+	const totalItems = serverPagination?.totalItems ?? data.length;
+	const paginationEnabled =
+		serverPagination !== undefined ||
+		(typeof itemsPerPage === 'number' && itemsPerPage > 0 && data.length > itemsPerPage);
+	const totalPages = serverPagination?.totalPages
+		?? (paginationEnabled && typeof itemsPerPage === 'number' && itemsPerPage > 0
+			? Math.ceil(data.length / itemsPerPage)
+			: 1);
+	const validCurrentPage = serverPagination?.page
+		?? Math.max(1, Math.min(currentPage, totalPages));
 
 	// --- Data Slicing for Current Page ---
 	const paginatedData = useMemo(() => {
-		if (!paginationEnabled) {
-			return data; // Return all data if pagination is not active
+		if (serverPagination !== undefined) {
+			return data;
+		}
+		if (!paginationEnabled || typeof itemsPerPage !== 'number' || itemsPerPage <= 0) {
+			return data;
 		}
 		const startIndex = (validCurrentPage - 1) * itemsPerPage;
 		const endIndex = startIndex + itemsPerPage;
 		return data.slice(startIndex, endIndex);
-	}, [data, validCurrentPage, itemsPerPage, paginationEnabled]);
+	}, [data, validCurrentPage, itemsPerPage, paginationEnabled, serverPagination]);
 
 	// --- Pagination Handlers ---
-	const canGoPrevious = validCurrentPage > 1;
-	const canGoNext = validCurrentPage < totalPages;
+	const canGoPrevious = serverPagination?.canPrevious ?? validCurrentPage > 1;
+	const canGoNext = serverPagination?.canNext ?? validCurrentPage < totalPages;
 
 	const handlePreviousPage = () => {
+		if (serverPagination) {
+			serverPagination.onPrevious();
+			return;
+		}
 		if (canGoPrevious) {
 			setCurrentPage(prev => prev - 1);
 		}
 	};
 
 	const handleNextPage = () => {
+		if (serverPagination) {
+			serverPagination.onNext();
+			return;
+		}
 		if (canGoNext) {
 			setCurrentPage(prev => prev + 1);
 		}
@@ -135,10 +168,51 @@ export const Table = <T extends BaseDataItem>(
 		return key != null ? String(key) : index;
 	}
 
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const useVirtualRows = !loading && paginatedData.length >= VIRTUALIZE_AT;
+	const virtualizer = useVirtualizer({
+		count: useVirtualRows ? paginatedData.length : 0,
+		getScrollElement: () => scrollRef.current,
+		estimateSize: () => ROW_HEIGHT_PX,
+		overscan: 10,
+	});
+	const virtualItems = useVirtualRows ? virtualizer.getVirtualItems() : [];
+	const paddingTop = virtualItems.length > 0 ? virtualItems[0].start : 0;
+	const paddingBottom =
+		virtualItems.length > 0
+			? virtualizer.getTotalSize() - virtualItems[virtualItems.length - 1].end
+			: 0;
+
+	const renderDataRow = (row: T, rowIndex: number) => (
+		<tr
+			key={getRowKey(row, rowIndex)}
+			className={cn(
+				"hover:bg-white/5 transition-colors duration-150",
+				getRowClassName(row, rowIndex)
+			)}
+			onClick={() => onRowClick?.(row)}
+		>
+			{columns.map((column) => (
+				<td
+					key={`${getRowKey(row, rowIndex)}-${String(column.key)}`}
+					className={cn(
+						"px-4 py-3 whitespace-nowrap text-sm text-gray-300",
+						column.cellClassName
+					)}
+				>
+					{column.render
+						? column.render(row[column.key], row)
+						: <>{String(row[column.key] ?? '')}</>
+					}
+				</td>
+			))}
+		</tr>
+	);
+
 	return (
 		// Use primary background (or a slightly lighter gray if primary is too dark)
 		<div className="flex flex-col h-full bg-primary-default text-gray-200"> {/* Adjusted text color */}
-			<div className="flex-grow overflow-auto">
+			<div ref={scrollRef} className="flex-grow overflow-auto">
 				<table className="w-full min-w-[600px]">
 					<colgroup>
 						{columns.map((column, index) => (
@@ -189,39 +263,33 @@ export const Table = <T extends BaseDataItem>(
 								</td>
 							</tr>
 						)}
-						{/* Data rows */}
-						{!loading && paginatedData.map((row, rowIndex) => (
-							<tr
-								key={getRowKey(row, rowIndex)} // Use unique key from data
-								className={cn(
-									// Use white/alpha for hover background
-									"hover:bg-white/5 transition-colors duration-150",
-									getRowClassName(row, rowIndex)
-								)}
-								onClick={() => onRowClick?.(row)}
-							>
-								{columns.map((column, colIndex) => (
-									<td
-										key={`${getRowKey(row, rowIndex)}-${String(column.key)}`} // More stable cell key
-										className={cn(
-											"px-4 py-3 whitespace-nowrap text-sm text-gray-300", // Slightly brighter cell text
-											column.cellClassName
-										)}
-									>
-										{column.render
-											? column.render(row[column.key], row)
-											: <>{String(row[column.key] ?? '')}</>
-										}
-									</td>
-								))}
+						{!loading && useVirtualRows && paddingTop > 0 ? (
+							<tr aria-hidden="true" className="border-0">
+								<td colSpan={columns.length} style={{ height: paddingTop, padding: 0, border: 0 }} />
 							</tr>
-						))}
+						) : null}
+						{!loading && useVirtualRows
+							? virtualItems.map((virtualRow) => {
+								const row = paginatedData[virtualRow.index];
+								if (!row) {
+									return null;
+								}
+								return renderDataRow(row, virtualRow.index);
+							})
+							: !loading
+								? paginatedData.map((row, rowIndex) => renderDataRow(row, rowIndex))
+								: null}
+						{!loading && useVirtualRows && paddingBottom > 0 ? (
+							<tr aria-hidden="true" className="border-0">
+								<td colSpan={columns.length} style={{ height: paddingBottom, padding: 0, border: 0 }} />
+							</tr>
+						) : null}
 					</tbody>
 				</table>
 			</div>
 
 			{/* --- Pagination Controls --- */}
-			{paginationEnabled && !loading && totalPages > 1 && (
+			{paginationEnabled && (loading || totalPages > 1 || (serverPagination && totalItems > 0)) && (
 				// Use slightly lighter background for footer, matching header
 				<div className="flex items-center justify-between px-4 py-3 border-t border-white/10 bg-gray-900 mt-auto"> {/* Adjusted border and background */}
 					<div className="text-sm text-gray-400"> {/* Dimmer text */}
@@ -232,7 +300,7 @@ export const Table = <T extends BaseDataItem>(
 						{/* Style buttons using gray/secondary */}
 						<button
 							onClick={handlePreviousPage}
-							disabled={!canGoPrevious}
+							disabled={loading || !canGoPrevious}
 							aria-label="Go to previous page"
 							className={cn(
 								"inline-flex items-center px-3 py-1 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800",
@@ -245,7 +313,7 @@ export const Table = <T extends BaseDataItem>(
 						</button>
 						<button
 							onClick={handleNextPage}
-							disabled={!canGoNext}
+							disabled={loading || !canGoNext}
 							aria-label="Go to next page"
 							className={cn(
 								"inline-flex items-center px-3 py-1 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800",

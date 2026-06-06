@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
-import { useAppDispatch, useAppSelector } from '@/store/store';
-import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
-import { getAllTransactions, type Transaction } from '@/store/thunks/transactions.get.all';
-import { canonicalExpenseGroupKey } from '@/lib/recurringExpenseDetection';
+import {
+	fetchBreakdownAnalytics,
+	type BreakdownParentRow,
+} from '@/store/thunks/analytics';
 import { contrastTextColor } from '@/lib/contrastTextColor';
 import { cn } from '@/lib/utils/cn';
 import { ChevronDown, ChevronRight, LayoutList, Loader2 } from 'lucide-react';
@@ -110,107 +110,6 @@ function sortSubs(
 	return out;
 }
 
-function buildBreakdown(
-	transactions: Transaction[],
-	categoryList: Category[],
-	startIso: string,
-	endIso: string
-): ParentBreakdownRow[] {
-	const filtered = transactions.filter((tx) => {
-		if (tx.deleted_at) {
-			return false;
-		}
-		const d = tx.transaction_date.slice(0, 10);
-		return d >= startIso && d <= endIso;
-	});
-
-	const byCat = new Map<string, Transaction[]>();
-	for (const tx of filtered) {
-		const k =
-			tx.category_id === null || tx.category_id === undefined
-				? '__uncat__'
-				: String(tx.category_id);
-		const arr = byCat.get(k) ?? [];
-		arr.push(tx);
-		byCat.set(k, arr);
-	}
-
-	const parents: ParentBreakdownRow[] = [];
-
-	for (const [k, txs] of byCat) {
-		const categoryId = k === '__uncat__' ? null : Number(k);
-		const cat =
-			categoryId !== null
-				? categoryList.find((c) => String(c.id) === String(categoryId))
-				: undefined;
-		const label =
-			categoryId === null
-				? 'Uncategorized'
-				: cat?.name ?? `Category ${String(categoryId)}`;
-
-		const subMap = new Map<
-			string,
-			{ sample: string; spending: number; income: number; count: number }
-		>();
-		let catSpending = 0;
-		let catIncome = 0;
-
-		for (const tx of txs) {
-			const dollars = Math.abs(tx.amount) / 100;
-			if (tx.amount < 0) {
-				catSpending += dollars;
-			} else if (tx.amount > 0) {
-				catIncome += dollars;
-			}
-
-			const gk = canonicalExpenseGroupKey(tx.description);
-			const sub = subMap.get(gk) ?? {
-				sample: tx.description,
-				spending: 0,
-				income: 0,
-				count: 0,
-			};
-			sub.count += 1;
-			if (tx.amount < 0) {
-				sub.spending += dollars;
-			} else if (tx.amount > 0) {
-				sub.income += dollars;
-			}
-			subMap.set(gk, sub);
-		}
-
-		const subRows: SubBreakdownRow[] = [...subMap.entries()].map(
-			([key, v]) => ({
-				key,
-				labelSample: v.sample,
-				spending: round2(v.spending),
-				income: round2(v.income),
-				count: v.count,
-			})
-		);
-		subRows.sort((a, b) => {
-			const vol = b.spending + b.income - (a.spending + a.income);
-			if (vol !== 0) {
-				return vol;
-			}
-			return a.labelSample.localeCompare(b.labelSample);
-		});
-
-		parents.push({
-			sectionKey: k,
-			categoryId,
-			label,
-			colour: cat?.colour,
-			spending: round2(catSpending),
-			income: round2(catIncome),
-			txnCount: txs.length,
-			subRows,
-		});
-	}
-
-	return parents;
-}
-
 function defaultDateRange(): { start: string; end: string } {
 	const end = DateTime.now().toISODate();
 	const start = DateTime.now().minus({ months: 3 }).toISODate();
@@ -221,18 +120,10 @@ function defaultDateRange(): { start: string; end: string } {
 }
 
 const BreakdownPage = () => {
-	const dispatch = useAppDispatch();
-	const { transactions, transactionsLoading, transactionsError } =
-		useAppSelector((s) => s.TransactionsReducer);
-	const { categories, categoriesLoading, categoriesError } = useAppSelector(
-		(s) => s.CategoryReducer
-	);
-	const list = Array.isArray(transactions) ? transactions : [];
-	const categoryList = useMemo<Category[]>(() => {
-		return Array.isArray(categories) ? categories : [];
-	}, [categories]);
-
 	const [{ start, end }, setRange] = useState(defaultDateRange);
+	const [parents, setParents] = useState<ParentBreakdownRow[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 	const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 	const [parentSort, setParentSort] = useState<{
 		key: ParentSortKey;
@@ -242,34 +133,21 @@ const BreakdownPage = () => {
 		Record<string, { key: SubSortKey; dir: SortDir }>
 	>({});
 
-	const fetchOnceRef = useRef(false);
-	useEffect(() => {
-		if (list.length > 0 || transactionsError || transactionsLoading) {
-			return;
-		}
-		if (fetchOnceRef.current) {
-			return;
-		}
-		fetchOnceRef.current = true;
-		void dispatch(getAllTransactions());
-	}, [dispatch, list.length, transactionsError, transactionsLoading]);
 
-	const categoriesFetchRef = useRef(false);
 	useEffect(() => {
-		if (categoryList.length > 0 || categoriesError || categoriesLoading) {
+		if (!start || !end) {
 			return;
 		}
-		if (categoriesFetchRef.current) {
-			return;
-		}
-		categoriesFetchRef.current = true;
-		void dispatch(getAllCategories());
-	}, [dispatch, categoryList.length, categoriesError, categoriesLoading]);
-
-	const parents = useMemo(
-		() => buildBreakdown(list, categoryList, start, end),
-		[list, categoryList, start, end]
-	);
+		setLoading(true);
+		setError(null);
+		void fetchBreakdownAnalytics(start, end)
+			.then((rows: BreakdownParentRow[]) => setParents(rows))
+			.catch((err: unknown) => {
+				setParents([]);
+				setError(err instanceof Error ? err.message : 'Failed to load breakdown');
+			})
+			.finally(() => setLoading(false));
+	}, [start, end]);
 
 	const totals = useMemo(() => {
 		let spend = 0;
@@ -328,8 +206,7 @@ const BreakdownPage = () => {
 		});
 	};
 
-	const initialLoading =
-		transactionsLoading && list.length === 0 && !transactionsError;
+	const initialLoading = loading && parents.length === 0 && !error;
 
 	if (initialLoading) {
 		return (
@@ -339,9 +216,9 @@ const BreakdownPage = () => {
 		);
 	}
 
-	if (transactionsError) {
+	if (error) {
 		return (
-			<div className="p-6 text-red-400">Error: {transactionsError}</div>
+			<div className="p-6 text-red-400">Error: {error}</div>
 		);
 	}
 
@@ -540,7 +417,7 @@ const BreakdownPage = () => {
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-white/10">
-							{sortedParents.length === 0 && !transactionsLoading ? (
+							{sortedParents.length === 0 && !loading ? (
 								<tr>
 									<td
 										colSpan={7}
@@ -878,7 +755,7 @@ const BreakdownPage = () => {
 						</tbody>
 					</table>
 				)}
-				{transactionsLoading ? (
+				{loading ? (
 					<p className="text-sm text-white/45 px-4 py-2">Refreshing…</p>
 				) : null}
 			</div>
