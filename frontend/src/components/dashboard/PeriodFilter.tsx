@@ -1,7 +1,13 @@
 import type { DashboardPeriod } from '@/components/dashboard/period';
 import { PERIOD_LABELS } from '@/components/dashboard/period';
 
-const PERIODS: DashboardPeriod[] = ['this-month', 'last-3-months', 'all'];
+const PERIODS: DashboardPeriod[] = [
+	'this-month',
+	'last-3-months',
+	'last-6-months',
+	'last-12-months',
+	'all',
+];
 
 type PeriodFilterProps = {
 	value: DashboardPeriod;
@@ -12,7 +18,7 @@ type PeriodFilterProps = {
 export function PeriodFilter({ value, onChange, pending = false }: PeriodFilterProps) {
 	return (
 		<div
-			className="inline-flex rounded-md border border-white/20 p-0.5 transition-opacity duration-300"
+			className="inline-flex max-w-full flex-wrap rounded-md border border-white/20 p-0.5 transition-opacity duration-300"
 			role="group"
 			aria-label="Dashboard period"
 			aria-busy={pending}
