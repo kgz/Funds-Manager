@@ -1,22 +1,5 @@
 import { cn } from '@/lib/utils/cn';
 
-type KpiCardProps = {
-	label: string;
-	value: string;
-	valueClassName?: string;
-};
-
-function KpiCard({ label, value, valueClassName }: KpiCardProps) {
-	return (
-		<div className="rounded-xl border border-white/10 bg-white/5 px-4 py-5">
-			<p className="text-xs font-medium uppercase tracking-wide text-white/50">{label}</p>
-			<p className={cn('mt-2 text-2xl font-semibold tabular-nums text-white', valueClassName)}>
-				{value}
-			</p>
-		</div>
-	);
-}
-
 export type DashboardKpiMetrics = {
 	balance: number | null;
 	spending: number;
@@ -24,13 +7,86 @@ export type DashboardKpiMetrics = {
 	net: number;
 };
 
-type KpiCardsProps = {
-	metrics: DashboardKpiMetrics;
-	periodLabel: string;
+export type KpiComparison = {
+	spending: number;
+	income: number;
+	net: number;
+	balance: number | null;
+};
+
+type KpiComparisonLine = {
+	delta: number;
+	label: string;
+	positiveIsGood: boolean;
+};
+
+type KpiCardProps = {
+	label: string;
+	value: string;
+	valueClassName?: string;
+	comparison?: KpiComparisonLine;
 	formatCurrency: (value: number | null | undefined) => string;
 };
 
-export function KpiCards({ metrics, periodLabel, formatCurrency }: KpiCardsProps) {
+function formatComparisonLine(
+	delta: number,
+	label: string,
+	formatCurrency: (value: number | null | undefined) => string
+): string {
+	const amount = formatCurrency(Math.abs(delta));
+	if (delta > 0) {
+		return `Up ${amount} ${label}`;
+	}
+	if (delta < 0) {
+		return `Down ${amount} ${label}`;
+	}
+	return `Unchanged ${label}`;
+}
+
+function comparisonClass(delta: number, positiveIsGood: boolean): string {
+	if (delta === 0) {
+		return 'text-white/45';
+	}
+	const improved = positiveIsGood ? delta > 0 : delta < 0;
+	return improved ? 'text-emerald-400/90' : 'text-amber-400/90';
+}
+
+function KpiCard({ label, value, valueClassName, comparison, formatCurrency }: KpiCardProps) {
+	return (
+		<div className="rounded-xl border border-white/10 bg-white/5 px-4 py-5">
+			<p className="text-xs font-medium uppercase tracking-wide text-white/50">{label}</p>
+			<p className={cn('mt-2 text-2xl font-semibold tabular-nums text-white', valueClassName)}>
+				{value}
+			</p>
+			{comparison !== undefined ? (
+				<p
+					className={cn(
+						'mt-1.5 text-xs tabular-nums',
+						comparisonClass(comparison.delta, comparison.positiveIsGood)
+					)}
+				>
+					{formatComparisonLine(comparison.delta, comparison.label, formatCurrency)}
+				</p>
+			) : null}
+		</div>
+	);
+}
+
+type KpiCardsProps = {
+	metrics: DashboardKpiMetrics;
+	periodLabel: string;
+	comparisonLabel?: string;
+	previousMetrics?: KpiComparison | null;
+	formatCurrency: (value: number | null | undefined) => string;
+};
+
+export function KpiCards({
+	metrics,
+	periodLabel,
+	comparisonLabel,
+	previousMetrics,
+	formatCurrency,
+}: KpiCardsProps) {
 	const netClass =
 		metrics.net > 0
 			? 'text-emerald-400'
@@ -39,21 +95,77 @@ export function KpiCards({ metrics, periodLabel, formatCurrency }: KpiCardsProps
 				: 'text-white';
 
 	const suffix = periodLabel.length > 0 ? ` · ${periodLabel}` : '';
+	const compareSuffix = comparisonLabel ?? '';
+
+	const spendingComparison =
+		previousMetrics !== undefined && previousMetrics !== null && comparisonLabel !== undefined
+			? {
+					delta: metrics.spending - previousMetrics.spending,
+					label: compareSuffix,
+					positiveIsGood: false,
+				}
+			: undefined;
+
+	const incomeComparison =
+		previousMetrics !== undefined && previousMetrics !== null && comparisonLabel !== undefined
+			? {
+					delta: metrics.income - previousMetrics.income,
+					label: compareSuffix,
+					positiveIsGood: true,
+				}
+			: undefined;
+
+	const netComparison =
+		previousMetrics !== undefined && previousMetrics !== null && comparisonLabel !== undefined
+			? {
+					delta: metrics.net - previousMetrics.net,
+					label: compareSuffix,
+					positiveIsGood: true,
+				}
+			: undefined;
+
+	const balanceComparison =
+		previousMetrics !== undefined &&
+		previousMetrics !== null &&
+		comparisonLabel !== undefined &&
+		metrics.balance !== null &&
+		previousMetrics.balance !== null
+			? {
+					delta: metrics.balance - previousMetrics.balance,
+					label: compareSuffix,
+					positiveIsGood: true,
+				}
+			: undefined;
 
 	return (
 		<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-			<KpiCard label={`Current balance${suffix}`} value={formatCurrency(metrics.balance)} />
+			<KpiCard
+				label={`Current balance${suffix}`}
+				value={formatCurrency(metrics.balance)}
+				comparison={balanceComparison}
+				formatCurrency={formatCurrency}
+			/>
 			<KpiCard
 				label={`Spending${suffix}`}
 				value={formatCurrency(metrics.spending)}
 				valueClassName="text-red-400"
+				comparison={spendingComparison}
+				formatCurrency={formatCurrency}
 			/>
 			<KpiCard
 				label={`Income${suffix}`}
 				value={formatCurrency(metrics.income)}
 				valueClassName="text-emerald-400"
+				comparison={incomeComparison}
+				formatCurrency={formatCurrency}
 			/>
-			<KpiCard label={`Net${suffix}`} value={formatCurrency(metrics.net)} valueClassName={netClass} />
+			<KpiCard
+				label={`Net${suffix}`}
+				value={formatCurrency(metrics.net)}
+				valueClassName={netClass}
+				comparison={netComparison}
+				formatCurrency={formatCurrency}
+			/>
 		</div>
 	);
 }

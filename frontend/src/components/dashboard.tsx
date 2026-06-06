@@ -2,6 +2,7 @@ import { useAppDispatch, useAppSelector } from "@/store/store";
 import { getAllCategories } from "@/store/thunks/category.get.all";
 import {
 	fetchDashboardAnalytics,
+	fetchDashboardKpis,
 	fetchIncomeDrilldown,
 	fetchIncomeDrilldownByName,
 	fetchSpendingDrilldown,
@@ -18,12 +19,15 @@ import { ChartCard } from '@/components/ChartCard';
 import { KpiCards } from '@/components/dashboard/KpiCards';
 import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
 import {
+	COMPARISON_LABELS,
 	DASHBOARD_PERIOD_STORAGE_KEY,
 	PERIOD_LABELS,
 	periodDateRange,
+	previousPeriodDateRange,
 	readStoredPeriod,
 	type DashboardPeriod,
 } from '@/components/dashboard/period';
+import type { KpiComparison } from '@/components/dashboard/KpiCards';
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipProps } from 'recharts';
 import { AlertCircle, FileArchive, X } from "lucide-react";
@@ -140,6 +144,7 @@ export const Dashboard = () => {
 
 	const [period, setPeriod] = useState<DashboardPeriod>(() => readStoredPeriod());
 	const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+	const [previousKpis, setPreviousKpis] = useState<KpiComparison | null>(null);
 	const [analyticsLoading, setAnalyticsLoading] = useState(true);
 	const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
@@ -154,7 +159,12 @@ export const Dashboard = () => {
 
 	const DRILLDOWN_PER_PAGE = 50;
 	const periodLabel = PERIOD_LABELS[period];
+	const comparisonLabel = period !== 'all' ? COMPARISON_LABELS[period] : undefined;
 	const dateRange = useMemo(() => periodDateRange(period), [period]);
+	const previousDateRange = useMemo(
+		() => (period !== 'all' ? previousPeriodDateRange(period) : null),
+		[period]
+	);
 
 	const categoriesAutoFetchCommittedRef = useRef(false);
 	const analyticsGenRef = useRef(0);
@@ -187,12 +197,20 @@ export const Dashboard = () => {
 		analyticsGenRef.current = gen;
 		setAnalyticsLoading(true);
 		setAnalyticsError(null);
-		void fetchDashboardAnalytics(false, dateRange)
-			.then((data) => {
+		setPreviousKpis(null);
+
+		const previousFetch =
+			previousDateRange !== null
+				? fetchDashboardKpis(previousDateRange).catch(() => null)
+				: Promise.resolve(null);
+
+		void Promise.all([fetchDashboardAnalytics(false, dateRange), previousFetch])
+			.then(([data, previous]) => {
 				if (analyticsGenRef.current !== gen) {
 					return;
 				}
 				setAnalytics(data);
+				setPreviousKpis(previous);
 			})
 			.catch((err: unknown) => {
 				if (analyticsGenRef.current !== gen) {
@@ -200,13 +218,14 @@ export const Dashboard = () => {
 				}
 				setAnalyticsError(err instanceof Error ? err.message : 'Failed to load dashboard');
 				setAnalytics(null);
+				setPreviousKpis(null);
 			})
 			.finally(() => {
 				if (analyticsGenRef.current === gen) {
 					setAnalyticsLoading(false);
 				}
 			});
-	}, [dateRange]);
+	}, [dateRange, previousDateRange]);
 
 	useEffect(() => {
 		setDrilldownPage(1);
@@ -508,6 +527,8 @@ export const Dashboard = () => {
 				<KpiCards
 					metrics={kpiMetrics}
 					periodLabel={periodLabel}
+					comparisonLabel={comparisonLabel}
+					previousMetrics={previousKpis}
 					formatCurrency={formatCurrencyWithCommas}
 				/>
 			) : null}

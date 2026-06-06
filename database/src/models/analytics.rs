@@ -1,5 +1,6 @@
 use chrono::{NaiveDate, NaiveDateTime};
 use diesel::prelude::*;
+use diesel::OptionalExtension;
 use diesel::sql_query;
 use diesel::dsl::count_star;
 use diesel::pg::sql_types::Array;
@@ -40,6 +41,29 @@ pub struct CategoryTotalRow {
 pub struct BalancePoint {
     pub date: String,
     pub balance: f64,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DashboardKpiSummary {
+    pub spending: f64,
+    pub income: f64,
+    pub net: f64,
+    pub balance: Option<f64>,
+}
+
+#[derive(QueryableByName, Debug)]
+struct KpiTotalsRow {
+    #[diesel(sql_type = BigInt)]
+    spending_cents: i64,
+    #[diesel(sql_type = BigInt)]
+    income_cents: i64,
+}
+
+#[derive(QueryableByName, Debug)]
+struct KpiBalanceRow {
+    #[diesel(sql_type = Integer)]
+    balance: i32,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -140,6 +164,71 @@ fn category_display(
         return (Some(id), "Unknown".to_string(), None);
     };
     (Some(id), cat.name.clone(), cat.colour.clone())
+}
+
+pub fn dashboard_kpis(
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+) -> Result<DashboardKpiSummary, diesel::result::Error> {
+    let conn = &mut get_dbo();
+
+    let totals: KpiTotalsRow = sql_query(
+        r#"
+        SELECT
+            COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0)::bigint AS spending_cents,
+            COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0)::bigint AS income_cents
+        FROM transaction_data
+        WHERE deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+          AND ($1::date IS NULL OR transaction_date::date >= $1)
+          AND ($2::date IS NULL OR transaction_date::date <= $2)
+        "#,
+    )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
+    .get_result(conn)?;
+
+    let spending = round2(cents_to_dollars(totals.spending_cents));
+    let income = round2(cents_to_dollars(totals.income_cents));
+
+    let balance = if let Some(end_date) = end {
+        sql_query(
+            r#"
+            SELECT balance
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+              AND transaction_date::date <= $1
+            ORDER BY transaction_date DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind::<Date, _>(end_date)
+        .get_result::<KpiBalanceRow>(conn)
+        .optional()?
+        .map(|row| round2(cents_to_dollars(i64::from(row.balance))))
+    } else {
+        sql_query(
+            r#"
+            SELECT balance
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+            ORDER BY transaction_date DESC, id DESC
+            LIMIT 1
+            "#,
+        )
+        .get_result::<KpiBalanceRow>(conn)
+        .optional()?
+        .map(|row| round2(cents_to_dollars(i64::from(row.balance))))
+    };
+
+    Ok(DashboardKpiSummary {
+        spending,
+        income,
+        net: round2(income - spending),
+        balance,
+    })
 }
 
 pub fn dashboard(
