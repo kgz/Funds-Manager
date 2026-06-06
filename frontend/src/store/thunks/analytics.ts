@@ -77,6 +77,30 @@ export type DashboardDateRange = {
 	end?: string;
 };
 
+export type DashboardKpiSummary = {
+	spending: number;
+	income: number;
+	net: number;
+	balance: number | null;
+};
+
+export async function fetchDashboardKpis(
+	dateRange?: DashboardDateRange,
+	signal?: AbortSignal
+): Promise<DashboardKpiSummary> {
+	const params = new URLSearchParams();
+	if (dateRange?.start !== undefined) {
+		params.set('start', dateRange.start);
+	}
+	if (dateRange?.end !== undefined) {
+		params.set('end', dateRange.end);
+	}
+	const response = await axios.get(`/api/analytics/kpis?${params.toString()}`, {
+		signal,
+	});
+	return response.data as DashboardKpiSummary;
+}
+
 export async function fetchDashboardAnalytics(
 	groupByParent: boolean,
 	dateRange?: DashboardDateRange,

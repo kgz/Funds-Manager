@@ -69,6 +69,34 @@ fn total_pages(total: i64, per_page: i64) -> i64 {
     (total + per_page - 1) / per_page
 }
 
+#[derive(Deserialize, Debug)]
+pub struct KpiQuery {
+    pub start: Option<String>,
+    pub end: Option<String>,
+}
+
+async fn get_kpis(query: web::Query<KpiQuery>) -> Result<impl Responder, actix_web::Error> {
+    let start = match &query.start {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    let end = match &query.end {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    let data = web::block(move || analytics::dashboard_kpis(start, end))
+        .await
+        .map_err(|e| {
+            eprintln!("Blocking error loading KPI summary: {:?}", e);
+            actix_web::error::ErrorInternalServerError("Failed to load KPI summary")
+        })?
+        .map_err(|e| {
+            eprintln!("Database error loading KPI summary: {}", e);
+            actix_web::error::ErrorInternalServerError("Failed to load KPI summary")
+        })?;
+    Ok(HttpResponse::Ok().json(data))
+}
+
 async fn get_dashboard(query: web::Query<DashboardQuery>) -> Result<impl Responder, actix_web::Error> {
     let group_by_parent = query.group_by_parent;
     let start = match &query.start {
@@ -226,6 +254,7 @@ async fn get_income_drilldown(
 pub fn analytics_service() -> Scope {
     web::scope("/analytics")
         .route("/dashboard", web::get().to(get_dashboard))
+        .route("/kpis", web::get().to(get_kpis))
         .route("/breakdown", web::get().to(get_breakdown))
         .route("/recurring", web::get().to(get_recurring))
         .route("/spending-drilldown", web::get().to(get_spending_drilldown))
