@@ -293,7 +293,7 @@ const BreakdownPage = () => {
 			<div className="flex-grow overflow-auto min-h-0">
 				{rangeInvalid ? null : (
 					<table className="w-full min-w-[720px] text-left">
-						<thead className="sticky top-0 z-10 bg-gray-900 border-b border-white/10">
+						<thead className="sticky top-0 z-10 border-b border-white/10 bg-gray-950/95 backdrop-blur-sm">
 							<tr>
 								<th className="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider w-10" />
 								<th className="px-4 py-3 text-xs font-medium uppercase tracking-wider">

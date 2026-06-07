@@ -1,5 +1,6 @@
 // src/components/table.tsx
 
+import { buttonOutlineClass } from "@/components/layout/tokens";
 import { cn } from "@/lib/utils/cn";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import React, { useState, useMemo, useEffect, useRef } from "react";
@@ -237,7 +238,7 @@ export const Table = <T extends BaseDataItem>(
 				<td
 					key={`${getRowKey(row, rowIndex)}-${String(column.key)}`}
 					className={cn(
-						"px-4 py-3 whitespace-nowrap text-sm text-gray-300",
+						"px-4 py-3 whitespace-nowrap text-sm text-white/80",
 						column.cellClassName
 					)}
 				>
@@ -252,7 +253,7 @@ export const Table = <T extends BaseDataItem>(
 
 	return (
 		// Use primary background (or a slightly lighter gray if primary is too dark)
-		<div className="flex flex-col h-full bg-primary-default text-gray-200"> {/* Adjusted text color */}
+		<div className="flex h-full flex-col bg-primary-default text-white/90">
 			<div ref={scrollRef} className="flex-grow overflow-auto">
 				<table className="w-full min-w-[600px]">
 					<colgroup>
@@ -261,15 +262,14 @@ export const Table = <T extends BaseDataItem>(
 						))}
 					</colgroup>
 					{/* Use a slightly lighter background for header for contrast */}
-					<thead className="bg-gray-900"><tr>
+					<thead className="border-b border-white/10 bg-gray-950/95 backdrop-blur-sm"><tr>
 							{columns.map((column, index) => (
 								<th
 									key={`header-${index}`}
 									className={cn(
-										"px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider", // Header text slightly dimmer
-										header?.sticky && "sticky top-0 z-10 bg-gray-900", // Match header background
-										// Use secondary color for hover/focus indication on sortable headers
-										column.sortable && onSortChange && "cursor-pointer hover:bg-gray-800 hover:text-secondary-default",
+										"px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white/50",
+										header?.sticky && "sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm",
+										column.sortable && onSortChange && "cursor-pointer hover:bg-white/5 hover:text-secondary-default",
 										column.headerClassName
 									)}
 									onClick={() => column.sortable && handleSort(column.key)}
@@ -286,20 +286,19 @@ export const Table = <T extends BaseDataItem>(
 						</tr>
 					</thead>
 					{/* Use primary background for body, slightly lighter border */}
-					<tbody className="bg-primary-default divide-y divide-white/10">{/* Adjusted border */}
+					<tbody className="divide-y divide-white/10 bg-primary-default">
 						{loading && Array.from({ length: itemsPerPage ?? 10 }).map((_, rowIndex) => (
 							<tr key={`loading-${rowIndex}`} className="animate-pulse">
 								{columns.map((_, colIndex) => (
 									<td key={`loading-${rowIndex}-${colIndex}`} className="px-4 py-3 whitespace-nowrap">
-										<div className="h-4 bg-gray-700 rounded w-3/4"></div>
+										<div className="h-4 w-3/4 rounded bg-white/10"></div>
 									</td>
 								))}
 							</tr>
 						))}
-						{/* Empty state */}
 						{!loading && paginatedData.length === 0 && (
 							<tr>
-								<td colSpan={columns.length} className="text-center py-10 px-4 text-gray-500"> {/* Dimmer empty state text */}
+								<td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-white/50">
 									{data.length === 0 ? emptyStateMessage : "No data for this page."}
 								</td>
 							</tr>
@@ -332,38 +331,29 @@ export const Table = <T extends BaseDataItem>(
 			{/* --- Pagination Controls --- */}
 			{paginationEnabled && (loading || totalPages > 1 || (serverPagination && totalItems > 0)) && (
 				// Use slightly lighter background for footer, matching header
-				<div className="flex items-center justify-between px-4 py-3 border-t border-white/10 bg-gray-900 mt-auto"> {/* Adjusted border and background */}
-					<div className="text-sm text-gray-400"> {/* Dimmer text */}
-						Page <span className="font-medium text-gray-200">{validCurrentPage}</span> of <span className="font-medium text-gray-200">{totalPages}</span>
+				<div className="mt-auto flex items-center justify-between border-t border-white/10 bg-gray-950/80 px-4 py-3">
+					<div className="text-sm text-white/50">
+						Page <span className="font-medium text-white/90">{validCurrentPage}</span> of <span className="font-medium text-white/90">{totalPages}</span>
 						<span className="hidden sm:inline"> ({totalItems} items)</span>
 					</div>
 					<div className="flex items-center gap-2">
-						{/* Style buttons using gray/secondary */}
 						<button
 							onClick={handlePreviousPage}
 							disabled={loading || !canGoPrevious}
 							aria-label="Go to previous page"
-							className={cn(
-								"inline-flex items-center px-3 py-1 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800",
-								"hover:bg-gray-700 hover:border-secondary-default hover:text-white", // Hover uses secondary border
-								"disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-800 disabled:hover:border-gray-600" // Disabled state
-							)}
+							className={buttonOutlineClass}
 						>
-							<ChevronLeft className="h-4 w-4 mr-1" />
+							<ChevronLeft className="mr-1 h-4 w-4" />
 							Previous
 						</button>
 						<button
 							onClick={handleNextPage}
 							disabled={loading || !canGoNext}
 							aria-label="Go to next page"
-							className={cn(
-								"inline-flex items-center px-3 py-1 border border-gray-600 text-sm font-medium rounded-md text-gray-300 bg-gray-800",
-								"hover:bg-gray-700 hover:border-secondary-default hover:text-white", // Hover uses secondary border
-								"disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-800 disabled:hover:border-gray-600" // Disabled state
-							)}
+							className={buttonOutlineClass}
 						>
 							Next
-							<ChevronRight className="h-4 w-4 ml-1" />
+							<ChevronRight className="ml-1 h-4 w-4" />
 						</button>
 					</div>
 				</div>

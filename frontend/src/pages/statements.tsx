@@ -10,8 +10,9 @@ import {
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageShell } from '@/components/layout/PageShell';
-import { glassCardClass } from '@/components/layout/tokens';
-import { FileArchive, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud, X } from "lucide-react";
+import { Modal } from '@/components/layout/Modal';
+import { buttonOutlineClass, buttonWarningClass, glassCardClass } from '@/components/layout/tokens';
+import { FileArchive, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, ChangeEvent, DragEvent } from "react";
 import { DateTime } from "luxon";
 import { cn } from "@/lib/utils/cn";
@@ -290,67 +291,48 @@ export const Statements = () => {
 					className="mb-0"
 				/>
 			</div>
-			{replacePrompt !== null ? (
-				<>
-					<div
-						role="presentation"
-						className="fixed inset-0 z-40 cursor-pointer bg-black/60"
-						onClick={handleCancelReplace}
-					/>
-					<div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-gray-950 p-6 shadow-2xl">
-						<div className="flex items-start justify-between gap-3">
-							<div>
-								<p className="text-xs font-medium uppercase tracking-wide text-amber-400/90">
-									Replace existing statements
-								</p>
-								<h2 className="mt-1 text-lg font-semibold text-white">
-									These periods are already imported
-								</h2>
-								<p className="mt-2 text-sm text-white/70">
-									Replacing will delete the existing statement and transactions for that account and month.
-								</p>
-							</div>
-							<button
-								type="button"
-								className="cursor-pointer rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"
-								aria-label="Close"
-								onClick={handleCancelReplace}
+			<Modal
+				open={replacePrompt !== null}
+				onClose={handleCancelReplace}
+				size="md"
+				title="These periods are already imported"
+				description="Replacing will delete the existing statement and transactions for that account and month."
+				footer={
+					<>
+						<button type="button" onClick={handleCancelReplace} className={buttonOutlineClass}>
+							Cancel
+						</button>
+						<button
+							type="button"
+							onClick={() => void handleConfirmReplace()}
+							className={buttonWarningClass}
+						>
+							Replace
+						</button>
+					</>
+				}
+			>
+				{replacePrompt !== null ? (
+					<>
+						<p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-400/90">
+							Replace existing statements
+						</p>
+						<ul className="max-h-48 space-y-2 overflow-y-auto">
+						{replacePrompt.conflicts.map((conflict) => (
+							<li
+								key={`${conflict.account_id}-${conflict.statement_date}-${conflict.filename}`}
+								className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-white"
 							>
-								<X className="h-5 w-5" />
-							</button>
-						</div>
-						<ul className="mt-4 max-h-48 space-y-2 overflow-y-auto">
-							{replacePrompt.conflicts.map((conflict) => (
-								<li
-									key={`${conflict.account_id}-${conflict.statement_date}-${conflict.filename}`}
-									className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-white"
-								>
-									<span className="font-medium">{conflict.period_label}</span>
-									{' · '}
-									<span className="text-white/80">account {conflict.account_id}</span>
-									<span className="block text-xs text-white/55 mt-0.5">{conflict.filename}</span>
-								</li>
-							))}
+								<span className="font-medium">{conflict.period_label}</span>
+								{' · '}
+								<span className="text-white/80">account {conflict.account_id}</span>
+								<span className="mt-0.5 block text-xs text-white/55">{conflict.filename}</span>
+							</li>
+						))}
 						</ul>
-						<div className="mt-6 flex justify-end gap-3">
-							<button
-								type="button"
-								className="cursor-pointer rounded-md border border-white/20 px-4 py-2 text-sm text-white/85 hover:bg-white/10"
-								onClick={handleCancelReplace}
-							>
-								Cancel
-							</button>
-							<button
-								type="button"
-								className="cursor-pointer rounded-md border border-amber-500/50 bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-500/30"
-								onClick={() => void handleConfirmReplace()}
-							>
-								Replace
-							</button>
-						</div>
-					</div>
-				</>
-			) : null}
+					</>
+				) : null}
+			</Modal>
 
 			{isUploading && (
 				<div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">

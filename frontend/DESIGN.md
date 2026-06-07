@@ -29,8 +29,13 @@ Reference implementation: `src/components/dashboard.tsx`.
 | `InlineAlert` | Error / warning / info banner |
 | `SearchInput` | Dark-theme search field |
 | `StatCard` | KPI / summary box |
+| `Modal` | Dialog overlay + glass panel |
 
 Import tokens from `layout/tokens.ts` when building one-off UI.
+
+## Deprecated
+
+`src/components/ui/*` — light-theme boilerplate, unused. Prefer `layout/` primitives.
 
 ## Colours
 
