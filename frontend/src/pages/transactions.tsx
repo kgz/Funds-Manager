@@ -10,7 +10,6 @@ import { DateTime } from "luxon";
 import { AlertTriangle, Loader2, Search, X } from 'lucide-react';
 import { createCategory } from '@/store/thunks/category.create.single';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
-import { getMappings } from '@/store/thunks/mapping.get.all';
 import { useDebounce } from '@/hooks/useDebounce';
 import { patchTransactionCategory } from '@/store/thunks/transaction.patch.category';
 import { recategorizeUncategorizedTransactions } from '@/store/thunks/transaction.recategorize.uncategorized';
@@ -44,6 +43,10 @@ const TransactionsPage = () => {
     const dispatch = useAppDispatch();
 
     const [showUncategorizedOnly, setShowUncategorizedOnly] = useState<boolean>(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('uncategorized') === '1') {
+            return true;
+        }
         return localStorage.getItem('showUncategorizedOnly') === 'true';
     });
     const [searchTerm, setSearchTerm] = useState<string>('');
@@ -187,10 +190,6 @@ const TransactionsPage = () => {
     }, [dispatch, page, reloadPage]);
 
     const categoriesAutoFetchCommittedRef = useRef(false);
-
-    useEffect(() => {
-        void dispatch(getMappings());
-    }, [dispatch]);
 
     useEffect(() => {
         if (categoryList.length > 0) {

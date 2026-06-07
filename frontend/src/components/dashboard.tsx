@@ -32,7 +32,6 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import type { TooltipProps } from 'recharts';
 import { AlertCircle, FileArchive, X } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getMappings } from "@/store/thunks/mapping.get.all";
 import { cn } from '@/lib/utils/cn';
 import {
 	chartDateSpanDays,
@@ -258,10 +257,6 @@ export const Dashboard = () => {
 	useEffect(() => {
 		localStorage.removeItem('groupByParentCategory');
 	}, []);
-
-	useEffect(() => {
-		void dispatch(getMappings());
-	}, [dispatch]);
 
 	useEffect(() => {
 		if (categoriesLoading || categoriesError !== null) {
