@@ -7,7 +7,15 @@ import {
 	type Statement,
 	type StatementPreviewFile,
 } from "@/types/statement";
-import { AlertTriangle, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud, X } from "lucide-react";
+import { EmptyState } from '@/components/layout/EmptyState';
+import { ErrorState } from '@/components/layout/ErrorState';
+import { InlineAlert } from '@/components/layout/InlineAlert';
+import { Modal } from '@/components/layout/Modal';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageLoadingState } from '@/components/layout/PageLoadingState';
+import { PageShell } from '@/components/layout/PageShell';
+import { buttonOutlineClass, buttonWarningClass, glassCardClass } from '@/components/layout/tokens';
+import { FileArchive, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, ChangeEvent, DragEvent } from "react";
 import { DateTime } from "luxon";
 import { cn } from "@/lib/utils/cn";
@@ -25,6 +33,7 @@ export const Statements = () => {
 	const [total, setTotal] = useState(0);
 	const [totalPages, setTotalPages] = useState(0);
 	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
 	const [missingPeriods, setMissingPeriods] = useState<string[]>([]);
 	const [missingLoading, setMissingLoading] = useState(true);
 
@@ -47,6 +56,7 @@ export const Statements = () => {
 		const generation = fetchGenerationRef.current + 1;
 		fetchGenerationRef.current = generation;
 		setLoading(true);
+		setLoadError(null);
 
 		try {
 			const result = await fetchStatementsPage({ page: targetPage, perPage: PER_PAGE });
@@ -57,13 +67,16 @@ export const Statements = () => {
 			setTotal(result.total);
 			setTotalPages(result.total_pages);
 			setPage(result.page);
-		} catch {
+		} catch (error) {
 			if (fetchGenerationRef.current !== generation) {
 				return;
 			}
 			setItems([]);
 			setTotal(0);
 			setTotalPages(0);
+			setLoadError(
+				error instanceof Error ? error.message : 'Failed to load statements'
+			);
 		} finally {
 			if (fetchGenerationRef.current === generation) {
 				setLoading(false);
@@ -276,69 +289,62 @@ export const Statements = () => {
 		[items, columns, sortState]
 	);
 
+	const initialLoading = loading && items.length === 0 && loadError === null;
+	const showEmpty =
+		!loading && !isUploading && total === 0 && loadError === null;
+
 	return (
-		<div className="relative flex flex-col items-center h-screen w-full">
-			{replacePrompt !== null ? (
-				<>
-					<div
-						role="presentation"
-						className="fixed inset-0 z-40 cursor-pointer bg-black/60"
-						onClick={handleCancelReplace}
-					/>
-					<div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-gray-950 p-6 shadow-2xl">
-						<div className="flex items-start justify-between gap-3">
-							<div>
-								<p className="text-xs font-medium uppercase tracking-wide text-amber-400/90">
-									Replace existing statements
-								</p>
-								<h2 className="mt-1 text-lg font-semibold text-white">
-									These periods are already imported
-								</h2>
-								<p className="mt-2 text-sm text-white/70">
-									Replacing will delete the existing statement and transactions for that account and month.
-								</p>
-							</div>
-							<button
-								type="button"
-								className="cursor-pointer rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"
-								aria-label="Close"
-								onClick={handleCancelReplace}
+		<PageShell variant="table" className="relative">
+			<div className="border-b border-white/10 p-4">
+				<PageHeader
+					title="Statements"
+					subtitle="Upload bank statement PDFs and manage imported periods."
+					icon={<FileArchive className="h-6 w-6 text-secondary-default" />}
+					className="mb-0"
+				/>
+			</div>
+			<Modal
+				open={replacePrompt !== null}
+				onClose={handleCancelReplace}
+				size="md"
+				title="These periods are already imported"
+				description="Replacing will delete the existing statement and transactions for that account and month."
+				footer={
+					<>
+						<button type="button" onClick={handleCancelReplace} className={buttonOutlineClass}>
+							Cancel
+						</button>
+						<button
+							type="button"
+							onClick={() => void handleConfirmReplace()}
+							className={buttonWarningClass}
+						>
+							Replace
+						</button>
+					</>
+				}
+			>
+				{replacePrompt !== null ? (
+					<>
+						<p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-400/90">
+							Replace existing statements
+						</p>
+						<ul className="max-h-48 space-y-2 overflow-y-auto">
+						{replacePrompt.conflicts.map((conflict) => (
+							<li
+								key={`${conflict.account_id}-${conflict.statement_date}-${conflict.filename}`}
+								className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-white"
 							>
-								<X className="h-5 w-5" />
-							</button>
-						</div>
-						<ul className="mt-4 max-h-48 space-y-2 overflow-y-auto">
-							{replacePrompt.conflicts.map((conflict) => (
-								<li
-									key={`${conflict.account_id}-${conflict.statement_date}-${conflict.filename}`}
-									className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-white"
-								>
-									<span className="font-medium">{conflict.period_label}</span>
-									{' · '}
-									<span className="text-white/80">account {conflict.account_id}</span>
-									<span className="block text-xs text-white/55 mt-0.5">{conflict.filename}</span>
-								</li>
-							))}
+								<span className="font-medium">{conflict.period_label}</span>
+								{' · '}
+								<span className="text-white/80">account {conflict.account_id}</span>
+								<span className="mt-0.5 block text-xs text-white/55">{conflict.filename}</span>
+							</li>
+						))}
 						</ul>
-						<div className="mt-6 flex justify-end gap-3">
-							<button
-								type="button"
-								className="cursor-pointer rounded-md border border-white/20 px-4 py-2 text-sm text-white/85 hover:bg-white/10"
-								onClick={handleCancelReplace}
-							>
-								Cancel
-							</button>
-							<button
-								type="button"
-								className="cursor-pointer rounded-md border border-amber-500/50 bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-500/30"
-								onClick={() => void handleConfirmReplace()}
-							>
-								Replace
-							</button>
-						</div>
-					</div>
-				</>
-			) : null}
+					</>
+				) : null}
+			</Modal>
 
 			{isUploading && (
 				<div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
@@ -349,9 +355,10 @@ export const Statements = () => {
 
 			<div
 				className={cn(
-					"w-full p-4 border-b-1 border-secondary-default/20 bg-black transition-colors duration-200 ease-in-out",
-					isDraggingOver && !isUploading && "border-secondary-default border-dashed border-2 bg-white/10",
-					!isUploading ? "cursor-pointer hover:bg-white/5" : "opacity-50 pointer-events-none",
+					'mx-4 mb-4 p-6 transition-colors duration-200 ease-in-out',
+					glassCardClass,
+					isDraggingOver && !isUploading && 'border-secondary-default/50 border-dashed bg-white/10',
+					!isUploading ? 'cursor-pointer hover:bg-white/[0.07]' : 'pointer-events-none opacity-50',
 				)}
 				onClick={() => !isUploading && document.getElementById("file-upload")?.click()}
 				onDragOver={handleDragOver}
@@ -381,51 +388,69 @@ export const Statements = () => {
 					onChange={handleInputChange}
 					disabled={isUploading}
 				/>
-				{uploadError && (
-					<p className="text-center text-red-500 mt-2 text-sm">{uploadError}</p>
+				{uploadError ? (
+					<p className="mt-2 text-center text-sm text-red-400">{uploadError}</p>
+				) : null}
+			</div>
+
+			{missingPeriods.length > 0 && !missingLoading ? (
+				<div className="mx-4 mb-4">
+					<InlineAlert variant="warning">
+						<span className="font-semibold">Missing statement periods:</span>
+						<ul className="ml-4 mt-1 list-disc">
+							{missingPeriods.map((period) => (
+								<li key={period}>{period}</li>
+							))}
+						</ul>
+					</InlineAlert>
+				</div>
+			) : null}
+
+			<div className={cn('min-h-0 flex-grow overflow-hidden px-4', isUploading && 'opacity-50')}>
+				{initialLoading ? (
+					<PageLoadingState label="Loading statements…" fullScreen={false} />
+				) : loadError !== null && items.length === 0 ? (
+					<ErrorState
+						title="Error loading statements"
+						message={loadError}
+						onRetry={() => void reloadPage(page)}
+						className="min-h-[30vh]"
+					/>
+				) : showEmpty ? (
+					<EmptyState
+						compact
+						icon={FileArchive}
+						title="No statements yet"
+						description="Upload a PDF above to import your first statement period."
+						className="py-12"
+					/>
+				) : (
+					<Table<Statement>
+						columns={columns}
+						data={sortedItems}
+						header={{ sticky: true }}
+						loading={loading && !isUploading}
+						sortState={sortState}
+						onSortChange={(key, direction) => {
+							if (key === null) {
+								return;
+							}
+							setSortState({ key, direction });
+						}}
+						itemsPerPage={PER_PAGE}
+						serverPagination={{
+							page,
+							totalPages: Math.max(totalPages, 1),
+							totalItems: total,
+							canPrevious: page > 1,
+							canNext: page < totalPages,
+							onPrevious: () => setPage((p) => Math.max(1, p - 1)),
+							onNext: () => setPage((p) => p + 1),
+						}}
+						emptyStateMessage="No statements on this page."
+					/>
 				)}
 			</div>
-
-			{missingPeriods.length > 0 && !missingLoading && (
-				<div className="w-full p-3 bg-yellow-900/30 border-b border-yellow-600/50 text-yellow-300 text-sm">
-					<div className="flex items-center gap-2 max-w-screen-lg mx-auto">
-						<AlertTriangle size={18} className="flex-shrink-0" />
-						<div>
-							<span className="font-semibold">Missing Statement Periods Detected:</span>
-							<ul className="list-disc list-inside ml-2 mt-1">
-								{missingPeriods.map(period => <li key={period}>{period}</li>)}
-							</ul>
-						</div>
-					</div>
-				</div>
-			)}
-
-			<div className={cn("w-full flex-grow overflow-hidden", isUploading && "opacity-50")}>
-				<Table<Statement>
-					columns={columns}
-					data={sortedItems}
-					header={{ sticky: true }}
-					loading={loading && !isUploading}
-					sortState={sortState}
-					onSortChange={(key, direction) => {
-						if (key === null) {
-							return;
-						}
-						setSortState({ key, direction });
-					}}
-					itemsPerPage={PER_PAGE}
-					serverPagination={{
-						page,
-						totalPages: Math.max(totalPages, 1),
-						totalItems: total,
-						canPrevious: page > 1,
-						canNext: page < totalPages,
-						onPrevious: () => setPage((p) => Math.max(1, p - 1)),
-						onNext: () => setPage((p) => p + 1),
-					}}
-					emptyStateMessage={loading ? "Loading..." : "No statements found."}
-				/>
-			</div>
-		</div>
+		</PageShell>
 	);
 };
