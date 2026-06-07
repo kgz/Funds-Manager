@@ -2,9 +2,12 @@ import { Table, type TColumn } from "@/components/table";
 import {
 	fetchMissingStatementPeriods,
 	fetchStatementsPage,
+	previewStatementUpload,
+	uploadStatementFiles,
 	type Statement,
+	type StatementPreviewFile,
 } from "@/types/statement";
-import { AlertTriangle, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud } from "lucide-react";
+import { AlertTriangle, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, ChangeEvent, DragEvent } from "react";
 import { DateTime } from "luxon";
 import { cn } from "@/lib/utils/cn";
@@ -29,6 +32,10 @@ export const Statements = () => {
 	const [uploadError, setUploadError] = useState<string | null>(null);
 	const [deletingId, setDeletingId] = useState<number | null>(null);
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
+	const [replacePrompt, setReplacePrompt] = useState<{
+		files: File[];
+		conflicts: StatementPreviewFile[];
+	} | null>(null);
 
 	const fetchGenerationRef = useRef(0);
 
@@ -84,6 +91,36 @@ export const Statements = () => {
 		void reloadMissing();
 	}, [reloadMissing]);
 
+	const clearFileInput = () => {
+		const fileInput = document.getElementById("file-upload") as HTMLInputElement | null;
+		if (fileInput) {
+			fileInput.value = '';
+		}
+	};
+
+	const commitUpload = async (pdfFiles: File[], replace: boolean) => {
+		setIsUploading(true);
+		try {
+			const result = await uploadStatementFiles(pdfFiles, { replace });
+			if (result.errors.length > 0 && result.processed_files.length === 0) {
+				throw new Error(result.errors.join('; '));
+			}
+			if (result.errors.length > 0) {
+				setUploadError(result.errors.join('; '));
+			} else {
+				setUploadError(null);
+			}
+			setPage(1);
+			await reloadPage(1);
+			await reloadMissing();
+		} catch (error) {
+			setUploadError(error instanceof Error ? error.message : "An unknown error occurred during upload.");
+		} finally {
+			setIsUploading(false);
+			clearFileInput();
+		}
+	};
+
 	const handleFileUpload = async (files: FileList | null) => {
 		if (!files || files.length === 0) {
 			setUploadError("No files selected or dropped.");
@@ -102,36 +139,43 @@ export const Statements = () => {
 		}
 
 		setIsUploading(true);
-		const formData = new FormData();
-		for (let i = 0; i < pdfFiles.length; i++) {
-			formData.append("files", pdfFiles[i]);
-		}
-
 		try {
-			const response = await fetch("/api/statements", {
-				method: "POST",
-				body: formData,
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({ message: "Upload failed with status: " + response.status }));
-				throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+			const preview = await previewStatementUpload(pdfFiles);
+			if (preview.errors.length > 0 && preview.files.length === 0) {
+				throw new Error(preview.errors.join('; '));
 			}
-
-			await response.json();
-			setUploadError(null);
-			setPage(1);
-			await reloadPage(1);
-			await reloadMissing();
+			const conflicts = preview.files.filter((file) => file.conflict);
+			if (conflicts.length > 0) {
+				if (preview.errors.length > 0) {
+					setUploadError(preview.errors.join('; '));
+				}
+				setReplacePrompt({ files: pdfFiles, conflicts });
+				return;
+			}
+			if (preview.errors.length > 0) {
+				setUploadError(preview.errors.join('; '));
+			}
+			await commitUpload(pdfFiles, false);
 		} catch (error) {
 			setUploadError(error instanceof Error ? error.message : "An unknown error occurred during upload.");
+			clearFileInput();
 		} finally {
 			setIsUploading(false);
-			const fileInput = document.getElementById("file-upload") as HTMLInputElement;
-			if (fileInput) {
-				fileInput.value = '';
-			}
 		}
+	};
+
+	const handleCancelReplace = () => {
+		setReplacePrompt(null);
+		clearFileInput();
+	};
+
+	const handleConfirmReplace = async () => {
+		if (replacePrompt === null) {
+			return;
+		}
+		const { files } = replacePrompt;
+		setReplacePrompt(null);
+		await commitUpload(files, true);
 	};
 
 	const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
@@ -217,6 +261,68 @@ export const Statements = () => {
 
 	return (
 		<div className="relative flex flex-col items-center h-screen w-full">
+			{replacePrompt !== null ? (
+				<>
+					<div
+						role="presentation"
+						className="fixed inset-0 z-40 cursor-pointer bg-black/60"
+						onClick={handleCancelReplace}
+					/>
+					<div className="fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-gray-950 p-6 shadow-2xl">
+						<div className="flex items-start justify-between gap-3">
+							<div>
+								<p className="text-xs font-medium uppercase tracking-wide text-amber-400/90">
+									Replace existing statements
+								</p>
+								<h2 className="mt-1 text-lg font-semibold text-white">
+									These periods are already imported
+								</h2>
+								<p className="mt-2 text-sm text-white/70">
+									Replacing will delete the existing statement and transactions for that account and month.
+								</p>
+							</div>
+							<button
+								type="button"
+								className="cursor-pointer rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"
+								aria-label="Close"
+								onClick={handleCancelReplace}
+							>
+								<X className="h-5 w-5" />
+							</button>
+						</div>
+						<ul className="mt-4 max-h-48 space-y-2 overflow-y-auto">
+							{replacePrompt.conflicts.map((conflict) => (
+								<li
+									key={`${conflict.account_id}-${conflict.statement_date}-${conflict.filename}`}
+									className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-white"
+								>
+									<span className="font-medium">{conflict.period_label}</span>
+									{' · '}
+									<span className="text-white/80">account {conflict.account_id}</span>
+									<span className="block text-xs text-white/55 mt-0.5">{conflict.filename}</span>
+								</li>
+							))}
+						</ul>
+						<div className="mt-6 flex justify-end gap-3">
+							<button
+								type="button"
+								className="cursor-pointer rounded-md border border-white/20 px-4 py-2 text-sm text-white/85 hover:bg-white/10"
+								onClick={handleCancelReplace}
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								className="cursor-pointer rounded-md border border-amber-500/50 bg-amber-500/20 px-4 py-2 text-sm font-medium text-amber-100 hover:bg-amber-500/30"
+								onClick={() => void handleConfirmReplace()}
+							>
+								Replace
+							</button>
+						</div>
+					</div>
+				</>
+			) : null}
+
 			{isUploading && (
 				<div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
 					<Loader2 className="w-12 h-12 animate-spin text-secondary-default mb-4" />
