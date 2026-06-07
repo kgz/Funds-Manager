@@ -11,11 +11,17 @@ import {
 	Eye,
 	EyeOff,
 	ArrowRight,
-	Search,
 	GripVertical,
 	GitMerge,
 	FolderOpen,
 } from 'lucide-react';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { InlineAlert } from '@/components/layout/InlineAlert';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageLoadingState } from '@/components/layout/PageLoadingState';
+import { PageShell } from '@/components/layout/PageShell';
+import { SearchInput } from '@/components/layout/SearchInput';
+import { buttonOutlineClass } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
 import { ToggleSwitch } from '@/components/toggleSwitch';
 import { NavLink } from 'react-router';
@@ -337,104 +343,101 @@ export const CategoriesPage = () => {
     const mainCategories = visibleMainCategories(categories, searchQuery, showDeleted);
 
     // --- Render Logic ---
+    const listError = error ?? categoriesError;
+
     return (
-        <div className="p-4 md:p-6 text-white/90">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-semibold text-white">Manage Categories</h1>
+        <PageShell>
+            <PageHeader
+                title="Categories"
+                subtitle="Organize spending and income into parent and sub categories."
+                actions={
+                    <>
+                        <ToggleSwitch
+                            checked={showDeleted}
+                            onChange={setShowDeleted}
+                            label="Show Deleted"
+                            icons={{
+                                on: <Eye size={16} />,
+                                off: <EyeOff size={16} />,
+                            }}
+                        />
+                        <SearchInput
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="Search categories…"
+                            className="w-full sm:max-w-xs"
+                        />
+                        <button
+                            onClick={() => openModal('addMain')}
+                            disabled={isSubmitting}
+                            className={buttonOutlineClass}
+                        >
+                            <Plus size={18} className="mr-2" />
+                            Add main category
+                        </button>
+                    </>
+                }
+            />
 
-                <ToggleSwitch
-                    checked={showDeleted}
-                    onChange={setShowDeleted}
-                    label="Show Deleted"
-                    icons={{
-                        on: <Eye size={16} />,
-                        off: <EyeOff size={16} />,
-                    }}
+            {categoriesLoading && categories.length === 0 ? (
+                <PageLoadingState
+                    label="Loading categories…"
+                    fullScreen={false}
                 />
+            ) : null}
 
-            </div>
-
-
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <button
-                    onClick={() => openModal('addMain')}
-                    disabled={isSubmitting}
-                    className="inline-flex items-center px-4 py-2 bg-transparent border border-secondary-default/50 text-secondary-default rounded hover:bg-secondary-default/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                >
-                    <Plus size={18} className="mr-2" />
-                    Add Main Category
-                </button>
-                <div className="relative w-full sm:max-w-xs">
-                    <Search
-                        size={16}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
-                    />
-                    <input
-                        type="search"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search categories..."
-                        className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-secondary-default/50 focus:outline-none focus:ring-1 focus:ring-secondary-default/50"
-                    />
-                </div>
-            </div>
-
-            {categoriesLoading && categories.length === 0 && (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-8">
-                    <div className="flex items-center justify-center gap-3">
-                        <Loader2 className="h-6 w-6 animate-spin text-secondary-default" />
-                        <span className="text-white/70">Loading categories...</span>
+            {uncategorized !== null && uncategorized.line_count > 0 ? (
+                <InlineAlert variant="warning" className="mb-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <span title="Individual lines imported from your bank statements">
+                            {uncategorizedBannerText(uncategorized)}
+                        </span>
+                        <NavLink
+                            to="/transactions?uncategorized=1"
+                            className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-amber-200 hover:text-white"
+                        >
+                            Review on Transactions
+                            <ArrowRight size={14} />
+                        </NavLink>
                     </div>
-                </div>
-            )}
+                </InlineAlert>
+            ) : null}
 
-            {uncategorized !== null && uncategorized.line_count > 0 && (
-                <div className="mb-4 p-3 bg-amber-900/20 border border-amber-600/40 text-amber-100 rounded flex items-center justify-between gap-3">
-                    <span title="Individual lines imported from your bank statements">
-                        {uncategorizedBannerText(uncategorized)}
-                    </span>
-                    <NavLink
-                        to="/transactions?uncategorized=1"
-                        className="inline-flex items-center gap-1 text-sm text-amber-200 hover:text-white whitespace-nowrap"
-                    >
-                        Review on Transactions
-                        <ArrowRight size={14} />
-                    </NavLink>
-                </div>
-            )}
+            {listError ? (
+                <InlineAlert
+                    variant="error"
+                    className="mb-4"
+                    onDismiss={() => setError(null)}
+                >
+                    {listError}
+                </InlineAlert>
+            ) : null}
 
-            {(error || categoriesError) && (
-                <div className="mb-4 p-3 bg-red-900/30 border border-red-600/50 text-red-300 rounded flex items-center gap-2">
-                    <AlertCircle size={18} className="flex-shrink-0" />
-                    <span>Error: {error ?? categoriesError}</span>
-                    <button
-                        onClick={() => {
-                            setError(null);
-                        }}
-                        className="ml-auto text-red-200 hover:text-white cursor-pointer"
-                    >
-                        &times;
-                    </button>
-                </div>
-            )}
+            {!categoriesLoading && categories.length === 0 && !listError ? (
+                <EmptyState
+                    icon={FolderOpen}
+                    title={
+                        showDeleted
+                            ? 'No categories found'
+                            : 'No categories yet'
+                    }
+                    description={
+                        showDeleted
+                            ? 'No categories (including deleted) match.'
+                            : 'Add a main category to get started.'
+                    }
+                    compact
+                />
+            ) : null}
 
-            {!categoriesLoading && categories.length === 0 && !error && !categoriesError && (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-                    <FolderOpen className="mx-auto h-10 w-10 text-white/40" />
-                    <p className="mt-3 text-white/60">
-                        {showDeleted
-                            ? 'No categories (including deleted) found.'
-                            : 'No categories yet. Add one to get started.'}
-                    </p>
-                </div>
-            )}
-
-            {!categoriesLoading && categories.length > 0 && mainCategories.length === 0 && (
-                <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-                    <Search className="mx-auto h-10 w-10 text-white/40" />
-                    <p className="mt-3 text-white/60">No categories match your search.</p>
-                </div>
-            )}
+            {!categoriesLoading && categories.length > 0 && mainCategories.length === 0 ? (
+                <EmptyState
+                    icon={FolderOpen}
+                    title="No matches"
+                    description="No categories match your search."
+                    compact
+                />
+            ) : null}
 
             <div className="space-y-1">
                 {mainCategories.map((category) => {
@@ -918,6 +921,6 @@ export const CategoriesPage = () => {
             )}
             {/* --- END Delete Confirmation Modal --- */}
 
-        </div>
+        </PageShell>
     );
 };

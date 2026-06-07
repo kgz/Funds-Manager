@@ -30,7 +30,11 @@ import {
 import type { KpiComparison } from '@/components/dashboard/KpiCards';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipProps } from 'recharts';
-import { AlertCircle, FileArchive, X } from "lucide-react";
+import { EmptyState } from '@/components/layout/EmptyState';
+import { ErrorState } from '@/components/layout/ErrorState';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { buttonAccentClass, glassCardClass } from '@/components/layout/tokens';
+import { FileArchive, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from '@/lib/utils/cn';
 import {
@@ -121,41 +125,11 @@ function toPieItems(
 	}));
 }
 
-function DashboardStickyHeader({
-	period,
-	onPeriodChange,
-	pending,
-}: {
-	period: DashboardPeriod;
-	onPeriodChange: (value: DashboardPeriod) => void;
-	pending: boolean;
-}) {
-	return (
-		<div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-white/10 bg-gray-950/90 px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6">
-			<div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 shadow-lg shadow-black/20">
-				<div className="flex flex-wrap items-center justify-between gap-4">
-					<h2 className="text-2xl font-semibold text-white">Spending & Income Overview</h2>
-					<PeriodFilter value={period} onChange={onPeriodChange} pending={pending} />
-				</div>
-				<div
-					className={cn(
-						'mt-3 h-0.5 overflow-hidden rounded-full bg-white/10 transition-opacity duration-300',
-						pending ? 'opacity-100' : 'opacity-0'
-					)}
-					aria-hidden={!pending}
-				>
-					<div className="h-full w-2/5 animate-pulse rounded-full bg-secondary-default/80 motion-reduce:animate-none" />
-				</div>
-			</div>
-		</div>
-	);
-}
-
 function DashboardSkeleton() {
 	return (
 		<div className="p-4 md:p-6 space-y-8 animate-pulse">
 			<div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-white/10 bg-gray-950/90 px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6">
-				<div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+				<div className={cn(glassCardClass, 'px-4 py-3')}>
 					<div className="flex flex-wrap justify-between items-center gap-4">
 						<div className="h-8 w-56 rounded-md bg-white/10" />
 						<div className="h-9 w-72 rounded-md bg-white/10" />
@@ -164,42 +138,15 @@ function DashboardSkeleton() {
 			</div>
 			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
 				{Array.from({ length: 4 }, (_, i) => (
-					<div key={i} className="h-24 rounded-xl border border-white/10 bg-white/5" />
+					<div key={i} className={cn(glassCardClass, 'h-24')} />
 				))}
 			</div>
-			<div className="h-[400px] rounded-xl border border-white/10 bg-white/5" />
+			<div className={cn(glassCardClass, 'h-[400px]')} />
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-				<div className="h-[360px] rounded-xl border border-white/10 bg-white/5" />
-				<div className="h-[360px] rounded-xl border border-white/10 bg-white/5" />
+				<div className={cn(glassCardClass, 'h-[360px]')} />
+				<div className={cn(glassCardClass, 'h-[360px]')} />
 			</div>
-			<div className="h-[340px] rounded-xl border border-white/10 bg-white/5" />
-		</div>
-	);
-}
-
-function DashboardEmptyState({ periodLabel }: { periodLabel?: string }) {
-	const filtered = periodLabel !== undefined && periodLabel.length > 0;
-	return (
-		<div className="flex min-h-[50vh] items-center justify-center p-4 md:p-6">
-			<div className="max-w-md rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-				<FileArchive className="mx-auto h-12 w-12 text-white/40" />
-				<h2 className="mt-4 text-lg font-semibold text-white">
-					{filtered ? 'No data for this period' : 'No transactions yet'}
-				</h2>
-				<p className="mt-2 text-sm text-white/60">
-					{filtered
-						? `No transactions in ${periodLabel}. Try a wider date range.`
-						: 'Upload a bank statement PDF to see spending, income, and balance charts here.'}
-				</p>
-				{!filtered ? (
-					<Link
-						to="/statements"
-						className="mt-6 inline-flex rounded-md border border-secondary-default bg-secondary-default/20 px-4 py-2 text-sm font-medium text-white hover:bg-secondary-default/30"
-					>
-						Upload statements
-					</Link>
-				) : null}
-			</div>
+			<div className={cn(glassCardClass, 'h-[340px]')} />
 		</div>
 	);
 }
@@ -210,18 +157,6 @@ type ActiveBreakdown = {
 	flow: BreakdownFlow;
 	groupKey: string;
 };
-
-function DashboardErrorState({ message }: { message: string }) {
-	return (
-		<div className="flex min-h-[50vh] items-center justify-center p-4 md:p-6">
-			<div className="max-w-md rounded-xl border border-red-500/30 bg-red-950/40 p-8 text-center">
-				<AlertCircle className="mx-auto h-12 w-12 text-red-400" />
-				<h2 className="mt-4 text-lg font-semibold text-white">Could not load dashboard</h2>
-				<p className="mt-2 text-sm text-white/70">{message}</p>
-			</div>
-		</div>
-	);
-}
 
 export const Dashboard = () => {
 	const dispatch = useAppDispatch();
@@ -602,10 +537,17 @@ export const Dashboard = () => {
 				</>
 			) : null}
 
-			<DashboardStickyHeader
-				period={period}
-				onPeriodChange={setPeriod}
+			<PageHeader
+				title="Spending & Income Overview"
+				sticky
 				pending={isRefreshing}
+				actions={
+					<PeriodFilter
+						value={period}
+						onChange={setPeriod}
+						pending={isRefreshing}
+					/>
+				}
 			/>
 
 			<div className="relative">
@@ -617,7 +559,10 @@ export const Dashboard = () => {
 					aria-busy={isRefreshing}
 				>
 					{loadError !== null ? (
-						<DashboardErrorState message={loadError} />
+						<ErrorState
+							title="Could not load dashboard"
+							message={loadError}
+						/>
 					) : null}
 
 					{loadError === null && kpiMetrics !== null ? (
@@ -632,8 +577,25 @@ export const Dashboard = () => {
 					) : null}
 
 					{loadError === null && showFilteredEmpty ? (
-						<DashboardEmptyState
-							periodLabel={period !== 'all' ? periodLabel : undefined}
+						<EmptyState
+							icon={FileArchive}
+							title={
+								period !== 'all'
+									? 'No data for this period'
+									: 'No transactions yet'
+							}
+							description={
+								period !== 'all'
+									? `No transactions in ${periodLabel}. Try a wider date range.`
+									: 'Upload a bank statement PDF to see spending, income, and balance charts here.'
+							}
+							action={
+								period === 'all' ? (
+									<Link to="/statements" className={buttonAccentClass}>
+										Upload statements
+									</Link>
+								) : undefined
+							}
 						/>
 					) : null}
 

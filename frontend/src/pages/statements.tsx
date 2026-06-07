@@ -7,7 +7,11 @@ import {
 	type Statement,
 	type StatementPreviewFile,
 } from "@/types/statement";
-import { AlertTriangle, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud, X } from "lucide-react";
+import { InlineAlert } from '@/components/layout/InlineAlert';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageShell } from '@/components/layout/PageShell';
+import { glassCardClass } from '@/components/layout/tokens';
+import { FileArchive, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, ChangeEvent, DragEvent } from "react";
 import { DateTime } from "luxon";
 import { cn } from "@/lib/utils/cn";
@@ -277,7 +281,15 @@ export const Statements = () => {
 	);
 
 	return (
-		<div className="relative flex flex-col items-center h-screen w-full">
+		<PageShell variant="table" className="relative">
+			<div className="border-b border-white/10 p-4">
+				<PageHeader
+					title="Statements"
+					subtitle="Upload bank statement PDFs and manage imported periods."
+					icon={<FileArchive className="h-6 w-6 text-secondary-default" />}
+					className="mb-0"
+				/>
+			</div>
 			{replacePrompt !== null ? (
 				<>
 					<div
@@ -349,9 +361,10 @@ export const Statements = () => {
 
 			<div
 				className={cn(
-					"w-full p-4 border-b-1 border-secondary-default/20 bg-black transition-colors duration-200 ease-in-out",
-					isDraggingOver && !isUploading && "border-secondary-default border-dashed border-2 bg-white/10",
-					!isUploading ? "cursor-pointer hover:bg-white/5" : "opacity-50 pointer-events-none",
+					'mx-4 mb-4 p-6 transition-colors duration-200 ease-in-out',
+					glassCardClass,
+					isDraggingOver && !isUploading && 'border-secondary-default/50 border-dashed bg-white/10',
+					!isUploading ? 'cursor-pointer hover:bg-white/[0.07]' : 'pointer-events-none opacity-50',
 				)}
 				onClick={() => !isUploading && document.getElementById("file-upload")?.click()}
 				onDragOver={handleDragOver}
@@ -381,26 +394,25 @@ export const Statements = () => {
 					onChange={handleInputChange}
 					disabled={isUploading}
 				/>
-				{uploadError && (
-					<p className="text-center text-red-500 mt-2 text-sm">{uploadError}</p>
-				)}
+				{uploadError ? (
+					<p className="mt-2 text-center text-sm text-red-400">{uploadError}</p>
+				) : null}
 			</div>
 
-			{missingPeriods.length > 0 && !missingLoading && (
-				<div className="w-full p-3 bg-yellow-900/30 border-b border-yellow-600/50 text-yellow-300 text-sm">
-					<div className="flex items-center gap-2 max-w-screen-lg mx-auto">
-						<AlertTriangle size={18} className="flex-shrink-0" />
-						<div>
-							<span className="font-semibold">Missing Statement Periods Detected:</span>
-							<ul className="list-disc list-inside ml-2 mt-1">
-								{missingPeriods.map(period => <li key={period}>{period}</li>)}
-							</ul>
-						</div>
-					</div>
+			{missingPeriods.length > 0 && !missingLoading ? (
+				<div className="mx-4 mb-4">
+					<InlineAlert variant="warning">
+						<span className="font-semibold">Missing statement periods:</span>
+						<ul className="ml-4 mt-1 list-disc">
+							{missingPeriods.map((period) => (
+								<li key={period}>{period}</li>
+							))}
+						</ul>
+					</InlineAlert>
 				</div>
-			)}
+			) : null}
 
-			<div className={cn("w-full flex-grow overflow-hidden", isUploading && "opacity-50")}>
+			<div className={cn('min-h-0 flex-grow overflow-hidden px-4', isUploading && 'opacity-50')}>
 				<Table<Statement>
 					columns={columns}
 					data={sortedItems}
@@ -426,6 +438,6 @@ export const Statements = () => {
 					emptyStateMessage={loading ? "Loading..." : "No statements found."}
 				/>
 			</div>
-		</div>
+		</PageShell>
 	);
 };
