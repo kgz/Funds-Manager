@@ -81,7 +81,6 @@ export default defineConfig(({ mode }) => {
         '@/assets': '/src/assets',
         '@/components': '/src/components',
         '@/lib': '/src/lib',
-        '@/styles': '/src/components/ui-styles',
         '@': '/src',
       },
     },
