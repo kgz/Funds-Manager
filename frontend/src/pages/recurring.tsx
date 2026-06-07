@@ -971,7 +971,7 @@ const RecurringExpensesPage = () => {
 							<table className="w-full min-w-[960px]">
 								<thead
 									className={cn(
-										'bg-gray-900 border-b border-white/10',
+										'border-b border-white/10 bg-gray-950/95 backdrop-blur-sm',
 										'sticky top-0 z-10'
 									)}
 								>

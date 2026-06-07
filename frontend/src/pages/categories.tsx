@@ -21,7 +21,15 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SearchInput } from '@/components/layout/SearchInput';
-import { buttonOutlineClass } from '@/components/layout/tokens';
+import { Modal } from '@/components/layout/Modal';
+import {
+	buttonDangerClass,
+	buttonOutlineClass,
+	buttonPrimaryClass,
+	buttonWarningClass,
+	glassCardClass,
+	inputDarkClass,
+} from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
 import { ToggleSwitch } from '@/components/toggleSwitch';
 import { NavLink } from 'react-router';
@@ -464,7 +472,8 @@ export const CategoriesPage = () => {
                         <div
                             key={category.id}
                             className={cn(
-                                "rounded-xl border border-white/10 bg-white/5 overflow-hidden transition-opacity",
+                                glassCardClass,
+                                "overflow-hidden transition-opacity",
                                 isDeleted && "opacity-60 border-red-500/30 bg-red-900/10",
                                 draggingId === category.id && "opacity-50"
                             )}
@@ -706,220 +715,194 @@ export const CategoriesPage = () => {
             </div>
 
 
-            {/* --- Add/Edit Modal --- */}
-            {isModalOpen && (
-                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
-                    <div className="bg-gray-950 rounded-lg shadow-xl p-5 w-full max-w-md border border-secondary-default/30">
-                        <h2 className="text-lg font-semibold mb-4 text-white">
-                            {modalMode === 'addMain' && 'Add New Main Category'}
-                            {modalMode === 'editMain' && 'Edit Main Category'}
-                            {modalMode === 'addSub' && `Add Subcategory to "${parentCategory?.name}"`}
-                            {modalMode === 'editSub' && 'Edit Subcategory'}
-                        </h2>
-
-                        {modalError && (
-                            <div className="mb-3 p-2 bg-red-900/30 text-red-300 border border-red-600/50 rounded text-sm flex items-center gap-2">
-                                <AlertCircle size={16} className="flex-shrink-0" />
-                                <span>{modalError}</span>
-                            </div>
-                        )}
-
-                        <form onSubmit={handleModalSubmit}>
-                            <div className="mb-4">
-                                <label htmlFor="categoryNameInput" className="block text-sm font-medium text-white/80 mb-1">
-                                    {modalMode === 'addSub' || modalMode === 'editSub' ? 'Subcategory Name' : 'Category Name'}
-                                </label>
-                                <input
-                                    type="text"
-                                    id="categoryNameInput"
-                                    value={inputValue}
-                                    onChange={(e) => setInputValue(e.target.value)}
-                                    required
-                                    className="w-full px-3 py-2 bg-black/50 border border-secondary-default/40 rounded focus:outline-none focus:ring-2 focus:ring-secondary-default text-white placeholder-white/50"
-                                    placeholder={modalMode === 'addSub' || modalMode === 'editSub' ? 'Enter subcategory name' : 'Enter category name'}
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label htmlFor="categoryDescriptionInput" className="block text-sm font-medium text-white/80 mb-1">
-                                    Description (optional)
-                                </label>
-                                <textarea
-                                    id="categoryDescriptionInput"
-                                    value={inputDescription}
-                                    onChange={(e) => setInputDescription(e.target.value)}
-                                    rows={3}
-                                    className="w-full px-3 py-2 bg-black/50 border border-secondary-default/40 rounded focus:outline-none focus:ring-2 focus:ring-secondary-default text-white placeholder-white/50 resize-y min-h-[4.5rem]"
-                                    placeholder="What kinds of transactions belong here?"
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-                            <div className="mb-4">
-                                <label htmlFor="categoryColourInput" className="block text-sm font-medium text-white/80 mb-1">
-                                    Category Colour
-                                </label>
-                                <input
-                                    type="color"
-                                    id="categoryColourInput"
-                                    value={inputColour}
-                                    onChange={(e) => setInputColour(e.target.value)}
-                                    className="w-full h-10 px-1 py-1 bg-black/50 border border-secondary-default/40 rounded focus:outline-none focus:ring-2 focus:ring-secondary-default cursor-pointer"
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-                            {/* End Colour Picker */}
-                            <div className="flex justify-end gap-3 mt-5">
-                                <button
-                                    type="button"
-                                    onClick={closeModal}
-                                    disabled={isSubmitting}
-                                    className="px-4 py-2 bg-gray-700 text-white/80 rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting || !inputValue.trim()}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[80px] transition-colors cursor-pointer"
-                                >
-                                    {isSubmitting ? (
-                                        <Loader2 className="animate-spin h-5 w-5" />
-                                    ) : (
-                                        (modalMode === 'addMain' || modalMode === 'addSub') ? 'Add' : 'Save'
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                 </div>
-            )}
-
-            {isMergeModalOpen && itemToMerge && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
-                    <div className="bg-gray-950 rounded-lg shadow-xl p-5 w-full max-w-md border border-secondary-default/30">
-                        <h2 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
-                            <GitMerge size={20} />
-                            Merge &quot;{itemToMerge.name}&quot;
-                        </h2>
-                        <p className="text-sm text-white/70 mb-4">
-                            All transactions assigned to this category will move to the target.
-                            This category will be soft-deleted.
-                        </p>
-
-                        {modalError && (
-                            <div className="mb-3 p-2 bg-red-900/30 text-red-300 border border-red-600/50 rounded text-sm flex items-center gap-2">
-                                <AlertCircle size={16} className="flex-shrink-0" />
-                                <span>{modalError}</span>
-                            </div>
-                        )}
-
-                        <label htmlFor="mergeTargetSelect" className="block text-sm font-medium text-white/80 mb-1">
-                            Merge into
+            <Modal
+                open={isModalOpen}
+                onClose={closeModal}
+                closeDisabled={isSubmitting}
+                title={
+                    modalMode === 'addMain'
+                        ? 'Add New Main Category'
+                        : modalMode === 'editMain'
+                          ? 'Edit Main Category'
+                          : modalMode === 'addSub'
+                            ? `Add Subcategory to "${parentCategory?.name}"`
+                            : 'Edit Subcategory'
+                }
+            >
+                {modalError ? (
+                    <InlineAlert variant="error" className="mb-4">
+                        {modalError}
+                    </InlineAlert>
+                ) : null}
+                <form onSubmit={handleModalSubmit}>
+                    <div className="mb-4">
+                        <label htmlFor="categoryNameInput" className="mb-1 block text-sm font-medium text-white/80">
+                            {modalMode === 'addSub' || modalMode === 'editSub' ? 'Subcategory Name' : 'Category Name'}
                         </label>
-                        <select
-                            id="mergeTargetSelect"
-                            value={mergeTargetId}
-                            onChange={(e) => setMergeTargetId(e.target.value)}
+                        <input
+                            type="text"
+                            id="categoryNameInput"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            required
+                            className={cn(inputDarkClass, 'w-full px-3 py-2')}
+                            placeholder={modalMode === 'addSub' || modalMode === 'editSub' ? 'Enter subcategory name' : 'Enter category name'}
                             disabled={isSubmitting}
-                            className="w-full px-3 py-2 bg-black/50 border border-secondary-default/40 rounded focus:outline-none focus:ring-2 focus:ring-secondary-default text-white cursor-pointer"
+                        />
+                    </div>
+                    <div className="mb-4">
+                        <label htmlFor="categoryDescriptionInput" className="mb-1 block text-sm font-medium text-white/80">
+                            Description (optional)
+                        </label>
+                        <textarea
+                            id="categoryDescriptionInput"
+                            value={inputDescription}
+                            onChange={(e) => setInputDescription(e.target.value)}
+                            rows={3}
+                            className={cn(inputDarkClass, 'min-h-[4.5rem] w-full resize-y px-3 py-2')}
+                            placeholder="What kinds of transactions belong here?"
+                            disabled={isSubmitting}
+                        />
+                    </div>
+                    <div className="mb-4">
+                        <label htmlFor="categoryColourInput" className="mb-1 block text-sm font-medium text-white/80">
+                            Category Colour
+                        </label>
+                        <input
+                            type="color"
+                            id="categoryColourInput"
+                            value={inputColour}
+                            onChange={(e) => setInputColour(e.target.value)}
+                            className={cn(inputDarkClass, 'h-10 w-full cursor-pointer px-1 py-1')}
+                            disabled={isSubmitting}
+                        />
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <button type="button" onClick={closeModal} disabled={isSubmitting} className={buttonOutlineClass}>
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting || !inputValue.trim()}
+                            className={cn(buttonPrimaryClass, 'min-w-[80px]')}
                         >
-                            <option value="">Select a category...</option>
-                            {mergeTargetOptions.map((cat) => (
-                                <option key={cat.id} value={cat.id}>
-                                    {cat.parent_category_id
-                                        ? `${categories.find((p) => p.id === cat.parent_category_id)?.name ?? 'Parent'} › ${cat.name}`
-                                        : cat.name}
-                                </option>
-                            ))}
-                        </select>
-
-                        <div className="flex justify-end gap-3 mt-5">
-                            <button
-                                type="button"
-                                onClick={closeMergeModal}
-                                disabled={isSubmitting}
-                                className="px-4 py-2 bg-gray-700 text-white/80 rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={confirmMerge}
-                                disabled={isSubmitting || !mergeTargetId}
-                                className="px-4 py-2 bg-amber-700 text-white rounded hover:bg-amber-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[100px] transition-colors cursor-pointer"
-                            >
-                                {isSubmitting ? (
-                                    <Loader2 className="animate-spin h-5 w-5" />
-                                ) : (
-                                    'Merge'
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* --- Delete Confirmation Modal --- */}
-            {isDeleteModalOpen && itemToDelete && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
-                    <div className="bg-gray-950 rounded-lg shadow-xl p-5 w-full max-w-md border border-secondary-default/30">
-                        <h2 className="text-lg font-semibold mb-4 text-red-400 flex items-center gap-2">
-                            <AlertCircle size={20} /> Confirm Deletion
-                        </h2>
-                        <p className="text-white/80 mb-6">
-                            Are you sure you want to delete the category{' '}
-                            <strong className="text-white">"{itemToDelete.name}"</strong>?
-                            {(() => {
-                                const deleteWarning = categoryDeleteUsageWarning(itemToDelete);
-                                return deleteWarning ? (
-                                    <span className="block mt-2 text-sm text-yellow-400">
-                                        {deleteWarning}
-                                    </span>
-                                ) : null;
-                            })()}
-                            {isMainCategoryDelete && (
-                                <span className="block mt-2 text-sm text-white/60">
-                                    Active subcategories will also be soft-deleted.
-                                </span>
+                            {isSubmitting ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (modalMode === 'addMain' || modalMode === 'addSub') ? (
+                                'Add'
+                            ) : (
+                                'Save'
                             )}
-                            <span className="block mt-3 text-sm text-white/60">
-                                This is a soft delete. Turn on Show Deleted to restore it later.
-                            </span>
-                        </p>
-
-                        {error && (
-                            <div className="mb-4 p-2 bg-red-900/40 text-red-300 border border-red-600/50 rounded text-sm flex items-center gap-2">
-                                <AlertCircle size={16} className="flex-shrink-0" />
-                                <span>{error}</span>
-                            </div>
-                        )}
-
-                        <div className="flex justify-end gap-3 mt-5">
-                            <button
-                                type="button"
-                                onClick={closeDeleteModal}
-                                disabled={isSubmitting}
-                                className="px-4 py-2 bg-gray-700 text-white/80 rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={confirmDelete}
-                                disabled={isSubmitting}
-                                className="px-4 py-2 bg-red-700 text-white rounded hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[120px] transition-colors cursor-pointer"
-                            >
-                                {isSubmitting ? (
-                                    <Loader2 className="animate-spin h-5 w-5" />
-                                ) : (
-                                    'Confirm Delete'
-                                )}
-                            </button>
-                        </div>
+                        </button>
                     </div>
-                </div>
-            )}
-            {/* --- END Delete Confirmation Modal --- */}
+                </form>
+            </Modal>
+
+            <Modal
+                open={isMergeModalOpen && itemToMerge !== null}
+                onClose={closeMergeModal}
+                closeDisabled={isSubmitting}
+                title={
+                    <span className="inline-flex items-center gap-2">
+                        <GitMerge size={20} />
+                        Merge &quot;{itemToMerge?.name}&quot;
+                    </span>
+                }
+                description="All transactions assigned to this category will move to the target. This category will be soft-deleted."
+                footer={
+                    <>
+                        <button type="button" onClick={closeMergeModal} disabled={isSubmitting} className={buttonOutlineClass}>
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={confirmMerge}
+                            disabled={isSubmitting || !mergeTargetId}
+                            className={cn(buttonWarningClass, 'min-w-[100px]')}
+                        >
+                            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Merge'}
+                        </button>
+                    </>
+                }
+            >
+                {modalError ? (
+                    <InlineAlert variant="error" className="mb-4">
+                        {modalError}
+                    </InlineAlert>
+                ) : null}
+                <label htmlFor="mergeTargetSelect" className="mb-1 block text-sm font-medium text-white/80">
+                    Merge into
+                </label>
+                <select
+                    id="mergeTargetSelect"
+                    value={mergeTargetId}
+                    onChange={(e) => setMergeTargetId(e.target.value)}
+                    disabled={isSubmitting}
+                    className={cn(inputDarkClass, 'w-full cursor-pointer px-3 py-2')}
+                >
+                    <option value="">Select a category...</option>
+                    {mergeTargetOptions.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                            {cat.parent_category_id
+                                ? `${categories.find((p) => p.id === cat.parent_category_id)?.name ?? 'Parent'} › ${cat.name}`
+                                : cat.name}
+                        </option>
+                    ))}
+                </select>
+            </Modal>
+
+            <Modal
+                open={isDeleteModalOpen && itemToDelete !== null}
+                onClose={closeDeleteModal}
+                closeDisabled={isSubmitting}
+                title={
+                    <span className="inline-flex items-center gap-2 text-red-400">
+                        <AlertCircle size={20} />
+                        Confirm Deletion
+                    </span>
+                }
+                footer={
+                    <>
+                        <button type="button" onClick={closeDeleteModal} disabled={isSubmitting} className={buttonOutlineClass}>
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={confirmDelete}
+                            disabled={isSubmitting}
+                            className={cn(buttonDangerClass, 'min-w-[120px]')}
+                        >
+                            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Confirm Delete'}
+                        </button>
+                    </>
+                }
+            >
+                <p className="text-white/80">
+                    Are you sure you want to delete the category{' '}
+                    <strong className="text-white">&quot;{itemToDelete?.name}&quot;</strong>?
+                    {itemToDelete ? (() => {
+                        const deleteWarning = categoryDeleteUsageWarning(itemToDelete);
+                        return deleteWarning ? (
+                            <span className="mt-2 block text-sm text-yellow-400">
+                                {deleteWarning}
+                            </span>
+                        ) : null;
+                    })() : null}
+                    {isMainCategoryDelete ? (
+                        <span className="mt-2 block text-sm text-white/60">
+                            Active subcategories will also be soft-deleted.
+                        </span>
+                    ) : null}
+                    <span className="mt-3 block text-sm text-white/60">
+                        This is a soft delete. Turn on Show Deleted to restore it later.
+                    </span>
+                </p>
+                {error ? (
+                    <InlineAlert variant="error" className="mt-4">
+                        {error}
+                    </InlineAlert>
+                ) : null}
+            </Modal>
 
         </PageShell>
     );
