@@ -1,6 +1,6 @@
 use crate::models::transaction::Transaction;
 use crate::modules::database::get_dbo;
-use crate::schema::{categories, transaction_categories, transaction_data};
+use crate::schema::{categories, category_mappings, transaction_categories, transaction_data};
 use chrono::{NaiveDateTime, Utc};
 use diesel::pg::Pg;
 use diesel::prelude::*;
@@ -28,6 +28,7 @@ pub struct Category {
     pub description: Option<String>,
     pub parent_category_id: Option<i64>,
     pub colour: Option<String>, // Added colour field
+    pub sort_order: i32,
     pub created_at: NaiveDateTime,
     pub deleted_at: Option<NaiveDateTime>,
 }
@@ -39,6 +40,7 @@ pub struct NewCategory<'a> {
     pub description: Option<&'a str>,
     pub parent_category_id: Option<i64>,
     pub colour: Option<&'a str>, // Added colour field
+    pub sort_order: i32,
     pub created_at: NaiveDateTime,
 }
 
@@ -55,7 +57,14 @@ impl Category {
             query = query.filter(categories::deleted_at.is_null());
         }
 
-        query.select(Category::as_select()).load::<Category>(conn)
+        query
+            .order((
+                categories::sort_order.asc(),
+                categories::created_at.asc(),
+                categories::id.asc(),
+            ))
+            .select(Category::as_select())
+            .load::<Category>(conn)
     }
 
     /// Finds a category by its ID, optionally including deleted ones.
@@ -112,7 +121,14 @@ impl Category {
             query = query.filter(categories::deleted_at.is_null());
         }
 
-        query.select(Category::as_select()).load::<Category>(conn)
+        query
+            .order((
+                categories::sort_order.asc(),
+                categories::created_at.asc(),
+                categories::id.asc(),
+            ))
+            .select(Category::as_select())
+            .load::<Category>(conn)
     }
 
     /// Retrieves direct subcategories for a given parent category ID, optionally including deleted ones.
@@ -129,7 +145,24 @@ impl Category {
             query = query.filter(categories::deleted_at.is_null());
         }
 
-        query.select(Category::as_select()).load::<Category>(conn)
+        query
+            .order((
+                categories::sort_order.asc(),
+                categories::created_at.asc(),
+                categories::id.asc(),
+            ))
+            .select(Category::as_select())
+            .load::<Category>(conn)
+    }
+
+    fn next_sort_order(parent_category_id: Option<i64>) -> Result<i32, diesel::result::Error> {
+        let conn = &mut get_dbo();
+        let max_order: Option<i32> = categories::table
+            .filter(categories::parent_category_id.eq(parent_category_id))
+            .filter(categories::deleted_at.is_null())
+            .select(diesel::dsl::max(categories::sort_order))
+            .first(conn)?;
+        Ok(max_order.unwrap_or(-1) + 1)
     }
 
     /// Inserts a new category into the database.
@@ -142,11 +175,14 @@ impl Category {
         let conn = &mut get_dbo();
         let now = Utc::now().naive_utc();
 
+        let sort_order = Self::next_sort_order(parent_category_id)?;
+
         let new_category = NewCategory {
             name,
             description,
             parent_category_id,
-            colour, // Pass colour to NewCategory
+            colour,
+            sort_order,
             created_at: now,
         };
 
@@ -195,14 +231,137 @@ impl Category {
         // find already uses select now
     }
 
-    /// Soft deletes a category by setting its `deleted_at` field.
+    /// Soft deletes a category and its active subcategories.
     pub fn delete(id: i64) -> Result<(), diesel::result::Error> {
         let conn = &mut get_dbo();
         let now = Utc::now().naive_utc();
-        diesel::update(categories::table.find(id))
-            .set(categories::deleted_at.eq(now))
-            .execute(conn)?;
+
+        let sub_ids: Vec<i64> = categories::table
+            .filter(categories::parent_category_id.eq(id))
+            .filter(categories::deleted_at.is_null())
+            .select(categories::id)
+            .load(conn)?;
+
+        let mut ids_to_delete = vec![id];
+        ids_to_delete.extend(sub_ids);
+
+        diesel::update(
+            categories::table.filter(categories::id.eq_any(&ids_to_delete)),
+        )
+        .set(categories::deleted_at.eq(now))
+        .execute(conn)?;
         Ok(())
+    }
+
+    pub fn active_subcategory_count(parent_id: i64) -> Result<i64, diesel::result::Error> {
+        let conn = &mut get_dbo();
+        categories::table
+            .filter(categories::parent_category_id.eq(parent_id))
+            .filter(categories::deleted_at.is_null())
+            .select(diesel::dsl::count_star())
+            .get_result(conn)
+    }
+
+    pub fn is_descendant_of(
+        candidate_id: i64,
+        ancestor_id: i64,
+    ) -> Result<bool, diesel::result::Error> {
+        let mut current_id = Some(candidate_id);
+        while let Some(id) = current_id {
+            if id == ancestor_id {
+                return Ok(true);
+            }
+            current_id = Self::find(id, true)?.and_then(|cat| cat.parent_category_id);
+        }
+        Ok(false)
+    }
+
+    /// Reassigns transactions from source to target, then soft-deletes source.
+    pub fn merge_into(source_id: i64, target_id: i64) -> Result<Category, diesel::result::Error> {
+        let conn = &mut get_dbo();
+
+        conn.transaction::<(), diesel::result::Error, _>(|conn| {
+            diesel::update(
+                transaction_data::table
+                    .filter(transaction_data::category_id.eq(source_id as i32))
+                    .filter(transaction_data::deleted_at.is_null()),
+            )
+            .set(transaction_data::category_id.eq(target_id as i32))
+            .execute(conn)?;
+
+            let source_links: Vec<(i64, i64)> = transaction_categories::table
+                .filter(transaction_categories::category_id.eq(source_id))
+                .select((
+                    transaction_categories::transaction_id,
+                    transaction_categories::category_id,
+                ))
+                .load(conn)?;
+
+            for (transaction_id, _) in source_links {
+                let existing_target_link: Option<i64> = transaction_categories::table
+                    .filter(transaction_categories::transaction_id.eq(transaction_id))
+                    .filter(transaction_categories::category_id.eq(target_id))
+                    .select(transaction_categories::id)
+                    .first(conn)
+                    .optional()?;
+
+                if existing_target_link.is_some() {
+                    diesel::delete(
+                        transaction_categories::table
+                            .filter(transaction_categories::transaction_id.eq(transaction_id))
+                            .filter(transaction_categories::category_id.eq(source_id)),
+                    )
+                    .execute(conn)?;
+                } else {
+                    diesel::update(
+                        transaction_categories::table
+                            .filter(transaction_categories::transaction_id.eq(transaction_id))
+                            .filter(transaction_categories::category_id.eq(source_id)),
+                    )
+                    .set(transaction_categories::category_id.eq(target_id))
+                    .execute(conn)?;
+                }
+            }
+
+            diesel::update(
+                category_mappings::table.filter(category_mappings::category_id.eq(source_id)),
+            )
+            .set(category_mappings::category_id.eq(target_id))
+            .execute(conn)?;
+
+            let now = Utc::now().naive_utc();
+            diesel::update(categories::table.find(source_id))
+                .set(categories::deleted_at.eq(now))
+                .execute(conn)?;
+
+            Ok(())
+        })?;
+
+        Self::find(target_id, false).and_then(|opt| opt.ok_or(diesel::result::Error::NotFound))
+    }
+
+    /// Updates sort_order for the given category ids (0-based, caller defines order).
+    pub fn reorder(ordered_ids: &[i64]) -> Result<Vec<Category>, diesel::result::Error> {
+        if ordered_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let conn = &mut get_dbo();
+
+        conn.transaction::<(), diesel::result::Error, _>(|conn| {
+            for (index, id) in ordered_ids.iter().enumerate() {
+                diesel::update(categories::table.find(id))
+                    .set(categories::sort_order.eq(index as i32))
+                    .execute(conn)?;
+            }
+            Ok(())
+        })?;
+
+        categories::table
+            .filter(categories::id.eq_any(ordered_ids))
+            .order(categories::sort_order.asc())
+            .select(Category::as_select())
+            .load(conn)
     }
 
     /// Reverts a soft delete by setting `deleted_at` to NULL.
