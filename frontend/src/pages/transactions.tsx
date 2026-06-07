@@ -189,6 +189,9 @@ const TransactionsPage = () => {
     const resolveSuggestion = useCallback(
         (row: Transaction): CategorySuggestion | null => {
             const current = row.category_id ?? null;
+            if (current !== null) {
+                return null;
+            }
             if (
                 row.suggested_category_id !== null &&
                 row.suggested_category_id !== undefined &&

@@ -16,7 +16,9 @@ Broken into independent OpenSpec changes. Recommended order:
 
 **Future / cleanup:** `dashboard-remove-parent-grouping` — drop unused group-by-parent dashboard toggle (auto-cat assigns leaf categories; use `/breakdown` instead).
 
-**Tables:** `table-sorting-latest-first` — wire header sorting on statements/transactions; default date descending.
+**Tables:** `table-sorting-latest-first` — wire header sorting on statements/transactions; default date descending. ✓ archived
+
+**UI:** `ui-consistency` — shared layout primitives, transactions category picker/suggestions, statement upload pool. ✓ archived
 
 **Features:** `transaction-notes` — optional notes per transaction (DB + API + `/transactions` UI).
 

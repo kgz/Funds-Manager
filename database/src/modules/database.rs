@@ -1,15 +1,22 @@
 use diesel::migration::{Migration, MigrationSource};
 use diesel::pg::{Pg, PgConnection};
 use diesel::prelude::*;
+use diesel::r2d2::{self, ConnectionManager, Pool, PooledConnection};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::process::Command;
 use std::sync::Once;
+use std::sync::OnceLock;
+use std::time::Duration;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 static LOAD_DOTENV: Once = Once::new();
+static DB_POOL: OnceLock<DbPool> = OnceLock::new();
+
+pub type DbPool = Pool<ConnectionManager<PgConnection>>;
+pub type DbConn = PooledConnection<ConnectionManager<PgConnection>>;
 
 fn load_dotenv_override() {
     LOAD_DOTENV.call_once(|| {
@@ -27,11 +34,25 @@ fn load_dotenv_override() {
     });
 }
 
-pub fn get_dbo() -> PgConnection {
+fn db_pool() -> &'static DbPool {
+    DB_POOL.get_or_init(|| {
+        load_dotenv_override();
+        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let manager = ConnectionManager::<PgConnection>::new(database_url);
+        Pool::builder()
+            .max_size(16)
+            .connection_timeout(Duration::from_secs(30))
+            .build(manager)
+            .unwrap_or_else(|e| panic!("Failed to create DB pool: {e}"))
+    })
+}
+
+pub fn get_dbo() -> DbConn {
     load_dotenv_override();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    PgConnection::establish(&database_url)
-        .unwrap_or_else(|e| panic!("Error connecting to {database_url}: {e}"))
+    db_pool().get().unwrap_or_else(|e| {
+        let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "<unset>".to_string());
+        panic!("Error connecting to {database_url}: {e}")
+    })
 }
 
 #[derive(Debug, Serialize, Deserialize)]
