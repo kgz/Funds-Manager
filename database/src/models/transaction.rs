@@ -6,6 +6,13 @@ use diesel::pg::Pg;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy)]
+pub struct CategoryUsageStats {
+    pub line_count: i64,
+    pub spending_cents: i64,
+    pub income_cents: i64,
+}
+
 pub const ACTIVE_STATEMENT_WHERE: &str =
     "EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)";
 
@@ -270,6 +277,111 @@ impl Transaction {
             .load(conn)?;
 
         Ok((items, total))
+    }
+
+    /// Counts active, non-deleted transactions with no category assigned.
+    pub fn count_uncategorized() -> Result<i64, diesel::result::Error> {
+        let conn = &mut get_dbo();
+        filter_active_statement(
+            transaction_data::table
+                .filter(transaction_data::deleted_at.is_null())
+                .filter(transaction_data::category_id.is_null())
+                .into_boxed(),
+        )
+        .select(count_star())
+        .get_result(conn)
+    }
+
+    /// Per-category usage from imported statement lines (active statements only).
+    pub fn usage_by_category(
+    ) -> Result<std::collections::HashMap<i64, CategoryUsageStats>, diesel::result::Error> {
+        use diesel::sql_query;
+        use diesel::sql_types::BigInt;
+        use diesel::QueryableByName;
+
+        #[derive(QueryableByName)]
+        struct CategoryUsageRow {
+            #[diesel(sql_type = BigInt)]
+            category_id: i64,
+            #[diesel(sql_type = BigInt)]
+            line_count: i64,
+            #[diesel(sql_type = BigInt)]
+            spending_cents: i64,
+            #[diesel(sql_type = BigInt)]
+            income_cents: i64,
+        }
+
+        let conn = &mut get_dbo();
+        let rows: Vec<CategoryUsageRow> = sql_query(
+            "SELECT
+                category_id::bigint AS category_id,
+                COUNT(*)::bigint AS line_count,
+                COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0)::bigint AS spending_cents,
+                COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0)::bigint AS income_cents
+             FROM transaction_data
+             WHERE deleted_at IS NULL
+               AND category_id IS NOT NULL
+               AND EXISTS (
+                   SELECT 1 FROM statement s
+                   WHERE s.id = transaction_data.statement_id
+                     AND s.deleted_at IS NULL
+               )
+             GROUP BY category_id",
+        )
+        .load(conn)?;
+
+        let mut usage = std::collections::HashMap::new();
+        for row in rows {
+            usage.insert(
+                row.category_id,
+                CategoryUsageStats {
+                    line_count: row.line_count,
+                    spending_cents: row.spending_cents,
+                    income_cents: row.income_cents,
+                },
+            );
+        }
+        Ok(usage)
+    }
+
+    /// Uncategorized statement-line totals (active statements only).
+    pub fn uncategorized_usage() -> Result<CategoryUsageStats, diesel::result::Error> {
+        use diesel::sql_query;
+        use diesel::sql_types::BigInt;
+        use diesel::QueryableByName;
+
+        #[derive(QueryableByName)]
+        struct UncategorizedUsageRow {
+            #[diesel(sql_type = BigInt)]
+            line_count: i64,
+            #[diesel(sql_type = BigInt)]
+            spending_cents: i64,
+            #[diesel(sql_type = BigInt)]
+            income_cents: i64,
+        }
+
+        let conn = &mut get_dbo();
+        let row: UncategorizedUsageRow = sql_query(
+            "SELECT
+                COUNT(*)::bigint AS line_count,
+                COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0)::bigint AS spending_cents,
+                COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0)::bigint AS income_cents
+             FROM transaction_data
+             WHERE deleted_at IS NULL
+               AND category_id IS NULL
+               AND EXISTS (
+                   SELECT 1 FROM statement s
+                   WHERE s.id = transaction_data.statement_id
+                     AND s.deleted_at IS NULL
+               )",
+        )
+        .get_result(conn)?;
+
+        Ok(CategoryUsageStats {
+            line_count: row.line_count,
+            spending_cents: row.spending_cents,
+            income_cents: row.income_cents,
+        })
     }
 
     /// Counts non-deleted transactions on active statements.

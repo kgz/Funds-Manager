@@ -73,6 +73,14 @@ impl Category {
             .optional()
     }
 
+    /// Returns true when another active category already uses this name.
+    pub fn name_taken_by_other(name: &str, exclude_id: Option<i64>) -> Result<bool, diesel::result::Error> {
+        match Self::find_by_name(name, false)? {
+            Some(existing) => Ok(exclude_id != Some(existing.id)),
+            None => Ok(false),
+        }
+    }
+
     /// Finds a category by its name (case-sensitive), optionally including deleted ones.
     pub fn find_by_name(
         name: &str,

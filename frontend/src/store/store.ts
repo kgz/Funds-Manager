@@ -1,11 +1,9 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit'
 import { useDispatch, useSelector } from 'react-redux'
 import { CategoryReducer } from './slices/categorySlice'
-import { MappingReducer } from './slices/mappingSlice'
 
 const reducers = combineReducers({
 	CategoryReducer,
-	MappingReducer
 })
 
 export const store = configureStore({

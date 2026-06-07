@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, FormEvent } from 'react';
-import { Plus, Edit2, Trash2, Loader2, ChevronDown, ChevronRight, AlertCircle, RotateCcw, Eye, EyeOff, Filter } from 'lucide-react';
+import { useState, useEffect, FormEvent } from 'react';
+import { Plus, Edit2, Trash2, Loader2, ChevronDown, ChevronRight, AlertCircle, RotateCcw, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { ToggleSwitch } from '@/components/toggleSwitch'; // Import the new component
+import { ToggleSwitch } from '@/components/toggleSwitch';
 import { NavLink } from 'react-router';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
@@ -9,16 +9,14 @@ import { createCategory } from '@/store/thunks/category.create.single';
 import { updateCategory } from '@/store/thunks/category.update.single';
 import { deleteCategory } from '@/store/thunks/category.delete.single';
 import { restoreCategory } from '@/store/thunks/category.restore.single';
+import { readThunkRejectMessage } from '@/lib/utils/thunkError';
+import {
+	categoryDeleteUsageWarning,
+	categoryUsageLabel,
+	categoryUsageTitle,
+	uncategorizedBannerText,
+} from '@/lib/utils/categoryUsage';
 
-// Define the Transaction type based on your schema
-// --- Type Definitions ---
-type Subcategory = {
-    id: string;
-    name: string;
-    deleted_at?: string | null;
-};
-
-// Helper function (can be placed in a utils file or within the component)
 const getRandomHexColor = (): string => {
     // Ensure it generates a full 6-digit hex code
     const randomColor = Math.floor(Math.random()*16777215).toString(16);
@@ -36,29 +34,34 @@ export const CategoriesPage = () => {
     type ModalMode = 'addMain' | 'editMain' | 'addSub' | 'editSub';
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<ModalMode>('addMain');
-    const [currentItem, setCurrentItem] = useState<Category | Subcategory | null>(null);
+    const [currentItem, setCurrentItem] = useState<Category | null>(null);
     const [parentCategory, setParentCategory] = useState<Category | null>(null);
     const [inputValue, setInputValue] = useState('');
     const [inputColour, setInputColour] = useState<string>('#ffffff'); // State for colour input, default white
 
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-    const [itemToDelete, setItemToDelete] = useState<Category | Subcategory | null>(null);
+    const [itemToDelete, setItemToDelete] = useState<Category | null>(null);
     const [isMainCategoryDelete, setIsMainCategoryDelete] = useState(false);
 
     // View State
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
     const [showDeleted, setShowDeleted] = useState(false);
 
-	const {categories, categoriesError, categoriesLoading} = useAppSelector(state => state.CategoryReducer)
+	const { categories, categoriesError, categoriesLoading, uncategorized } =
+		useAppSelector((state) => state.CategoryReducer);
 	const dispatch = useAppDispatch();
-    // Initial fetch and refetch when showDeleted changes
+
+    const reloadCategories = () => {
+        void dispatch(getAllCategories({ withCounts: true }));
+    };
+
     useEffect(() => {
-        void dispatch(getAllCategories());
+        reloadCategories();
     }, []);
 
     // --- Modal Handling ---
-    const openModal = (mode: ModalMode, item?: Category | Subcategory, parent?: Category) => {
+    const openModal = (mode: ModalMode, item?: Category, parent?: Category) => {
         setModalMode(mode);
         setCurrentItem(item || null);
         setParentCategory(parent || null);
@@ -86,7 +89,7 @@ export const CategoriesPage = () => {
     };
 
     // --- Delete Modal Handling ---
-    const openDeleteModal = (item: Category | Subcategory) => {
+    const openDeleteModal = (item: Category) => {
         const isMain = categories.some(cat => cat.id === item.id);
         setItemToDelete(item);
         setIsMainCategoryDelete(isMain);
@@ -111,35 +114,33 @@ export const CategoriesPage = () => {
         setModalError(null);
         try {
             if (modalMode === 'addMain') {
-                // Generate random color if default wasn't changed or is invalid? Or rely on thunk/backend.
-                // For now, we pass the current inputColour. Thunk should handle if it's missing.
-				void dispatch(createCategory({
+				await dispatch(createCategory({
 					name: trimmedValue,
-                    colour: inputColour // Pass the selected/generated colour
-				}));
+                    colour: inputColour,
+				})).unwrap();
             } else if (modalMode === 'addSub' && parentCategory) {
-                void dispatch(createCategory({
+                await dispatch(createCategory({
 					name: trimmedValue,
-					parent_category_id: parentCategory.id
-				}))
-            } else if ((modalMode === 'editMain' || modalMode === 'editSub') && currentItem && 'colour' in currentItem) { // Check 'colour' exists for type safety
-				void dispatch(updateCategory({
+					parent_category_id: parentCategory.id,
+                    colour: inputColour,
+				})).unwrap();
+            } else if ((modalMode === 'editMain' || modalMode === 'editSub') && currentItem && 'colour' in currentItem) {
+				await dispatch(updateCategory({
 					id: currentItem.id,
 					name: trimmedValue,
-                    // Include colour when editing either main or sub category
-                    colour: inputColour
-				}));
+                    colour: inputColour,
+				})).unwrap();
             }
             closeModal();
-            // await loadCategories();
+            reloadCategories();
         } catch (err) {
-            setModalError(err instanceof Error ? err.message : 'An unknown error occurred');
+            setModalError(readThunkRejectMessage(err, 'Failed to save category'));
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const requestDelete = (itemToDelete: Category | Subcategory) => {
+    const requestDelete = (itemToDelete: Category) => {
         openDeleteModal(itemToDelete);
     };
 
@@ -148,28 +149,24 @@ export const CategoriesPage = () => {
         setIsSubmitting(true);
         setError(null);
         try {
-            // await deleteCategoryAPI(itemToDelete.id);
-			void dispatch(deleteCategory(Number(itemToDelete.id)))
+			await dispatch(deleteCategory(Number(itemToDelete.id))).unwrap();
             closeDeleteModal();
-            // await loadCategories();
+            reloadCategories();
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An unknown error occurred during deletion');
-            closeDeleteModal();
+            setError(readThunkRejectMessage(err, 'Failed to delete category'));
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleRestore = async (itemToRestore: Category | Subcategory) => {
+    const handleRestore = async (itemToRestore: Category) => {
         setIsSubmitting(true);
         setError(null);
         try {
-            // await restoreCategoryAPI(itemToRestore.id);
-            // await loadCategories();
-
-			void dispatch(restoreCategory(Number(itemToRestore.id)))
+			await dispatch(restoreCategory(Number(itemToRestore.id))).unwrap();
+            reloadCategories();
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'An unknown error occurred during restore');
+            setError(readThunkRejectMessage(err, 'Failed to restore category'));
         } finally {
             setIsSubmitting(false);
         }
@@ -229,17 +226,38 @@ export const CategoriesPage = () => {
                 </div>
             )}
 
-            {/* Error Display */}
-            {error && (
+            {uncategorized !== null && uncategorized.line_count > 0 && (
+                <div className="mb-4 p-3 bg-amber-900/20 border border-amber-600/40 text-amber-100 rounded flex items-center justify-between gap-3">
+                    <span title="Individual lines imported from your bank statements">
+                        {uncategorizedBannerText(uncategorized)}
+                    </span>
+                    <NavLink
+                        to="/transactions?uncategorized=1"
+                        className="inline-flex items-center gap-1 text-sm text-amber-200 hover:text-white whitespace-nowrap"
+                    >
+                        Review on Transactions
+                        <ArrowRight size={14} />
+                    </NavLink>
+                </div>
+            )}
+
+            {(error || categoriesError) && (
                 <div className="mb-4 p-3 bg-red-900/30 border border-red-600/50 text-red-300 rounded flex items-center gap-2">
                     <AlertCircle size={18} className="flex-shrink-0" />
-                    <span>Error: {error}</span>
-                    <button onClick={() => setError(null)} className="ml-auto text-red-200 hover:text-white cursor-pointer">&times;</button>
+                    <span>Error: {error ?? categoriesError}</span>
+                    <button
+                        onClick={() => {
+                            setError(null);
+                        }}
+                        className="ml-auto text-red-200 hover:text-white cursor-pointer"
+                    >
+                        &times;
+                    </button>
                 </div>
             )}
 
             {/* Empty State */}
-            {!categoriesLoading && categories.length === 0 && !error && (
+            {!categoriesLoading && categories.length === 0 && !error && !categoriesError && (
                  <p className="text-white/50 mt-6 text-center">
                     {showDeleted ? "No categories (including deleted) found." : "No categories found. Add one to get started!"}
                  </p>
@@ -249,6 +267,8 @@ export const CategoriesPage = () => {
             <div className="space-y-1">
                 {categories.filter(cat => !Boolean(cat.parent_category_id) && (showDeleted ? true : !Boolean(cat.deleted_at))).map((category) => {
                     const isDeleted = !!category.deleted_at;
+                    const categoryUsage = categoryUsageLabel(category);
+                    const categoryUsageHint = categoryUsageTitle(category);
 
 					const sub_categories = categories.filter(cat => cat.parent_category_id === category.id &&( showDeleted ? true : !Boolean(cat.deleted_at)))
 
@@ -285,7 +305,15 @@ export const CategoriesPage = () => {
                                         isDeleted && "line-through text-white/50"
                                     )}>{category.name}</span>
                                     {sub_categories.length > 0 && (
-                                        <span className="text-xs text-white/50 ml-1 flex-shrink-0">({sub_categories.length})</span>
+                                        <span className="text-xs text-white/50 ml-1 flex-shrink-0">({sub_categories.length} sub)</span>
+                                    )}
+                                    {categoryUsage && (
+                                        <span
+                                            className="text-xs text-white/40 ml-1 flex-shrink-0"
+                                            title={categoryUsageHint ?? undefined}
+                                        >
+                                            {categoryUsage}
+                                        </span>
                                     )}
                                 </div>
                                 {/* Action Buttons */}
@@ -306,16 +334,6 @@ export const CategoriesPage = () => {
                                         </button>
                                     ) : (
                                         <>
-										<NavLink to={"/category_mapping/" + category.id}>
-											<button
-                                                title="Manage mappings"
-                                               
-                                                disabled={isSubmitting}
-                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-white/10 hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                            >
-                                                <Filter size={16} />
-                                            </button>
-										</NavLink>
                                             <button
                                                 title="Add Subcategory"
                                                 onClick={() => openModal('addSub', undefined, category)}
@@ -352,6 +370,8 @@ export const CategoriesPage = () => {
                                         <ul className="py-2">
                                             {sub_categories.map((sub) => {
                                                 const isSubDeleted = !!sub.deleted_at;
+                                                const subUsage = categoryUsageLabel(sub);
+                                                const subUsageHint = categoryUsageTitle(sub);
                                                 return (
                                                     <li key={sub.id} className={cn(
                                                         "group flex items-center justify-between px-3 py-1.5 transition-opacity",
@@ -371,6 +391,14 @@ export const CategoriesPage = () => {
 															)}>
 																{sub.name}
 															</span>
+                                                            {subUsage && (
+                                                                <span
+                                                                    className="text-xs text-white/40 ml-2 flex-shrink-0"
+                                                                    title={subUsageHint ?? undefined}
+                                                                >
+                                                                    {subUsage}
+                                                                </span>
+                                                            )}
 														</span>
                                                         <div className={cn(
                                                             "flex items-center gap-1 flex-shrink-0 ml-2 transition-opacity duration-150",
@@ -387,16 +415,6 @@ export const CategoriesPage = () => {
                                                                 </button>
                                                             ) : (
                                                                 <>
-																<NavLink to={"/category_mapping/" + sub.id}>
-																	<button
-																		title="Manage mappings"
-																	
-																		disabled={isSubmitting}
-																		className="p-1.5 rounded text-secondary-default/60 hover:bg-white/10 hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-																	>
-																		<Filter size={16} />
-																	</button>
-																</NavLink>
                                                                     <button
                                                                         title="Edit Subcategory Name"
                                                                         onClick={() => openModal('editSub', sub, category)}
@@ -516,12 +534,22 @@ export const CategoriesPage = () => {
                         <p className="text-white/80 mb-6">
                             Are you sure you want to delete the category{' '}
                             <strong className="text-white">"{itemToDelete.name}"</strong>?
+                            {(() => {
+                                const deleteWarning = categoryDeleteUsageWarning(itemToDelete);
+                                return deleteWarning ? (
+                                    <span className="block mt-2 text-sm text-yellow-400">
+                                        {deleteWarning}
+                                    </span>
+                                ) : null;
+                            })()}
                             {isMainCategoryDelete && (
-                                <span className="block mt-2 text-sm text-yellow-400">
-                                    This is a main category. Deleting it may also delete ALL its subcategories depending on backend logic.
+                                <span className="block mt-2 text-sm text-white/60">
+                                    Subcategories are not deleted with the parent.
                                 </span>
                             )}
-                            <span className="block mt-3 text-sm text-white/60">This action cannot be undone.</span>
+                            <span className="block mt-3 text-sm text-white/60">
+                                This is a soft delete. Turn on Show Deleted to restore it later.
+                            </span>
                         </p>
 
                         {error && (
