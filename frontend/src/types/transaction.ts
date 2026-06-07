@@ -12,6 +12,8 @@ export type Transaction = {
 	status: string;
 	balance: number;
 	category_id?: number | null;
+	suggested_category_id?: number | null;
+	suggested_category_name?: string | null;
 };
 
 function readString(value: unknown): string | null {
@@ -65,6 +67,12 @@ export function normalizeTransaction(raw: unknown): Transaction | null {
 	const status = readString(Reflect.get(raw, 'status'));
 	const balance = readFiniteNumber(Reflect.get(raw, 'balance'));
 	const categoryId = readCategoryIdField(Reflect.get(raw, 'category_id'));
+	const suggestedCategoryId = readCategoryIdField(
+		Reflect.get(raw, 'suggested_category_id')
+	);
+	const suggestedCategoryName = readNullableString(
+		Reflect.get(raw, 'suggested_category_name')
+	);
 
 	if (
 		id === null ||
@@ -92,6 +100,8 @@ export function normalizeTransaction(raw: unknown): Transaction | null {
 		status,
 		balance,
 		category_id: categoryId,
+		suggested_category_id: suggestedCategoryId,
+		suggested_category_name: suggestedCategoryName,
 	};
 }
 
@@ -108,6 +118,7 @@ export type FetchTransactionsPageParams = {
 	perPage?: number;
 	search?: string;
 	uncategorizedOnly?: boolean;
+	includeSuggestions?: boolean;
 	signal?: AbortSignal;
 };
 
@@ -158,6 +169,9 @@ export async function fetchTransactionsPage(
 	if (params.uncategorizedOnly === true) {
 		searchParams.set('uncategorized_only', 'true');
 	}
+	if (params.includeSuggestions === true) {
+		searchParams.set('include_suggestions', 'true');
+	}
 
 	const response = await axios.get(`/api/transactions?${searchParams.toString()}`, {
 		signal: params.signal,
@@ -168,3 +182,43 @@ export async function fetchTransactionsPage(
 	}
 	return parsed;
 }
+
+function readUpdatedCount(payload: unknown): number | string {
+	if (!payload || typeof payload !== 'object') {
+		return 'Invalid response';
+	}
+	const updated = readFiniteNumber(Reflect.get(payload, 'updated'));
+	if (updated === null) {
+		return 'Invalid response';
+	}
+	return updated;
+}
+
+export async function bulkPatchTransactionCategories(
+	transactionIds: number[],
+	categoryId: number | null
+): Promise<number> {
+	const response = await axios.patch('/api/transactions/categories', {
+		transaction_ids: transactionIds,
+		category_id: categoryId,
+	});
+	const parsed = readUpdatedCount(response.data);
+	if (typeof parsed === 'string') {
+		throw new Error(parsed);
+	}
+	return parsed;
+}
+
+export async function acceptTransactionSuggestions(
+	transactionIds: number[]
+): Promise<number> {
+	const response = await axios.post('/api/transactions/accept-suggestions', {
+		transaction_ids: transactionIds,
+	});
+	const parsed = readUpdatedCount(response.data);
+	if (typeof parsed === 'string') {
+		throw new Error(parsed);
+	}
+	return parsed;
+}
+

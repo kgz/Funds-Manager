@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import {
+    bulkPatchTransactionCategories,
     fetchTransactionsPage,
     type Transaction,
-} from '../store/thunks/transactions.get.all';
+} from '../types/transaction';
 import { Table, sortRows, type SortState, type TColumn } from "@/components/table";
 import { cn } from "@/lib/utils/cn";
 import { DateTime } from "luxon";
@@ -13,6 +14,12 @@ import { getAllCategories, type Category } from '@/store/thunks/category.get.all
 import { useDebounce } from '@/hooks/useDebounce';
 import { patchTransactionCategory } from '@/store/thunks/transaction.patch.category';
 import { recategorizeUncategorizedTransactions } from '@/store/thunks/transaction.recategorize.uncategorized';
+import {
+    TransactionCategoryCell,
+    type CategorySuggestion,
+} from '@/components/transactions/TransactionCategoryCell';
+import { CategoryPicker } from '@/components/transactions/CategoryPicker';
+import { readThunkRejectMessage } from '@/lib/utils/thunkError';
 
 const PER_PAGE = 50;
 
@@ -21,22 +28,16 @@ const formatCurrency = (amount: number): string => {
     return `${amount < 0 ? '-' : ''}$${absAmount}`;
 };
 
-function readThunkRejectMessage(err: unknown): string {
-    if (typeof err === 'string') {
-        return err;
-    }
-    if (!err || typeof err !== 'object') {
-        return 'Failed to create category';
-    }
-    const payload = Reflect.get(err, 'payload');
-    if (typeof payload === 'string') {
-        return payload;
-    }
-    const message = Reflect.get(err, 'message');
-    if (typeof message === 'string') {
-        return message;
-    }
-    return 'Failed to create category';
+function descriptionKey(description: string): string {
+    return description.trim().toLowerCase();
+}
+
+function clearSuggestionFields(item: Transaction): Transaction {
+    return {
+        ...item,
+        suggested_category_id: undefined,
+        suggested_category_name: undefined,
+    };
 }
 
 const TransactionsPage = () => {
@@ -63,7 +64,32 @@ const TransactionsPage = () => {
         direction: 'desc',
     });
 
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
+    const [bulkCategoryId, setBulkCategoryId] = useState('');
+    const [bulkBusy, setBulkBusy] = useState(false);
     const fetchGenerationRef = useRef(0);
+
+    const updateItems = useCallback((updater: (rows: Transaction[]) => Transaction[]) => {
+        setItems((current) => updater(current));
+    }, []);
+
+    const applyCategoryLocally = useCallback(
+        (transactionIds: number[], categoryId: number | null) => {
+            const idSet = new Set(transactionIds);
+            updateItems((rows) =>
+                rows.map((row) => {
+                    if (!idSet.has(row.id)) {
+                        return row;
+                    }
+                    return clearSuggestionFields({
+                        ...row,
+                        category_id: categoryId,
+                    });
+                })
+            );
+        },
+        [updateItems]
+    );
 
     const reloadPage = useCallback(async (targetPage: number) => {
         const generation = fetchGenerationRef.current + 1;
@@ -77,6 +103,7 @@ const TransactionsPage = () => {
                 perPage: PER_PAGE,
                 search: debouncedSearchTerm,
                 uncategorizedOnly: showUncategorizedOnly,
+                includeSuggestions: true,
             });
 
             if (fetchGenerationRef.current !== generation) {
@@ -87,6 +114,7 @@ const TransactionsPage = () => {
             setTotal(result.total);
             setTotalPages(result.total_pages);
             setPage(result.page);
+            setSelectedIds(new Set());
         } catch (err: unknown) {
             if (fetchGenerationRef.current !== generation) {
                 return;
@@ -120,13 +148,58 @@ const TransactionsPage = () => {
         return Array.isArray(categories) ? categories : [];
     }, [categories]);
 
-    const activeCategories = useMemo(
-        () =>
-            categoryList
-                .filter((c) => !c.deleted_at)
-                .slice()
-                .sort((a, b) => a.name.localeCompare(b.name)),
-        [categoryList]
+    const categoryNameById = useMemo(() => {
+        const map = new Map<number, string>();
+        for (const category of categoryList) {
+            map.set(Number(category.id), category.name);
+        }
+        return map;
+    }, [categoryList]);
+
+    const peerCategoryByDescription = useMemo(() => {
+        const map = new Map<string, { id: number; name: string }>();
+        for (const item of items) {
+            if (item.category_id === null || item.category_id === undefined) {
+                continue;
+            }
+            const name = categoryNameById.get(item.category_id);
+            if (!name) {
+                continue;
+            }
+            map.set(descriptionKey(item.description), {
+                id: item.category_id,
+                name,
+            });
+        }
+        return map;
+    }, [items, categoryNameById]);
+
+    const resolveSuggestion = useCallback(
+        (row: Transaction): CategorySuggestion | null => {
+            const current = row.category_id ?? null;
+            if (
+                row.suggested_category_id !== null &&
+                row.suggested_category_id !== undefined &&
+                row.suggested_category_name &&
+                current !== row.suggested_category_id
+            ) {
+                return {
+                    categoryId: row.suggested_category_id,
+                    categoryName: row.suggested_category_name,
+                    hint: 'From your mapping rules or past categorization',
+                };
+            }
+            const peer = peerCategoryByDescription.get(descriptionKey(row.description));
+            if (peer && current !== peer.id) {
+                return {
+                    categoryId: peer.id,
+                    categoryName: peer.name,
+                    hint: 'Same description elsewhere on this page',
+                };
+            }
+            return null;
+        },
+        [peerCategoryByDescription]
     );
 
     const [busyCategoryTxId, setBusyCategoryTxId] = useState<number | null>(null);
@@ -150,7 +223,7 @@ const TransactionsPage = () => {
             setInlineNewCategoryOpen(false);
             void dispatch(getAllCategories());
         } catch (err: unknown) {
-            setCreateCategoryInlineError(readThunkRejectMessage(err));
+            setCreateCategoryInlineError(readThunkRejectMessage(err, 'Failed to create category'));
         } finally {
             setCreatingCategory(false);
         }
@@ -168,13 +241,31 @@ const TransactionsPage = () => {
                 await dispatch(
                     patchTransactionCategory({ transactionId, categoryId })
                 ).unwrap();
+                applyCategoryLocally([transactionId], categoryId);
             } catch {
                 void reloadPage(page);
             } finally {
                 setBusyCategoryTxId(null);
             }
         },
-        [dispatch, page, reloadPage]
+        [applyCategoryLocally, dispatch, page, reloadPage]
+    );
+
+    const handlePickSuggestion = useCallback(
+        async (transactionId: number, categoryId: number) => {
+            setBusyCategoryTxId(transactionId);
+            try {
+                await dispatch(
+                    patchTransactionCategory({ transactionId, categoryId })
+                ).unwrap();
+                applyCategoryLocally([transactionId], categoryId);
+            } catch {
+                void reloadPage(page);
+            } finally {
+                setBusyCategoryTxId(null);
+            }
+        },
+        [applyCategoryLocally, dispatch, page, reloadPage]
     );
 
     const handleRecategorizeUncategorized = useCallback(async () => {
@@ -188,6 +279,120 @@ const TransactionsPage = () => {
             setBulkRecategorizeRunning(false);
         }
     }, [dispatch, page, reloadPage]);
+
+    const toggleSelected = useCallback((transactionId: number, checked: boolean) => {
+        setSelectedIds((current) => {
+            const next = new Set(current);
+            if (checked) {
+                next.add(transactionId);
+            } else {
+                next.delete(transactionId);
+            }
+            return next;
+        });
+    }, []);
+
+    const toggleSelectAllOnPage = useCallback((checked: boolean) => {
+        if (!checked) {
+            setSelectedIds(new Set());
+            return;
+        }
+        setSelectedIds(new Set(items.map((item) => item.id)));
+    }, [items]);
+
+    const selectedOnPage = useMemo(
+        () => items.filter((item) => selectedIds.has(item.id)),
+        [items, selectedIds]
+    );
+
+    const selectedWithSuggestions = useMemo(
+        () => selectedOnPage.filter((item) => resolveSuggestion(item) !== null),
+        [selectedOnPage, resolveSuggestion]
+    );
+
+    const handleBulkApplyCategory = useCallback(async () => {
+        const ids = Array.from(selectedIds);
+        if (ids.length === 0) {
+            return;
+        }
+        const categoryId =
+            bulkCategoryId === '' ? null : Number.parseInt(bulkCategoryId, 10);
+        if (categoryId !== null && !Number.isFinite(categoryId)) {
+            return;
+        }
+        setBulkBusy(true);
+        try {
+            await bulkPatchTransactionCategories(ids, categoryId);
+            applyCategoryLocally(ids, categoryId);
+            setSelectedIds(new Set());
+            setBulkCategoryId('');
+        } catch {
+            void reloadPage(page);
+        } finally {
+            setBulkBusy(false);
+        }
+    }, [applyCategoryLocally, bulkCategoryId, page, reloadPage, selectedIds]);
+
+    const handleBulkAcceptSuggestions = useCallback(async () => {
+        if (selectedWithSuggestions.length === 0) {
+            return;
+        }
+        const groups = new Map<number, number[]>();
+        for (const row of selectedWithSuggestions) {
+            const suggestion = resolveSuggestion(row);
+            if (!suggestion) {
+                continue;
+            }
+            const list = groups.get(suggestion.categoryId) ?? [];
+            list.push(row.id);
+            groups.set(suggestion.categoryId, list);
+        }
+        setBulkBusy(true);
+        try {
+            for (const [categoryId, ids] of groups) {
+                await bulkPatchTransactionCategories(ids, categoryId);
+                applyCategoryLocally(ids, categoryId);
+            }
+            setSelectedIds(new Set());
+        } catch {
+            void reloadPage(page);
+        } finally {
+            setBulkBusy(false);
+        }
+    }, [
+        applyCategoryLocally,
+        page,
+        reloadPage,
+        resolveSuggestion,
+        selectedWithSuggestions,
+    ]);
+
+    const handleApplyToMatchingDescriptions = useCallback(async () => {
+        if (selectedOnPage.length !== 1) {
+            return;
+        }
+        const source = selectedOnPage[0];
+        if (source.category_id === null || source.category_id === undefined) {
+            return;
+        }
+        const key = descriptionKey(source.description);
+        const matchingIds = items
+            .filter((item) => descriptionKey(item.description) === key)
+            .map((item) => item.id);
+        if (matchingIds.length === 0) {
+            return;
+        }
+        setBulkBusy(true);
+        try {
+            await bulkPatchTransactionCategories(matchingIds, source.category_id);
+            applyCategoryLocally(matchingIds, source.category_id);
+            setSelectedIds(new Set());
+        } catch {
+            void reloadPage(page);
+        } finally {
+            setBulkBusy(false);
+        }
+    }, [applyCategoryLocally, items, page, reloadPage, selectedOnPage]);
 
     const categoriesAutoFetchCommittedRef = useRef(false);
 
@@ -212,7 +417,44 @@ const TransactionsPage = () => {
         localStorage.setItem('showUncategorizedOnly', String(showUncategorizedOnly));
     }, [showUncategorizedOnly]);
 
+    const allOnPageSelected =
+        items.length > 0 && items.every((item) => selectedIds.has(item.id));
+
     const columns: TColumn<Transaction>[] = useMemo(() => [
+        {
+            key: "id",
+            label: "",
+            sortable: false,
+            headerRender: (
+                <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    disabled={items.length === 0 || bulkBusy}
+                    onChange={(event) => {
+                        event.stopPropagation();
+                        toggleSelectAllOnPage(event.target.checked);
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                    className="form-checkbox h-4 w-4 text-secondary-default bg-gray-800 border-gray-600 rounded focus:ring-secondary-default cursor-pointer"
+                    aria-label="Select all on page"
+                />
+            ),
+            render: (_, row) => (
+                <input
+                    type="checkbox"
+                    checked={selectedIds.has(row.id)}
+                    onChange={(event) => {
+                        event.stopPropagation();
+                        toggleSelected(row.id, event.target.checked);
+                    }}
+                    onClick={(event) => event.stopPropagation()}
+                    className="form-checkbox h-4 w-4 text-secondary-default bg-gray-800 border-gray-600 rounded focus:ring-secondary-default"
+                    aria-label={`Select transaction ${row.id}`}
+                />
+            ),
+            cellClassName: "w-10 text-center",
+            headerClassName: "w-10 text-center",
+        },
         {
             key: "transaction_date",
             label: "Date",
@@ -270,46 +512,33 @@ const TransactionsPage = () => {
             key: "category_id",
             label: "Category",
             sortable: false,
-            render: (v, row) => {
-                const current =
-                    v === null || v === undefined ? '' : String(v);
-                const activeIds = new Set(
-                    activeCategories.map((cat) => cat.id)
-                );
-                const missingActiveOption =
-                    current !== '' && !activeIds.has(current);
-                const namedCategory = categoryList.find(
-                    (cat) => String(cat.id) === current
-                );
-                return (
-                    <select
-                        value={current}
-                        disabled={busyCategoryTxId === row.id}
-                        onChange={(e) => {
-                            void handleCategoryChange(row.id, e.target.value);
-                        }}
-                        className="max-w-[14rem] text-xs bg-gray-800 border border-gray-600 rounded px-1 py-1 text-white"
-                    >
-                        <option value="">Uncategorized</option>
-                        {missingActiveOption ? (
-                            <option value={current}>
-                                {namedCategory
-                                    ? `${namedCategory.name}${namedCategory.deleted_at ? ' (deleted)' : ''}`
-                                    : `Category #${current}`}
-                            </option>
-                        ) : null}
-                        {activeCategories.map((cat) => (
-                            <option key={cat.id} value={cat.id}>
-                                {cat.name}
-                            </option>
-                        ))}
-                    </select>
-                );
-            },
+            render: (_, row) => (
+                <TransactionCategoryCell
+                    row={row}
+                    categories={categoryList}
+                    busy={busyCategoryTxId === row.id || bulkBusy}
+                    suggestion={resolveSuggestion(row)}
+                    onCategoryChange={handleCategoryChange}
+                    onPickSuggestion={handlePickSuggestion}
+                />
+            ),
             cellClassName: "text-center",
             headerClassName: "text-center",
         },
-    ], [activeCategories, busyCategoryTxId, categoryList, handleCategoryChange]);
+    ], [
+        bulkBusy,
+        busyCategoryTxId,
+        categoryList,
+        handleCategoryChange,
+        handlePickSuggestion,
+        resolveSuggestion,
+        allOnPageSelected,
+        bulkBusy,
+        items.length,
+        selectedIds,
+        toggleSelectAllOnPage,
+        toggleSelected,
+    ]);
 
     const sortedItems = useMemo(
         () => sortRows(items, columns, sortState),
@@ -448,6 +677,58 @@ const TransactionsPage = () => {
                     <label htmlFor="uncategorizedFilter" className="text-sm text-white/80 cursor-pointer">Show uncategorized only</label>
                 </div>
             </div>
+
+            {selectedIds.size > 0 ? (
+                <div className="px-4 py-3 border-b border-secondary-default/20 bg-gray-900/80 flex flex-wrap items-center gap-3">
+                    <span className="text-sm text-white/80">
+                        {selectedIds.size} selected
+                    </span>
+                    <CategoryPicker
+                        value={bulkCategoryId}
+                        categories={categoryList}
+                        disabled={bulkBusy}
+                        onChange={setBulkCategoryId}
+                        placeholder="Choose category…"
+                        className="max-w-[12rem]"
+                    />
+                    <button
+                        type="button"
+                        disabled={bulkBusy}
+                        onClick={() => void handleBulkApplyCategory()}
+                        className="text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 disabled:opacity-50"
+                    >
+                        {bulkCategoryId === '' ? 'Clear category' : 'Apply category'}
+                    </button>
+                    <button
+                        type="button"
+                        disabled={bulkBusy || selectedWithSuggestions.length === 0}
+                        onClick={() => void handleBulkAcceptSuggestions()}
+                        className="text-sm px-3 py-1.5 rounded bg-secondary-default/20 text-secondary-default border border-secondary-default/40 hover:bg-secondary-default/30 disabled:opacity-50"
+                    >
+                        Accept suggestions ({selectedWithSuggestions.length})
+                    </button>
+                    {selectedOnPage.length === 1 &&
+                    selectedOnPage[0].category_id !== null &&
+                    selectedOnPage[0].category_id !== undefined ? (
+                        <button
+                            type="button"
+                            disabled={bulkBusy}
+                            onClick={() => void handleApplyToMatchingDescriptions()}
+                            className="text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 disabled:opacity-50"
+                        >
+                            Apply to matching on page
+                        </button>
+                    ) : null}
+                    <button
+                        type="button"
+                        disabled={bulkBusy}
+                        onClick={() => setSelectedIds(new Set())}
+                        className="text-sm px-2 py-1.5 text-gray-400 hover:text-white ml-auto"
+                    >
+                        Clear
+                    </button>
+                </div>
+            ) : null}
 
             {error ? (
                 <div className="px-4 py-2 text-sm text-red-400 bg-red-950/40 border-b border-red-900/40">

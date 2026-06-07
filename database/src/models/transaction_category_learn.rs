@@ -1,5 +1,30 @@
 use std::collections::{HashMap, HashSet};
 
+const MERCHANT_MARKERS: &[&str] = &[
+    "AUSSIEBROADBAND",
+    "BUNNINGS",
+    "COLES",
+    "WOOLWORTHS",
+    "ALDI",
+    "KFC",
+    "MCDONALDS",
+    "SUBWAY",
+    "AMPOL",
+    "BP ",
+    "SHELL",
+    "OFFICEWORKS",
+    "CHEMIST",
+    "PHARMACY",
+    "NETFLIX",
+    "SPOTIFY",
+    "APPLE",
+    "GOOGLE",
+    "AMAZON",
+    "PAYPAL",
+    "UBER",
+    "BATTERY",
+];
+
 use crate::models::category::Category;
 use crate::models::category_mapping::{CategoryMapping, CategoryMappingsMatch};
 use crate::models::transaction::Transaction;
@@ -116,6 +141,71 @@ enum MappingRule {
 pub struct CategoryPredictor {
     learned: HashMap<String, i32>,
     rules: Vec<MappingRule>,
+    merchant_categories: HashMap<String, i32>,
+}
+
+fn merchant_markers_in(description: &str) -> Vec<String> {
+    let upper = description.to_uppercase();
+    let mut hits: Vec<String> = MERCHANT_MARKERS
+        .iter()
+        .filter(|marker| upper.contains(**marker))
+        .map(|marker| (*marker).trim().to_string())
+        .collect();
+    hits.sort_by(|a, b| b.len().cmp(&a.len()));
+    hits.dedup();
+    hits
+}
+
+fn load_merchant_categories() -> Result<HashMap<String, i32>, diesel::result::Error> {
+    #[derive(QueryableByName, Debug)]
+    struct MarkerCategoryRow {
+        #[diesel(sql_type = Integer)]
+        category_id: i32,
+        #[diesel(sql_type = BigInt)]
+        cnt: i64,
+    }
+
+    let conn = &mut get_dbo();
+    let mut out = HashMap::new();
+
+    for marker in MERCHANT_MARKERS {
+        let marker = marker.trim();
+        if marker.is_empty() {
+            continue;
+        }
+        let pattern = format!("%{marker}%");
+        let rows: Vec<MarkerCategoryRow> = sql_query(
+            "SELECT category_id, COUNT(*)::bigint AS cnt
+             FROM transaction_data
+             WHERE deleted_at IS NULL
+               AND category_id IS NOT NULL
+               AND EXISTS (
+                   SELECT 1 FROM statement s
+                   WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL
+               )
+               AND UPPER(description) LIKE $1
+             GROUP BY category_id
+             ORDER BY cnt DESC
+             LIMIT 2",
+        )
+        .bind::<Text, _>(pattern)
+        .load(conn)?;
+
+        let Some(top) = rows.first() else {
+            continue;
+        };
+        if top.cnt < 5 {
+            continue;
+        }
+        let total_top: i64 = rows.iter().map(|row| row.cnt).sum();
+        let share = top.cnt as f64 / total_top as f64;
+        if share < 0.55 {
+            continue;
+        }
+        out.insert(marker.to_string(), top.category_id);
+    }
+
+    Ok(out)
 }
 
 impl CategoryPredictor {
@@ -146,7 +236,13 @@ impl CategoryPredictor {
             }
         }
 
-        Ok(Self { learned, rules })
+        let merchant_categories = load_merchant_categories()?;
+
+        Ok(Self {
+            learned,
+            rules,
+            merchant_categories,
+        })
     }
 
     pub fn predict(&self, description: &str) -> Option<i32> {
@@ -173,8 +269,51 @@ impl CategoryPredictor {
                 return Some(*cid);
             }
         }
+        for (learned_key, category_id) in &self.learned {
+            if learned_key.len() >= 8 && normalized.contains(learned_key.as_str()) {
+                return Some(*category_id);
+            }
+        }
+        for marker in merchant_markers_in(description) {
+            if let Some(category_id) = self.merchant_categories.get(&marker) {
+                return Some(*category_id);
+            }
+        }
         None
     }
+}
+
+pub fn apply_suggestions_for_transaction_ids(ids: &[i64]) -> Result<usize, diesel::result::Error> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let predictor = CategoryPredictor::load_from_db()?;
+    let conn = &mut get_dbo();
+    let rows: Vec<(i64, Option<i32>, String)> = filter_active_statement(
+        transaction_data::table
+            .filter(transaction_data::id.eq_any(ids))
+            .filter(transaction_data::deleted_at.is_null())
+            .into_boxed(),
+    )
+    .select((
+        transaction_data::id,
+        transaction_data::category_id,
+        transaction_data::description,
+    ))
+    .load(conn)?;
+
+    let mut updated = 0usize;
+    for (id, current, description) in rows {
+        let Some(predicted) = predictor.predict(&description) else {
+            continue;
+        };
+        if current == Some(predicted) {
+            continue;
+        }
+        Transaction::update_category(id, Some(predicted))?;
+        updated += 1;
+    }
+    Ok(updated)
 }
 
 pub fn recategorize_uncategorized_transactions() -> Result<usize, diesel::result::Error> {
