@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SearchInput } from '@/components/layout/SearchInput';
+import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import {
 	buttonAccentClass,
 	buttonOutlineClass,
@@ -573,7 +574,7 @@ const TransactionsPage = () => {
 
     return (
         <PageShell variant="table">
-            <div className="border-b border-white/10 p-4">
+            <div className="space-y-3 border-b border-white/10 p-4">
                 <PageHeader
                     title="Transactions"
                     className="mb-0"
@@ -592,100 +593,100 @@ const TransactionsPage = () => {
                             ) : null}
                         </>
                     }
-                    actions={
-                        <>
-                            <SearchInput
-                                value={searchTerm}
-                                onChange={setSearchTerm}
-                                placeholder="Search descriptions…"
-                                className="w-full sm:max-w-xs"
-                            />
+                />
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <SearchInput
+                            value={searchTerm}
+                            onChange={setSearchTerm}
+                            placeholder="Search descriptions…"
+                            className="w-full min-w-[12rem] sm:w-64"
+                        />
+                        <SegmentedControl
+                            ariaLabel="Transaction filter"
+                            value={showUncategorizedOnly ? 'uncategorized' : 'all'}
+                            onChange={(next) =>
+                                setShowUncategorizedOnly(next === 'uncategorized')
+                            }
+                            options={[
+                                { value: 'all', label: 'All' },
+                                { value: 'uncategorized', label: 'Uncategorized' },
+                            ]}
+                        />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                        <button
+                            type="button"
+                            disabled={bulkRecategorizeRunning}
+                            onClick={() => void handleRecategorizeUncategorized()}
+                            className={buttonOutlineClass}
+                        >
+                            {bulkRecategorizeRunning
+                                ? 'Recategorizing…'
+                                : 'Recategorize uncategorized'}
+                        </button>
+                        {!inlineNewCategoryOpen ? (
                             <button
                                 type="button"
-                                disabled={bulkRecategorizeRunning}
-                                onClick={() => void handleRecategorizeUncategorized()}
+                                onClick={() => {
+                                    setInlineNewCategoryOpen(true);
+                                    setCreateCategoryInlineError(null);
+                                }}
                                 className={buttonOutlineClass}
                             >
-                                {bulkRecategorizeRunning
-                                    ? 'Recategorizing…'
-                                    : 'Recategorize uncategorized'}
+                                New category
                             </button>
-                            {!inlineNewCategoryOpen ? (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setInlineNewCategoryOpen(true);
-                                        setCreateCategoryInlineError(null);
-                                    }}
-                                    className={buttonOutlineClass}
-                                >
-                                    New category
-                                </button>
-                            ) : (
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <input
-                                        type="text"
-                                        value={newCategoryName}
-                                        onChange={(e) => setNewCategoryName(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                void handleInlineCreateCategory();
-                                            }
-                                            if (e.key === 'Escape') {
-                                                setInlineNewCategoryOpen(false);
-                                                setNewCategoryName('');
-                                                setCreateCategoryInlineError(null);
-                                            }
-                                        }}
-                                        placeholder="Category name"
-                                        disabled={creatingCategory}
-                                        autoFocus
-                                        className={cn(inputDarkClass, 'w-44 px-2 py-1.5')}
-                                    />
-                                    <button
-                                        type="button"
-                                        disabled={creatingCategory}
-                                        onClick={() => void handleInlineCreateCategory()}
-                                        className={buttonAccentClass}
-                                    >
-                                        {creatingCategory ? 'Adding…' : 'Add'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={creatingCategory}
-                                        onClick={() => {
+                        ) : (
+                            <div className="flex flex-wrap items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={newCategoryName}
+                                    onChange={(e) => setNewCategoryName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            void handleInlineCreateCategory();
+                                        }
+                                        if (e.key === 'Escape') {
                                             setInlineNewCategoryOpen(false);
                                             setNewCategoryName('');
                                             setCreateCategoryInlineError(null);
-                                        }}
-                                        className="cursor-pointer px-2 py-1.5 text-sm text-white/50 hover:text-white"
-                                    >
-                                        Cancel
-                                    </button>
-                                    {createCategoryInlineError ? (
-                                        <span className="w-full text-xs text-red-400 sm:w-auto">
-                                            {createCategoryInlineError}
-                                        </span>
-                                    ) : null}
-                                </div>
-                            )}
-                            <input
-                                type="checkbox"
-                                id="uncategorizedFilter"
-                                checked={showUncategorizedOnly}
-                                onChange={(e) => setShowUncategorizedOnly(e.target.checked)}
-                                className="form-checkbox h-4 w-4 cursor-pointer rounded border-white/20 bg-white/5 text-secondary-default focus:ring-secondary-default"
-                            />
-                            <label
-                                htmlFor="uncategorizedFilter"
-                                className="cursor-pointer text-sm text-white/80"
-                            >
-                                Uncategorized only
-                            </label>
-                        </>
-                    }
-                />
+                                        }
+                                    }}
+                                    placeholder="Category name"
+                                    disabled={creatingCategory}
+                                    autoFocus
+                                    className={cn(inputDarkClass, 'w-44 px-2 py-1.5')}
+                                />
+                                <button
+                                    type="button"
+                                    disabled={creatingCategory}
+                                    onClick={() => void handleInlineCreateCategory()}
+                                    className={buttonAccentClass}
+                                >
+                                    {creatingCategory ? 'Adding…' : 'Add'}
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={creatingCategory}
+                                    onClick={() => {
+                                        setInlineNewCategoryOpen(false);
+                                        setNewCategoryName('');
+                                        setCreateCategoryInlineError(null);
+                                    }}
+                                    className="cursor-pointer px-2 py-1.5 text-sm text-white/50 hover:text-white"
+                                >
+                                    Cancel
+                                </button>
+                                {createCategoryInlineError ? (
+                                    <span className="w-full text-xs text-red-400 sm:w-auto">
+                                        {createCategoryInlineError}
+                                    </span>
+                                ) : null}
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {selectedIds.size > 0 ? (
