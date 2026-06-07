@@ -22,12 +22,49 @@ const APP_PDFIUM_LIBRARY_PATH: &str = "./lib/libpdfium.so";
 #[derive(Debug, Deserialize)]
 pub struct ParsePdfQuery {
     parser: Option<String>,
+    #[serde(default)]
+    preview: bool,
+    #[serde(default)]
+    replace: bool,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Resp {
     processed_files: Vec<String>,
     errors: Vec<String>,
+}
+
+#[derive(Serialize)]
+pub struct StatementPreviewFile {
+    filename: String,
+    account_id: String,
+    statement_date: String,
+    period_label: String,
+    conflict: bool,
+    existing_statement_id: Option<i64>,
+}
+
+#[derive(Serialize)]
+pub struct StatementPreviewResponse {
+    files: Vec<StatementPreviewFile>,
+    errors: Vec<String>,
+}
+
+fn period_label(date: chrono::NaiveDate) -> String {
+    date.format("%b %Y").to_string()
+}
+
+fn existing_statement_for_upload(
+    statement: &ParsedStatement,
+) -> Result<Option<Statement>, String> {
+    let existing = Statement::find_by_account_id(&statement.account_id, &statement.statement_date)
+        .map_err(|error| {
+            format!(
+                "Database error finding existing statements for account {} on {}: {}",
+                statement.account_id, statement.statement_date, error
+            )
+        })?;
+    Ok(existing.into_iter().next())
 }
 
 fn parser_config() -> ParserConfig {
@@ -67,14 +104,43 @@ fn non_empty_path(value: OsString) -> Option<PathBuf> {
     Some(PathBuf::from(value))
 }
 
-fn process_single_pdf(file_path: &str, parser_name: &str) -> Result<(), String> {
-    let parsed_statement = parse_statement(file_path, parser_name, &parser_config())
-        .map_err(|error| format!("Failed to parse statement: {error}"))?;
+fn parse_uploaded_pdf(file_path: &str, parser_name: &str) -> Result<ParsedStatement, String> {
+    parse_statement(file_path, parser_name, &parser_config())
+        .map_err(|error| format!("Failed to parse statement: {error}"))
+}
+
+fn preview_uploaded_pdf(
+    filename: String,
+    file_path: &str,
+    parser_name: &str,
+) -> Result<StatementPreviewFile, String> {
+    let parsed = parse_uploaded_pdf(file_path, parser_name)?;
+    let existing = existing_statement_for_upload(&parsed)?;
+    Ok(StatementPreviewFile {
+        filename,
+        account_id: parsed.account_id,
+        statement_date: parsed.statement_date.to_string(),
+        period_label: period_label(parsed.statement_date),
+        conflict: existing.is_some(),
+        existing_statement_id: existing.map(|row| row.id),
+    })
+}
+
+fn process_single_pdf(file_path: &str, parser_name: &str, replace: bool) -> Result<(), String> {
+    let parsed_statement = parse_uploaded_pdf(file_path, parser_name)?;
+
+    if !replace {
+        let existing = existing_statement_for_upload(&parsed_statement)?;
+        if existing.is_some() {
+            return Err(format!(
+                "Statement for account {} in {} already exists",
+                parsed_statement.account_id,
+                period_label(parsed_statement.statement_date)
+            ));
+        }
+    }
 
     persist_statement(parsed_statement)?;
-    std::fs::remove_file(file_path)
-        .map_err(|error| format!("Failed to remove temp file {file_path}: {error}"))?;
-
     Ok(())
 }
 
@@ -152,30 +218,11 @@ fn persist_statement(statement: ParsedStatement) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn parse_pdf(
-    query: web::Query<ParsePdfQuery>,
+async fn collect_uploaded_pdfs(
     mut payload: Multipart,
-) -> Result<HttpResponse, actix_web::Error> {
-    let mut processed_files = Vec::new();
+) -> (Vec<(String, PathBuf)>, Vec<String>) {
+    let mut uploads = Vec::new();
     let mut errors = Vec::new();
-    let mut temp_files = Vec::new();
-    let parser_name = query
-        .parser
-        .as_deref()
-        .filter(|value| !value.is_empty())
-        .unwrap_or(DEFAULT_BANK_PARSER);
-
-    if !available_parsers().iter().any(|name| *name == parser_name) {
-        let message = format!(
-            "Unsupported statement parser '{}'. Available parsers: {}",
-            parser_name,
-            available_parsers().join(", ")
-        );
-        return Ok(HttpResponse::BadRequest().json(Resp {
-            processed_files,
-            errors: vec![message],
-        }));
-    }
 
     while let Some(item_result) = payload.next().await {
         let mut field = match item_result {
@@ -200,19 +247,16 @@ pub async fn parse_pdf(
             continue;
         }
 
-        let mut temp_dir = std::env::temp_dir();
-        temp_dir.push(format!("{}_{}", Uuid::new_v4(), original_filename));
-        let temp_file_path = temp_dir.to_path_buf();
-        let temp_file_path_str = temp_file_path.to_string_lossy().to_string();
+        let mut temp_path = std::env::temp_dir();
+        temp_path.push(format!("{}_{}", Uuid::new_v4(), original_filename));
 
-        match std::fs::File::create(&temp_file_path) {
-            Ok(mut f) => {
-                temp_files.push(temp_file_path.clone());
+        match std::fs::File::create(&temp_path) {
+            Ok(mut file) => {
                 let mut file_write_error = false;
                 while let Some(chunk_result) = field.next().await {
                     match chunk_result {
                         Ok(data) => {
-                            if f.write_all(&data).is_err() {
+                            if file.write_all(&data).is_err() {
                                 let error_msg =
                                     format!("Error writing to temp file for {}", original_filename);
                                 eprintln!("{}", error_msg);
@@ -232,20 +276,10 @@ pub async fn parse_pdf(
                     }
                 }
 
-                if !file_write_error {
-                    println!("Processing file: {}", original_filename);
-                    match process_single_pdf(&temp_file_path_str, parser_name) {
-                        Ok(_) => {
-                            processed_files.push(original_filename.clone());
-                            temp_files.retain(|p| p != &temp_file_path);
-                        }
-                        Err(e) => {
-                            let error_msg =
-                                format!("Error processing {}: {}", original_filename, e);
-                            eprintln!("{}", error_msg);
-                            errors.push(error_msg);
-                        }
-                    }
+                if file_write_error {
+                    let _ = std::fs::remove_file(&temp_path);
+                } else {
+                    uploads.push((original_filename, temp_path));
                 }
             }
             Err(e) => {
@@ -260,30 +294,91 @@ pub async fn parse_pdf(
         }
     }
 
-    for file_path in temp_files {
-        if let Err(e) = std::fs::remove_file(&file_path) {
-            eprintln!(
-                "Warning: Failed to clean up temp file {}: {}",
-                file_path.display(),
-                e
-            );
+    (uploads, errors)
+}
+
+fn cleanup_temp_files(paths: &[PathBuf]) {
+    use std::io::ErrorKind;
+
+    for file_path in paths {
+        if let Err(e) = std::fs::remove_file(file_path) {
+            if e.kind() != ErrorKind::NotFound {
+                eprintln!(
+                    "Warning: Failed to clean up temp file {}: {}",
+                    file_path.display(),
+                    e
+                );
+            }
         }
     }
+}
+
+pub async fn parse_pdf(
+    query: web::Query<ParsePdfQuery>,
+    payload: Multipart,
+) -> Result<HttpResponse, actix_web::Error> {
+    let parser_name = query
+        .parser
+        .as_deref()
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_BANK_PARSER);
+
+    if !available_parsers().iter().any(|name| *name == parser_name) {
+        let message = format!(
+            "Unsupported statement parser '{}'. Available parsers: {}",
+            parser_name,
+            available_parsers().join(", ")
+        );
+        return Ok(HttpResponse::BadRequest().json(Resp {
+            processed_files: Vec::new(),
+            errors: vec![message],
+        }));
+    }
+
+    let (uploads, mut errors) = collect_uploaded_pdfs(payload).await;
+    let temp_paths: Vec<PathBuf> = uploads.iter().map(|(_, path)| path.clone()).collect();
+
+    if query.preview {
+        let mut files = Vec::new();
+        for (filename, path) in &uploads {
+            let path_str = path.to_string_lossy().to_string();
+            match preview_uploaded_pdf(filename.clone(), &path_str, parser_name) {
+                Ok(preview) => files.push(preview),
+                Err(error) => errors.push(error),
+            }
+        }
+        cleanup_temp_files(&temp_paths);
+        return Ok(HttpResponse::Ok().json(StatementPreviewResponse { files, errors }));
+    }
+
+    let mut processed_files = Vec::new();
+    for (filename, path) in &uploads {
+        let path_str = path.to_string_lossy().to_string();
+        println!("Processing file: {}", filename);
+        match process_single_pdf(&path_str, parser_name, query.replace) {
+            Ok(()) => processed_files.push(filename.clone()),
+            Err(error) => {
+                let error_msg = format!("Error processing {}: {}", filename, error);
+                eprintln!("{}", error_msg);
+                errors.push(error_msg);
+            }
+        }
+    }
+
+    cleanup_temp_files(&temp_paths);
 
     let resp_body = Resp {
         processed_files,
         errors: errors.clone(),
     };
 
-    let response = if errors.is_empty() && !resp_body.processed_files.is_empty() {
-        HttpResponse::Ok().json(resp_body)
+    if errors.is_empty() && !resp_body.processed_files.is_empty() {
+        Ok(HttpResponse::Ok().json(resp_body))
     } else if !resp_body.processed_files.is_empty() {
-        HttpResponse::Accepted().json(resp_body)
+        Ok(HttpResponse::Accepted().json(resp_body))
     } else {
-        HttpResponse::BadRequest().json(resp_body)
-    };
-
-    Ok(response)
+        Ok(HttpResponse::BadRequest().json(resp_body))
+    }
 }
 
 #[derive(serde::Deserialize, Debug)]

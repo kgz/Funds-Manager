@@ -132,6 +132,155 @@ export async function fetchStatementsPage(
 	return parsed;
 }
 
+export type StatementPreviewFile = {
+	filename: string;
+	account_id: string;
+	statement_date: string;
+	period_label: string;
+	conflict: boolean;
+	existing_statement_id: number | null;
+};
+
+export type StatementPreviewResponse = {
+	files: StatementPreviewFile[];
+	errors: string[];
+};
+
+export type StatementUploadResponse = {
+	processed_files: string[];
+	errors: string[];
+};
+
+function parsePreviewFile(raw: unknown): StatementPreviewFile | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const filename = readString(Reflect.get(raw, 'filename'));
+	const accountId = readString(Reflect.get(raw, 'account_id'));
+	const statementDate = readString(Reflect.get(raw, 'statement_date'));
+	const periodLabel = readString(Reflect.get(raw, 'period_label'));
+	const conflict = Reflect.get(raw, 'conflict');
+	const existingId = Reflect.get(raw, 'existing_statement_id');
+
+	if (
+		filename === null ||
+		accountId === null ||
+		statementDate === null ||
+		periodLabel === null ||
+		typeof conflict !== 'boolean'
+	) {
+		return null;
+	}
+
+	let existingStatementId: number | null = null;
+	if (existingId !== null) {
+		existingStatementId = readFiniteNumber(existingId);
+	}
+
+	return {
+		filename,
+		account_id: accountId,
+		statement_date: statementDate,
+		period_label: periodLabel,
+		conflict,
+		existing_statement_id: existingStatementId,
+	};
+}
+
+function parseUploadResponse(payload: unknown): StatementUploadResponse | string {
+	if (!payload || typeof payload !== 'object') {
+		return 'Invalid upload response';
+	}
+	const processedRaw = Reflect.get(payload, 'processed_files');
+	const errorsRaw = Reflect.get(payload, 'errors');
+	if (!Array.isArray(processedRaw) || !Array.isArray(errorsRaw)) {
+		return 'Invalid upload response';
+	}
+	const processed_files: string[] = [];
+	for (const item of processedRaw) {
+		if (typeof item !== 'string') {
+			return 'Invalid upload response';
+		}
+		processed_files.push(item);
+	}
+	const errors: string[] = [];
+	for (const item of errorsRaw) {
+		if (typeof item !== 'string') {
+			return 'Invalid upload response';
+		}
+		errors.push(item);
+	}
+	return { processed_files, errors };
+}
+
+function buildStatementFormData(files: File[]): FormData {
+	const formData = new FormData();
+	for (const file of files) {
+		formData.append('files', file);
+	}
+	return formData;
+}
+
+export async function previewStatementUpload(files: File[]): Promise<StatementPreviewResponse> {
+	const response = await fetch('/api/statements?preview=true', {
+		method: 'POST',
+		body: buildStatementFormData(files),
+	});
+	const payload: unknown = await response.json().catch(() => null);
+	if (!response.ok || payload === null || typeof payload !== 'object') {
+		throw new Error('Failed to preview statement upload');
+	}
+	const errorsRaw = Reflect.get(payload, 'errors');
+	const filesRaw = Reflect.get(payload, 'files');
+	if (!Array.isArray(errorsRaw) || !Array.isArray(filesRaw)) {
+		throw new Error('Invalid preview response');
+	}
+	const errors: string[] = [];
+	for (const item of errorsRaw) {
+		if (typeof item !== 'string') {
+			throw new Error('Invalid preview response');
+		}
+		errors.push(item);
+	}
+	const previewFiles: StatementPreviewFile[] = [];
+	for (const item of filesRaw) {
+		const parsed = parsePreviewFile(item);
+		if (!parsed) {
+			throw new Error('Invalid preview response');
+		}
+		previewFiles.push(parsed);
+	}
+	return { files: previewFiles, errors };
+}
+
+export async function uploadStatementFiles(
+	files: File[],
+	options: { replace: boolean }
+): Promise<StatementUploadResponse> {
+	const params = new URLSearchParams();
+	if (options.replace) {
+		params.set('replace', 'true');
+	}
+	const query = params.toString();
+	const url = query.length > 0 ? `/api/statements?${query}` : '/api/statements';
+	const response = await fetch(url, {
+		method: 'POST',
+		body: buildStatementFormData(files),
+	});
+	const payload: unknown = await response.json().catch(() => null);
+	if (payload === null) {
+		throw new Error(`Upload failed with status: ${response.status}`);
+	}
+	const parsed = parseUploadResponse(payload);
+	if (typeof parsed === 'string') {
+		throw new Error(parsed);
+	}
+	if (!response.ok && parsed.processed_files.length === 0) {
+		throw new Error(parsed.errors[0] ?? `Upload failed with status: ${response.status}`);
+	}
+	return parsed;
+}
+
 export async function fetchMissingStatementPeriods(
 	signal?: AbortSignal
 ): Promise<string[]> {

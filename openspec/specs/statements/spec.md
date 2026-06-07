@@ -24,11 +24,19 @@ Statements SHALL support soft-delete via `deleted_at`. Deleted statements MUST N
 - **THEN** the API returns an appropriate not-found or no-op response per `Statement::delete` behavior
 
 ### Requirement: Re-import replaces existing period
-Before inserting a parsed statement, the system SHALL soft-delete any active statements matching the same `account_id` and `date`.
+Re-importing a statement for the same `account_id` and `date` SHALL require explicit user confirmation. Preview (`POST /api/statements?preview=true`) MUST detect conflicts without writing to the database. Import with `replace=true` soft-deletes the existing statement(s) before insert. Import without `replace` MUST fail when a conflict exists.
 
-#### Scenario: Re-upload same month
-- **WHEN** a PDF is uploaded for an account and statement date that already has an active statement
-- **THEN** the existing statement(s) for that account+date are soft-deleted before the new statement and transactions are inserted
+#### Scenario: Preview detects conflict
+- **WHEN** a PDF is uploaded with `preview=true` for an account+date that already has an active statement
+- **THEN** the response lists the conflict with period label and does not modify the database
+
+#### Scenario: Import blocked without confirm
+- **WHEN** a PDF is uploaded without `replace=true` and a matching active statement exists
+- **THEN** import fails and the existing statement is unchanged
+
+#### Scenario: Confirmed replace
+- **WHEN** a PDF is uploaded with `replace=true` for a conflicting account+date
+- **THEN** existing statement(s) are soft-deleted and the new statement is inserted
 
 ### Requirement: List active statements
 `GET /api/statements` SHALL return all statements where `deleted_at IS NULL`, ordered by the model's default query.
@@ -38,7 +46,11 @@ Before inserting a parsed statement, the system SHALL soft-delete any active sta
 - **THEN** it does not appear in the list response
 
 ### Requirement: PDF upload endpoint
-`POST /api/statements` SHALL accept multipart file uploads. Only PDF files are processed; non-PDF files are skipped with an error message. Query param `parser` defaults to `heritage`.
+`POST /api/statements` SHALL accept multipart file uploads. Only PDF files are processed; non-PDF files are skipped with an error message. Query params: `parser` (default `heritage`), `preview` (parse only, return conflicts), `replace` (allow overwriting existing period).
+
+#### Scenario: Preview upload
+- **WHEN** `preview=true` and valid PDFs are uploaded
+- **THEN** HTTP 200 returns parsed account, date, period label, and conflict flag per file without database writes
 
 #### Scenario: Successful upload
 - **WHEN** one or more valid PDFs are uploaded and all parse successfully
