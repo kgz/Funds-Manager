@@ -27,6 +27,16 @@ pub struct UpdateCategoryPayload {
 
 // --- Define Query Parameter Struct ---
 #[derive(Deserialize, Debug)]
+pub struct MergeCategoryPayload {
+    pub target_category_id: i64,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ReorderCategoriesPayload {
+    pub ordered_ids: Vec<i64>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct CategoriesListQuery {
     #[serde(default)]
     include_deleted: bool,
@@ -239,6 +249,52 @@ async fn delete_category(path: web::Path<i64>) -> Result<impl Responder> {
     Ok(HttpResponse::NoContent().finish())
 }
 
+// POST /categories/{id}/merge
+async fn merge_category(
+    path: web::Path<i64>,
+    payload: web::Json<MergeCategoryPayload>,
+) -> Result<impl Responder> {
+    let source_id = path.into_inner();
+    let target_id = payload.target_category_id;
+
+    if source_id == target_id {
+        return Ok(HttpResponse::BadRequest().json("Cannot merge a category into itself"));
+    }
+
+    let _source = Category::find(source_id, false)
+        .map_err(map_db_error)?
+        .ok_or_else(|| error::ErrorNotFound(format!("Category with ID {} not found", source_id)))?;
+    let _target = Category::find(target_id, false)
+        .map_err(map_db_error)?
+        .ok_or_else(|| error::ErrorNotFound(format!("Category with ID {} not found", target_id)))?;
+
+    if Category::is_descendant_of(target_id, source_id).map_err(map_db_error)? {
+        return Ok(
+            HttpResponse::BadRequest().json("Cannot merge into a subcategory of the source"),
+        );
+    }
+
+    let active_sub_count = Category::active_subcategory_count(source_id).map_err(map_db_error)?;
+    if active_sub_count > 0 {
+        return Ok(HttpResponse::BadRequest()
+            .json("Remove or merge subcategories before merging this category"));
+    }
+
+    let merged = Category::merge_into(source_id, target_id).map_err(map_db_error)?;
+    Ok(HttpResponse::Ok().json(merged))
+}
+
+// PATCH /categories/reorder
+async fn reorder_categories(payload: web::Json<ReorderCategoriesPayload>) -> Result<impl Responder> {
+    let ordered_ids = payload.ordered_ids.clone();
+    if ordered_ids.is_empty() {
+        return Ok(HttpResponse::BadRequest().json("ordered_ids cannot be empty"));
+    }
+
+    let updated = Category::reorder(&ordered_ids).map_err(map_db_error)?;
+    Ok(HttpResponse::Ok().json(updated))
+}
+
 // PUT /categories/{id}/undelete  <- New Handler
 async fn undelete_category(
     path: web::Path<i64>, // Extract ID (u64) from path
@@ -264,9 +320,11 @@ pub fn categories_service() -> Scope {
     web::scope("/categories")
         .route("", web::post().to(create_category))
         .route("", web::get().to(get_all_categories))
+        .route("/reorder", web::patch().to(reorder_categories))
         .route("/{id}", web::get().to(get_category_by_id))
         .route("/{id}", web::put().to(update_category))
         .route("/{id}", web::delete().to(delete_category))
         // Add the new route for undeleting using PUT method
-        .route("/{id}/undelete", web::put().to(undelete_category)) // <-- Added Route
+        .route("/{id}/undelete", web::put().to(undelete_category))
+        .route("/{id}/merge", web::post().to(merge_category))
 }

@@ -6,6 +6,7 @@ import { normalizeCategory } from "./category.get.all";
 
 type CreateCategoryPayload = {
 	name: string;
+	description?: string | null;
 	parent_category_id?: string;
 	colour?: string;
 };
