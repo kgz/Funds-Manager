@@ -4,7 +4,7 @@ import {
     fetchTransactionsPage,
     type Transaction,
 } from '../store/thunks/transactions.get.all';
-import { Table, type TColumn } from "@/components/table";
+import { Table, sortRows, type SortState, type TColumn } from "@/components/table";
 import { cn } from "@/lib/utils/cn";
 import { DateTime } from "luxon";
 import { AlertTriangle, Loader2, Search, X } from 'lucide-react';
@@ -55,6 +55,10 @@ const TransactionsPage = () => {
     const [totalPages, setTotalPages] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [sortState, setSortState] = useState<SortState<Transaction>>({
+        key: 'transaction_date',
+        direction: 'desc',
+    });
 
     const fetchGenerationRef = useRef(0);
 
@@ -209,7 +213,7 @@ const TransactionsPage = () => {
         localStorage.setItem('showUncategorizedOnly', String(showUncategorizedOnly));
     }, [showUncategorizedOnly]);
 
-    const columns: TColumn<Transaction>[] = [
+    const columns: TColumn<Transaction>[] = useMemo(() => [
         {
             key: "transaction_date",
             label: "Date",
@@ -223,6 +227,7 @@ const TransactionsPage = () => {
             label: "Description",
             sortable: true,
             render: (v) => v,
+            sortFunction: (a, b) => a.localeCompare(b),
             cellClassName: "max-w-xs truncate",
         },
         {
@@ -258,6 +263,7 @@ const TransactionsPage = () => {
             label: "Status",
             sortable: true,
             render: (v) => <span className="capitalize text-xs px-2 py-0.5 bg-gray-700 rounded">{v}</span>,
+            sortFunction: (a, b) => a.localeCompare(b),
             cellClassName: "text-center",
             headerClassName: "text-center",
         },
@@ -304,7 +310,12 @@ const TransactionsPage = () => {
             cellClassName: "text-center",
             headerClassName: "text-center",
         },
-    ];
+    ], [activeCategories, busyCategoryTxId, categoryList, handleCategoryChange]);
+
+    const sortedItems = useMemo(
+        () => sortRows(items, columns, sortState),
+        [items, columns, sortState]
+    );
 
     const initialLoading = loading && items.length === 0 && error === null;
     if (initialLoading) {
@@ -448,9 +459,16 @@ const TransactionsPage = () => {
             <div className="flex-grow overflow-hidden">
                 <Table<Transaction>
                     columns={columns}
-                    data={items}
+                    data={sortedItems}
                     header={{ sticky: true }}
                     loading={loading}
+                    sortState={sortState}
+                    onSortChange={(key, direction) => {
+                        if (key === null) {
+                            return;
+                        }
+                        setSortState({ key, direction });
+                    }}
                     itemsPerPage={PER_PAGE}
                     serverPagination={{
                         page,
