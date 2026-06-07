@@ -12,7 +12,13 @@ import {
 	type TColumn,
 } from '@/components/table';
 import { cn } from '@/lib/utils/cn';
-import { ChevronDown, ChevronRight, Loader2, Repeat } from 'lucide-react';
+import { ErrorState } from '@/components/layout/ErrorState';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageLoadingState } from '@/components/layout/PageLoadingState';
+import { PageShell } from '@/components/layout/PageShell';
+import { StatCard } from '@/components/layout/StatCard';
+import { inputDarkClass } from '@/components/layout/tokens';
+import { ChevronDown, ChevronRight, Repeat } from 'lucide-react';
 
 const formatMoney = (n: number) =>
 	`$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -856,16 +862,15 @@ const RecurringExpensesPage = () => {
 	const initialLoading = loading && apiRows.length === 0 && !error;
 
 	if (initialLoading) {
-		return (
-			<div className="flex items-center justify-center h-screen w-full">
-				<Loader2 className="w-12 h-12 animate-spin text-secondary-default" />
-			</div>
-		);
+		return <PageLoadingState label="Loading repeat payments…" />;
 	}
 
 	if (error) {
 		return (
-			<div className="p-6 text-red-400">Error: {error}</div>
+			<ErrorState
+				title="Could not load repeat payments"
+				message={error}
+			/>
 		);
 	}
 
@@ -875,95 +880,88 @@ const RecurringExpensesPage = () => {
 			: rows.length === 0 && !loading;
 
 	return (
-		<div className="flex flex-col h-screen w-full p-4">
-			<div className="flex flex-wrap items-start justify-between gap-4 border-b border-secondary-default/20 pb-4 mb-4">
-				<div>
-					<h1 className="text-xl font-semibold text-white flex items-center gap-2">
-						<Repeat className="w-6 h-6 text-secondary-default" />
-						Repeat payments
-					</h1>
-					<p className="text-sm text-white/60 mt-1 max-w-2xl">
-						Heuristic only: repeat patterns from descriptions and median spacing.
-						<span className="font-medium text-white/75"> Group by category</span>{' '}
-						shows one row per category; click a row to expand patterns. Not
-						bank-confirmed.
-					</p>
-				</div>
-				<div className="flex flex-col items-end gap-2">
-					{expenseRows.length > 0 || incomeRows.length > 0 ? (
-						<div className="flex flex-row flex-wrap gap-3 justify-end items-stretch">
-							<div className="text-left rounded border border-secondary-default/30 bg-gray-900/80 px-4 py-2 min-w-[13rem]">
-								<p className="text-[10px] uppercase tracking-wide text-white/50">
-									Est. monthly income (median gaps)
-								</p>
-								<p className="text-lg font-semibold font-mono text-green-400">
-									{formatMoney(estimatedMonthlyIncomeTotal)}
-								</p>
-								<p className="text-[11px] text-white/45 mt-1">
-									Sum of typical credits (once each):{' '}
-									<span className="font-mono text-white/70">
-										{formatMoney(sumTypicalIncomePerOccurrence)}
-									</span>
-								</p>
-							</div>
-							<div className="text-right rounded border border-secondary-default/30 bg-gray-900/80 px-4 py-2 min-w-[13rem]">
-								<p className="text-[10px] uppercase tracking-wide text-white/50">
-									Est. monthly (from median gaps)
-								</p>
-								<p className="text-lg font-semibold font-mono text-red-300">
-									{formatMoney(estimatedMonthlyTotal)}
-								</p>
-								<p className="text-[11px] text-white/45 mt-1">
-									Sum of typical charges (once each):{' '}
-									<span className="font-mono text-white/70">
-										{formatMoney(sumTypicalPerOccurrence)}
-									</span>
-								</p>
-								<p className="text-[11px] text-white/45 mt-1">
-									Typical (median) across patterns:{' '}
-									<span className="font-mono text-white/70">
-										{formatMoney(medianTypicalMin)} —{' '}
-										{formatMoney(medianTypicalMax)}
-									</span>
-								</p>
-								<p className="text-[11px] text-white/45">
-									Observed charge (all hits):{' '}
-									<span className="font-mono text-white/70">
-										{formatMoney(observedChargeMin)} —{' '}
-										{formatMoney(observedChargeMax)}
-									</span>
-								</p>
-							</div>
-						</div>
-					) : null}
-					<div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-4">
-						<label className="flex items-center gap-2 text-sm text-white/80 cursor-pointer">
-							<input
-								id="recurring-group-by-category"
-								type="checkbox"
-								checked={groupByCategory}
-								onChange={(e) => setGroupByCategory(e.target.checked)}
-								className="rounded border-gray-600 bg-gray-800 text-secondary-default focus:ring-secondary-default"
-							/>
-							<span>Group by category</span>
-						</label>
-						<label className="flex items-center gap-2 text-sm text-white/80">
-							<span>Minimum occurrences</span>
-							<select
-								value={minOccurrences}
-								onChange={(e) =>
-									setMinOccurrences(Number.parseInt(e.target.value, 10))
+		<PageShell variant="table" className="p-4">
+			<PageHeader
+				title="Repeat payments"
+				subtitle="Heuristic only: repeat patterns from descriptions and median spacing. Group by category shows one row per category; click a row to expand patterns. Not bank-confirmed."
+				icon={<Repeat className="h-6 w-6 text-secondary-default" />}
+				actions={
+					expenseRows.length > 0 || incomeRows.length > 0 ? (
+						<div className="flex flex-row flex-wrap items-stretch justify-end gap-3">
+							<StatCard
+								label="Est. monthly income (median gaps)"
+								value={formatMoney(estimatedMonthlyIncomeTotal)}
+								valueClassName="text-green-400"
+								hint={
+									<>
+										Sum of typical credits (once each):{' '}
+										<span className="font-mono text-white/70">
+											{formatMoney(sumTypicalIncomePerOccurrence)}
+										</span>
+									</>
 								}
-								className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white"
-							>
-								<option value={2}>2</option>
-								<option value={3}>3</option>
-								<option value={4}>4</option>
-								<option value={5}>5</option>
-							</select>
-						</label>
-					</div>
-				</div>
+							/>
+							<StatCard
+								align="right"
+								label="Est. monthly (from median gaps)"
+								value={formatMoney(estimatedMonthlyTotal)}
+								valueClassName="text-red-300"
+								hint={
+									<>
+										<p>
+											Sum of typical charges (once each):{' '}
+											<span className="font-mono text-white/70">
+												{formatMoney(sumTypicalPerOccurrence)}
+											</span>
+										</p>
+										<p className="mt-1">
+											Typical (median) across patterns:{' '}
+											<span className="font-mono text-white/70">
+												{formatMoney(medianTypicalMin)} —{' '}
+												{formatMoney(medianTypicalMax)}
+											</span>
+										</p>
+										<p>
+											Observed charge (all hits):{' '}
+											<span className="font-mono text-white/70">
+												{formatMoney(observedChargeMin)} —{' '}
+												{formatMoney(observedChargeMax)}
+											</span>
+										</p>
+									</>
+								}
+							/>
+						</div>
+					) : null
+				}
+			/>
+
+			<div className="mb-4 flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+				<label className="flex cursor-pointer items-center gap-2 text-sm text-white/80">
+					<input
+						id="recurring-group-by-category"
+						type="checkbox"
+						checked={groupByCategory}
+						onChange={(e) => setGroupByCategory(e.target.checked)}
+						className="rounded border-white/20 bg-white/5 text-secondary-default focus:ring-secondary-default"
+					/>
+					<span>Group by category</span>
+				</label>
+				<label className="flex items-center gap-2 text-sm text-white/80">
+					<span>Minimum occurrences</span>
+					<select
+						value={minOccurrences}
+						onChange={(e) =>
+							setMinOccurrences(Number.parseInt(e.target.value, 10))
+						}
+						className={cn(inputDarkClass, 'px-2 py-1')}
+					>
+						<option value={2}>2</option>
+						<option value={3}>3</option>
+						<option value={4}>4</option>
+						<option value={5}>5</option>
+					</select>
+				</label>
 			</div>
 
 			<div className="flex-grow overflow-hidden min-h-0">
@@ -1205,7 +1203,7 @@ const RecurringExpensesPage = () => {
 					/>
 				)}
 			</div>
-		</div>
+		</PageShell>
 	);
 };
 

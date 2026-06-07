@@ -8,7 +8,18 @@ import {
 import { Table, sortRows, type SortState, type TColumn } from "@/components/table";
 import { cn } from "@/lib/utils/cn";
 import { DateTime } from "luxon";
-import { AlertTriangle, Loader2, Search, X } from 'lucide-react';
+import { ErrorState } from '@/components/layout/ErrorState';
+import { InlineAlert } from '@/components/layout/InlineAlert';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageLoadingState } from '@/components/layout/PageLoadingState';
+import { PageShell } from '@/components/layout/PageShell';
+import { SearchInput } from '@/components/layout/SearchInput';
+import {
+	buttonAccentClass,
+	buttonOutlineClass,
+	inputDarkClass,
+} from '@/components/layout/tokens';
+import { Loader2 } from 'lucide-react';
 import { createCategory } from '@/store/thunks/category.create.single';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -547,139 +558,138 @@ const TransactionsPage = () => {
 
     const initialLoading = loading && items.length === 0 && error === null;
     if (initialLoading) {
-        return (
-            <div className="flex items-center justify-center h-screen w-full">
-                <Loader2 className="w-12 h-12 animate-spin text-secondary-default" />
-            </div>
-        );
+        return <PageLoadingState label="Loading transactions…" />;
     }
 
     if (error && items.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen w-full text-red-400 p-4">
-                <AlertTriangle size={48} className="mb-4" />
-                <h2 className="text-xl font-semibold mb-2">Error Loading Data</h2>
-                <p className="text-center">{error}</p>
-                <button
-                    type="button"
-                    onClick={() => void reloadPage(page)}
-                    className="mt-4 text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600"
-                >
-                    Retry
-                </button>
-            </div>
+            <ErrorState
+                title="Error loading transactions"
+                message={error}
+                onRetry={() => void reloadPage(page)}
+            />
         );
     }
 
     return (
-        <div className="flex flex-col h-screen w-full">
-            <div className="p-4 border-b border-secondary-default/20 flex flex-wrap justify-between items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-xl font-semibold text-white">Transactions</h1>
-                    {loading ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-secondary-default" aria-label="Loading" />
-                    ) : null}
-                    {!loading && total > 0 ? (
-                        <span className="text-sm text-gray-400">{total.toLocaleString()} total</span>
-                    ) : null}
-                </div>
-                <div className="relative flex-grow max-w-xs">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <input
-                        type="text"
-                        placeholder="Search descriptions..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-8 py-1.5 text-sm bg-gray-800 border border-gray-600 rounded focus:ring-secondary-default focus:border-secondary-default text-white placeholder-gray-400"
-                    />
-                    {searchTerm ? (
-                        <button type="button" onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white">
-                            <X size={16} />
-                        </button>
-                    ) : null}
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                    <button
-                        type="button"
-                        disabled={bulkRecategorizeRunning}
-                        onClick={() => void handleRecategorizeUncategorized()}
-                        className="text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 disabled:opacity-50"
-                    >
-                        {bulkRecategorizeRunning ? 'Recategorizing…' : 'Recategorize uncategorized'}
-                    </button>
-                    {!inlineNewCategoryOpen ? (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setInlineNewCategoryOpen(true);
-                                setCreateCategoryInlineError(null);
-                            }}
-                            className="text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600"
-                        >
-                            New category
-                        </button>
-                    ) : (
-                        <div className="flex flex-wrap items-center gap-2">
-                            <input
-                                type="text"
-                                value={newCategoryName}
-                                onChange={(e) => setNewCategoryName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        void handleInlineCreateCategory();
-                                    }
-                                    if (e.key === 'Escape') {
-                                        setInlineNewCategoryOpen(false);
-                                        setNewCategoryName('');
-                                        setCreateCategoryInlineError(null);
-                                    }
-                                }}
-                                placeholder="Category name"
-                                disabled={creatingCategory}
-                                autoFocus
-                                className="w-44 text-sm px-2 py-1.5 rounded bg-gray-800 border border-gray-600 text-white placeholder-gray-500"
+        <PageShell variant="table">
+            <div className="border-b border-white/10 p-4">
+                <PageHeader
+                    title="Transactions"
+                    className="mb-0"
+                    meta={
+                        <>
+                            {loading ? (
+                                <Loader2
+                                    className="h-4 w-4 animate-spin text-secondary-default"
+                                    aria-label="Loading"
+                                />
+                            ) : null}
+                            {!loading && total > 0 ? (
+                                <span className="text-sm text-white/50">
+                                    {total.toLocaleString()} total
+                                </span>
+                            ) : null}
+                        </>
+                    }
+                    actions={
+                        <>
+                            <SearchInput
+                                value={searchTerm}
+                                onChange={setSearchTerm}
+                                placeholder="Search descriptions…"
+                                className="w-full sm:max-w-xs"
                             />
                             <button
                                 type="button"
-                                disabled={creatingCategory}
-                                onClick={() => void handleInlineCreateCategory()}
-                                className="text-sm px-3 py-1.5 rounded bg-secondary-default text-white disabled:opacity-50"
+                                disabled={bulkRecategorizeRunning}
+                                onClick={() => void handleRecategorizeUncategorized()}
+                                className={buttonOutlineClass}
                             >
-                                {creatingCategory ? 'Adding…' : 'Add'}
+                                {bulkRecategorizeRunning
+                                    ? 'Recategorizing…'
+                                    : 'Recategorize uncategorized'}
                             </button>
-                            <button
-                                type="button"
-                                disabled={creatingCategory}
-                                onClick={() => {
-                                    setInlineNewCategoryOpen(false);
-                                    setNewCategoryName('');
-                                    setCreateCategoryInlineError(null);
-                                }}
-                                className="text-sm px-2 py-1.5 text-gray-400 hover:text-white"
+                            {!inlineNewCategoryOpen ? (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setInlineNewCategoryOpen(true);
+                                        setCreateCategoryInlineError(null);
+                                    }}
+                                    className={buttonOutlineClass}
+                                >
+                                    New category
+                                </button>
+                            ) : (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                        type="text"
+                                        value={newCategoryName}
+                                        onChange={(e) => setNewCategoryName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                void handleInlineCreateCategory();
+                                            }
+                                            if (e.key === 'Escape') {
+                                                setInlineNewCategoryOpen(false);
+                                                setNewCategoryName('');
+                                                setCreateCategoryInlineError(null);
+                                            }
+                                        }}
+                                        placeholder="Category name"
+                                        disabled={creatingCategory}
+                                        autoFocus
+                                        className={cn(inputDarkClass, 'w-44 px-2 py-1.5')}
+                                    />
+                                    <button
+                                        type="button"
+                                        disabled={creatingCategory}
+                                        onClick={() => void handleInlineCreateCategory()}
+                                        className={buttonAccentClass}
+                                    >
+                                        {creatingCategory ? 'Adding…' : 'Add'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={creatingCategory}
+                                        onClick={() => {
+                                            setInlineNewCategoryOpen(false);
+                                            setNewCategoryName('');
+                                            setCreateCategoryInlineError(null);
+                                        }}
+                                        className="cursor-pointer px-2 py-1.5 text-sm text-white/50 hover:text-white"
+                                    >
+                                        Cancel
+                                    </button>
+                                    {createCategoryInlineError ? (
+                                        <span className="w-full text-xs text-red-400 sm:w-auto">
+                                            {createCategoryInlineError}
+                                        </span>
+                                    ) : null}
+                                </div>
+                            )}
+                            <input
+                                type="checkbox"
+                                id="uncategorizedFilter"
+                                checked={showUncategorizedOnly}
+                                onChange={(e) => setShowUncategorizedOnly(e.target.checked)}
+                                className="form-checkbox h-4 w-4 cursor-pointer rounded border-white/20 bg-white/5 text-secondary-default focus:ring-secondary-default"
+                            />
+                            <label
+                                htmlFor="uncategorizedFilter"
+                                className="cursor-pointer text-sm text-white/80"
                             >
-                                Cancel
-                            </button>
-                            {createCategoryInlineError ? (
-                                <span className="text-xs text-red-400 w-full sm:w-auto">
-                                    {createCategoryInlineError}
-                                </span>
-                            ) : null}
-                        </div>
-                    )}
-                    <input
-                        type="checkbox"
-                        id="uncategorizedFilter"
-                        checked={showUncategorizedOnly}
-                        onChange={(e) => setShowUncategorizedOnly(e.target.checked)}
-                        className="form-checkbox h-4 w-4 text-secondary-default bg-gray-800 border-gray-600 rounded focus:ring-secondary-default"
-                    />
-                    <label htmlFor="uncategorizedFilter" className="text-sm text-white/80 cursor-pointer">Show uncategorized only</label>
-                </div>
+                                Uncategorized only
+                            </label>
+                        </>
+                    }
+                />
             </div>
 
             {selectedIds.size > 0 ? (
-                <div className="px-4 py-3 border-b border-secondary-default/20 bg-gray-900/80 flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3">
                     <span className="text-sm text-white/80">
                         {selectedIds.size} selected
                     </span>
@@ -695,7 +705,7 @@ const TransactionsPage = () => {
                         type="button"
                         disabled={bulkBusy}
                         onClick={() => void handleBulkApplyCategory()}
-                        className="text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 disabled:opacity-50"
+                        className={buttonOutlineClass}
                     >
                         {bulkCategoryId === '' ? 'Clear category' : 'Apply category'}
                     </button>
@@ -703,7 +713,7 @@ const TransactionsPage = () => {
                         type="button"
                         disabled={bulkBusy || selectedWithSuggestions.length === 0}
                         onClick={() => void handleBulkAcceptSuggestions()}
-                        className="text-sm px-3 py-1.5 rounded bg-secondary-default/20 text-secondary-default border border-secondary-default/40 hover:bg-secondary-default/30 disabled:opacity-50"
+                        className={buttonAccentClass}
                     >
                         Accept suggestions ({selectedWithSuggestions.length})
                     </button>
@@ -714,7 +724,7 @@ const TransactionsPage = () => {
                             type="button"
                             disabled={bulkBusy}
                             onClick={() => void handleApplyToMatchingDescriptions()}
-                            className="text-sm px-3 py-1.5 rounded bg-gray-700 text-white border border-gray-600 hover:bg-gray-600 disabled:opacity-50"
+                            className={buttonOutlineClass}
                         >
                             Apply to matching on page
                         </button>
@@ -723,7 +733,7 @@ const TransactionsPage = () => {
                         type="button"
                         disabled={bulkBusy}
                         onClick={() => setSelectedIds(new Set())}
-                        className="text-sm px-2 py-1.5 text-gray-400 hover:text-white ml-auto"
+                        className="ml-auto cursor-pointer px-2 py-1.5 text-sm text-white/50 hover:text-white"
                     >
                         Clear
                     </button>
@@ -731,8 +741,8 @@ const TransactionsPage = () => {
             ) : null}
 
             {error ? (
-                <div className="px-4 py-2 text-sm text-red-400 bg-red-950/40 border-b border-red-900/40">
-                    {error}
+                <div className="px-4 py-2">
+                    <InlineAlert variant="error">{error}</InlineAlert>
                 </div>
             ) : null}
 
@@ -768,7 +778,7 @@ const TransactionsPage = () => {
                     }
                 />
             </div>
-        </div>
+        </PageShell>
     );
 };
 

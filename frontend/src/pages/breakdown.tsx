@@ -6,7 +6,12 @@ import {
 } from '@/store/thunks/analytics';
 import { contrastTextColor } from '@/lib/contrastTextColor';
 import { cn } from '@/lib/utils/cn';
-import { ChevronDown, ChevronRight, LayoutList, Loader2 } from 'lucide-react';
+import { ErrorState } from '@/components/layout/ErrorState';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageLoadingState } from '@/components/layout/PageLoadingState';
+import { PageShell } from '@/components/layout/PageShell';
+import { buttonOutlineClass, inputDarkClass } from '@/components/layout/tokens';
+import { ChevronDown, ChevronRight, LayoutList } from 'lucide-react';
 
 const formatMoney = (n: number) =>
 	`$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -209,90 +214,81 @@ const BreakdownPage = () => {
 	const initialLoading = loading && parents.length === 0 && !error;
 
 	if (initialLoading) {
-		return (
-			<div className="flex items-center justify-center h-screen w-full">
-				<Loader2 className="w-12 h-12 animate-spin text-secondary-default" />
-			</div>
-		);
+		return <PageLoadingState label="Loading breakdown…" />;
 	}
 
 	if (error) {
 		return (
-			<div className="p-6 text-red-400">Error: {error}</div>
+			<ErrorState title="Could not load breakdown" message={error} />
 		);
 	}
 
 	const rangeInvalid = start.length < 10 || end.length < 10 || start > end;
 
 	return (
-		<div className="flex flex-col h-screen w-full p-4 text-gray-200">
-			<div className="flex flex-wrap items-start justify-between gap-4 border-b border-secondary-default/20 pb-4 mb-4">
-				<div>
-					<h1 className="text-xl font-semibold text-white flex items-center gap-2">
-						<LayoutList className="w-6 h-6 text-secondary-default" />
-						Breakdown
-					</h1>
-					<p className="text-sm text-white/60 mt-1 max-w-2xl">
-						Spending and income by category for the range. Expand a category to see
-						grouped descriptions (same keys as repeat payments).
-					</p>
-				</div>
-				<div className="flex flex-col items-end gap-3">
-					<div className="flex flex-wrap items-end gap-3 text-sm">
-						<label className="flex flex-col gap-1 text-white/70">
-							<span className="text-[11px] uppercase tracking-wide text-white/45">
-								From
-							</span>
-							<input
-								type="date"
-								value={start}
-								onChange={(e) =>
-									setRange((r) => ({ ...r, start: e.target.value }))
-								}
-								className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white"
-							/>
-						</label>
-						<label className="flex flex-col gap-1 text-white/70">
-							<span className="text-[11px] uppercase tracking-wide text-white/45">
-								To
-							</span>
-							<input
-								type="date"
-								value={end}
-								onChange={(e) =>
-									setRange((r) => ({ ...r, end: e.target.value }))
-								}
-								className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white"
-							/>
-						</label>
-						<button
-							type="button"
-							onClick={() => setRange(defaultDateRange())}
-							className="px-3 py-1.5 rounded border border-secondary-default/40 text-secondary-default text-xs hover:bg-white/5"
-						>
-							Last 3 months
-						</button>
-					</div>
-					{rangeInvalid ? (
-						<p className="text-xs text-amber-400">Choose a valid date range.</p>
-					) : (
-						<div className="text-right text-xs text-white/50 space-y-0.5">
-							<p>
-								Period spending{' '}
-								<span className="font-mono text-red-300/95">
-									{formatMoney(totals.spending)}
+		<PageShell variant="table" className="p-4 text-gray-200">
+			<PageHeader
+				title="Breakdown"
+				subtitle="Spending and income by category for the range. Expand a category to see grouped descriptions (same keys as repeat payments)."
+				icon={<LayoutList className="h-6 w-6 text-secondary-default" />}
+				actions={
+					<div className="flex flex-col items-end gap-3">
+						<div className="flex flex-wrap items-end gap-3 text-sm">
+							<label className="flex flex-col gap-1 text-white/70">
+								<span className="text-[11px] uppercase tracking-wide text-white/45">
+									From
 								</span>
-							</p>
-							<p>
-								Period income{' '}
-								<span className="font-mono text-green-400/95">
-									{formatMoney(totals.income)}
+								<input
+									type="date"
+									value={start}
+									onChange={(e) =>
+										setRange((r) => ({ ...r, start: e.target.value }))
+									}
+									className={cn(inputDarkClass, 'px-2 py-1.5')}
+								/>
+							</label>
+							<label className="flex flex-col gap-1 text-white/70">
+								<span className="text-[11px] uppercase tracking-wide text-white/45">
+									To
 								</span>
-							</p>
+								<input
+									type="date"
+									value={end}
+									onChange={(e) =>
+										setRange((r) => ({ ...r, end: e.target.value }))
+									}
+									className={cn(inputDarkClass, 'px-2 py-1.5')}
+								/>
+							</label>
+							<button
+								type="button"
+								onClick={() => setRange(defaultDateRange())}
+								className={buttonOutlineClass}
+							>
+								Last 3 months
+							</button>
 						</div>
-					)}
-				</div>
-			</div>
+						{rangeInvalid ? (
+							<p className="text-xs text-amber-400">Choose a valid date range.</p>
+						) : (
+							<div className="space-y-0.5 text-right text-xs text-white/50">
+								<p>
+									Period spending{' '}
+									<span className="font-mono text-red-300/95">
+										{formatMoney(totals.spending)}
+									</span>
+								</p>
+								<p>
+									Period income{' '}
+									<span className="font-mono text-green-400/95">
+										{formatMoney(totals.income)}
+									</span>
+								</p>
+							</div>
+						)}
+					</div>
+				}
+			/>
 
 			<div className="flex-grow overflow-auto min-h-0">
 				{rangeInvalid ? null : (
@@ -759,7 +755,7 @@ const BreakdownPage = () => {
 					<p className="text-sm text-white/45 px-4 py-2">Refreshing…</p>
 				) : null}
 			</div>
-		</div>
+		</PageShell>
 	);
 };
 

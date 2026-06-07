@@ -16,8 +16,7 @@ const Link = ({ to, children }: { to: string; children: React.ReactNode }) => {
 						!isActive && "opacity-50 bg-transparent hover:opacity-70",
 						"block px-6 text-sm transition duration-200 overflow-hidden",
 						// "block py-2 px-6 text-lg text-gray-300 hover:bg-gray-700 hover:text-white ",
-						isActive && "bg-white/15  text-secondary-default opacity-100",
-						isActive && "border-l-2 border-secondary-default pl-5.5",
+						isActive && 'border-l-2 border-secondary-default bg-white/10 pl-[1.375rem] text-secondary-default opacity-100',
 						"py-4 lg:py-2",
 						// on xs hide text
 				)
@@ -41,7 +40,7 @@ export const Sidebar = ({ setTheme, theme }: SidebarProps) => {
 
 
 
-		<div className="fixed top-0 left-0 w-16 h-full  text-white/90  transition-all duration-500 border-r-1  border-secondary-default/20 lg:w-64">
+		<div className="fixed top-0 left-0 h-full w-16 border-r border-white/10 bg-gray-950/80 text-white/90 backdrop-blur-md transition-all duration-500 lg:w-64">
 			<div className="flex items-center justify-between h-16 px-4 ">
 				<div className="flex items-center gap-2">
 					<WalletMinimal /> <h1 className="text-xl font-bold hidden lg:block">FUNDS</h1>
