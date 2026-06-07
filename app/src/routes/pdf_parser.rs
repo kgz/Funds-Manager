@@ -5,9 +5,10 @@ use std::path::{Path, PathBuf};
 use actix_multipart::Multipart;
 use actix_web::{web, HttpResponse, Result};
 use diesel::result::Error as DieselError;
+use chrono::Utc;
 use database::models::{
     statement::Statement,
-    transaction::Transaction,
+    transaction::{NewTransaction, Transaction},
     transaction_category_learn::CategoryPredictor,
 };
 use futures_util::StreamExt;
@@ -126,7 +127,12 @@ fn preview_uploaded_pdf(
     })
 }
 
-fn process_single_pdf(file_path: &str, parser_name: &str, replace: bool) -> Result<(), String> {
+fn process_single_pdf(
+    file_path: &str,
+    parser_name: &str,
+    replace: bool,
+    predictor: &CategoryPredictor,
+) -> Result<(), String> {
     let parsed_statement = parse_uploaded_pdf(file_path, parser_name)?;
 
     if !replace {
@@ -140,11 +146,14 @@ fn process_single_pdf(file_path: &str, parser_name: &str, replace: bool) -> Resu
         }
     }
 
-    persist_statement(parsed_statement)?;
+    persist_statement(parsed_statement, predictor)?;
     Ok(())
 }
 
-fn persist_statement(statement: ParsedStatement) -> Result<(), String> {
+fn persist_statement(
+    statement: ParsedStatement,
+    predictor: &CategoryPredictor,
+) -> Result<(), String> {
     let existing_statements =
         Statement::find_by_account_id(&statement.account_id, &statement.statement_date).map_err(
             |error| {
@@ -174,12 +183,8 @@ fn persist_statement(statement: ParsedStatement) -> Result<(), String> {
     let statement_id = i32::try_from(new_statement.id)
         .map_err(|_| format!("Statement ID {} does not fit into i32", new_statement.id))?;
 
-    let predictor = CategoryPredictor::load_from_db().map_err(|error| {
-        format!(
-            "Database error loading category prediction context: {error}"
-        )
-    })?;
-
+    let now = Utc::now().naive_utc();
+    let mut new_transactions = Vec::with_capacity(statement.transactions.len());
     for transaction in statement.transactions {
         let transaction_datetime = transaction
             .transaction_date
@@ -193,18 +198,22 @@ fn persist_statement(statement: ParsedStatement) -> Result<(), String> {
 
         let predicted_category = predictor.predict(&transaction.description);
 
-        Transaction::insert(
+        new_transactions.push(NewTransaction {
             statement_id,
-            predicted_category,
-            transaction.description,
-            transaction.amount_cents,
-            transaction_datetime,
-            None,
-            "parsed".to_string(),
-            transaction.balance_cents,
-        )
-        .map_err(|error| format!("Failed to insert transaction: {error}"))?;
+            category_id: predicted_category,
+            description: transaction.description,
+            amount: transaction.amount_cents,
+            transaction_date: transaction_datetime,
+            deleted_at: None,
+            last_updated: now,
+            created_at: now,
+            status: "parsed".to_string(),
+            balance: transaction.balance_cents,
+        });
     }
+
+    Transaction::insert_batch(&new_transactions)
+        .map_err(|error| format!("Failed to insert transactions: {error}"))?;
 
     Statement::update_closing_balance(new_statement.id, statement.closing_balance_cents).map_err(
         |error| {
@@ -351,11 +360,16 @@ pub async fn parse_pdf(
         return Ok(HttpResponse::Ok().json(StatementPreviewResponse { files, errors }));
     }
 
+    let predictor = CategoryPredictor::load_from_db().map_err(|error| {
+        eprintln!("Database error loading category prediction context: {error}");
+        actix_web::error::ErrorInternalServerError("Failed to load category prediction context")
+    })?;
+
     let mut processed_files = Vec::new();
     for (filename, path) in &uploads {
         let path_str = path.to_string_lossy().to_string();
         println!("Processing file: {}", filename);
-        match process_single_pdf(&path_str, parser_name, query.replace) {
+        match process_single_pdf(&path_str, parser_name, query.replace, &predictor) {
             Ok(()) => processed_files.push(filename.clone()),
             Err(error) => {
                 let error_msg = format!("Error processing {}: {}", filename, error);
