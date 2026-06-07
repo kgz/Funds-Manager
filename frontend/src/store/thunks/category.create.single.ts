@@ -1,47 +1,57 @@
 import { createAsyncThunk, type ActionReducerMapBuilder } from "@reduxjs/toolkit";
 import axios from "axios";
 import type { CategoryReducer } from "../slices/categorySlice";
-// Assuming your statementsSlice defines a state shape like StatementsState
-// Import the actual state type from your slice file
+import { readAxiosRejectPayload } from "@/lib/utils/thunkError";
+import { normalizeCategory } from "./category.get.all";
 
-// --- Combined payload type ---
 type CreateCategoryPayload = {
-    name: string;
-    parent_category_id?: string;
-	colour?: string 
+	name: string;
+	parent_category_id?: string;
+	colour?: string;
 };
 
-// This thunk fetches an array of Transactions
+function rejectPayloadMessage(payload: unknown, fallback: string): string {
+	return typeof payload === "string" ? payload : fallback;
+}
+
 export const createCategory = createAsyncThunk(
-	"categories/create", 
-	async (data: CreateCategoryPayload, { rejectWithValue }) => { 
+	"categories/create",
+	async (data: CreateCategoryPayload, { rejectWithValue }) => {
 		try {
-			const response = await axios.post(`/api/categories`, data)
-			return response.data;
+			const response = await axios.post(`/api/categories`, data);
+			const normalized = normalizeCategory(response.data);
+			if (!normalized) {
+				return rejectWithValue("Invalid category response");
+			}
+			return normalized;
 		} catch (error) {
-            if (axios.isAxiosError(error)) {
-                console.error("Axios error fetching transactions:", error.response?.data || error.message);
-                return rejectWithValue(error.response?.data || 'Failed to fetch transactions');
-            } else {
-                console.error("Unexpected error fetching transactions:", error);
-                return rejectWithValue('An unexpected error occurred');
-            }
-        }
+			if (axios.isAxiosError(error)) {
+				return rejectWithValue(
+					readAxiosRejectPayload(
+						error.response?.data,
+						"Failed to create category"
+					)
+				);
+			}
+			return rejectWithValue("An unexpected error occurred");
+		}
 	}
 );
 
-
-// Define how the thunk interacts with the StatementsReducer state
-export const createCategoryThunkActions = (builder: ActionReducerMapBuilder<ReturnType<typeof CategoryReducer>>) =>
+export const createCategoryThunkActions = (
+	builder: ActionReducerMapBuilder<ReturnType<typeof CategoryReducer>>
+) =>
 	builder
 		.addCase(createCategory.pending, (state) => {
-			state.categoriesError = null; 
+			state.categoriesError = null;
 		})
 		.addCase(createCategory.fulfilled, (state, action) => {
 			state.categories.push(action.payload);
-			state.categoriesError = null; 
+			state.categoriesError = null;
 		})
 		.addCase(createCategory.rejected, (state, action) => {
-			console.error("Error fetching transactions:", action.error);
-			state.categoriesError = action.error.message ?? null;
+			state.categoriesError = rejectPayloadMessage(
+				action.payload,
+				"Failed to create category"
+			);
 		});

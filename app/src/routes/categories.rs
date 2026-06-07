@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 // --- Import your Category model ---
 use database::models::category::Category;
+use database::models::transaction::{CategoryUsageStats, Transaction};
 use diesel::result::Error as DbError;
 
 // --- Define Request Payloads ---
@@ -26,10 +27,48 @@ pub struct UpdateCategoryPayload {
 
 // --- Define Query Parameter Struct ---
 #[derive(Deserialize, Debug)]
-pub struct IncludeDeletedQuery {
-    // Use Option and default to handle missing parameter
+pub struct CategoriesListQuery {
     #[serde(default)]
     include_deleted: bool,
+    #[serde(default)]
+    with_counts: bool,
+}
+
+#[derive(Serialize)]
+pub struct CategoryWithStats {
+    #[serde(flatten)]
+    pub category: Category,
+    pub line_count: i64,
+    pub spending_total: f64,
+    pub income_total: f64,
+}
+
+#[derive(Serialize)]
+pub struct UncategorizedStats {
+    pub line_count: i64,
+    pub spending_total: f64,
+    pub income_total: f64,
+}
+
+#[derive(Serialize)]
+pub struct CategoriesWithStatsResponse {
+    pub categories: Vec<CategoryWithStats>,
+    pub uncategorized: UncategorizedStats,
+}
+
+fn cents_to_dollars(cents: i64) -> f64 {
+    (cents as f64) / 100.0
+}
+
+fn category_stats_from_usage(usage: Option<&CategoryUsageStats>) -> (i64, f64, f64) {
+    match usage {
+        Some(stats) => (
+            stats.line_count,
+            cents_to_dollars(stats.spending_cents),
+            cents_to_dollars(stats.income_cents),
+        ),
+        None => (0, 0.0, 0.0),
+    }
 }
 
 // --- Helper for mapping DB errors to Actix errors ---
@@ -90,9 +129,16 @@ fn resolve_new_category_colour(colour: Option<&str>) -> String {
 // POST /categories
 async fn create_category(payload: web::Json<CreateCategoryPayload>) -> Result<impl Responder> {
     let data = payload.into_inner();
+    let trimmed_name = data.name.trim();
+    if trimmed_name.is_empty() {
+        return Ok(HttpResponse::BadRequest().json("Category name cannot be empty"));
+    }
+    if Category::name_taken_by_other(trimmed_name, None).map_err(map_db_error)? {
+        return Ok(HttpResponse::Conflict().json("Category name already exists"));
+    }
     let colour = resolve_new_category_colour(data.colour.as_deref());
     let new_category = Category::insert(
-        &data.name,
+        trimmed_name,
         data.description.as_deref(),
         data.parent_category_id,
         Some(colour.as_str()),
@@ -102,16 +148,45 @@ async fn create_category(payload: web::Json<CreateCategoryPayload>) -> Result<im
 }
 
 // GET /categories
-async fn get_all_categories(query: web::Query<IncludeDeletedQuery>) -> Result<impl Responder> {
+async fn get_all_categories(query: web::Query<CategoriesListQuery>) -> Result<impl Responder> {
     let include_deleted = query.include_deleted;
     let categories = Category::all(include_deleted).map_err(map_db_error)?;
-    Ok(HttpResponse::Ok().json(categories))
+
+    if !query.with_counts {
+        return Ok(HttpResponse::Ok().json(categories));
+    }
+
+    let usage = Transaction::usage_by_category().map_err(map_db_error)?;
+    let uncategorized_usage = Transaction::uncategorized_usage().map_err(map_db_error)?;
+
+    let categories_with_stats = categories
+        .into_iter()
+        .map(|category| {
+            let (line_count, spending_total, income_total) =
+                category_stats_from_usage(usage.get(&category.id));
+            CategoryWithStats {
+                line_count,
+                spending_total,
+                income_total,
+                category,
+            }
+        })
+        .collect();
+
+    Ok(HttpResponse::Ok().json(CategoriesWithStatsResponse {
+        categories: categories_with_stats,
+        uncategorized: UncategorizedStats {
+            line_count: uncategorized_usage.line_count,
+            spending_total: cents_to_dollars(uncategorized_usage.spending_cents),
+            income_total: cents_to_dollars(uncategorized_usage.income_cents),
+        },
+    }))
 }
 
 // GET /categories/{id}
 async fn get_category_by_id(
     path: web::Path<i64>,
-    query: web::Query<IncludeDeletedQuery>,
+    query: web::Query<CategoriesListQuery>,
 ) -> Result<impl Responder> {
     let category_id = path.into_inner();
     let include_deleted = query.include_deleted;
@@ -131,7 +206,19 @@ async fn update_category(
     payload: web::Json<UpdateCategoryPayload>,
 ) -> Result<impl Responder> {
     let category_id = path.into_inner();
-    let data = payload.into_inner();
+    let mut data = payload.into_inner();
+
+    if let Some(ref name) = data.name {
+        let trimmed_name = name.trim();
+        if trimmed_name.is_empty() {
+            return Ok(HttpResponse::BadRequest().json("Category name cannot be empty"));
+        }
+        if Category::name_taken_by_other(trimmed_name, Some(category_id)).map_err(map_db_error)? {
+            return Ok(HttpResponse::Conflict().json("Category name already exists"));
+        }
+        data.name = Some(trimmed_name.to_string());
+    }
+
     let updated_category = Category::update(
         category_id,
         data.name,
@@ -158,8 +245,15 @@ async fn undelete_category(
 ) -> Result<impl Responder> {
     let category_id = path.into_inner();
 
-    // Call the database undelete function
-    let reverted_category = Category::undelete(category_id).map_err(map_db_error)?; // Map potential DB errors (including NotFound)
+    let existing = Category::find(category_id, true)
+        .map_err(map_db_error)?
+        .ok_or_else(|| error::ErrorNotFound(format!("Category with ID {} not found", category_id)))?;
+
+    if Category::name_taken_by_other(&existing.name, Some(category_id)).map_err(map_db_error)? {
+        return Ok(HttpResponse::Conflict().json("Category name already exists"));
+    }
+
+    let reverted_category = Category::undelete(category_id).map_err(map_db_error)?;
 
     // Return the reverted category object
     Ok(HttpResponse::Ok().json(reverted_category))
