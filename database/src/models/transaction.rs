@@ -218,6 +218,28 @@ impl Transaction {
         }
     }
 
+    /// Updates category_id for many non-deleted transactions. Returns rows updated.
+    pub fn bulk_update_category(
+        ids: &[i64],
+        category_id: Option<i32>,
+    ) -> Result<usize, diesel::result::Error> {
+        if ids.is_empty() {
+            return Ok(0);
+        }
+        let conn = &mut get_dbo();
+        let now = Utc::now().naive_utc();
+        diesel::update(
+            transaction_data::table
+                .filter(transaction_data::id.eq_any(ids))
+                .filter(transaction_data::deleted_at.is_null()),
+        )
+        .set((
+            transaction_data::category_id.eq(category_id),
+            transaction_data::last_updated.eq(now),
+        ))
+        .execute(conn)
+    }
+
     /// Updates the category_id for a specific, non-deleted transaction.
     /// Also updates the last_updated timestamp.
     /// Returns the updated transaction.

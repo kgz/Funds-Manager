@@ -15,6 +15,7 @@ export type TColumn<TData> = {
 		label: string;
 		width?: string;
 		render?: (value: TData[Key], row: TData) => React.ReactNode;
+		headerRender?: React.ReactNode;
 		sortable?: boolean;
 		sortFunction?: (a: TData[Key], b: TData[Key], rowA: TData, rowB: TData) => number;
 		cellClassName?: string;
@@ -274,7 +275,7 @@ export const Table = <T extends BaseDataItem>(
 									onClick={() => column.sortable && handleSort(column.key)}
 								>
 									<div className="flex items-center gap-1">
-										{column.label}
+										{column.headerRender ?? column.label}
 										{/* Use secondary color for sort indicator */}
 										{column.sortable && onSortChange && sortState?.key === column.key && (
 											sortState.direction === "asc" ? <span className="text-xs text-secondary-default">▲</span> : <span className="text-xs text-secondary-default">▼</span>
