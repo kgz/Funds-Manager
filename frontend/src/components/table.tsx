@@ -30,6 +30,46 @@ export type SortState<T> = {
 	direction: SortDirection;
 };
 
+export function sortRows<T extends BaseDataItem>(
+	rows: T[],
+	columns: TColumn<T>[],
+	sortState: SortState<T> | undefined,
+	rowKey: keyof T = 'id' as keyof T,
+): T[] {
+	if (sortState?.key === null || sortState?.key === undefined) {
+		return rows;
+	}
+	const column = columns.find((col) => col.key === sortState.key);
+	if (column === undefined) {
+		return rows;
+	}
+	const sortKey = sortState.key;
+	const direction = sortState.direction === 'asc' ? 1 : -1;
+	const sorted = [...rows];
+	sorted.sort((rowA, rowB) => {
+		const valueA = rowA[sortKey];
+		const valueB = rowB[sortKey];
+		let cmp = 0;
+		if (column.sortFunction) {
+			cmp = column.sortFunction(valueA, valueB, rowA, rowB);
+		} else if (typeof valueA === 'number' && typeof valueB === 'number') {
+			cmp = valueA - valueB;
+		} else {
+			cmp = String(valueA ?? '').localeCompare(String(valueB ?? ''));
+		}
+		if (cmp !== 0) {
+			return direction * cmp;
+		}
+		const idA = rowA[rowKey];
+		const idB = rowB[rowKey];
+		if (typeof idA === 'number' && typeof idB === 'number') {
+			return idB - idA;
+		}
+		return String(idB ?? '').localeCompare(String(idA ?? ''));
+	});
+	return sorted;
+}
+
 // Define a base constraint for data items, assuming they have a unique key (default 'id')
 type BaseDataItem = { id: string | number } | Record<string, any>;
 
@@ -140,9 +180,9 @@ export const Table = <T extends BaseDataItem>(
 	// --- Sorting Handler (remains parent-controlled) ---
 	const handleSort = (columnKey: keyof T) => {
 		if (!onSortChange) return;
-		let newDirection: SortDirection = "asc";
-		if (sortState?.key === columnKey && sortState?.direction === "asc") {
-			newDirection = "desc";
+		let newDirection: SortDirection = 'asc';
+		if (sortState?.key === columnKey) {
+			newDirection = sortState.direction === 'asc' ? 'desc' : 'asc';
 		}
 		onSortChange(columnKey, newDirection);
 	};
