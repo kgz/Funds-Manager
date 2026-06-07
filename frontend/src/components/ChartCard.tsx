@@ -1,3 +1,4 @@
+import { glassCardClass } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
 import type { ReactNode } from 'react';
 
@@ -10,7 +11,7 @@ type ChartCardProps = {
 
 export function ChartCard({ title, subtitle, children, className }: ChartCardProps) {
 	return (
-		<div className={cn('rounded-xl border border-white/10 bg-white/5 p-6', className)}>
+		<div className={cn(glassCardClass, 'p-6', className)}>
 			<h3 className="text-lg font-semibold text-white/90">{title}</h3>
 			{subtitle !== undefined && subtitle.length > 0 ? (
 				<p className="mt-1 mb-4 text-xs text-white/50">{subtitle}</p>

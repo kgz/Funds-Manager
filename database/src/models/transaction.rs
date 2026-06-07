@@ -167,6 +167,17 @@ impl Transaction {
     /// Inserts a new transaction.
     /// Note: `deleted_at` parameter might be unusual here unless creating pre-deleted records.
     /// Consider removing it or defaulting to None internally.
+    pub fn insert_batch(rows: &[NewTransaction]) -> Result<(), diesel::result::Error> {
+        if rows.is_empty() {
+            return Ok(());
+        }
+        let conn = &mut get_dbo();
+        diesel::insert_into(transaction_data::table)
+            .values(rows)
+            .execute(conn)?;
+        Ok(())
+    }
+
     pub fn insert(
         statement_id: i32,
         category_id: Option<i32>,

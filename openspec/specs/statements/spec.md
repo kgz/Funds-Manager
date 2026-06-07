@@ -67,3 +67,10 @@ Re-importing a statement for the same `account_id` and `date` SHALL require expl
 #### Scenario: Temp file cleanup
 - **WHEN** a PDF is processed (success or failure after write)
 - **THEN** the temporary file on disk is removed
+
+### Requirement: Multi-file upload stability
+Processing multiple PDFs in a single `POST /api/statements` request SHALL use a shared database connection pool and SHALL batch-insert transactions per statement. The server MUST NOT open a fresh Postgres connection per query during import.
+
+#### Scenario: Batch upload without crash
+- **WHEN** user uploads several PDFs in one request
+- **THEN** the server processes each file sequentially and returns per-file success or error without panicking

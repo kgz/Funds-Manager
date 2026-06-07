@@ -1,7 +1,8 @@
-import { ArrowRight } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type { Transaction } from '@/types/transaction';
 import type { Category } from '@/store/thunks/category.get.all';
 import { CategoryPicker } from './CategoryPicker';
+import { buttonAccentClass } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
 
 export type CategorySuggestion = {
@@ -19,6 +20,11 @@ type TransactionCategoryCellProps = {
 	onPickSuggestion: (transactionId: number, categoryId: number) => void;
 };
 
+const CATEGORY_ROW_GRID =
+	'mx-auto grid w-[22.5rem] max-w-full grid-cols-[10.5rem_1.25rem_10.5rem] items-center gap-x-1';
+
+const PICKER_CLASS = 'h-8 w-full';
+
 export function TransactionCategoryCell({
 	row,
 	categories,
@@ -33,60 +39,60 @@ export function TransactionCategoryCell({
 			: String(row.category_id);
 
 	const isUncategorized = current === '';
+	const showSuggestion = isUncategorized && suggestion !== null;
 	const suggestedCategory = suggestion
 		? categories.find((cat) => cat.id === String(suggestion.categoryId))
 		: undefined;
 
-	const pickButton = suggestion ? (
+	const picker = (
+		<CategoryPicker
+			value={current}
+			categories={categories}
+			disabled={busy}
+			onChange={(categoryId) => onCategoryChange(row.id, categoryId)}
+			className={PICKER_CLASS}
+		/>
+	);
+
+	const applySuggestionButton = suggestion ? (
 		<button
 			type="button"
 			disabled={busy}
 			onClick={() => onPickSuggestion(row.id, suggestion.categoryId)}
 			className={cn(
-				'inline-flex items-center gap-1.5 text-xs font-medium rounded-md px-2.5 py-1.5',
-				'bg-gray-800/80 text-secondary-default border border-secondary-default/40',
-				'hover:bg-white/10 hover:border-secondary-default/60 active:scale-[0.98]',
-				'disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer',
-				'transition-colors shrink-0 max-w-[11rem]'
+				buttonAccentClass,
+				'flex h-8 w-full items-center gap-1.5 rounded-lg px-2 text-xs',
+				'active:scale-[0.98] transition-transform'
 			)}
-			title={suggestion.hint ?? `Use ${suggestion.categoryName}`}
+			title={suggestion.hint ?? `Apply suggested category: ${suggestion.categoryName}`}
 		>
+			<Check size={13} className="shrink-0" aria-hidden />
+			<span className="shrink-0 font-semibold">Apply</span>
 			{suggestedCategory?.colour ? (
 				<span
-					className="w-2 h-2 rounded-full shrink-0"
+					className="h-2 w-2 shrink-0 rounded-full"
 					style={{ backgroundColor: suggestedCategory.colour }}
 				/>
 			) : null}
-			<span className="truncate">{suggestion.categoryName}</span>
-			<ArrowRight size={12} className="shrink-0 opacity-80" />
+			<span className="min-w-0 flex-1 truncate text-left font-medium">
+				{suggestion.categoryName}
+			</span>
 		</button>
 	) : null;
 
-	if (isUncategorized && suggestion) {
-		return (
-			<div className="flex items-center justify-center gap-2 flex-wrap">
-				{pickButton}
-				<span className="text-[10px] uppercase tracking-wide text-white/35">or</span>
-				<CategoryPicker
-					value={current}
-					categories={categories}
-					disabled={busy}
-					onChange={(categoryId) => onCategoryChange(row.id, categoryId)}
-					className="max-w-[9rem]"
-				/>
-			</div>
-		);
-	}
-
 	return (
-		<div className="flex items-center justify-center gap-2 flex-wrap">
-			<CategoryPicker
-				value={current}
-				categories={categories}
-				disabled={busy}
-				onChange={(categoryId) => onCategoryChange(row.id, categoryId)}
-			/>
-			{pickButton}
+		<div className={CATEGORY_ROW_GRID}>
+			<div className="min-w-0">
+				{showSuggestion ? applySuggestionButton : null}
+			</div>
+			<div className="text-center">
+				{showSuggestion ? (
+					<span className="text-[10px] uppercase tracking-wide text-white/35">
+						or
+					</span>
+				) : null}
+			</div>
+			<div className="min-w-0">{picker}</div>
 		</div>
 	);
 }

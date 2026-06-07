@@ -30,7 +30,12 @@ import {
 import type { KpiComparison } from '@/components/dashboard/KpiCards';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipProps } from 'recharts';
-import { AlertCircle, FileArchive, X } from "lucide-react";
+import { Drawer } from '@/components/layout/Drawer';
+import { EmptyState } from '@/components/layout/EmptyState';
+import { ErrorState } from '@/components/layout/ErrorState';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { buttonAccentClass, buttonOutlineClass, glassCardClass } from '@/components/layout/tokens';
+import { FileArchive, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from '@/lib/utils/cn';
 import {
@@ -121,41 +126,11 @@ function toPieItems(
 	}));
 }
 
-function DashboardStickyHeader({
-	period,
-	onPeriodChange,
-	pending,
-}: {
-	period: DashboardPeriod;
-	onPeriodChange: (value: DashboardPeriod) => void;
-	pending: boolean;
-}) {
-	return (
-		<div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-white/10 bg-gray-950/90 px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6">
-			<div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 shadow-lg shadow-black/20">
-				<div className="flex flex-wrap items-center justify-between gap-4">
-					<h2 className="text-2xl font-semibold text-white">Spending & Income Overview</h2>
-					<PeriodFilter value={period} onChange={onPeriodChange} pending={pending} />
-				</div>
-				<div
-					className={cn(
-						'mt-3 h-0.5 overflow-hidden rounded-full bg-white/10 transition-opacity duration-300',
-						pending ? 'opacity-100' : 'opacity-0'
-					)}
-					aria-hidden={!pending}
-				>
-					<div className="h-full w-2/5 animate-pulse rounded-full bg-secondary-default/80 motion-reduce:animate-none" />
-				</div>
-			</div>
-		</div>
-	);
-}
-
 function DashboardSkeleton() {
 	return (
 		<div className="p-4 md:p-6 space-y-8 animate-pulse">
 			<div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-white/10 bg-gray-950/90 px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6">
-				<div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+				<div className={cn(glassCardClass, 'px-4 py-3')}>
 					<div className="flex flex-wrap justify-between items-center gap-4">
 						<div className="h-8 w-56 rounded-md bg-white/10" />
 						<div className="h-9 w-72 rounded-md bg-white/10" />
@@ -164,42 +139,15 @@ function DashboardSkeleton() {
 			</div>
 			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
 				{Array.from({ length: 4 }, (_, i) => (
-					<div key={i} className="h-24 rounded-xl border border-white/10 bg-white/5" />
+					<div key={i} className={cn(glassCardClass, 'h-24')} />
 				))}
 			</div>
-			<div className="h-[400px] rounded-xl border border-white/10 bg-white/5" />
+			<div className={cn(glassCardClass, 'h-[400px]')} />
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-				<div className="h-[360px] rounded-xl border border-white/10 bg-white/5" />
-				<div className="h-[360px] rounded-xl border border-white/10 bg-white/5" />
+				<div className={cn(glassCardClass, 'h-[360px]')} />
+				<div className={cn(glassCardClass, 'h-[360px]')} />
 			</div>
-			<div className="h-[340px] rounded-xl border border-white/10 bg-white/5" />
-		</div>
-	);
-}
-
-function DashboardEmptyState({ periodLabel }: { periodLabel?: string }) {
-	const filtered = periodLabel !== undefined && periodLabel.length > 0;
-	return (
-		<div className="flex min-h-[50vh] items-center justify-center p-4 md:p-6">
-			<div className="max-w-md rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-				<FileArchive className="mx-auto h-12 w-12 text-white/40" />
-				<h2 className="mt-4 text-lg font-semibold text-white">
-					{filtered ? 'No data for this period' : 'No transactions yet'}
-				</h2>
-				<p className="mt-2 text-sm text-white/60">
-					{filtered
-						? `No transactions in ${periodLabel}. Try a wider date range.`
-						: 'Upload a bank statement PDF to see spending, income, and balance charts here.'}
-				</p>
-				{!filtered ? (
-					<Link
-						to="/statements"
-						className="mt-6 inline-flex rounded-md border border-secondary-default bg-secondary-default/20 px-4 py-2 text-sm font-medium text-white hover:bg-secondary-default/30"
-					>
-						Upload statements
-					</Link>
-				) : null}
-			</div>
+			<div className={cn(glassCardClass, 'h-[340px]')} />
 		</div>
 	);
 }
@@ -210,18 +158,6 @@ type ActiveBreakdown = {
 	flow: BreakdownFlow;
 	groupKey: string;
 };
-
-function DashboardErrorState({ message }: { message: string }) {
-	return (
-		<div className="flex min-h-[50vh] items-center justify-center p-4 md:p-6">
-			<div className="max-w-md rounded-xl border border-red-500/30 bg-red-950/40 p-8 text-center">
-				<AlertCircle className="mx-auto h-12 w-12 text-red-400" />
-				<h2 className="mt-4 text-lg font-semibold text-white">Could not load dashboard</h2>
-				<p className="mt-2 text-sm text-white/70">{message}</p>
-			</div>
-		</div>
-	);
-}
 
 export const Dashboard = () => {
 	const dispatch = useAppDispatch();
@@ -446,166 +382,164 @@ export const Dashboard = () => {
 
 	return (
 		<div className="p-4 md:p-6 space-y-8">
-			{activeBreakdown !== null ? (
-				<>
-					<div
-						role="presentation"
-						className="fixed inset-0 z-40 cursor-pointer bg-black/50 transition-opacity duration-200"
-						onClick={() => {
-							setActiveBreakdown(null);
-						}}
-					/>
-					<aside className="fixed top-0 right-0 z-50 flex h-full w-full max-w-md flex-col border-l border-white/10 bg-gray-950 shadow-2xl transition-transform duration-300 ease-out">
-						<div className="flex shrink-0 flex-col gap-3 border-b border-white/10 p-4">
-							<div className="flex items-start justify-between gap-3">
-								<div>
-									<p className="text-xs font-medium uppercase tracking-wide text-white/50">
-										{breakdownIsSpending ? 'Spending breakdown' : 'Income breakdown'}
-									</p>
-									<h2 className="text-lg font-semibold text-white">{breakdownTitle}</h2>
-									<p className="mt-1 text-sm text-white/70">
-										Total{' '}
-										<span
-											className={`font-medium tabular-nums ${
-												breakdownIsSpending ? 'text-red-400' : 'text-emerald-400'
-											}`}
-										>
-											{breakdownIsSpending
-												? formatCurrencyWithCommas(-breakdownTotal)
-												: formatCurrencyWithCommas(breakdownTotal)}
-										</span>
-										{' · '}
-										{drilldownTotal}{' '}
-										{drilldownTotal === 1 ? 'transaction' : 'transactions'}
-									</p>
-								</div>
-								<button
-									type="button"
-									className="cursor-pointer rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"
-									aria-label="Close"
-									onClick={() => {
-										setActiveBreakdown(null);
-									}}
-								>
-									<X className="h-5 w-5" />
-								</button>
-							</div>
+			<Drawer
+				open={activeBreakdown !== null}
+				onClose={() => setActiveBreakdown(null)}
+				eyebrow={breakdownIsSpending ? 'Spending breakdown' : 'Income breakdown'}
+				title={breakdownTitle}
+				description={
+					<>
+						Total{' '}
+						<span
+							className={cn(
+								'font-medium tabular-nums',
+								breakdownIsSpending ? 'text-red-400' : 'text-emerald-400'
+							)}
+						>
+							{breakdownIsSpending
+								? formatCurrencyWithCommas(-breakdownTotal)
+								: formatCurrencyWithCommas(breakdownTotal)}
+						</span>
+						{' · '}
+						{drilldownTotal}{' '}
+						{drilldownTotal === 1 ? 'transaction' : 'transactions'}
+					</>
+				}
+				headerActions={
+					<button
+						type="button"
+						className={cn(
+							'cursor-pointer self-start rounded-md border px-3 py-1.5 text-sm',
+							breakdownGroupByName
+								? 'border-secondary-default bg-secondary-default/20 text-white'
+								: 'border-white/20 text-white/85 hover:bg-white/10'
+						)}
+						aria-pressed={breakdownGroupByName}
+						onClick={() => setBreakdownGroupByName((v) => !v)}
+					>
+						Group by name
+					</button>
+				}
+				footer={
+					!breakdownGroupByName && drilldownTotalPages > 1 ? (
+						<div className="flex items-center justify-between gap-2">
 							<button
 								type="button"
-								className={`cursor-pointer self-start rounded-md border px-3 py-1.5 text-sm ${
-									breakdownGroupByName
-										? 'border-secondary-default bg-secondary-default/20 text-white'
-										: 'border-white/20 text-white/85 hover:bg-white/10'
-								}`}
-								aria-pressed={breakdownGroupByName}
-								onClick={(e) => {
-									e.stopPropagation();
-									setBreakdownGroupByName((v) => !v);
-								}}
+								className={cn(buttonOutlineClass, 'disabled:cursor-not-allowed disabled:opacity-40')}
+								disabled={drilldownPage <= 1 || drilldownLoading}
+								onClick={() => setDrilldownPage((p) => Math.max(1, p - 1))}
 							>
-								Group by name
+								Previous
+							</button>
+							<span className="text-xs text-white/50">
+								Page {drilldownPage} of {drilldownTotalPages}
+							</span>
+							<button
+								type="button"
+								className={cn(buttonOutlineClass, 'disabled:cursor-not-allowed disabled:opacity-40')}
+								disabled={drilldownPage >= drilldownTotalPages || drilldownLoading}
+								onClick={() =>
+									setDrilldownPage((p) => Math.min(drilldownTotalPages, p + 1))
+								}
+							>
+								Next
 							</button>
 						</div>
-						<div className="min-h-0 flex-1 overflow-y-auto p-4">
-							{drilldownLoading ? (
-								<p className="text-center text-sm text-white/50">Loading transactions…</p>
-							) : breakdownGroupByName ? (
-								drilldownByNameRows.length === 0 ? (
-									<p className="text-center text-sm text-white/50">
-										{breakdownIsSpending
-											? 'No spending transactions in this group.'
-											: 'No income transactions in this group.'}
-									</p>
-								) : (
-									<ul className="space-y-2">
-										{drilldownByNameRows.map((row) => (
-											<li
-												key={row.name}
-												className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
-											>
-												<div className="flex justify-between gap-2 text-white">
-													<span
-														className={`font-medium tabular-nums ${
-															breakdownIsSpending ? 'text-red-400' : 'text-emerald-400'
-														}`}
-													>
-														{breakdownIsSpending
-															? formatCurrencyWithCommas(-row.totalDollars)
-															: formatCurrencyWithCommas(row.totalDollars)}
-													</span>
-													<span className="shrink-0 text-white/50">
-														{row.count}×
-													</span>
-												</div>
-												<p className="mt-1 break-words text-white/80">{row.name}</p>
-											</li>
-										))}
-									</ul>
-								)
-							) : drilldownRows.length === 0 ? (
-								<p className="text-center text-sm text-white/50">
-									{breakdownIsSpending
-										? 'No spending transactions in this group.'
-										: 'No income transactions in this group.'}
-								</p>
-							) : (
-								<ul className="space-y-2">
-									{drilldownRows.map((tx) => {
-										const dollars = tx.amount / 100;
-										const when = formatTransactionDate(tx.transaction_date);
-										const amountClass =
-											dollars < 0 ? 'text-red-400' : 'text-emerald-300/90';
-										return (
-											<li
-												key={tx.id}
-												className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
-											>
-												<div className="flex justify-between gap-2 text-white">
-													<span className={`font-medium tabular-nums ${amountClass}`}>
-														{formatCurrencyWithCommas(dollars)}
-													</span>
-													<span className="shrink-0 text-white/50">{when}</span>
-												</div>
-												<p className="mt-1 break-words text-white/80">{tx.description}</p>
-											</li>
-										);
-									})}
-								</ul>
-							)}
-							{!breakdownGroupByName && drilldownTotalPages > 1 ? (
-								<div className="mt-4 flex items-center justify-between gap-2 border-t border-white/10 pt-4">
-									<button
-										type="button"
-										className="cursor-pointer rounded-md border border-white/20 px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-										disabled={drilldownPage <= 1 || drilldownLoading}
-										onClick={() => setDrilldownPage((p) => Math.max(1, p - 1))}
-									>
-										Previous
-									</button>
-									<span className="text-xs text-white/50">
-										Page {drilldownPage} of {drilldownTotalPages}
-									</span>
-									<button
-										type="button"
-										className="cursor-pointer rounded-md border border-white/20 px-3 py-1.5 text-sm text-white/85 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-										disabled={drilldownPage >= drilldownTotalPages || drilldownLoading}
-										onClick={() =>
-											setDrilldownPage((p) => Math.min(drilldownTotalPages, p + 1))
-										}
-									>
-										Next
-									</button>
-								</div>
-							) : null}
-						</div>
-					</aside>
-				</>
-			) : null}
+					) : undefined
+				}
+			>
+				{drilldownLoading ? (
+					<div className="flex items-center justify-center gap-3 py-8 text-sm text-white/50">
+						<Loader2 className="h-5 w-5 animate-spin text-secondary-default" />
+						Loading transactions…
+					</div>
+				) : breakdownGroupByName ? (
+					drilldownByNameRows.length === 0 ? (
+						<EmptyState
+							compact
+							icon={FileArchive}
+							title="No transactions in this group"
+							description={
+								breakdownIsSpending
+									? 'No spending transactions matched this category.'
+									: 'No income transactions matched this category.'
+							}
+							className="py-4"
+						/>
+					) : (
+						<ul className="space-y-2">
+							{drilldownByNameRows.map((row) => (
+								<li
+									key={row.name}
+									className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+								>
+									<div className="flex justify-between gap-2 text-white">
+										<span
+											className={cn(
+												'font-medium tabular-nums',
+												breakdownIsSpending ? 'text-red-400' : 'text-emerald-400'
+											)}
+										>
+											{breakdownIsSpending
+												? formatCurrencyWithCommas(-row.totalDollars)
+												: formatCurrencyWithCommas(row.totalDollars)}
+										</span>
+										<span className="shrink-0 text-white/50">{row.count}×</span>
+									</div>
+									<p className="mt-1 break-words text-white/80">{row.name}</p>
+								</li>
+							))}
+						</ul>
+					)
+				) : drilldownRows.length === 0 ? (
+					<EmptyState
+						compact
+						icon={FileArchive}
+						title="No transactions in this group"
+						description={
+							breakdownIsSpending
+								? 'No spending transactions matched this category.'
+								: 'No income transactions matched this category.'
+						}
+						className="py-4"
+					/>
+				) : (
+					<ul className="space-y-2">
+						{drilldownRows.map((tx) => {
+							const dollars = tx.amount / 100;
+							const when = formatTransactionDate(tx.transaction_date);
+							const amountClass =
+								dollars < 0 ? 'text-red-400' : 'text-emerald-300/90';
+							return (
+								<li
+									key={tx.id}
+									className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+								>
+									<div className="flex justify-between gap-2 text-white">
+										<span className={cn('font-medium tabular-nums', amountClass)}>
+											{formatCurrencyWithCommas(dollars)}
+										</span>
+										<span className="shrink-0 text-white/50">{when}</span>
+									</div>
+									<p className="mt-1 break-words text-white/80">{tx.description}</p>
+								</li>
+							);
+						})}
+					</ul>
+				)}
+			</Drawer>
 
-			<DashboardStickyHeader
-				period={period}
-				onPeriodChange={setPeriod}
+			<PageHeader
+				title="Spending & Income Overview"
+				sticky
 				pending={isRefreshing}
+				actions={
+					<PeriodFilter
+						value={period}
+						onChange={setPeriod}
+						pending={isRefreshing}
+					/>
+				}
 			/>
 
 			<div className="relative">
@@ -617,7 +551,10 @@ export const Dashboard = () => {
 					aria-busy={isRefreshing}
 				>
 					{loadError !== null ? (
-						<DashboardErrorState message={loadError} />
+						<ErrorState
+							title="Could not load dashboard"
+							message={loadError}
+						/>
 					) : null}
 
 					{loadError === null && kpiMetrics !== null ? (
@@ -632,8 +569,25 @@ export const Dashboard = () => {
 					) : null}
 
 					{loadError === null && showFilteredEmpty ? (
-						<DashboardEmptyState
-							periodLabel={period !== 'all' ? periodLabel : undefined}
+						<EmptyState
+							icon={FileArchive}
+							title={
+								period !== 'all'
+									? 'No data for this period'
+									: 'No transactions yet'
+							}
+							description={
+								period !== 'all'
+									? `No transactions in ${periodLabel}. Try a wider date range.`
+									: 'Upload a bank statement PDF to see spending, income, and balance charts here.'
+							}
+							action={
+								period === 'all' ? (
+									<Link to="/statements" className={buttonAccentClass}>
+										Upload statements
+									</Link>
+								) : undefined
+							}
 						/>
 					) : null}
 
