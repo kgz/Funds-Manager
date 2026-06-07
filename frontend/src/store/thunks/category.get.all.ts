@@ -7,9 +7,11 @@ import type { UncategorizedUsage } from "@/lib/utils/categoryUsage";
 export type Category = {
 	id: string;
 	name: string;
+	description?: string | null;
 	parent_category_id?: string | null;
 	deleted_at?: string | null;
 	colour?: string;
+	sort_order?: number;
 	line_count?: number;
 	spending_total?: number;
 	income_total?: number;
@@ -81,6 +83,8 @@ export function normalizeCategory(raw: unknown): Category | null {
 	const colourValue = Reflect.get(raw, "colour");
 	const colour =
 		colourValue === undefined ? undefined : readString(colourValue) ?? undefined;
+	const description = readNullableString(Reflect.get(raw, "description"));
+	const sortOrder = readCount(Reflect.get(raw, "sort_order"));
 	const lineCount = readCount(Reflect.get(raw, "line_count"));
 	const spendingTotal = readMoney(Reflect.get(raw, "spending_total"));
 	const incomeTotal = readMoney(Reflect.get(raw, "income_total"));
@@ -92,9 +96,11 @@ export function normalizeCategory(raw: unknown): Category | null {
 	return {
 		id,
 		name,
+		description,
 		parent_category_id: parentCategoryId,
 		deleted_at: deletedAt,
 		colour,
+		sort_order: sortOrder,
 		line_count: lineCount,
 		spending_total: spendingTotal,
 		income_total: incomeTotal,

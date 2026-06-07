@@ -1,5 +1,21 @@
-import { useState, useEffect, FormEvent } from 'react';
-import { Plus, Edit2, Trash2, Loader2, ChevronDown, ChevronRight, AlertCircle, RotateCcw, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { useState, useEffect, FormEvent, DragEvent } from 'react';
+import {
+	Plus,
+	Edit2,
+	Trash2,
+	Loader2,
+	ChevronDown,
+	ChevronRight,
+	AlertCircle,
+	RotateCcw,
+	Eye,
+	EyeOff,
+	ArrowRight,
+	Search,
+	GripVertical,
+	GitMerge,
+	FolderOpen,
+} from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { ToggleSwitch } from '@/components/toggleSwitch';
 import { NavLink } from 'react-router';
@@ -9,6 +25,8 @@ import { createCategory } from '@/store/thunks/category.create.single';
 import { updateCategory } from '@/store/thunks/category.update.single';
 import { deleteCategory } from '@/store/thunks/category.delete.single';
 import { restoreCategory } from '@/store/thunks/category.restore.single';
+import { mergeCategory } from '@/store/thunks/category.merge.single';
+import { reorderCategories } from '@/store/thunks/category.reorder';
 import { readThunkRejectMessage } from '@/lib/utils/thunkError';
 import {
 	categoryDeleteUsageWarning,
@@ -16,6 +34,15 @@ import {
 	categoryUsageTitle,
 	uncategorizedBannerText,
 } from '@/lib/utils/categoryUsage';
+import {
+	readExpandedCategoryIds,
+	writeExpandedCategoryIds,
+} from '@/lib/utils/categoryExpandStorage';
+import {
+	shouldExpandForSearch,
+	visibleMainCategories,
+	visibleSubcategories,
+} from '@/lib/utils/categoryFilter';
 
 const getRandomHexColor = (): string => {
     // Ensure it generates a full 6-digit hex code
@@ -37,7 +64,16 @@ export const CategoriesPage = () => {
     const [currentItem, setCurrentItem] = useState<Category | null>(null);
     const [parentCategory, setParentCategory] = useState<Category | null>(null);
     const [inputValue, setInputValue] = useState('');
-    const [inputColour, setInputColour] = useState<string>('#ffffff'); // State for colour input, default white
+    const [inputDescription, setInputDescription] = useState('');
+    const [inputColour, setInputColour] = useState<string>('#ffffff');
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [draggingId, setDraggingId] = useState<string | null>(null);
+
+    // Merge Modal State
+    const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+    const [itemToMerge, setItemToMerge] = useState<Category | null>(null);
+    const [mergeTargetId, setMergeTargetId] = useState('');
 
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -45,7 +81,9 @@ export const CategoriesPage = () => {
     const [isMainCategoryDelete, setIsMainCategoryDelete] = useState(false);
 
     // View State
-    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+        () => readExpandedCategoryIds()
+    );
     const [showDeleted, setShowDeleted] = useState(false);
 
 	const { categories, categoriesError, categoriesLoading, uncategorized } =
@@ -66,7 +104,11 @@ export const CategoriesPage = () => {
         setCurrentItem(item || null);
         setParentCategory(parent || null);
         setInputValue((mode === 'editMain' || mode === 'editSub') && item ? item.name : '');
-        // Set colour for both main and sub category edit modes
+        setInputDescription(
+            (mode === 'editMain' || mode === 'editSub') && item?.description
+                ? item.description
+                : ''
+        );
         if ((mode === 'editMain' || mode === 'editSub') && item && 'colour' in item) {
             setInputColour(item.colour || getRandomHexColor()); // Use existing or generate if null/undefined
         } else if (mode === 'addMain' || mode === 'addSub') {
@@ -82,9 +124,10 @@ export const CategoriesPage = () => {
         if (isSubmitting) return;
         setIsModalOpen(false);
         setInputValue('');
+        setInputDescription('');
         setCurrentItem(null);
         setParentCategory(null);
-        setInputColour('#ffffff'); // Reset colour on close
+        setInputColour('#ffffff');
         setModalError(null);
     };
 
@@ -113,14 +156,20 @@ export const CategoriesPage = () => {
         setIsSubmitting(true);
         setModalError(null);
         try {
+            const trimmedDescription = inputDescription.trim();
+            const descriptionPayload =
+                trimmedDescription.length > 0 ? trimmedDescription : null;
+
             if (modalMode === 'addMain') {
 				await dispatch(createCategory({
 					name: trimmedValue,
+                    description: descriptionPayload,
                     colour: inputColour,
 				})).unwrap();
             } else if (modalMode === 'addSub' && parentCategory) {
                 await dispatch(createCategory({
 					name: trimmedValue,
+                    description: descriptionPayload,
 					parent_category_id: parentCategory.id,
                     colour: inputColour,
 				})).unwrap();
@@ -128,6 +177,7 @@ export const CategoriesPage = () => {
 				await dispatch(updateCategory({
 					id: currentItem.id,
 					name: trimmedValue,
+                    description: descriptionPayload,
                     colour: inputColour,
 				})).unwrap();
             }
@@ -181,10 +231,110 @@ export const CategoriesPage = () => {
             } else {
                 newSet.add(categoryId);
             }
+            writeExpandedCategoryIds(newSet);
             return newSet;
         });
     };
 
+    const openMergeModal = (item: Category) => {
+        setItemToMerge(item);
+        setMergeTargetId('');
+        setModalError(null);
+        setIsMergeModalOpen(true);
+    };
+
+    const closeMergeModal = () => {
+        if (isSubmitting) return;
+        setIsMergeModalOpen(false);
+        setItemToMerge(null);
+        setMergeTargetId('');
+        setModalError(null);
+    };
+
+    const confirmMerge = async () => {
+        if (!itemToMerge || !mergeTargetId) return;
+        setIsSubmitting(true);
+        setModalError(null);
+        try {
+            await dispatch(mergeCategory({
+                sourceId: itemToMerge.id,
+                targetCategoryId: mergeTargetId,
+            })).unwrap();
+            closeMergeModal();
+            reloadCategories();
+        } catch (err) {
+            setModalError(readThunkRejectMessage(err, 'Failed to merge categories'));
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const persistReorder = async (orderedIds: string[]) => {
+        if (orderedIds.length === 0) return;
+        setError(null);
+        try {
+            await dispatch(reorderCategories({ orderedIds })).unwrap();
+            reloadCategories();
+        } catch (err) {
+            setError(readThunkRejectMessage(err, 'Failed to reorder categories'));
+            reloadCategories();
+        }
+    };
+
+    const reorderByDrag = (
+        items: Category[],
+        dragId: string,
+        dropId: string
+    ): Category[] => {
+        const fromIndex = items.findIndex((item) => item.id === dragId);
+        const toIndex = items.findIndex((item) => item.id === dropId);
+        if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+            return items;
+        }
+        const next = [...items];
+        const [moved] = next.splice(fromIndex, 1);
+        next.splice(toIndex, 0, moved);
+        return next;
+    };
+
+    const handleMainDrop = (dropId: string) => {
+        if (!draggingId || draggingId === dropId) return;
+        const mains = visibleMainCategories(categories, searchQuery, showDeleted);
+        const reordered = reorderByDrag(mains, draggingId, dropId);
+        void persistReorder(reordered.map((item) => item.id));
+        setDraggingId(null);
+    };
+
+    const handleSubDrop = (parentId: string, dropId: string) => {
+        if (!draggingId || draggingId === dropId) return;
+        const subs = visibleSubcategories(
+            categories,
+            parentId,
+            searchQuery,
+            showDeleted
+        );
+        const reordered = reorderByDrag(subs, draggingId, dropId);
+        void persistReorder(reordered.map((item) => item.id));
+        setDraggingId(null);
+    };
+
+    const onDragStart = (event: DragEvent<HTMLElement>, categoryId: string) => {
+        event.dataTransfer.effectAllowed = 'move';
+        setDraggingId(categoryId);
+    };
+
+    const onDragEnd = () => {
+        setDraggingId(null);
+    };
+
+    const mergeTargetOptions = categories.filter((cat) => {
+        if (!itemToMerge || cat.id === itemToMerge.id || cat.deleted_at) {
+            return false;
+        }
+        return true;
+    });
+
+    const mainCategories = visibleMainCategories(categories, searchQuery, showDeleted);
 
     // --- Render Logic ---
     return (
@@ -205,8 +355,7 @@ export const CategoriesPage = () => {
             </div>
 
 
-            <div className="mb-6">
-                {/* --- UPDATED BUTTON STYLE --- */}
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <button
                     onClick={() => openModal('addMain')}
                     disabled={isSubmitting}
@@ -215,14 +364,27 @@ export const CategoriesPage = () => {
                     <Plus size={18} className="mr-2" />
                     Add Main Category
                 </button>
-                 {/* --- END UPDATE --- */}
+                <div className="relative w-full sm:max-w-xs">
+                    <Search
+                        size={16}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
+                    />
+                    <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search categories..."
+                        className="w-full rounded-lg border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-white placeholder:text-white/40 focus:border-secondary-default/50 focus:outline-none focus:ring-1 focus:ring-secondary-default/50"
+                    />
+                </div>
             </div>
 
-            {/* Loading Indicator */}
             {categoriesLoading && categories.length === 0 && (
-                <div className="flex justify-center items-center p-8">
-                    <Loader2 className="animate-spin h-8 w-8 text-secondary-default" />
-                    <span className="ml-2 text-white/70">Loading Categories...</span>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-8">
+                    <div className="flex items-center justify-center gap-3">
+                        <Loader2 className="h-6 w-6 animate-spin text-secondary-default" />
+                        <span className="text-white/70">Loading categories...</span>
+                    </div>
                 </div>
             )}
 
@@ -256,41 +418,94 @@ export const CategoriesPage = () => {
                 </div>
             )}
 
-            {/* Empty State */}
             {!categoriesLoading && categories.length === 0 && !error && !categoriesError && (
-                 <p className="text-white/50 mt-6 text-center">
-                    {showDeleted ? "No categories (including deleted) found." : "No categories found. Add one to get started!"}
-                 </p>
+                <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
+                    <FolderOpen className="mx-auto h-10 w-10 text-white/40" />
+                    <p className="mt-3 text-white/60">
+                        {showDeleted
+                            ? 'No categories (including deleted) found.'
+                            : 'No categories yet. Add one to get started.'}
+                    </p>
+                </div>
             )}
 
-            {/* Category List */}
+            {!categoriesLoading && categories.length > 0 && mainCategories.length === 0 && (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center">
+                    <Search className="mx-auto h-10 w-10 text-white/40" />
+                    <p className="mt-3 text-white/60">No categories match your search.</p>
+                </div>
+            )}
+
             <div className="space-y-1">
-                {categories.filter(cat => !Boolean(cat.parent_category_id) && (showDeleted ? true : !Boolean(cat.deleted_at))).map((category) => {
+                {mainCategories.map((category) => {
                     const isDeleted = !!category.deleted_at;
                     const categoryUsage = categoryUsageLabel(category);
                     const categoryUsageHint = categoryUsageTitle(category);
+                    const isExpanded =
+                        expandedCategories.has(category.id) ||
+                        shouldExpandForSearch(
+                            categories,
+                            category.id,
+                            searchQuery,
+                            showDeleted
+                        );
 
-					const sub_categories = categories.filter(cat => cat.parent_category_id === category.id &&( showDeleted ? true : !Boolean(cat.deleted_at)))
+					const sub_categories = visibleSubcategories(
+                        categories,
+                        category.id,
+                        searchQuery,
+                        showDeleted
+                    );
 
                     return (
-                        <div key={category.id} className={cn(
-                            "rounded bg-black border border-secondary-default/20 shadow-sm overflow-hidden transition-opacity",
-                            isDeleted && "opacity-60 border-red-500/30 bg-red-900/10"
-                        )}>
-                            {/* Main Category Row */}
+                        <div
+                            key={category.id}
+                            className={cn(
+                                "rounded-xl border border-white/10 bg-white/5 overflow-hidden transition-opacity",
+                                isDeleted && "opacity-60 border-red-500/30 bg-red-900/10",
+                                draggingId === category.id && "opacity-50"
+                            )}
+                            onDragOver={(e) => {
+                                if (!isDeleted) e.preventDefault();
+                            }}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                if (!isDeleted) handleMainDrop(category.id);
+                            }}
+                        >
                             <div className={cn(
                                 "group flex items-center justify-between p-3 transition-colors duration-150",
-                                !isDeleted && "hover:bg-white/5 cursor-pointer"
+                                !isDeleted && "hover:bg-white/5"
                             )}
-                                onClick={() => !isDeleted && toggleExpand(category.id)}
                             >
                                 <div className="flex items-center gap-2 flex-grow min-w-0">
+                                    {!isDeleted && (
+                                        <button
+                                            type="button"
+                                            draggable
+                                            onDragStart={(e) => onDragStart(e, category.id)}
+                                            onDragEnd={onDragEnd}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="p-1 text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing"
+                                            title="Drag to reorder"
+                                        >
+                                            <GripVertical size={16} />
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        className={cn(
+                                            "flex items-center gap-2 flex-grow min-w-0 text-left",
+                                            !isDeleted && "cursor-pointer"
+                                        )}
+                                        onClick={() => !isDeleted && toggleExpand(category.id)}
+                                    >
                                     <span
                                         className={cn("p-1 text-secondary-default/60 disabled:opacity-30", !isDeleted && "group-hover:text-secondary-default")}
                                         aria-hidden="true"
                                     >
                                         {sub_categories.length > 0 ? (
-                                            expandedCategories.has(category.id) ? <ChevronDown size={18} /> : <ChevronRight size={18} />
+                                            isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />
                                         ) : (
                                             <span className="inline-block w-[18px] h-[18px]"></span>
                                         )}
@@ -315,6 +530,7 @@ export const CategoriesPage = () => {
                                             {categoryUsage}
                                         </span>
                                     )}
+                                    </button>
                                 </div>
                                 {/* Action Buttons */}
                                 <div className={cn(
@@ -343,12 +559,20 @@ export const CategoriesPage = () => {
                                                 <Plus size={16} />
                                             </button>
                                             <button
-                                                title="Edit Category Name"
+                                                title="Edit Category"
                                                 onClick={() => openModal('editMain', category)}
                                                 disabled={isSubmitting}
                                                 className="p-1.5 rounded text-secondary-default/60 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             >
                                                 <Edit2 size={16} />
+                                            </button>
+                                            <button
+                                                title="Merge into another category"
+                                                onClick={() => openMergeModal(category)}
+                                                disabled={isSubmitting}
+                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-white/10 hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            >
+                                                <GitMerge size={16} />
                                             </button>
                                             <button
                                                 title="Delete Category"
@@ -364,8 +588,8 @@ export const CategoriesPage = () => {
                             </div>
 
                             {/* Subcategory List */}
-                            {expandedCategories.has(category.id) && !isDeleted && (
-                                <div className="bg-black/40 border-t border-secondary-default/10">
+                            {isExpanded && !isDeleted && (
+                                <div className="border-t border-white/10 bg-black/20">
                                     {sub_categories.length > 0 ? (
                                         <ul className="py-2">
                                             {sub_categories.map((sub) => {
@@ -373,20 +597,42 @@ export const CategoriesPage = () => {
                                                 const subUsage = categoryUsageLabel(sub);
                                                 const subUsageHint = categoryUsageTitle(sub);
                                                 return (
-                                                    <li key={sub.id} className={cn(
-                                                        "group flex items-center justify-between px-3 py-1.5 transition-opacity",
-                                                        !isSubDeleted && "hover:bg-white/5",
-                                                        isSubDeleted && "opacity-60"
-                                                    )}>
-                                                        {/* Subcategory Colour Indicator */}
-                                                        {/* Subcategory Name */}
-														
-														<span className='flex items-center'>
+                                                    <li
+                                                        key={sub.id}
+                                                        className={cn(
+                                                            "group flex items-center justify-between px-3 py-1.5 transition-opacity",
+                                                            !isSubDeleted && "hover:bg-white/5",
+                                                            isSubDeleted && "opacity-60",
+                                                            draggingId === sub.id && "opacity-50"
+                                                        )}
+                                                        onDragOver={(e) => {
+                                                            if (!isSubDeleted) e.preventDefault();
+                                                        }}
+                                                        onDrop={(e) => {
+                                                            e.preventDefault();
+                                                            if (!isSubDeleted) {
+                                                                handleSubDrop(category.id, sub.id);
+                                                            }
+                                                        }}
+                                                    >
+														<span className='flex items-center min-w-0'>
+                                                            {!isSubDeleted && (
+                                                                <button
+                                                                    type="button"
+                                                                    draggable
+                                                                    onDragStart={(e) => onDragStart(e, sub.id)}
+                                                                    onDragEnd={onDragEnd}
+                                                                    className="p-1 ml-6 text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing"
+                                                                    title="Drag to reorder"
+                                                                >
+                                                                    <GripVertical size={14} />
+                                                                </button>
+                                                            )}
 															{!isSubDeleted && sub.colour && (
 																<div className="w-2.5 h-2.5 rounded-full flex-shrink-0 ml-10 mr-2 relative" style={{ backgroundColor: sub.colour }} title={`Colour: ${sub.colour}`}></div>
 															)}
 															<span className={cn(
-																"text-white/80 text-sm pl-10 truncate",
+																"text-white/80 text-sm truncate",
 																isSubDeleted && "line-through text-white/50"
 															)}>
 																{sub.name}
@@ -416,12 +662,20 @@ export const CategoriesPage = () => {
                                                             ) : (
                                                                 <>
                                                                     <button
-                                                                        title="Edit Subcategory Name"
+                                                                        title="Edit Subcategory"
                                                                         onClick={() => openModal('editSub', sub, category)}
                                                                         disabled={isSubmitting}
                                                                         className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                                                     >
                                                                          <Edit2 size={14}/>
+                                                                    </button>
+                                                                    <button
+                                                                        title="Merge into another category"
+                                                                        onClick={() => openMergeModal(sub)}
+                                                                        disabled={isSubmitting}
+                                                                        className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                                    >
+                                                                        <GitMerge size={14} />
                                                                     </button>
                                                                     <button
                                                                         title="Delete Subcategory"
@@ -455,9 +709,9 @@ export const CategoriesPage = () => {
                     <div className="bg-gray-950 rounded-lg shadow-xl p-5 w-full max-w-md border border-secondary-default/30">
                         <h2 className="text-lg font-semibold mb-4 text-white">
                             {modalMode === 'addMain' && 'Add New Main Category'}
-                            {modalMode === 'editMain' && 'Edit Main Category Name'}
+                            {modalMode === 'editMain' && 'Edit Main Category'}
                             {modalMode === 'addSub' && `Add Subcategory to "${parentCategory?.name}"`}
-                            {modalMode === 'editSub' && `Edit Subcategory Name`}
+                            {modalMode === 'editSub' && 'Edit Subcategory'}
                         </h2>
 
                         {modalError && (
@@ -483,7 +737,20 @@ export const CategoriesPage = () => {
                                     disabled={isSubmitting}
                                 />
                             </div>
-                            {/* Colour Picker - Now shown for all add/edit modes */}
+                            <div className="mb-4">
+                                <label htmlFor="categoryDescriptionInput" className="block text-sm font-medium text-white/80 mb-1">
+                                    Description (optional)
+                                </label>
+                                <textarea
+                                    id="categoryDescriptionInput"
+                                    value={inputDescription}
+                                    onChange={(e) => setInputDescription(e.target.value)}
+                                    rows={3}
+                                    className="w-full px-3 py-2 bg-black/50 border border-secondary-default/40 rounded focus:outline-none focus:ring-2 focus:ring-secondary-default text-white placeholder-white/50 resize-y min-h-[4.5rem]"
+                                    placeholder="What kinds of transactions belong here?"
+                                    disabled={isSubmitting}
+                                />
+                            </div>
                             <div className="mb-4">
                                 <label htmlFor="categoryColourInput" className="block text-sm font-medium text-white/80 mb-1">
                                     Category Colour
@@ -524,6 +791,71 @@ export const CategoriesPage = () => {
                  </div>
             )}
 
+            {isMergeModalOpen && itemToMerge && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
+                    <div className="bg-gray-950 rounded-lg shadow-xl p-5 w-full max-w-md border border-secondary-default/30">
+                        <h2 className="text-lg font-semibold mb-4 text-white flex items-center gap-2">
+                            <GitMerge size={20} />
+                            Merge &quot;{itemToMerge.name}&quot;
+                        </h2>
+                        <p className="text-sm text-white/70 mb-4">
+                            All transactions assigned to this category will move to the target.
+                            This category will be soft-deleted.
+                        </p>
+
+                        {modalError && (
+                            <div className="mb-3 p-2 bg-red-900/30 text-red-300 border border-red-600/50 rounded text-sm flex items-center gap-2">
+                                <AlertCircle size={16} className="flex-shrink-0" />
+                                <span>{modalError}</span>
+                            </div>
+                        )}
+
+                        <label htmlFor="mergeTargetSelect" className="block text-sm font-medium text-white/80 mb-1">
+                            Merge into
+                        </label>
+                        <select
+                            id="mergeTargetSelect"
+                            value={mergeTargetId}
+                            onChange={(e) => setMergeTargetId(e.target.value)}
+                            disabled={isSubmitting}
+                            className="w-full px-3 py-2 bg-black/50 border border-secondary-default/40 rounded focus:outline-none focus:ring-2 focus:ring-secondary-default text-white cursor-pointer"
+                        >
+                            <option value="">Select a category...</option>
+                            {mergeTargetOptions.map((cat) => (
+                                <option key={cat.id} value={cat.id}>
+                                    {cat.parent_category_id
+                                        ? `${categories.find((p) => p.id === cat.parent_category_id)?.name ?? 'Parent'} › ${cat.name}`
+                                        : cat.name}
+                                </option>
+                            ))}
+                        </select>
+
+                        <div className="flex justify-end gap-3 mt-5">
+                            <button
+                                type="button"
+                                onClick={closeMergeModal}
+                                disabled={isSubmitting}
+                                className="px-4 py-2 bg-gray-700 text-white/80 rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmMerge}
+                                disabled={isSubmitting || !mergeTargetId}
+                                className="px-4 py-2 bg-amber-700 text-white rounded hover:bg-amber-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[100px] transition-colors cursor-pointer"
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 className="animate-spin h-5 w-5" />
+                                ) : (
+                                    'Merge'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* --- Delete Confirmation Modal --- */}
             {isDeleteModalOpen && itemToDelete && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4" aria-modal="true" role="dialog">
@@ -544,7 +876,7 @@ export const CategoriesPage = () => {
                             })()}
                             {isMainCategoryDelete && (
                                 <span className="block mt-2 text-sm text-white/60">
-                                    Subcategories are not deleted with the parent.
+                                    Active subcategories will also be soft-deleted.
                                 </span>
                             )}
                             <span className="block mt-3 text-sm text-white/60">

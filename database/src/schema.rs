@@ -20,6 +20,7 @@ diesel::table! {
         deleted_at -> Nullable<Timestamp>,
         #[max_length = 7]
         colour -> Nullable<Varchar>,
+        sort_order -> Integer,
     }
 }
 
