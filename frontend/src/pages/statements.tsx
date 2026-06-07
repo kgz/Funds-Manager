@@ -1,4 +1,4 @@
-import { Table, type TColumn } from "@/components/table";
+import { Table, sortRows, type SortState, type TColumn } from "@/components/table";
 import {
 	fetchMissingStatementPeriods,
 	fetchStatementsPage,
@@ -8,7 +8,7 @@ import {
 	type StatementPreviewFile,
 } from "@/types/statement";
 import { AlertTriangle, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, ChangeEvent, DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, ChangeEvent, DragEvent } from "react";
 import { DateTime } from "luxon";
 import { cn } from "@/lib/utils/cn";
 
@@ -36,6 +36,10 @@ export const Statements = () => {
 		files: File[];
 		conflicts: StatementPreviewFile[];
 	} | null>(null);
+	const [sortState, setSortState] = useState<SortState<Statement>>({
+		key: 'date',
+		direction: 'desc',
+	});
 
 	const fetchGenerationRef = useRef(0);
 
@@ -223,8 +227,14 @@ export const Statements = () => {
 		}
 	};
 
-	const columns: TColumn<Statement>[] = [
-		{ key: "id", label: "ID", sortable: true, render: (v) => v },
+	const columns: TColumn<Statement>[] = useMemo(() => [
+		{
+			key: "id",
+			label: "ID",
+			sortable: true,
+			render: (v) => v,
+			sortFunction: (a, b) => a - b,
+		},
 		{
 			key: "date", label: "Statement Period", sortable: true,
 			render: (v) => DateTime.fromISO(v).isValid ? DateTime.fromISO(v).toFormat("LLL yyyy") : "Invalid Date",
@@ -245,7 +255,9 @@ export const Statements = () => {
 			sortFunction: (a, b, rowA, rowB) => (rowA.closing_balance - rowA.opening_balance) - (rowB.closing_balance - rowB.opening_balance)
 		},
 		{
-			key: "id", label: "Actions",
+			key: "created_at",
+			label: "Actions",
+			sortable: false,
 			render: (_v, row) => (
 				<div className="flex gap-2 items-center">
 					<button title="View Details (Not Implemented)" className="cursor-pointer hover:text-secondary-default disabled:opacity-50 disabled:cursor-not-allowed" disabled={deletingId === row.id}>
@@ -257,7 +269,12 @@ export const Statements = () => {
 				</div>
 			),
 		},
-	];
+	], [deletingId]);
+
+	const sortedItems = useMemo(
+		() => sortRows(items, columns, sortState),
+		[items, columns, sortState]
+	);
 
 	return (
 		<div className="relative flex flex-col items-center h-screen w-full">
@@ -386,9 +403,16 @@ export const Statements = () => {
 			<div className={cn("w-full flex-grow overflow-hidden", isUploading && "opacity-50")}>
 				<Table<Statement>
 					columns={columns}
-					data={items}
+					data={sortedItems}
 					header={{ sticky: true }}
 					loading={loading && !isUploading}
+					sortState={sortState}
+					onSortChange={(key, direction) => {
+						if (key === null) {
+							return;
+						}
+						setSortState({ key, direction });
+					}}
 					itemsPerPage={PER_PAGE}
 					serverPagination={{
 						page,
