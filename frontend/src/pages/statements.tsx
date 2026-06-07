@@ -7,10 +7,13 @@ import {
 	type Statement,
 	type StatementPreviewFile,
 } from "@/types/statement";
+import { EmptyState } from '@/components/layout/EmptyState';
+import { ErrorState } from '@/components/layout/ErrorState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { PageShell } from '@/components/layout/PageShell';
 import { Modal } from '@/components/layout/Modal';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { PageLoadingState } from '@/components/layout/PageLoadingState';
+import { PageShell } from '@/components/layout/PageShell';
 import { buttonOutlineClass, buttonWarningClass, glassCardClass } from '@/components/layout/tokens';
 import { FileArchive, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, ChangeEvent, DragEvent } from "react";
@@ -30,6 +33,7 @@ export const Statements = () => {
 	const [total, setTotal] = useState(0);
 	const [totalPages, setTotalPages] = useState(0);
 	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
 	const [missingPeriods, setMissingPeriods] = useState<string[]>([]);
 	const [missingLoading, setMissingLoading] = useState(true);
 
@@ -52,6 +56,7 @@ export const Statements = () => {
 		const generation = fetchGenerationRef.current + 1;
 		fetchGenerationRef.current = generation;
 		setLoading(true);
+		setLoadError(null);
 
 		try {
 			const result = await fetchStatementsPage({ page: targetPage, perPage: PER_PAGE });
@@ -62,13 +67,16 @@ export const Statements = () => {
 			setTotal(result.total);
 			setTotalPages(result.total_pages);
 			setPage(result.page);
-		} catch {
+		} catch (error) {
 			if (fetchGenerationRef.current !== generation) {
 				return;
 			}
 			setItems([]);
 			setTotal(0);
 			setTotalPages(0);
+			setLoadError(
+				error instanceof Error ? error.message : 'Failed to load statements'
+			);
 		} finally {
 			if (fetchGenerationRef.current === generation) {
 				setLoading(false);
@@ -281,6 +289,10 @@ export const Statements = () => {
 		[items, columns, sortState]
 	);
 
+	const initialLoading = loading && items.length === 0 && loadError === null;
+	const showEmpty =
+		!loading && !isUploading && total === 0 && loadError === null;
+
 	return (
 		<PageShell variant="table" className="relative">
 			<div className="border-b border-white/10 p-4">
@@ -395,30 +407,49 @@ export const Statements = () => {
 			) : null}
 
 			<div className={cn('min-h-0 flex-grow overflow-hidden px-4', isUploading && 'opacity-50')}>
-				<Table<Statement>
-					columns={columns}
-					data={sortedItems}
-					header={{ sticky: true }}
-					loading={loading && !isUploading}
-					sortState={sortState}
-					onSortChange={(key, direction) => {
-						if (key === null) {
-							return;
-						}
-						setSortState({ key, direction });
-					}}
-					itemsPerPage={PER_PAGE}
-					serverPagination={{
-						page,
-						totalPages: Math.max(totalPages, 1),
-						totalItems: total,
-						canPrevious: page > 1,
-						canNext: page < totalPages,
-						onPrevious: () => setPage((p) => Math.max(1, p - 1)),
-						onNext: () => setPage((p) => p + 1),
-					}}
-					emptyStateMessage={loading ? "Loading..." : "No statements found."}
-				/>
+				{initialLoading ? (
+					<PageLoadingState label="Loading statements…" fullScreen={false} />
+				) : loadError !== null && items.length === 0 ? (
+					<ErrorState
+						title="Error loading statements"
+						message={loadError}
+						onRetry={() => void reloadPage(page)}
+						className="min-h-[30vh]"
+					/>
+				) : showEmpty ? (
+					<EmptyState
+						compact
+						icon={FileArchive}
+						title="No statements yet"
+						description="Upload a PDF above to import your first statement period."
+						className="py-12"
+					/>
+				) : (
+					<Table<Statement>
+						columns={columns}
+						data={sortedItems}
+						header={{ sticky: true }}
+						loading={loading && !isUploading}
+						sortState={sortState}
+						onSortChange={(key, direction) => {
+							if (key === null) {
+								return;
+							}
+							setSortState({ key, direction });
+						}}
+						itemsPerPage={PER_PAGE}
+						serverPagination={{
+							page,
+							totalPages: Math.max(totalPages, 1),
+							totalItems: total,
+							canPrevious: page > 1,
+							canNext: page < totalPages,
+							onPrevious: () => setPage((p) => Math.max(1, p - 1)),
+							onNext: () => setPage((p) => p + 1),
+						}}
+						emptyStateMessage="No statements on this page."
+					/>
+				)}
 			</div>
 		</PageShell>
 	);

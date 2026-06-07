@@ -30,12 +30,9 @@ Reference implementation: `src/components/dashboard.tsx`.
 | `SearchInput` | Dark-theme search field |
 | `StatCard` | KPI / summary box |
 | `Modal` | Dialog overlay + glass panel |
+| `Drawer` | Right-side panel overlay (e.g. dashboard drill-down) |
 
 Import tokens from `layout/tokens.ts` when building one-off UI.
-
-## Deprecated
-
-`src/components/ui/*` — light-theme boilerplate, unused. Prefer `layout/` primitives.
 
 ## Colours
 
