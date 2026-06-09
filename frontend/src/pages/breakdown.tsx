@@ -1,17 +1,33 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
 import {
 	fetchBreakdownAnalytics,
 	type BreakdownParentRow,
 } from '@/store/thunks/analytics';
+import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
+import {
+	BREAKDOWN_CUSTOM_RANGE_STORAGE_KEY,
+	BREAKDOWN_PERIOD_STORAGE_KEY,
+	BREAKDOWN_PRESET_PERIODS,
+	BREAKDOWN_RANGE_MODE_STORAGE_KEY,
+	periodDateRange,
+	type DashboardPeriod,
+} from '@/components/dashboard/period';
 import { contrastTextColor } from '@/lib/contrastTextColor';
 import { cn } from '@/lib/utils/cn';
+import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
+import { GlassCard } from '@/components/layout/GlassCard';
+import { InlineAlert } from '@/components/layout/InlineAlert';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
+import { SegmentedControl } from '@/components/layout/SegmentedControl';
+import { StatCard } from '@/components/layout/StatCard';
 import { buttonOutlineClass, inputDarkClass } from '@/components/layout/tokens';
-import { ChevronDown, ChevronRight, LayoutList } from 'lucide-react';
+import { ChevronDown, ChevronRight, LayoutList, Loader2 } from 'lucide-react';
+
+type BreakdownRangeMode = 'preset' | 'custom';
 
 const formatMoney = (n: number) =>
 	`$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -115,7 +131,7 @@ function sortSubs(
 	return out;
 }
 
-function defaultDateRange(): { start: string; end: string } {
+function defaultCustomRange(): { start: string; end: string } {
 	const end = DateTime.now().toISODate();
 	const start = DateTime.now().minus({ months: 3 }).toISODate();
 	return {
@@ -124,8 +140,52 @@ function defaultDateRange(): { start: string; end: string } {
 	};
 }
 
+function readBreakdownRangeMode(): BreakdownRangeMode {
+	const stored = localStorage.getItem(BREAKDOWN_RANGE_MODE_STORAGE_KEY);
+	return stored === 'custom' ? 'custom' : 'preset';
+}
+
+function readBreakdownPeriod(): DashboardPeriod {
+	const stored = localStorage.getItem(BREAKDOWN_PERIOD_STORAGE_KEY);
+	if (
+		stored !== null &&
+		BREAKDOWN_PRESET_PERIODS.includes(stored as DashboardPeriod)
+	) {
+		return stored as DashboardPeriod;
+	}
+	return 'last-3-months';
+}
+
+function readCustomRange(): { start: string; end: string } {
+	try {
+		const raw = localStorage.getItem(BREAKDOWN_CUSTOM_RANGE_STORAGE_KEY);
+		if (raw === null) {
+			return defaultCustomRange();
+		}
+		const parsed: unknown = JSON.parse(raw);
+		if (
+			typeof parsed === 'object' &&
+			parsed !== null &&
+			'start' in parsed &&
+			'end' in parsed &&
+			typeof Reflect.get(parsed, 'start') === 'string' &&
+			typeof Reflect.get(parsed, 'end') === 'string'
+		) {
+			return {
+				start: Reflect.get(parsed, 'start'),
+				end: Reflect.get(parsed, 'end'),
+			};
+		}
+	} catch {
+		// ignore
+	}
+	return defaultCustomRange();
+}
+
 const BreakdownPage = () => {
-	const [{ start, end }, setRange] = useState(defaultDateRange);
+	const [rangeMode, setRangeMode] = useState<BreakdownRangeMode>(readBreakdownRangeMode);
+	const [period, setPeriod] = useState<DashboardPeriod>(readBreakdownPeriod);
+	const [customRange, setCustomRange] = useState(readCustomRange);
 	const [parents, setParents] = useState<ParentBreakdownRow[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -139,20 +199,60 @@ const BreakdownPage = () => {
 	>({});
 
 
+	const effectiveRange = useMemo(() => {
+		if (rangeMode === 'custom') {
+			return customRange;
+		}
+		const preset = periodDateRange(period);
+		return {
+			start: preset.start ?? '',
+			end: preset.end ?? '',
+		};
+	}, [rangeMode, period, customRange]);
+
+	const { start, end } = effectiveRange;
+	const rangeInvalid =
+		start.length < 10 || end.length < 10 || start > end;
+
 	useEffect(() => {
-		if (!start || !end) {
+		localStorage.setItem(BREAKDOWN_RANGE_MODE_STORAGE_KEY, rangeMode);
+	}, [rangeMode]);
+
+	useEffect(() => {
+		localStorage.setItem(BREAKDOWN_PERIOD_STORAGE_KEY, period);
+	}, [period]);
+
+	useEffect(() => {
+		localStorage.setItem(
+			BREAKDOWN_CUSTOM_RANGE_STORAGE_KEY,
+			JSON.stringify(customRange)
+		);
+	}, [customRange]);
+
+	const reload = useCallback(async () => {
+		if (rangeInvalid || !start || !end) {
 			return;
 		}
 		setLoading(true);
 		setError(null);
-		void fetchBreakdownAnalytics(start, end)
-			.then((rows: BreakdownParentRow[]) => setParents(rows))
-			.catch((err: unknown) => {
-				setParents([]);
-				setError(err instanceof Error ? err.message : 'Failed to load breakdown');
-			})
-			.finally(() => setLoading(false));
-	}, [start, end]);
+		try {
+			const rows = await fetchBreakdownAnalytics(start, end);
+			setParents(rows);
+		} catch (err: unknown) {
+			setParents([]);
+			setError(err instanceof Error ? err.message : 'Failed to load breakdown');
+		} finally {
+			setLoading(false);
+		}
+	}, [end, rangeInvalid, start]);
+
+	useEffect(() => {
+		if (rangeInvalid || !start || !end) {
+			setLoading(false);
+			return;
+		}
+		void reload();
+	}, [end, rangeInvalid, reload, start]);
 
 	const totals = useMemo(() => {
 		let spend = 0;
@@ -211,91 +311,161 @@ const BreakdownPage = () => {
 		});
 	};
 
-	const initialLoading = loading && parents.length === 0 && !error;
+	const initialLoading = loading && parents.length === 0 && error === null;
+	const isRefreshing = loading && parents.length > 0;
+	const showEmpty =
+		!loading && !rangeInvalid && sortedParents.length === 0 && error === null;
+	const netTotal = round2(totals.income - totals.spending);
 
 	if (initialLoading) {
 		return <PageLoadingState label="Loading breakdown…" />;
 	}
 
-	if (error) {
+	if (error !== null && parents.length === 0) {
 		return (
-			<ErrorState title="Could not load breakdown" message={error} />
+			<ErrorState
+				title="Could not load breakdown"
+				message={error}
+				onRetry={() => void reload()}
+			/>
 		);
 	}
 
-	const rangeInvalid = start.length < 10 || end.length < 10 || start > end;
-
 	return (
-		<PageShell variant="table" className="p-4 text-gray-200">
-			<PageHeader
-				title="Breakdown"
-				subtitle="Spending and income by category for the range. Expand a category to see grouped descriptions (same keys as repeat payments)."
-				icon={<LayoutList className="h-6 w-6 text-secondary-default" />}
-				actions={
-					<div className="flex flex-col items-end gap-3">
-						<div className="flex flex-wrap items-end gap-3 text-sm">
-							<label className="flex flex-col gap-1 text-white/70">
-								<span className="text-[11px] uppercase tracking-wide text-white/45">
-									From
-								</span>
-								<input
-									type="date"
-									value={start}
-									onChange={(e) =>
-										setRange((r) => ({ ...r, start: e.target.value }))
-									}
-									className={cn(inputDarkClass, 'px-2 py-1.5')}
-								/>
-							</label>
-							<label className="flex flex-col gap-1 text-white/70">
-								<span className="text-[11px] uppercase tracking-wide text-white/45">
-									To
-								</span>
-								<input
-									type="date"
-									value={end}
-									onChange={(e) =>
-										setRange((r) => ({ ...r, end: e.target.value }))
-									}
-									className={cn(inputDarkClass, 'px-2 py-1.5')}
-								/>
-							</label>
-							<button
-								type="button"
-								onClick={() => setRange(defaultDateRange())}
-								className={buttonOutlineClass}
-							>
-								Last 3 months
-							</button>
-						</div>
-						{rangeInvalid ? (
-							<p className="text-xs text-amber-400">Choose a valid date range.</p>
+		<PageShell variant="table">
+			<div className="space-y-3 border-b border-white/10 p-4">
+				<PageHeader
+					title="Breakdown"
+					subtitle="Spending and income by category. Expand a row to see grouped descriptions (same keys as repeat payments)."
+					icon={<LayoutList className="h-6 w-6 text-secondary-default" />}
+					className="mb-0"
+					pending={isRefreshing}
+					meta={
+						loading ? (
+							<Loader2
+								className="h-4 w-4 animate-spin text-secondary-default"
+								aria-label="Loading"
+							/>
+						) : null
+					}
+				/>
+
+				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+					<div className="flex min-h-9 flex-wrap items-center gap-3">
+						<SegmentedControl
+							ariaLabel="Date range mode"
+							value={rangeMode}
+							onChange={setRangeMode}
+							options={[
+								{ value: 'preset', label: 'Presets' },
+								{ value: 'custom', label: 'Custom' },
+							]}
+						/>
+						{rangeMode === 'preset' ? (
+							<PeriodFilter
+								value={period}
+								onChange={setPeriod}
+								periods={BREAKDOWN_PRESET_PERIODS}
+								pending={loading}
+								ariaLabel="Breakdown period"
+							/>
 						) : (
-							<div className="space-y-0.5 text-right text-xs text-white/50">
-								<p>
-									Period spending{' '}
-									<span className="font-mono text-red-300/95">
-										{formatMoney(totals.spending)}
-									</span>
-								</p>
-								<p>
-									Period income{' '}
-									<span className="font-mono text-green-400/95">
-										{formatMoney(totals.income)}
-									</span>
-								</p>
+							<div className="flex flex-wrap items-center gap-2">
+								<input
+									type="date"
+									aria-label="From date"
+									value={customRange.start}
+									onChange={(e) =>
+										setCustomRange((r) => ({
+											...r,
+											start: e.target.value,
+										}))
+									}
+									className={cn(inputDarkClass, 'px-2 py-1.5')}
+								/>
+								<span className="text-sm text-white/40">–</span>
+								<input
+									type="date"
+									aria-label="To date"
+									value={customRange.end}
+									onChange={(e) =>
+										setCustomRange((r) => ({
+											...r,
+											end: e.target.value,
+										}))
+									}
+									className={cn(inputDarkClass, 'px-2 py-1.5')}
+								/>
+								<button
+									type="button"
+									onClick={() => setCustomRange(defaultCustomRange())}
+									className={buttonOutlineClass}
+								>
+									Reset
+								</button>
 							</div>
 						)}
 					</div>
-				}
-			/>
 
-			<div className="flex-grow overflow-auto min-h-0">
-				{rangeInvalid ? null : (
+					{!rangeInvalid ? (
+						<div className="flex flex-wrap gap-3">
+							<StatCard
+								label="Period spending"
+								value={formatMoney(totals.spending)}
+								valueClassName="text-red-300"
+							/>
+							<StatCard
+								label="Period income"
+								value={formatMoney(totals.income)}
+								valueClassName="text-green-400"
+							/>
+							<StatCard
+								label="Net"
+								value={formatMoney(netTotal)}
+								valueClassName={
+									netTotal > 0
+										? 'text-green-400'
+										: netTotal < 0
+											? 'text-red-300'
+											: 'text-white/70'
+								}
+							/>
+						</div>
+					) : null}
+				</div>
+
+				{rangeInvalid ? (
+					<InlineAlert variant="warning">
+						Choose a valid date range (from must be on or before to).
+					</InlineAlert>
+				) : null}
+
+				{error !== null && parents.length > 0 ? (
+					<InlineAlert variant="error">{error}</InlineAlert>
+				) : null}
+			</div>
+
+			<div
+				className={cn(
+					'min-h-0 flex-grow overflow-auto p-4 transition-opacity duration-300',
+					isRefreshing && 'opacity-55'
+				)}
+				aria-busy={isRefreshing}
+			>
+				{rangeInvalid ? null : showEmpty ? (
+					<EmptyState
+						compact
+						icon={LayoutList}
+						title="No transactions in this range"
+						description="Try a wider period or upload statements for more months."
+						className="py-12"
+					/>
+				) : (
+					<GlassCard className="overflow-hidden p-0">
 					<table className="w-full min-w-[720px] text-left">
 						<thead className="sticky top-0 z-10 border-b border-white/10 bg-gray-950/95 backdrop-blur-sm">
 							<tr>
-								<th className="px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wider w-10" />
+								<th className="px-4 py-3 text-xs font-medium text-white/50 uppercase tracking-wider w-10" />
 								<th className="px-4 py-3 text-xs font-medium uppercase tracking-wider">
 									<button
 										type="button"
@@ -304,7 +474,7 @@ const BreakdownPage = () => {
 											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'label'
 												? 'text-secondary-default'
-												: 'text-gray-400'
+												: 'text-white/50'
 										)}
 									>
 										Category
@@ -323,7 +493,7 @@ const BreakdownPage = () => {
 											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'spending'
 												? 'text-secondary-default'
-												: 'text-gray-400'
+												: 'text-white/50'
 										)}
 									>
 										Spending
@@ -342,7 +512,7 @@ const BreakdownPage = () => {
 											'text-right w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'spendShare'
 												? 'text-secondary-default'
-												: 'text-gray-400'
+												: 'text-white/50'
 										)}
 									>
 										% of spending
@@ -361,7 +531,7 @@ const BreakdownPage = () => {
 											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'income'
 												? 'text-secondary-default'
-												: 'text-gray-400'
+												: 'text-white/50'
 										)}
 									>
 										Income
@@ -380,7 +550,7 @@ const BreakdownPage = () => {
 											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'net'
 												? 'text-secondary-default'
-												: 'text-gray-400'
+												: 'text-white/50'
 										)}
 									>
 										Net
@@ -399,7 +569,7 @@ const BreakdownPage = () => {
 											'text-center w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'txnCount'
 												? 'text-secondary-default'
-												: 'text-gray-400'
+												: 'text-white/50'
 										)}
 									>
 										Txns
@@ -413,16 +583,6 @@ const BreakdownPage = () => {
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-white/10">
-							{sortedParents.length === 0 && !loading ? (
-								<tr>
-									<td
-										colSpan={7}
-										className="px-4 py-10 text-center text-gray-500"
-									>
-										No transactions in this range.
-									</td>
-								</tr>
-							) : null}
 							{sortedParents.map((p) => {
 								const isOpen = expanded.has(p.sectionKey);
 								const subSort = subSortFor(p.sectionKey);
@@ -465,7 +625,7 @@ const BreakdownPage = () => {
 															{p.label}
 														</span>
 													) : p.categoryId === null ? (
-														<span className="text-sm italic text-gray-400">
+														<span className="text-sm italic text-white/45">
 															{p.label}
 														</span>
 													) : (
@@ -529,7 +689,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 																subSort.key === 'label'
 																	? 'text-secondary-default'
-																	: 'text-gray-500'
+																	: 'text-white/45'
 															)}
 														>
 															Description
@@ -550,7 +710,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 																subSort.key === 'spending'
 																	? 'text-secondary-default'
-																	: 'text-gray-500'
+																	: 'text-white/45'
 															)}
 														>
 															Spending
@@ -571,7 +731,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default text-right w-full',
 																subSort.key === 'spendShare'
 																	? 'text-secondary-default'
-																	: 'text-gray-500'
+																	: 'text-white/45'
 															)}
 														>
 															% of spending
@@ -592,7 +752,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 																subSort.key === 'income'
 																	? 'text-secondary-default'
-																	: 'text-gray-500'
+																	: 'text-white/45'
 															)}
 														>
 															Income
@@ -614,7 +774,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default w-full text-center',
 																subSort.key === 'count'
 																	? 'text-secondary-default'
-																	: 'text-gray-500'
+																	: 'text-white/45'
 															)}
 														>
 															Txns
@@ -668,7 +828,7 @@ const BreakdownPage = () => {
 																	{s.labelSample}
 																</p>
 																<p
-																	className="text-[10px] text-gray-500 truncate max-w-xl mt-0.5"
+																	className="text-[10px] text-white/45 truncate max-w-xl mt-0.5"
 																	title={s.key}
 																>
 																	{s.key}
@@ -750,10 +910,8 @@ const BreakdownPage = () => {
 							})}
 						</tbody>
 					</table>
+					</GlassCard>
 				)}
-				{loading ? (
-					<p className="text-sm text-white/45 px-4 py-2">Refreshing…</p>
-				) : null}
 			</div>
 		</PageShell>
 	);
