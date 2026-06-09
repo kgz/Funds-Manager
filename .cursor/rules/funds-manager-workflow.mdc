@@ -42,6 +42,12 @@ git checkout -b feature/<issue>-<short-slug>
 - `cd frontend && pnpm run build` before PR when UI changes
 - Manual QA for affected routes before PR
 
+## Git commits & PRs
+
+- Never add `Co-authored-by`, `Made-with: Cursor`, or any Cursor/agent attribution to commits or PR bodies.
+- Use plain `git commit -m` / heredoc only — no `--trailer`.
+- If attribution is appended by the environment, amend to remove it before pushing.
+
 ## 6. Pull request + link ticket
 
 ```bash
