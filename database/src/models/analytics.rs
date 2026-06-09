@@ -7,6 +7,7 @@ use diesel::pg::Pg;
 use diesel::pg::sql_types::Array;
 use diesel::sql_types::{BigInt, Date, Integer, Nullable, Text};
 use serde::Serialize;
+use std::collections::HashMap;
 
 use crate::models::category::Category;
 use crate::models::transaction::{filter_active_statement, ACTIVE_STATEMENT_WHERE};
@@ -89,6 +90,29 @@ pub struct BalancePoint {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct BalanceStackAccount {
+    pub account_key: String,
+    pub account_id: Option<i64>,
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BalanceStackRow {
+    pub date: String,
+    pub total: f64,
+    pub values: HashMap<String, f64>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BalanceStackChart {
+    pub accounts: Vec<BalanceStackAccount>,
+    pub rows: Vec<BalanceStackRow>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardKpiSummary {
     pub spending: f64,
     pub income: f64,
@@ -118,6 +142,68 @@ struct BalanceRow {
     balance: i64,
 }
 
+#[derive(QueryableByName, Debug)]
+struct BalanceAccountRow {
+    #[diesel(sql_type = Date)]
+    day: NaiveDate,
+    #[diesel(sql_type = BigInt)]
+    account_scope: i64,
+    #[diesel(sql_type = Text)]
+    account_label: String,
+    #[diesel(sql_type = BigInt)]
+    balance_cents: i64,
+}
+
+fn account_stack_key(account_scope: i64) -> String {
+    format!("a_{account_scope}")
+}
+
+fn build_balance_stack(
+    rows: Vec<BalanceAccountRow>,
+) -> BalanceStackChart {
+    let mut account_meta: HashMap<String, BalanceStackAccount> = HashMap::new();
+    let mut by_day: HashMap<NaiveDate, HashMap<String, f64>> = HashMap::new();
+
+    for row in rows {
+        let key = account_stack_key(row.account_scope);
+        let account_id = if row.account_scope > 0 {
+            Some(row.account_scope)
+        } else {
+            None
+        };
+        account_meta.entry(key.clone()).or_insert(BalanceStackAccount {
+            account_key: key.clone(),
+            account_id,
+            label: row.account_label.clone(),
+        });
+        by_day
+            .entry(row.day)
+            .or_default()
+            .insert(key, round2(cents_to_dollars(row.balance_cents)));
+    }
+
+    let mut accounts: Vec<BalanceStackAccount> = account_meta.into_values().collect();
+    accounts.sort_by(|left, right| left.label.cmp(&right.label));
+
+    let mut stack_rows: Vec<BalanceStackRow> = by_day
+        .into_iter()
+        .map(|(day, values)| {
+            let total = round2(values.values().copied().sum());
+            BalanceStackRow {
+                date: day.to_string(),
+                total,
+                values,
+            }
+        })
+        .collect();
+    stack_rows.sort_by(|left, right| left.date.cmp(&right.date));
+
+    BalanceStackChart {
+        accounts,
+        rows: stack_rows,
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DashboardAnalytics {
@@ -125,6 +211,7 @@ pub struct DashboardAnalytics {
     pub spending_by_category: Vec<CategoryTotalRow>,
     pub income_by_category: Vec<CategoryTotalRow>,
     pub balance_series: Vec<BalancePoint>,
+    pub balance_stack: BalanceStackChart,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -394,6 +481,58 @@ pub fn dashboard(
         })
         .collect();
 
+    let balance_account_rows: Vec<BalanceAccountRow> = sql_query(
+        r#"
+        WITH balance_tx AS (
+            SELECT
+                td.transaction_date::date AS day,
+                td.balance::bigint AS balance,
+                td.transaction_date,
+                td.id,
+                COALESCE(s.financial_account_id, -s.id) AS account_scope,
+                COALESCE(fa.display_name, 'Account ' || COALESCE(s.financial_account_id, -s.id)) AS account_label
+            FROM transaction_data td
+            INNER JOIN statement s ON s.id = td.statement_id AND s.deleted_at IS NULL
+            LEFT JOIN financial_accounts fa ON fa.id = s.financial_account_id AND fa.deleted_at IS NULL
+            WHERE td.deleted_at IS NULL
+              AND ($3::bigint IS NULL OR s.financial_account_id = $3)
+              AND ($2::date IS NULL OR td.transaction_date::date <= $2)
+        ),
+        days AS (
+            SELECT DISTINCT day FROM balance_tx
+            WHERE ($1::date IS NULL OR day >= $1)
+        ),
+        account_scopes AS (
+            SELECT DISTINCT account_scope, account_label FROM balance_tx
+        ),
+        grid AS (
+            SELECT d.day, a.account_scope, a.account_label
+            FROM days d
+            CROSS JOIN account_scopes a
+        )
+        SELECT
+            g.day,
+            g.account_scope,
+            g.account_label,
+            COALESCE((
+                SELECT f.balance
+                FROM balance_tx f
+                WHERE f.account_scope = g.account_scope
+                  AND f.day <= g.day
+                ORDER BY f.transaction_date DESC, f.id DESC
+                LIMIT 1
+            ), 0)::bigint AS balance_cents
+        FROM grid g
+        ORDER BY g.day, g.account_scope
+        "#,
+    )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
+    .bind::<Nullable<BigInt>, _>(financial_account_id)
+    .load(conn)?;
+
+    let balance_stack = build_balance_stack(balance_account_rows);
+
     let mut category_query = filter_active_statement(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
@@ -478,6 +617,7 @@ pub fn dashboard(
         spending_by_category,
         income_by_category,
         balance_series,
+        balance_stack,
     })
 }
 
