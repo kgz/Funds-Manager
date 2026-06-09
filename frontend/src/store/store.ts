@@ -1,8 +1,10 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit'
 import { useDispatch, useSelector } from 'react-redux'
+import { AccountReducer } from './slices/accountSlice'
 import { CategoryReducer } from './slices/categorySlice'
 
 const reducers = combineReducers({
+	AccountReducer,
 	CategoryReducer,
 })
 

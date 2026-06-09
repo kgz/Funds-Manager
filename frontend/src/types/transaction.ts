@@ -1,4 +1,8 @@
 import axios from 'axios';
+import {
+	normalizeFinancialAccountSummary,
+	type FinancialAccountSummary,
+} from '@/types/account';
 
 export type Transaction = {
 	id: number;
@@ -14,6 +18,7 @@ export type Transaction = {
 	category_id?: number | null;
 	suggested_category_id?: number | null;
 	suggested_category_name?: string | null;
+	financial_account?: FinancialAccountSummary | null;
 };
 
 function readString(value: unknown): string | null {
@@ -73,6 +78,11 @@ export function normalizeTransaction(raw: unknown): Transaction | null {
 	const suggestedCategoryName = readNullableString(
 		Reflect.get(raw, 'suggested_category_name')
 	);
+	const financialAccountRaw = Reflect.get(raw, 'financial_account');
+	const financialAccount =
+		financialAccountRaw === undefined || financialAccountRaw === null
+			? null
+			: normalizeFinancialAccountSummary(financialAccountRaw);
 
 	if (
 		id === null ||
@@ -102,6 +112,7 @@ export function normalizeTransaction(raw: unknown): Transaction | null {
 		category_id: categoryId,
 		suggested_category_id: suggestedCategoryId,
 		suggested_category_name: suggestedCategoryName,
+		financial_account: financialAccount,
 	};
 }
 
@@ -119,6 +130,7 @@ export type FetchTransactionsPageParams = {
 	search?: string;
 	uncategorizedOnly?: boolean;
 	includeSuggestions?: boolean;
+	accountId?: number | null;
 	signal?: AbortSignal;
 };
 
@@ -171,6 +183,9 @@ export async function fetchTransactionsPage(
 	}
 	if (params.includeSuggestions === true) {
 		searchParams.set('include_suggestions', 'true');
+	}
+	if (params.accountId != null) {
+		searchParams.set('account_id', String(params.accountId));
 	}
 
 	const response = await axios.get(`/api/transactions?${searchParams.toString()}`, {

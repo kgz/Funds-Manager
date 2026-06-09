@@ -55,15 +55,18 @@ echo "Applying schema to ${BENCH_DB}..."
 if [[ -f "${ROOT}/database/migrations/2026-06-06-140000_performance_indexes/up.sql" ]]; then
 	"${PSQL[@]}" -d "$BENCH_DB" -f "${ROOT}/database/migrations/2026-06-06-140000_performance_indexes/up.sql" >/dev/null
 fi
+if [[ -f "${ROOT}/database/migrations/2026-06-09-193323_financial_accounts/up.sql" ]]; then
+	"${PSQL[@]}" -d "$BENCH_DB" -f "${ROOT}/database/migrations/2026-06-09-193323_financial_accounts/up.sql" >/dev/null
+fi
 
-echo "Seeding ${STATEMENTS} statements × ${TX_PER_STATEMENT} transactions..."
+echo "Seeding 3 bank accounts × ${STATEMENTS} statements × ${TX_PER_STATEMENT} transactions..."
 DATABASE_URL="$BENCH_URL" cargo run --quiet --manifest-path "${ROOT}/database/Cargo.toml" --bin benchmark_seed -- \
 	--statements "$STATEMENTS" \
 	--tx-per-statement "$TX_PER_STATEMENT"
 
-counts="$("${PSQL[@]}" -d "$BENCH_DB" -tAc "SELECT (SELECT COUNT(*) FROM statement WHERE deleted_at IS NULL), (SELECT COUNT(*) FROM transaction_data WHERE deleted_at IS NULL)")"
+counts="$("${PSQL[@]}" -d "$BENCH_DB" -tAc "SELECT (SELECT COUNT(*) FROM financial_accounts WHERE deleted_at IS NULL), (SELECT COUNT(*) FROM statement WHERE deleted_at IS NULL), (SELECT COUNT(*) FROM transaction_data WHERE deleted_at IS NULL)")"
 echo "Benchmark DB ready: ${BENCH_DB}"
-echo "  active statements / transactions: ${counts}"
+echo "  active accounts / statements / transactions: ${counts}"
 echo ""
 echo "Run API against benchmark data:"
 echo "  DATABASE_URL=${BENCH_URL} cargo run -C ${ROOT}/app"
