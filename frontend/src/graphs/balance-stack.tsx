@@ -63,6 +63,16 @@ type ChartRow = {
 	[key: string]: string | number | null;
 };
 
+export function balanceStackAccountColorMap(
+	accounts: Array<{ accountKey: string }>,
+): Record<string, string> {
+	const map: Record<string, string> = {};
+	for (let index = 0; index < accounts.length; index++) {
+		map[accounts[index].accountKey] = accountColor(index);
+	}
+	return map;
+}
+
 function buildChartModel(data: BalanceStackChartData): {
 	rows: ChartRow[];
 	events: AccountOnboardingEvent[];
@@ -200,6 +210,10 @@ export function BalanceStackGraph({
 		}
 		return indexByDate;
 	}, [chartRows]);
+	const accountColorByKey = useMemo(
+		() => balanceStackAccountColorMap(data.accounts),
+		[data.accounts],
+	);
 	const markerState = useTrendEventMarkerState();
 
 	const yDomain = useMemo((): [number, number] | undefined => {
@@ -324,7 +338,7 @@ export function BalanceStackGraph({
 					animationDuration={400}
 					connectNulls={false}
 				/>
-				{renderTrendEventMarkers(events, markerState)}
+				{renderTrendEventMarkers(events, markerState, accountColorByKey)}
 			</ComposedChart>
 		</ResponsiveContainer>
 	);

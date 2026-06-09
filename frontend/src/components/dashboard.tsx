@@ -14,7 +14,7 @@ import type { Transaction } from "@/types/transaction";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie';
 import { MonthlyBarGraph } from "@/graphs/bar";
-import { BalanceStackGraph } from '@/graphs/balance-stack';
+import { BalanceStackGraph, balanceStackAccountColorMap } from '@/graphs/balance-stack';
 import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 import { ChartCard } from '@/components/ChartCard';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
@@ -391,6 +391,10 @@ export const Dashboard = () => {
 	const balanceChartData = balanceChartModel.rows;
 	const balanceChartEvents = balanceChartModel.events;
 	const balanceMarkerState = useTrendEventMarkerState();
+	const balanceAccountColorByKey = useMemo(
+		() => balanceStackAccountColorMap(balanceStackData.accounts),
+		[balanceStackData.accounts],
+	);
 
 	const balanceYDomain = useMemo(
 		() =>
@@ -815,7 +819,11 @@ export const Dashboard = () => {
 												isAnimationActive={!isRefreshing}
 												animationDuration={400}
 											/>
-											{renderTrendEventMarkers(balanceChartEvents, balanceMarkerState)}
+											{renderTrendEventMarkers(
+												balanceChartEvents,
+												balanceMarkerState,
+												balanceAccountColorByKey,
+											)}
 										</LineChart>
 									</ResponsiveContainer>
 								)}
