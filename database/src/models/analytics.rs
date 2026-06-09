@@ -591,7 +591,7 @@ pub fn dashboard(
         .collect();
     spending_by_category.sort_by(|a, b| b.value.partial_cmp(&a.value).unwrap_or(std::cmp::Ordering::Equal));
 
-    let income_by_category: Vec<CategoryTotalRow> = income
+    let mut income_by_category: Vec<CategoryTotalRow> = income
         .into_iter()
         .map(|(group_key, cents)| {
             let (category_id, name, colour) = category_display(&group_key, &categories);
@@ -611,6 +611,7 @@ pub fn dashboard(
             }
         })
         .collect();
+    income_by_category.sort_by(|a, b| b.value.partial_cmp(&a.value).unwrap_or(std::cmp::Ordering::Equal));
 
     Ok(DashboardAnalytics {
         monthly_summary,
