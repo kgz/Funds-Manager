@@ -136,6 +136,17 @@ impl FinancialAccount {
             .optional()
     }
 
+    pub fn find_by_account_number(account_number: &str) -> Result<Option<Self>, diesel::result::Error> {
+        let conn = &mut get_dbo();
+        financial_accounts::table
+            .filter(financial_accounts::account_number.eq(account_number))
+            .filter(financial_accounts::deleted_at.is_null())
+            .order(financial_accounts::id.asc())
+            .select(FinancialAccount::as_select())
+            .first(conn)
+            .optional()
+    }
+
     pub fn find_by_parser_and_number(
         parser_name: &str,
         account_number: &str,
@@ -177,6 +188,9 @@ impl FinancialAccount {
         parser_name: &str,
         account_number: &str,
     ) -> Result<Self, diesel::result::Error> {
+        if let Some(existing) = Self::find_by_account_number(account_number)? {
+            return Ok(existing);
+        }
         if let Some(existing) = Self::find_by_parser_and_number(parser_name, account_number)? {
             return Ok(existing);
         }
