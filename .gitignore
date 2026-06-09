@@ -1,4 +1,6 @@
-frontend/.env
+**/.env
+!**/.env.skeleton
+!**/.env.example
 
 # Rust
 /target/
