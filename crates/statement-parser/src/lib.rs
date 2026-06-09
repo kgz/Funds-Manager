@@ -7,7 +7,7 @@ mod utils;
 
 use std::path::Path;
 
-pub use banks::{available_parsers, get_parser, BankStatementParser};
+pub use banks::{available_parsers, get_parser, infer_parser_name, BankStatementParser};
 pub use config::ParserConfig;
 pub use error::ParseError;
 pub use models::{ParsedStatement, ParsedTransaction};
@@ -26,5 +26,14 @@ pub fn parse_statement<P: AsRef<Path>>(
 ) -> Result<ParsedStatement, ParseError> {
     let pages = extraction::extract_page_texts(file_path.as_ref(), config)?;
 
+    parse_pages(parser_name, &pages)
+}
+
+pub fn parse_statement_auto<P: AsRef<Path>>(
+    file_path: P,
+    config: &ParserConfig,
+) -> Result<ParsedStatement, ParseError> {
+    let pages = extraction::extract_page_texts(file_path.as_ref(), config)?;
+    let parser_name = infer_parser_name(&pages);
     parse_pages(parser_name, &pages)
 }

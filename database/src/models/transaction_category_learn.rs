@@ -294,6 +294,7 @@ pub fn apply_suggestions_for_transaction_ids(ids: &[i64]) -> Result<usize, diese
             .filter(transaction_data::id.eq_any(ids))
             .filter(transaction_data::deleted_at.is_null())
             .into_boxed(),
+        None,
     )
     .select((
         transaction_data::id,
@@ -324,6 +325,7 @@ pub fn recategorize_uncategorized_transactions() -> Result<usize, diesel::result
             .filter(transaction_data::deleted_at.is_null())
             .filter(transaction_data::category_id.is_null())
             .into_boxed(),
+        None,
     )
     .select((transaction_data::id, transaction_data::description))
     .load(conn)?;

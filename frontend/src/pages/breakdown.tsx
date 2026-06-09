@@ -4,7 +4,9 @@ import {
 	fetchBreakdownAnalytics,
 	type BreakdownParentRow,
 } from '@/store/thunks/analytics';
+import { AccountFilter } from '@/components/account-filter';
 import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
+import { useAccountFilter } from '@/hooks/useAccountFilter';
 import {
 	BREAKDOWN_CUSTOM_RANGE_STORAGE_KEY,
 	BREAKDOWN_PERIOD_STORAGE_KEY,
@@ -183,6 +185,7 @@ function readCustomRange(): { start: string; end: string } {
 }
 
 const BreakdownPage = () => {
+	const { accountIdNumber } = useAccountFilter();
 	const [rangeMode, setRangeMode] = useState<BreakdownRangeMode>(readBreakdownRangeMode);
 	const [period, setPeriod] = useState<DashboardPeriod>(readBreakdownPeriod);
 	const [customRange, setCustomRange] = useState(readCustomRange);
@@ -236,7 +239,7 @@ const BreakdownPage = () => {
 		setLoading(true);
 		setError(null);
 		try {
-			const rows = await fetchBreakdownAnalytics(start, end);
+			const rows = await fetchBreakdownAnalytics(start, end, accountIdNumber);
 			setParents(rows);
 		} catch (err: unknown) {
 			setParents([]);
@@ -244,7 +247,7 @@ const BreakdownPage = () => {
 		} finally {
 			setLoading(false);
 		}
-	}, [end, rangeInvalid, start]);
+	}, [accountIdNumber, end, rangeInvalid, start]);
 
 	useEffect(() => {
 		if (rangeInvalid || !start || !end) {
@@ -352,6 +355,7 @@ const BreakdownPage = () => {
 
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 					<div className="flex min-h-9 flex-wrap items-center gap-3">
+						<AccountFilter />
 						<SegmentedControl
 							ariaLabel="Date range mode"
 							value={rangeMode}

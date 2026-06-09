@@ -32,6 +32,9 @@ import {
 } from '@/components/transactions/TransactionCategoryCell';
 import { CategoryPicker } from '@/components/transactions/CategoryPicker';
 import { readThunkRejectMessage } from '@/lib/utils/thunkError';
+import { AccountFilter } from '@/components/account-filter';
+import { useAccountFilter } from '@/hooks/useAccountFilter';
+import { accountDisplayLabel } from '@/types/account';
 
 const PER_PAGE = 50;
 
@@ -54,6 +57,7 @@ function clearSuggestionFields(item: Transaction): Transaction {
 
 const TransactionsPage = () => {
     const dispatch = useAppDispatch();
+    const { accountIdNumber } = useAccountFilter();
 
     const [showUncategorizedOnly, setShowUncategorizedOnly] = useState<boolean>(() => {
         const params = new URLSearchParams(window.location.search);
@@ -116,6 +120,7 @@ const TransactionsPage = () => {
                 search: debouncedSearchTerm,
                 uncategorizedOnly: showUncategorizedOnly,
                 includeSuggestions: true,
+                accountId: accountIdNumber,
             });
 
             if (fetchGenerationRef.current !== generation) {
@@ -144,15 +149,15 @@ const TransactionsPage = () => {
                 setLoading(false);
             }
         }
-    }, [debouncedSearchTerm, showUncategorizedOnly]);
+    }, [accountIdNumber, debouncedSearchTerm, showUncategorizedOnly]);
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearchTerm, showUncategorizedOnly]);
+    }, [accountIdNumber, debouncedSearchTerm, showUncategorizedOnly]);
 
     useEffect(() => {
         void reloadPage(page);
-    }, [page, reloadPage]);
+    }, [page, reloadPage, accountIdNumber]);
 
     const { categories, categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
 
@@ -479,6 +484,25 @@ const TransactionsPage = () => {
             cellClassName: "text-xs text-gray-400 whitespace-nowrap",
         },
         {
+            key: "financial_account",
+            label: "Account",
+            sortable: true,
+            render: (_v, row) =>
+                row.financial_account
+                    ? accountDisplayLabel(row.financial_account)
+                    : '—',
+            sortFunction: (_a, _b, rowA, rowB) => {
+                const labelA = rowA.financial_account
+                    ? accountDisplayLabel(rowA.financial_account)
+                    : '';
+                const labelB = rowB.financial_account
+                    ? accountDisplayLabel(rowB.financial_account)
+                    : '';
+                return labelA.localeCompare(labelB);
+            },
+            cellClassName: "text-xs text-white/70 whitespace-nowrap",
+        },
+        {
             key: "description",
             label: "Description",
             sortable: true,
@@ -599,6 +623,7 @@ const TransactionsPage = () => {
                 />
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                     <div className="flex flex-wrap items-center gap-3">
+                        <AccountFilter />
                         <SearchInput
                             value={searchTerm}
                             onChange={setSearchTerm}
