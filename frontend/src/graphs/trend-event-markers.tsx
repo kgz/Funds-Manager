@@ -77,7 +77,7 @@ function EventMarkerShape({
 			{active ? (
 				<foreignObject
 					x={cx + 12}
-					y={cy - 60}
+					y={cy - 72}
 					width={240}
 					height={120}
 					style={{ overflow: 'visible', pointerEvents: 'none' }}
@@ -129,7 +129,7 @@ export function renderTrendEventMarkers(
 			<ReferenceDot
 				key={key}
 				x={event.date}
-				y={event.trendValue}
+				y={0}
 				r={0}
 				ifOverflow="visible"
 				shape={(props) => (
