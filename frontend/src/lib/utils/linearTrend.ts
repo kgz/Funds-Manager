@@ -4,6 +4,19 @@ export type PortfolioTrendSegment = {
 	values: Array<number | null>;
 };
 
+export function portfolioBalanceChangeLine(values: number[]): number[] {
+	if (values.length === 0) {
+		return [];
+	}
+	if (values.length === 1) {
+		return [values[0]];
+	}
+	const start = values[0];
+	const end = values[values.length - 1];
+	const span = values.length - 1;
+	return values.map((_, index) => start + ((end - start) * index) / span);
+}
+
 export function portfolioTrendSegments(
 	totals: number[],
 	rows: Array<{ values: Record<string, number> }>,
@@ -34,7 +47,7 @@ export function portfolioTrendSegments(
 		const endIndex =
 			segmentIndex + 1 < boundaries.length ? boundaries[segmentIndex + 1] : totals.length;
 		const slice = totals.slice(startIndex, endIndex);
-		const trend = linearTrend(slice);
+		const trend = portfolioBalanceChangeLine(slice);
 		const activeLabels = firstByAccount
 			.filter((account) => account.firstIndex <= startIndex)
 			.map((account) => account.label);
@@ -89,6 +102,125 @@ export function trendSummaryFromAnchor(
 ): TrendSummary | null {
 	const start = Math.min(Math.max(anchorIndex, 0), values.length);
 	return trendSummary(values.slice(start));
+}
+
+export function portfolioBalanceChangeFromAnchor(
+	values: number[],
+	anchorIndex: number,
+): TrendSummary | null {
+	const start = Math.min(Math.max(anchorIndex, 0), values.length);
+	const slice = values.slice(start);
+	if (slice.length === 0) {
+		return null;
+	}
+	const actualStart = slice[0];
+	const actualEnd = slice[slice.length - 1];
+	const change = actualEnd - actualStart;
+	const percentChange = actualStart !== 0 ? (change / actualStart) * 100 : null;
+	return {
+		start: actualStart,
+		end: actualEnd,
+		change,
+		percentChange,
+	};
+}
+
+export type PortfolioTrendSegmentBreakdown = {
+	label: string;
+	startBalance: number;
+	endBalance: number;
+	percentChange: number;
+	days: number;
+	weightPercent: number;
+	contribution: number;
+};
+
+export type PortfolioBalanceChangeDetail = {
+	percentChange: number;
+	totalDays: number;
+	segments: PortfolioTrendSegmentBreakdown[];
+};
+
+export function portfolioBalanceChangeDetail(
+	totals: number[],
+	segments: Array<{ startIndex: number; label: string }>,
+): PortfolioBalanceChangeDetail | null {
+	if (totals.length === 0) {
+		return null;
+	}
+	const segmentRows: PortfolioTrendSegmentBreakdown[] = [];
+	let totalDays = 0;
+
+	for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+		const start = segments[segmentIndex].startIndex;
+		const end =
+			segmentIndex + 1 < segments.length
+				? segments[segmentIndex + 1].startIndex
+				: totals.length;
+		const slice = totals.slice(start, end);
+		if (slice.length === 0) {
+			continue;
+		}
+		const segmentStart = slice[0];
+		const segmentEnd = slice[slice.length - 1];
+		const delta = segmentEnd - segmentStart;
+		const percentChange = segmentStart !== 0 ? (delta / segmentStart) * 100 : 0;
+		totalDays += slice.length;
+		segmentRows.push({
+			label: segments[segmentIndex].label,
+			startBalance: segmentStart,
+			endBalance: segmentEnd,
+			percentChange,
+			days: slice.length,
+			weightPercent: 0,
+			contribution: 0,
+		});
+	}
+
+	if (segmentRows.length === 0 || totalDays === 0) {
+		return null;
+	}
+
+	let weightedPercentSum = 0;
+	for (const segment of segmentRows) {
+		segment.weightPercent = (segment.days / totalDays) * 100;
+		segment.contribution = (segment.percentChange * segment.days) / totalDays;
+		weightedPercentSum += segment.contribution;
+	}
+
+	return {
+		percentChange: weightedPercentSum,
+		totalDays,
+		segments: segmentRows,
+	};
+}
+
+export function portfolioBalanceChangeSummary(
+	totals: number[],
+	segments: Array<{ startIndex: number; label?: string }>,
+): TrendSummary | null {
+	const detail = portfolioBalanceChangeDetail(
+		totals,
+		segments.map((segment, index) => ({
+			startIndex: segment.startIndex,
+			label: segment.label ?? `Period ${index + 1}`,
+		})),
+	);
+	if (detail === null) {
+		return null;
+	}
+	const initial = totals[0];
+	const final = totals[totals.length - 1];
+	const changeSum = detail.segments.reduce(
+		(sum, segment) => sum + (segment.endBalance - segment.startBalance),
+		0,
+	);
+	return {
+		start: initial,
+		end: final,
+		change: changeSum,
+		percentChange: detail.percentChange,
+	};
 }
 
 export function linearTrend(values: number[]): number[] {
