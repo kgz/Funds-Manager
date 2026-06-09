@@ -8,11 +8,13 @@ import {
 	XAxis,
 	YAxis,
 } from 'recharts';
-import type { TooltipProps } from 'recharts';
 import { useMemo } from 'react';
 import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 import { formatChartAxisDate, formatChartTooltipDate } from '@/lib/utils/dates';
-import { linearTrend } from '@/lib/utils/linearTrend';
+import {
+	applyPortfolioTrendToRows,
+	buildBalanceTrendSegments,
+} from '@/lib/utils/balanceTrendSegments';
 
 export type BalanceStackAccount = {
 	accountKey: string;
@@ -32,6 +34,7 @@ export type BalanceStackChartData = {
 };
 
 const STACK_COLORS = ['#6ee7b7', '#60a5fa', '#c084fc', '#fb923c', '#f472b6', '#facc15'];
+const TREND_COLOR = '#fbbf24';
 
 const formatCurrencyWithCommas = (value: number): string => {
 	const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
@@ -48,8 +51,8 @@ function accountColor(index: number): string {
 type ChartRow = {
 	date: string;
 	total: number;
-	trend: number;
-	[key: string]: string | number;
+	trend: number | null;
+	[key: string]: string | number | null;
 };
 
 function buildChartRows(data: BalanceStackChartData): ChartRow[] {
@@ -58,68 +61,91 @@ function buildChartRows(data: BalanceStackChartData): ChartRow[] {
 		total: row.total,
 		...row.values,
 	}));
-	const trend = linearTrend(base.map((row) => row.total));
-	return base.map((row, index) => ({
-		...row,
-		trend: trend[index],
-	}));
+	const segments = buildBalanceTrendSegments(data.rows, data.accounts);
+	return applyPortfolioTrendToRows(base, segments);
 }
+
+type TooltipPayloadItem = {
+	dataKey?: string | number;
+	value?: string | number;
+	name?: string;
+};
 
 function BalanceStackTooltip({
 	active,
 	payload,
 	label,
 	accounts,
-}: TooltipProps<number, string> & { accounts: BalanceStackAccount[] }) {
+}: {
+	active?: boolean;
+	payload?: TooltipPayloadItem[];
+	label?: string | number;
+	accounts: BalanceStackAccount[];
+}) {
 	if (!active || payload === undefined || payload.length === 0) {
 		return null;
 	}
 	const heading = typeof label === 'string' ? formatChartTooltipDate(label) : label;
-	const entries = payload
-		.filter(
-			(entry) =>
-				entry.dataKey !== 'total' &&
-				entry.dataKey !== 'trend' &&
-				typeof entry.value === 'number'
-		)
-		.sort((left, right) => {
-			const leftVal = typeof left.value === 'number' ? left.value : 0;
-			const rightVal = typeof right.value === 'number' ? right.value : 0;
-			return rightVal - leftVal;
-		});
+	const rows = accounts.flatMap((account, index) => {
+		const entry = payload.find((item) => item.dataKey === account.accountKey);
+		if (entry === undefined || typeof entry.value !== 'number') {
+			return [];
+		}
+		return [{ account, value: entry.value, colorIndex: index }];
+	});
 
 	let total = 0;
-	for (const entry of entries) {
-		if (typeof entry.value === 'number') {
-			total += entry.value;
-		}
+	for (const row of rows) {
+		total += row.value;
 	}
 
-	const trendEntry = payload.find((entry) => entry.dataKey === 'trend');
+	const trendEntry = payload.find((item) => item.dataKey === 'trend');
 	const trendValue = trendEntry?.value;
 
 	return (
 		<div className={chartTooltipClass}>
-			<p className="font-semibold">{heading}</p>
-			{entries.map((entry) => {
-				const account = accounts.find((item) => item.accountKey === entry.dataKey);
-				const labelText = account?.label ?? String(entry.name ?? entry.dataKey);
-				const value = entry.value;
-				if (typeof value !== 'number') {
-					return null;
-				}
-				return (
-					<p key={String(entry.dataKey)} className="text-white/85">
-						{labelText}: {formatCurrencyWithCommas(value)}
-					</p>
-				);
-			})}
-			<p className="mt-1 border-t border-white/10 pt-1 font-medium text-emerald-300">
-				Total: {formatCurrencyWithCommas(total)}
-			</p>
-			{typeof trendValue === 'number' ? (
-				<p className="text-amber-300/90">Trend: {formatCurrencyWithCommas(trendValue)}</p>
-			) : null}
+			<p className="mb-2 font-semibold">{heading}</p>
+			<table className="w-full border-collapse text-sm">
+				<tbody>
+					{rows.map((row) => (
+						<tr key={row.account.accountKey}>
+							<td className="py-0.5 pr-4 text-white/85">
+								<span className="flex items-center gap-2">
+									<span
+										className="h-2 w-2 shrink-0 rounded-full"
+										style={{ backgroundColor: accountColor(row.colorIndex) }}
+									/>
+									{row.account.label}
+								</span>
+							</td>
+							<td className="py-0.5 text-right tabular-nums text-white/85">
+								{formatCurrencyWithCommas(row.value)}
+							</td>
+						</tr>
+					))}
+				</tbody>
+				<tfoot>
+					<tr className="border-t border-white/10">
+						<td className="pt-1.5 font-medium text-emerald-300">Total</td>
+						<td className="pt-1.5 text-right tabular-nums font-medium text-emerald-300">
+							{formatCurrencyWithCommas(total)}
+						</td>
+					</tr>
+					{typeof trendValue === 'number' ? (
+						<tr>
+							<td className="py-0.5 text-[#fbbf24]">
+								<span className="flex items-center gap-2">
+									<span className="h-2 w-2 shrink-0 rounded-full bg-[#fbbf24]" />
+									Trend
+								</span>
+							</td>
+							<td className="py-0.5 text-right tabular-nums text-[#fbbf24]">
+								{formatCurrencyWithCommas(trendValue)}
+							</td>
+						</tr>
+					) : null}
+				</tfoot>
+			</table>
 		</div>
 	);
 }
@@ -141,7 +167,13 @@ export function BalanceStackGraph({
 		if (chartRows.length === 0) {
 			return undefined;
 		}
-		const totals = chartRows.flatMap((row) => [row.total, row.trend]);
+		const totals = chartRows.flatMap((row) => {
+			const values: number[] = [row.total];
+			if (row.trend !== null) {
+				values.push(row.trend);
+			}
+			return values;
+		});
 		const min = 0;
 		const max = Math.max(...totals);
 		const pad = max === 0 ? 1 : max * 0.08;
@@ -179,9 +211,34 @@ export function BalanceStackGraph({
 					width={88}
 				/>
 				<Tooltip
-					content={(props) => (
-						<BalanceStackTooltip {...props} accounts={data.accounts} />
-					)}
+					content={({ active, payload, label }) => {
+						const items: TooltipPayloadItem[] = (payload ?? []).flatMap((entry) => {
+							const value = entry.value;
+							if (
+								entry.dataKey === undefined ||
+								(typeof value !== 'number' && typeof value !== 'string')
+							) {
+								return [];
+							}
+							return [
+								{
+									dataKey: entry.dataKey,
+									value,
+									name: typeof entry.name === 'string' ? entry.name : undefined,
+								},
+							];
+						});
+						const heading =
+							typeof label === 'string' || typeof label === 'number' ? label : undefined;
+						return (
+							<BalanceStackTooltip
+								active={active}
+								payload={items}
+								label={heading}
+								accounts={data.accounts}
+							/>
+						);
+					}}
 				/>
 				<Legend
 					iconType="circle"
@@ -196,9 +253,10 @@ export function BalanceStackGraph({
 						name={account.label}
 						stackId="balance"
 						stroke={accountColor(index)}
-						strokeWidth={2}
-						fill="none"
-						dot={false}
+						strokeWidth={1.5}
+						strokeOpacity={0.7}
+						fill={accountColor(index)}
+						fillOpacity={0.1}
 						isAnimationActive={!isRefreshing}
 						animationDuration={400}
 					/>
@@ -207,15 +265,16 @@ export function BalanceStackGraph({
 					type="linear"
 					dataKey="trend"
 					name="Trend"
-					stroke="#fbbf24"
-					strokeWidth={3}
+					stroke={TREND_COLOR}
+					strokeWidth={2.5}
 					strokeDasharray="8 4"
 					fill="none"
 					dot={false}
-					activeDot={{ r: 4, fill: '#fbbf24', stroke: '#fff', strokeWidth: 1 }}
+					activeDot={{ r: 4, fill: TREND_COLOR, stroke: '#fff', strokeWidth: 1 }}
 					legendType="line"
 					isAnimationActive={!isRefreshing}
 					animationDuration={400}
+					connectNulls={false}
 				/>
 			</ComposedChart>
 		</ResponsiveContainer>

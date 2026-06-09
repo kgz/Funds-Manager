@@ -49,7 +49,18 @@ import {
 	formatMonthLabel,
 	formatTransactionDate,
 } from '@/lib/utils/dates';
-import { linearTrend, trendSummary } from '@/lib/utils/linearTrend';
+import {
+	applyPortfolioTrendToRows,
+	buildBalanceTrendSegments,
+	lastPortfolioTrendAnchor,
+} from '@/lib/utils/balanceTrendSegments';
+import { linearTrend, trendSummaryFromAnchor } from '@/lib/utils/linearTrend';
+
+type BalanceChartRow = {
+	date: string;
+	val: number;
+	trend: number | null;
+};
 
 const BALANCE_CHART_MODE_KEY = 'dashboardBalanceChartMode';
 
@@ -339,21 +350,40 @@ export const Dashboard = () => {
 		[analytics]
 	);
 
-	const balanceChartData = useMemo(() => {
+	const balanceChartData = useMemo((): BalanceChartRow[] => {
 		const points = (analytics?.balanceSeries ?? []).map((point) => ({
 			date: point.date,
 			val: point.balance,
 		}));
-		const trend = linearTrend(points.map((point) => point.val));
+
+		if (balanceStackData.rows.length > 0 && balanceStackData.accounts.length > 0) {
+			const segments = buildBalanceTrendSegments(
+				balanceStackData.rows,
+				balanceStackData.accounts,
+			);
+			return applyPortfolioTrendToRows(points, segments);
+		}
+
+		const totals = points.map((point) => point.val);
+		const trend = linearTrend(totals);
 		return points.map((point, index) => ({
 			...point,
-			trend: trend[index],
+			trend: trend[index] ?? null,
 		}));
-	}, [analytics]);
+	}, [analytics, balanceStackData]);
 
 	const balanceYDomain = useMemo(
-		() => balanceChartDomain(balanceChartData.flatMap((point) => [point.val, point.trend])),
-		[balanceChartData]
+		() =>
+			balanceChartDomain(
+				balanceChartData.flatMap((point) => {
+					const values: number[] = [point.val];
+					if (point.trend !== null) {
+						values.push(point.trend);
+					}
+					return values;
+				}),
+			),
+		[balanceChartData],
 	);
 
 	const balanceDateSpanDays = useMemo(() => {
@@ -373,18 +403,24 @@ export const Dashboard = () => {
 	const showStackedBalance = balanceChartMode === 'stacked' && balanceStackAvailable;
 
 	const balanceTrend = useMemo(() => {
-		const totals =
-			balanceStackData.rows.length > 0
-				? balanceStackData.rows.map((row) => row.total)
-				: balanceChartData.map((point) => point.val);
-		return trendSummary(totals);
+		if (balanceStackData.rows.length > 0 && balanceStackData.accounts.length > 0) {
+			const segments = buildBalanceTrendSegments(
+				balanceStackData.rows,
+				balanceStackData.accounts,
+			);
+			const anchor = lastPortfolioTrendAnchor(segments);
+			const totals = balanceStackData.rows.map((row) => row.total);
+			return trendSummaryFromAnchor(totals, anchor);
+		}
+		const totals = balanceChartData.map((point) => point.val);
+		return trendSummaryFromAnchor(totals, 0);
 	}, [balanceStackData, balanceChartData]);
 
 	const balanceChartSubtitle = showStackedBalance
-		? 'Stacked by account — dashed amber line is combined trend'
+		? 'Stacked by account — dashed lines show trend per onboarding period'
 		: balanceChartMode === 'stacked'
 			? 'Per-account stack unavailable — showing combined view (restart server if needed)'
-			: 'Combined balance with trend line';
+			: 'Combined balance — dashed lines show trend per onboarding period';
 
 	const balanceTrendHeader =
 		balanceTrend?.percentChange === null || balanceTrend === null ? null : (
@@ -740,9 +776,10 @@ export const Dashboard = () => {
 												dataKey="trend"
 												name="Trend"
 												stroke="#fbbf24"
-												strokeWidth={1.5}
+												strokeWidth={2}
 												strokeDasharray="8 4"
 												dot={false}
+												connectNulls={false}
 												isAnimationActive={!isRefreshing}
 												animationDuration={400}
 											/>
