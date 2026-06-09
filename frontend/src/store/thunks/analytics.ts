@@ -27,6 +27,18 @@ export type DashboardAnalytics = {
 		date: string;
 		balance: number;
 	}>;
+	balanceStack: {
+		accounts: Array<{
+			accountKey: string;
+			accountId: number | null;
+			label: string;
+		}>;
+		rows: Array<{
+			date: string;
+			total: number;
+			values: Record<string, number>;
+		}>;
+	};
 };
 
 export type BreakdownParentRow = {
