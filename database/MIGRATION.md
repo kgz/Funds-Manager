@@ -50,3 +50,13 @@ mysqldump -h127.0.0.1 -P3308 -uroot funds --no-create-info --complete-insert > /
 - [x] Switch `database` + `app` Diesel to `postgres` backend
 - [x] Update `DATABASE_URL` in `.env` files
 - [ ] Run app against Postgres; retire MySQL when confident
+
+## Schema migrations (Diesel embedded)
+
+On server startup, pending migrations in `database/migrations/` are applied automatically. If a migration fails, the server exits before listening for HTTP.
+
+Optional manual run (CI, debugging):
+
+```bash
+cd database && cargo run --bin migrate
+```

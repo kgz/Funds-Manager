@@ -1,7 +1,11 @@
-use database::modules::database::{get_dbo, run_pending_migrations};
+use database::modules::database::migrate_on_startup;
 
 fn main() {
-    let mut conn = get_dbo();
-    run_pending_migrations(&mut conn);
-    println!("Migrations complete.");
+    match migrate_on_startup() {
+        Ok(()) => println!("Migrations complete."),
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+    }
 }
