@@ -19,6 +19,7 @@ type EventMarkerShapeProps = {
 	cy?: number;
 	event: AccountOnboardingEvent;
 	active: boolean;
+	accountColorByKey: Record<string, string>;
 	onActivate: (active: boolean) => void;
 	onToggle: () => void;
 };
@@ -28,6 +29,7 @@ function EventMarkerShape({
 	cy = 0,
 	event,
 	active,
+	accountColorByKey,
 	onActivate,
 	onToggle,
 }: EventMarkerShapeProps) {
@@ -77,22 +79,31 @@ function EventMarkerShape({
 			{active ? (
 				<foreignObject
 					x={cx + 12}
-					y={cy - 72}
-					width={240}
-					height={120}
+					y={cy - 80}
+					width={280}
+					height={140}
 					style={{ overflow: 'visible', pointerEvents: 'none' }}
 				>
 					<div className={chartTooltipClass}>
-						<p className="mb-1.5 text-xs text-white/60">
+						<p className="mb-2 text-xs text-white/60">
 							{formatChartTooltipDate(event.date)}
 						</p>
 						{event.accounts.map((account) => (
 							<p key={account.accountKey} className="leading-snug text-white/90">
-								{event.isInitial ? account.label : `${account.label} added`}
-								<span className="tabular-nums text-[#fbbf24]">
-									{' '}
-									· {formatCurrencyWithCommas(account.startingBalance)}
+								New account{' '}
+								<span
+									className="font-medium"
+									style={{
+										color: accountColorByKey[account.accountKey] ?? TREND_COLOR,
+									}}
+								>
+									{account.label}
 								</span>
+								{' added with '}
+								<span className="font-medium tabular-nums">
+									{formatCurrencyWithCommas(account.startingBalance)}
+								</span>
+								{' starting balance'}
 							</p>
 						))}
 					</div>
@@ -120,6 +131,7 @@ type TrendEventMarkerState = ReturnType<typeof useTrendEventMarkerState>;
 export function renderTrendEventMarkers(
 	events: AccountOnboardingEvent[],
 	markerState: TrendEventMarkerState,
+	accountColorByKey: Record<string, string>,
 ) {
 	const { activeKey, setPinnedKey, setHoverKey } = markerState;
 
@@ -138,6 +150,7 @@ export function renderTrendEventMarkers(
 						cy={props.cy}
 						event={event}
 						active={activeKey === key}
+						accountColorByKey={accountColorByKey}
 						onActivate={(next) => {
 							if (next) {
 								setHoverKey(key);
