@@ -13,8 +13,16 @@ import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 import { formatChartAxisDate, formatChartTooltipDate } from '@/lib/utils/dates';
 import {
 	applyPortfolioTrendToRows,
+	buildAccountOnboardingEvents,
 	buildBalanceTrendSegments,
+	accountFirstIndexByKey,
+	maskAccountsBeforeFirstAppearance,
+	type AccountOnboardingEvent,
 } from '@/lib/utils/balanceTrendSegments';
+import {
+	renderTrendEventMarkers,
+	useTrendEventMarkerState,
+} from '@/graphs/trend-event-markers';
 
 export type BalanceStackAccount = {
 	accountKey: string;
@@ -55,14 +63,22 @@ type ChartRow = {
 	[key: string]: string | number | null;
 };
 
-function buildChartRows(data: BalanceStackChartData): ChartRow[] {
+function buildChartModel(data: BalanceStackChartData): {
+	rows: ChartRow[];
+	events: AccountOnboardingEvent[];
+	accountFirstIndex: Record<string, number>;
+} {
 	const base = data.rows.map((row) => ({
 		date: row.date,
 		total: row.total,
 		...row.values,
 	}));
+	const accountFirstIndex = accountFirstIndexByKey(data.rows, data.accounts);
+	const masked = maskAccountsBeforeFirstAppearance(base, data.accounts, accountFirstIndex);
 	const segments = buildBalanceTrendSegments(data.rows, data.accounts);
-	return applyPortfolioTrendToRows(base, segments);
+	const rows: ChartRow[] = applyPortfolioTrendToRows(masked, segments);
+	const events = buildAccountOnboardingEvents(data.rows, data.accounts, segments);
+	return { rows, events, accountFirstIndex };
 }
 
 type TooltipPayloadItem = {
@@ -76,17 +92,29 @@ function BalanceStackTooltip({
 	payload,
 	label,
 	accounts,
+	accountFirstIndex,
+	rowIndex,
 }: {
 	active?: boolean;
 	payload?: TooltipPayloadItem[];
 	label?: string | number;
 	accounts: BalanceStackAccount[];
+	accountFirstIndex: Record<string, number>;
+	rowIndex: number | null;
 }) {
 	if (!active || payload === undefined || payload.length === 0) {
 		return null;
 	}
 	const heading = typeof label === 'string' ? formatChartTooltipDate(label) : label;
 	const rows = accounts.flatMap((account, index) => {
+		const firstIndex = accountFirstIndex[account.accountKey];
+		if (
+			firstIndex === undefined ||
+			rowIndex === null ||
+			rowIndex < firstIndex
+		) {
+			return [];
+		}
 		const entry = payload.find((item) => item.dataKey === account.accountKey);
 		if (entry === undefined || typeof entry.value !== 'number') {
 			return [];
@@ -161,7 +189,18 @@ export function BalanceStackGraph({
 	dateSpanDays,
 	isRefreshing = false,
 }: BalanceStackGraphProps) {
-	const chartRows = useMemo(() => buildChartRows(data), [data]);
+	const { rows: chartRows, events, accountFirstIndex } = useMemo(
+		() => buildChartModel(data),
+		[data],
+	);
+	const dateRowIndex = useMemo(() => {
+		const indexByDate = new Map<string, number>();
+		for (let index = 0; index < chartRows.length; index++) {
+			indexByDate.set(chartRows[index].date, index);
+		}
+		return indexByDate;
+	}, [chartRows]);
+	const markerState = useTrendEventMarkerState();
 
 	const yDomain = useMemo((): [number, number] | undefined => {
 		if (chartRows.length === 0) {
@@ -211,7 +250,13 @@ export function BalanceStackGraph({
 					width={88}
 				/>
 				<Tooltip
+					wrapperStyle={
+						markerState.suppressChartTooltip ? { visibility: 'hidden' } : undefined
+					}
 					content={({ active, payload, label }) => {
+						if (markerState.suppressChartTooltip || !active) {
+							return null;
+						}
 						const items: TooltipPayloadItem[] = (payload ?? []).flatMap((entry) => {
 							const value = entry.value;
 							if (
@@ -228,6 +273,7 @@ export function BalanceStackGraph({
 								},
 							];
 						});
+						const rowIndex = typeof label === 'string' ? (dateRowIndex.get(label) ?? null) : null;
 						const heading =
 							typeof label === 'string' || typeof label === 'number' ? label : undefined;
 						return (
@@ -236,6 +282,8 @@ export function BalanceStackGraph({
 								payload={items}
 								label={heading}
 								accounts={data.accounts}
+								accountFirstIndex={accountFirstIndex}
+								rowIndex={rowIndex}
 							/>
 						);
 					}}
@@ -276,6 +324,7 @@ export function BalanceStackGraph({
 					animationDuration={400}
 					connectNulls={false}
 				/>
+				{renderTrendEventMarkers(events, markerState)}
 			</ComposedChart>
 		</ResponsiveContainer>
 	);

@@ -5,6 +5,18 @@ import {
 
 export type { PortfolioTrendSegment };
 
+export type AccountOnboardingEvent = {
+	date: string;
+	rowIndex: number;
+	trendValue: number;
+	isInitial: boolean;
+	accounts: Array<{
+		accountKey: string;
+		label: string;
+		startingBalance: number;
+	}>;
+};
+
 export function buildBalanceTrendSegments(
 	rows: Array<{ total: number; values: Record<string, number> }>,
 	accounts: Array<{ accountKey: string; label: string }>,
@@ -14,6 +26,85 @@ export function buildBalanceTrendSegments(
 		rows,
 		accounts,
 	);
+}
+
+export function accountFirstIndexByKey(
+	rows: Array<{ values: Record<string, number> }>,
+	accounts: Array<{ accountKey: string }>,
+): Record<string, number> {
+	const result: Record<string, number> = {};
+	for (const account of accounts) {
+		const firstIndex = rows.findIndex((row) => (row.values[account.accountKey] ?? 0) > 0);
+		if (firstIndex >= 0) {
+			result[account.accountKey] = firstIndex;
+		}
+	}
+	return result;
+}
+
+export function maskAccountsBeforeFirstAppearance<
+	TRow extends { [key: string]: string | number | null },
+>(rows: TRow[], accounts: Array<{ accountKey: string }>, firstIndexByKey: Record<string, number>): TRow[] {
+	return rows.map((row, index) => {
+		const masked = { ...row };
+		for (const account of accounts) {
+			const firstIndex = firstIndexByKey[account.accountKey];
+			if (firstIndex !== undefined && index < firstIndex) {
+				masked[account.accountKey] = null;
+			}
+		}
+		return masked;
+	});
+}
+
+export function buildAccountOnboardingEvents(
+	rows: Array<{ date: string; values: Record<string, number> }>,
+	accounts: Array<{ accountKey: string; label: string }>,
+	segments: PortfolioTrendSegment[],
+): AccountOnboardingEvent[] {
+	if (rows.length === 0 || segments.length === 0 || accounts.length === 0) {
+		return [];
+	}
+
+	const firstByAccount = accounts
+		.map((account) => ({
+			accountKey: account.accountKey,
+			label: account.label,
+			firstIndex: rows.findIndex((row) => (row.values[account.accountKey] ?? 0) > 0),
+		}))
+		.filter((account) => account.firstIndex >= 0);
+
+	return segments.flatMap((segment, segmentIndex) => {
+		const rowIndex = segment.startIndex;
+		const row = rows[rowIndex];
+		if (row === undefined) {
+			return [];
+		}
+
+		const joining = firstByAccount.filter((account) => account.firstIndex === rowIndex);
+		if (joining.length === 0) {
+			return [];
+		}
+
+		const trendValue = segment.values[rowIndex];
+		if (trendValue === null) {
+			return [];
+		}
+
+		return [
+			{
+				date: row.date,
+				rowIndex,
+				trendValue,
+				isInitial: segmentIndex === 0,
+				accounts: joining.map((account) => ({
+					accountKey: account.accountKey,
+					label: account.label,
+					startingBalance: row.values[account.accountKey] ?? 0,
+				})),
+			},
+		];
+	});
 }
 
 export function portfolioTrendValues(segments: PortfolioTrendSegment[]): Array<number | null> {
