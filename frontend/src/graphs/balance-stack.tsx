@@ -15,6 +15,7 @@ import {
 	applyPortfolioTrendToRows,
 	buildAccountOnboardingEvents,
 	buildBalanceTrendSegments,
+	buildTrendSegmentLabels,
 	accountFirstIndexByKey,
 	maskAccountsBeforeFirstAppearance,
 	type AccountOnboardingEvent,
@@ -23,6 +24,7 @@ import {
 	renderTrendEventMarkers,
 	useTrendEventMarkerState,
 } from '@/graphs/trend-event-markers';
+import { renderTrendSegmentLabels } from '@/graphs/trend-segment-labels';
 
 export type BalanceStackAccount = {
 	accountKey: string;
@@ -77,6 +79,7 @@ function buildChartModel(data: BalanceStackChartData): {
 	rows: ChartRow[];
 	events: AccountOnboardingEvent[];
 	accountFirstIndex: Record<string, number>;
+	trendLabels: ReturnType<typeof buildTrendSegmentLabels>;
 } {
 	const base = data.rows.map((row) => ({
 		date: row.date,
@@ -88,7 +91,8 @@ function buildChartModel(data: BalanceStackChartData): {
 	const segments = buildBalanceTrendSegments(data.rows, data.accounts);
 	const rows: ChartRow[] = applyPortfolioTrendToRows(masked, segments);
 	const events = buildAccountOnboardingEvents(data.rows, data.accounts, segments);
-	return { rows, events, accountFirstIndex };
+	const trendLabels = buildTrendSegmentLabels(data.rows, segments);
+	return { rows, events, accountFirstIndex, trendLabels };
 }
 
 type TooltipPayloadItem = {
@@ -199,7 +203,7 @@ export function BalanceStackGraph({
 	dateSpanDays,
 	isRefreshing = false,
 }: BalanceStackGraphProps) {
-	const { rows: chartRows, events, accountFirstIndex } = useMemo(
+	const { rows: chartRows, events, accountFirstIndex, trendLabels } = useMemo(
 		() => buildChartModel(data),
 		[data],
 	);
@@ -338,6 +342,7 @@ export function BalanceStackGraph({
 					animationDuration={400}
 					connectNulls={false}
 				/>
+				{renderTrendSegmentLabels(trendLabels)}
 				{renderTrendEventMarkers(events, markerState, accountColorByKey)}
 			</ComposedChart>
 		</ResponsiveContainer>

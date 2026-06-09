@@ -17,6 +17,12 @@ export type AccountOnboardingEvent = {
 	}>;
 };
 
+export type TrendSegmentLabel = {
+	date: string;
+	y: number;
+	percentChange: number;
+};
+
 export function buildBalanceTrendSegments(
 	rows: Array<{ total: number; values: Record<string, number> }>,
 	accounts: Array<{ accountKey: string; label: string }>,
@@ -105,6 +111,41 @@ export function buildAccountOnboardingEvents(
 			},
 		];
 	});
+}
+
+export function buildTrendSegmentLabels(
+	rows: Array<{ date: string; total: number }>,
+	segments: PortfolioTrendSegment[],
+): TrendSegmentLabel[] {
+	const labels: TrendSegmentLabel[] = [];
+	for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex++) {
+		const start = segments[segmentIndex].startIndex;
+		const end =
+			segmentIndex + 1 < segments.length
+				? segments[segmentIndex + 1].startIndex
+				: rows.length;
+		if (end <= start) {
+			continue;
+		}
+		const slice = rows.slice(start, end);
+		const segmentStart = slice[0].total;
+		if (segmentStart === 0) {
+			continue;
+		}
+		const segmentEnd = slice[slice.length - 1].total;
+		const percentChange = ((segmentEnd - segmentStart) / segmentStart) * 100;
+		const midIndex = start + Math.floor((end - start - 1) / 2);
+		const trendY = segments[segmentIndex].values[midIndex];
+		if (trendY === null) {
+			continue;
+		}
+		labels.push({
+			date: rows[midIndex].date,
+			y: trendY,
+			percentChange,
+		});
+	}
+	return labels;
 }
 
 export function portfolioTrendValues(segments: PortfolioTrendSegment[]): Array<number | null> {

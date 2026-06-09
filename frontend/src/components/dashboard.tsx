@@ -19,6 +19,7 @@ import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 import { ChartCard } from '@/components/ChartCard';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { KpiCards } from '@/components/dashboard/KpiCards';
+import { BalanceTrendHelp } from '@/components/dashboard/BalanceTrendHelp';
 import { AccountFilter } from '@/components/account-filter';
 import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
 import { useAccountFilter } from '@/hooks/useAccountFilter';
@@ -53,14 +54,16 @@ import {
 	applyPortfolioTrendToRows,
 	buildAccountOnboardingEvents,
 	buildBalanceTrendSegments,
-	lastPortfolioTrendAnchor,
+	buildTrendSegmentLabels,
 	type AccountOnboardingEvent,
+	type TrendSegmentLabel,
 } from '@/lib/utils/balanceTrendSegments';
-import { linearTrend, trendSummaryFromAnchor } from '@/lib/utils/linearTrend';
+import { portfolioBalanceChangeDetail, portfolioBalanceChangeLine } from '@/lib/utils/linearTrend';
 import {
 	renderTrendEventMarkers,
 	useTrendEventMarkerState,
 } from '@/graphs/trend-event-markers';
+import { renderTrendSegmentLabels } from '@/graphs/trend-segment-labels';
 
 type BalanceChartRow = {
 	date: string;
@@ -359,6 +362,7 @@ export const Dashboard = () => {
 	const balanceChartModel = useMemo((): {
 		rows: BalanceChartRow[];
 		events: AccountOnboardingEvent[];
+		trendLabels: TrendSegmentLabel[];
 	} => {
 		const points = (analytics?.balanceSeries ?? []).map((point) => ({
 			date: point.date,
@@ -376,20 +380,27 @@ export const Dashboard = () => {
 				balanceStackData.accounts,
 				segments,
 			);
-			return { rows, events };
+			const trendLabels = buildTrendSegmentLabels(balanceStackData.rows, segments);
+			return { rows, events, trendLabels };
 		}
 
 		const totals = points.map((point) => point.val);
-		const trend = linearTrend(totals);
+		const trend = portfolioBalanceChangeLine(totals);
 		const rows = points.map((point, index) => ({
 			...point,
 			trend: trend[index] ?? null,
 		}));
-		return { rows, events: [] };
+		const stackRows = points.map((point) => ({ date: point.date, total: point.val }));
+		const trendValues: Array<number | null> = totals.map((_, index) => trend[index] ?? null);
+		const trendLabels = buildTrendSegmentLabels(stackRows, [
+			{ startIndex: 0, label: '', values: trendValues },
+		]);
+		return { rows, events: [], trendLabels };
 	}, [analytics, balanceStackData]);
 
 	const balanceChartData = balanceChartModel.rows;
 	const balanceChartEvents = balanceChartModel.events;
+	const balanceTrendLabels = balanceChartModel.trendLabels;
 	const balanceMarkerState = useTrendEventMarkerState();
 	const balanceAccountColorByKey = useMemo(
 		() => balanceStackAccountColorMap(balanceStackData.accounts),
@@ -426,18 +437,17 @@ export const Dashboard = () => {
 	const balanceStackAvailable = balanceStackData.accounts.length > 0;
 	const showStackedBalance = balanceChartMode === 'stacked' && balanceStackAvailable;
 
-	const balanceTrend = useMemo(() => {
+	const balanceTrendDetail = useMemo(() => {
 		if (balanceStackData.rows.length > 0 && balanceStackData.accounts.length > 0) {
 			const segments = buildBalanceTrendSegments(
 				balanceStackData.rows,
 				balanceStackData.accounts,
 			);
-			const anchor = lastPortfolioTrendAnchor(segments);
 			const totals = balanceStackData.rows.map((row) => row.total);
-			return trendSummaryFromAnchor(totals, anchor);
+			return portfolioBalanceChangeDetail(totals, segments);
 		}
 		const totals = balanceChartData.map((point) => point.val);
-		return trendSummaryFromAnchor(totals, 0);
+		return portfolioBalanceChangeDetail(totals, [{ startIndex: 0, label: 'Balance' }]);
 	}, [balanceStackData, balanceChartData]);
 
 	const balanceChartSubtitle = showStackedBalance
@@ -447,11 +457,8 @@ export const Dashboard = () => {
 			: 'Combined balance — dashed lines show trend per onboarding period';
 
 	const balanceTrendHeader =
-		balanceTrend?.percentChange === null || balanceTrend === null ? null : (
-			<p className="text-sm font-medium tabular-nums text-[#fbbf24]">
-				{balanceTrend.percentChange >= 0 ? '+' : ''}
-				{balanceTrend.percentChange.toFixed(1)}%
-			</p>
+		balanceTrendDetail === null ? null : (
+			<BalanceTrendHelp detail={balanceTrendDetail} />
 		);
 
 	const breakdownIsSpending = activeBreakdown?.flow === 'spending';
@@ -819,6 +826,7 @@ export const Dashboard = () => {
 												isAnimationActive={!isRefreshing}
 												animationDuration={400}
 											/>
+											{renderTrendSegmentLabels(balanceTrendLabels)}
 											{renderTrendEventMarkers(
 												balanceChartEvents,
 												balanceMarkerState,
