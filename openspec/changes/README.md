@@ -20,6 +20,8 @@ Broken into independent OpenSpec changes. Recommended order:
 
 **UI:** `ui-consistency` — shared layout primitives, transactions category picker/suggestions, statement upload pool. ✓ archived
 
+**UI:** `breakdown-ux` — `/breakdown` period presets, StatCards, shared states, GlassCard table. ✓ archived
+
 **Features:** `transaction-notes` — optional notes per transaction (DB + API + `/transactions` UI).
 
 **Security:** `user-auth-data-encryption` — login/session auth + AES-256-GCM encryption for sensitive fields at rest.
