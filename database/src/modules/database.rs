@@ -142,8 +142,29 @@ fn get_file_creator(file_name: String) -> Vec<u8> {
         .expect("failed to execute process");
     resp.stdout
 }
-pub fn run_pending_migrations(conn: &mut impl MigrationHarness<Pg>) {
-    conn.run_pending_migrations(MIGRATIONS).unwrap();
+pub fn run_pending_migrations(
+    conn: &mut impl MigrationHarness<Pg>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+    conn.run_pending_migrations(MIGRATIONS).map(|_| ())
+}
+
+pub fn migrate_on_startup() -> Result<(), String> {
+    let mut conn = get_dbo();
+    let pending = conn
+        .pending_migrations(MIGRATIONS)
+        .map_err(|error| format!("failed to list pending migrations: {error}"))?;
+    if pending.is_empty() {
+        println!("Database migrations up to date.");
+        return Ok(());
+    }
+    eprintln!(
+        "Applying {} pending database migration(s)...",
+        pending.len()
+    );
+    for migration in &pending {
+        eprintln!("  → {}", migration.name());
+    }
+    run_pending_migrations(&mut conn).map_err(|error| format!("migration failed: {error}"))
 }
 
 pub fn revert_migration(conn: &mut impl MigrationHarness<Pg>, name: &str) -> bool {

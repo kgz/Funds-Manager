@@ -17,6 +17,7 @@ use crate::{
 use actix_cors::Cors;
 use actix_web::web::Data;
 use actix_web::{http, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use database::modules::database::migrate_on_startup;
 use chrono::{DateTime, Local, Utc};
 use cron::Schedule;
 use moka::future::Cache;
@@ -73,6 +74,11 @@ pub async fn server() {
     // if not super user, create with random password and all rights
 
     std::env::set_var("RUST_LOG", "debug");
+
+    if let Err(error) = migrate_on_startup() {
+        eprintln!("FATAL: {error}");
+        exit(1);
+    }
 
     let listen_port: u16 = env::var("SERVER_PORT")
         .ok()
