@@ -51,10 +51,16 @@ import {
 } from '@/lib/utils/dates';
 import {
 	applyPortfolioTrendToRows,
+	buildAccountOnboardingEvents,
 	buildBalanceTrendSegments,
 	lastPortfolioTrendAnchor,
+	type AccountOnboardingEvent,
 } from '@/lib/utils/balanceTrendSegments';
 import { linearTrend, trendSummaryFromAnchor } from '@/lib/utils/linearTrend';
+import {
+	renderTrendEventMarkers,
+	useTrendEventMarkerState,
+} from '@/graphs/trend-event-markers';
 
 type BalanceChartRow = {
 	date: string;
@@ -350,7 +356,10 @@ export const Dashboard = () => {
 		[analytics]
 	);
 
-	const balanceChartData = useMemo((): BalanceChartRow[] => {
+	const balanceChartModel = useMemo((): {
+		rows: BalanceChartRow[];
+		events: AccountOnboardingEvent[];
+	} => {
 		const points = (analytics?.balanceSeries ?? []).map((point) => ({
 			date: point.date,
 			val: point.balance,
@@ -361,16 +370,27 @@ export const Dashboard = () => {
 				balanceStackData.rows,
 				balanceStackData.accounts,
 			);
-			return applyPortfolioTrendToRows(points, segments);
+			const rows = applyPortfolioTrendToRows(points, segments);
+			const events = buildAccountOnboardingEvents(
+				balanceStackData.rows,
+				balanceStackData.accounts,
+				segments,
+			);
+			return { rows, events };
 		}
 
 		const totals = points.map((point) => point.val);
 		const trend = linearTrend(totals);
-		return points.map((point, index) => ({
+		const rows = points.map((point, index) => ({
 			...point,
 			trend: trend[index] ?? null,
 		}));
+		return { rows, events: [] };
 	}, [analytics, balanceStackData]);
+
+	const balanceChartData = balanceChartModel.rows;
+	const balanceChartEvents = balanceChartModel.events;
+	const balanceMarkerState = useTrendEventMarkerState();
 
 	const balanceYDomain = useMemo(
 		() =>
@@ -760,7 +780,19 @@ export const Dashboard = () => {
 												tickFormatter={formatCurrencyWithCommas}
 												width={88}
 											/>
-											<Tooltip content={balanceTooltip} />
+											<Tooltip
+												wrapperStyle={
+													balanceMarkerState.suppressChartTooltip
+														? { visibility: 'hidden' }
+														: undefined
+												}
+												content={(props) => {
+													if (balanceMarkerState.suppressChartTooltip) {
+														return null;
+													}
+													return balanceTooltip(props);
+												}}
+											/>
 											<Line
 												type="monotone"
 												dataKey="val"
@@ -783,6 +815,7 @@ export const Dashboard = () => {
 												isAnimationActive={!isRefreshing}
 												animationDuration={400}
 											/>
+											{renderTrendEventMarkers(balanceChartEvents, balanceMarkerState)}
 										</LineChart>
 									</ResponsiveContainer>
 								)}
