@@ -24,6 +24,7 @@ export type CategoriesFetchResult = {
 
 type GetAllCategoriesArgs = {
 	withCounts?: boolean;
+	accountId?: number | null;
 };
 
 function readString(value: unknown): string | null {
@@ -185,9 +186,14 @@ export const getAllCategories = createAsyncThunk(
 	"categories/getAll",
 	async (args: GetAllCategoriesArgs | undefined, { rejectWithValue }) => {
 		const withCounts = args?.withCounts === true;
-		const query = withCounts
-			? "/api/categories?include_deleted=true&with_counts=true"
-			: "/api/categories?include_deleted=true";
+		const params = new URLSearchParams({ include_deleted: 'true' });
+		if (withCounts) {
+			params.set('with_counts', 'true');
+		}
+		if (args?.accountId != null) {
+			params.set('account_id', String(args.accountId));
+		}
+		const query = `/api/categories?${params.toString()}`;
 
 		try {
 			const response = await axios.get(query);

@@ -7,6 +7,7 @@ import { Settings } from "./components/settings";
 import "./App.css"
 import { Statements } from "./pages/statements";
 import { CategoriesPage } from "./pages/categories";
+import { AccountsPage } from "./pages/accounts";
 import TransactionsPage from "./pages/transactions";
 import RecurringExpensesPage from "./pages/recurring";
 import BreakdownPage from "./pages/breakdown";
@@ -46,6 +47,7 @@ const App = () => {
             <Route path="/settings" element={<Settings />} />
             <Route path="/statements" element={<Statements />} />
 			<Route path="/categories" element={<CategoriesPage />} />
+			<Route path="/accounts" element={<AccountsPage />} />
 			<Route path="/transactions" element={<TransactionsPage />} />
 			<Route path="/recurring" element={<RecurringExpensesPage />} />
 			<Route path="/breakdown" element={<BreakdownPage />} />

@@ -41,6 +41,24 @@ diesel::table! {
 }
 
 diesel::table! {
+    financial_accounts (id) {
+        id -> Bigint,
+        #[max_length = 100]
+        bank_name -> Varchar,
+        #[max_length = 200]
+        display_name -> Varchar,
+        #[max_length = 25]
+        account_number -> Varchar,
+        #[max_length = 50]
+        parser_name -> Varchar,
+        #[max_length = 50]
+        account_type -> Nullable<Varchar>,
+        created_at -> Timestamp,
+        deleted_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     statement (id) {
         id -> Bigint,
         date -> Date,
@@ -50,6 +68,7 @@ diesel::table! {
         closing_balance -> Integer,
         deleted_at -> Nullable<Timestamp>,
         created_at -> Timestamp,
+        financial_account_id -> Nullable<Bigint>,
     }
 }
 
@@ -80,12 +99,14 @@ diesel::table! {
 }
 
 diesel::joinable!(category_mappings -> categories (category_id));
+diesel::joinable!(statement -> financial_accounts (financial_account_id));
 diesel::joinable!(transaction_categories -> categories (category_id));
 diesel::joinable!(transaction_categories -> transaction_data (transaction_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     categories,
     category_mappings,
+    financial_accounts,
     statement,
     transaction_categories,
     transaction_data,

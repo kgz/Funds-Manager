@@ -17,7 +17,9 @@ import { MonthlyBarGraph } from "@/graphs/bar";
 import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 import { ChartCard } from '@/components/ChartCard';
 import { KpiCards } from '@/components/dashboard/KpiCards';
+import { AccountFilter } from '@/components/account-filter';
 import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
+import { useAccountFilter } from '@/hooks/useAccountFilter';
 import {
 	COMPARISON_LABELS,
 	DASHBOARD_PERIOD_STORAGE_KEY,
@@ -27,7 +29,7 @@ import {
 	readStoredPeriod,
 	type DashboardPeriod,
 } from '@/components/dashboard/period';
-import type { KpiComparison } from '@/components/dashboard/KpiCards';
+import type { KpiComparison, DashboardKpiMetrics } from '@/components/dashboard/KpiCards';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipProps } from 'recharts';
 import { Drawer } from '@/components/layout/Drawer';
@@ -157,14 +159,18 @@ type BreakdownFlow = 'spending' | 'income';
 type ActiveBreakdown = {
 	flow: BreakdownFlow;
 	groupKey: string;
+	title: string;
+	total: number;
 };
 
 export const Dashboard = () => {
 	const dispatch = useAppDispatch();
 	const { categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
+	const { accountIdNumber } = useAccountFilter();
 
 	const [period, setPeriod] = useState<DashboardPeriod>(() => readStoredPeriod());
 	const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+	const [currentKpis, setCurrentKpis] = useState<DashboardKpiMetrics | null>(null);
 	const [previousKpis, setPreviousKpis] = useState<KpiComparison | null>(null);
 	const [analyticsLoading, setAnalyticsLoading] = useState(true);
 	const [analyticsError, setAnalyticsError] = useState<string | null>(null);
@@ -181,10 +187,16 @@ export const Dashboard = () => {
 	const DRILLDOWN_PER_PAGE = 50;
 	const periodLabel = PERIOD_LABELS[period];
 	const comparisonLabel = period !== 'all' ? COMPARISON_LABELS[period] : undefined;
-	const dateRange = useMemo(() => periodDateRange(period), [period]);
+	const dateRange = useMemo(
+		() => ({ ...periodDateRange(period), accountId: accountIdNumber }),
+		[period, accountIdNumber]
+	);
 	const previousDateRange = useMemo(
-		() => (period !== 'all' ? previousPeriodDateRange(period) : null),
-		[period]
+		() =>
+			period !== 'all'
+				? { ...previousPeriodDateRange(period), accountId: accountIdNumber }
+				: null,
+		[period, accountIdNumber]
 	);
 
 	const categoriesAutoFetchCommittedRef = useRef(false);
@@ -220,12 +232,17 @@ export const Dashboard = () => {
 				? fetchDashboardKpis(previousDateRange).catch(() => null)
 				: Promise.resolve(null);
 
-		void Promise.all([fetchDashboardAnalytics(false, dateRange), previousFetch])
-			.then(([data, previous]) => {
+		void Promise.all([
+			fetchDashboardAnalytics(false, dateRange),
+			fetchDashboardKpis(dateRange),
+			previousFetch,
+		])
+			.then(([data, kpis, previous]) => {
 				if (analyticsGenRef.current !== gen) {
 					return;
 				}
 				setAnalytics(data);
+				setCurrentKpis(kpis);
 				setPreviousKpis(previous);
 			})
 			.catch((err: unknown) => {
@@ -234,6 +251,7 @@ export const Dashboard = () => {
 				}
 				setAnalyticsError(err instanceof Error ? err.message : 'Failed to load dashboard');
 				setAnalytics(null);
+				setCurrentKpis(null);
 				setPreviousKpis(null);
 			})
 			.finally(() => {
@@ -241,7 +259,15 @@ export const Dashboard = () => {
 					setAnalyticsLoading(false);
 				}
 			});
-	}, [period, dateRange.start, dateRange.end, previousDateRange?.start, previousDateRange?.end]);
+	}, [
+		period,
+		dateRange.start,
+		dateRange.end,
+		dateRange.accountId,
+		previousDateRange?.start,
+		previousDateRange?.end,
+		previousDateRange?.accountId,
+	]);
 
 	useEffect(() => {
 		setDrilldownPage(1);
@@ -264,6 +290,7 @@ export const Dashboard = () => {
 			void fetchByName({
 				groupKey,
 				groupByParent: false,
+				dateRange,
 			})
 				.then((rows) => {
 					setDrilldownByNameRows(rows);
@@ -280,6 +307,7 @@ export const Dashboard = () => {
 			groupByParent: false,
 			page: drilldownPage,
 			perPage: DRILLDOWN_PER_PAGE,
+			dateRange,
 		})
 			.then((page) => {
 				setDrilldownRows(page.items);
@@ -288,7 +316,7 @@ export const Dashboard = () => {
 				setDrilldownTotalPages(page.totalPages);
 			})
 			.finally(() => setDrilldownLoading(false));
-	}, [activeBreakdown, breakdownGroupByName, drilldownPage]);
+	}, [activeBreakdown, breakdownGroupByName, drilldownPage, dateRange]);
 
 	const spendingByCategory = useMemo(
 		() => toPieItems(analytics?.spendingByCategory ?? [], '#8884d8'),
@@ -328,41 +356,10 @@ export const Dashboard = () => {
 		[balanceChartData]
 	);
 
-	const kpiMetrics = useMemo(() => {
-		if (analytics === null) {
-			return null;
-		}
-		const spending = analytics.spendingByCategory.reduce((sum, row) => sum + row.value, 0);
-		const income = analytics.incomeByCategory.reduce((sum, row) => sum + row.value, 0);
-		const series = analytics.balanceSeries;
-		const balance = series.length > 0 ? series[series.length - 1].balance : null;
-		return {
-			balance,
-			spending,
-			income,
-			net: income - spending,
-		};
-	}, [analytics]);
+	const kpiMetrics = currentKpis;
 
-	const breakdownTitle = useMemo(() => {
-		if (activeBreakdown === null) {
-			return '';
-		}
-		const rows =
-			activeBreakdown.flow === 'spending' ? spendingByCategory : incomeByCategory;
-		const row = rows.find((d) => d.groupKey === activeBreakdown.groupKey);
-		return row?.name ?? 'Category';
-	}, [activeBreakdown, spendingByCategory, incomeByCategory]);
-
-	const breakdownTotal = useMemo(() => {
-		if (activeBreakdown === null) {
-			return 0;
-		}
-		const rows =
-			activeBreakdown.flow === 'spending' ? spendingByCategory : incomeByCategory;
-		const row = rows.find((d) => d.groupKey === activeBreakdown.groupKey);
-		return row?.value ?? 0;
-	}, [activeBreakdown, spendingByCategory, incomeByCategory]);
+	const breakdownTitle = activeBreakdown?.title ?? '';
+	const breakdownTotal = activeBreakdown?.total ?? 0;
 
 	const breakdownIsSpending = activeBreakdown?.flow === 'spending';
 
@@ -534,11 +531,14 @@ export const Dashboard = () => {
 				sticky
 				pending={isRefreshing}
 				actions={
-					<PeriodFilter
-						value={period}
-						onChange={setPeriod}
-						pending={isRefreshing}
-					/>
+					<div className="flex flex-wrap items-center gap-2">
+						<AccountFilter />
+						<PeriodFilter
+							value={period}
+							onChange={setPeriod}
+							pending={isRefreshing}
+						/>
+					</div>
 				}
 			/>
 
@@ -613,7 +613,12 @@ export const Dashboard = () => {
 										variant="donut"
 										showRankedList
 										onSliceClick={(item) => {
-											setActiveBreakdown({ flow: 'spending', groupKey: item.groupKey });
+											setActiveBreakdown({
+												flow: 'spending',
+												groupKey: item.groupKey,
+												title: item.name,
+												total: item.value,
+											});
 										}}
 									/>
 								</ChartCard>
@@ -628,7 +633,12 @@ export const Dashboard = () => {
 										variant="donut"
 										showRankedList
 										onSliceClick={(item) => {
-											setActiveBreakdown({ flow: 'income', groupKey: item.groupKey });
+											setActiveBreakdown({
+												flow: 'income',
+												groupKey: item.groupKey,
+												title: item.name,
+												total: item.value,
+											});
 										}}
 									/>
 								</ChartCard>

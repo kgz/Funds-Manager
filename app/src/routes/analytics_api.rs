@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Responder, Result, Scope};
 use chrono::NaiveDate;
-use database::models::analytics;
+use database::models::analytics::{self, AnalyticsScope};
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -10,18 +10,21 @@ pub struct DashboardQuery {
     pub group_by_parent: bool,
     pub start: Option<String>,
     pub end: Option<String>,
+    pub account_id: Option<i64>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct BreakdownQuery {
     pub start: String,
     pub end: String,
+    pub account_id: Option<i64>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct RecurringQuery {
     #[serde(default = "default_min_occurrences")]
     pub min_occurrences: i32,
+    pub account_id: Option<i64>,
 }
 
 fn default_min_occurrences() -> i32 {
@@ -37,6 +40,9 @@ pub struct DrilldownQuery {
     pub page: i64,
     #[serde(default = "default_per_page")]
     pub per_page: i64,
+    pub start: Option<String>,
+    pub end: Option<String>,
+    pub account_id: Option<i64>,
 }
 
 fn default_page() -> i64 {
@@ -73,6 +79,7 @@ fn total_pages(total: i64, per_page: i64) -> i64 {
 pub struct KpiQuery {
     pub start: Option<String>,
     pub end: Option<String>,
+    pub account_id: Option<i64>,
 }
 
 async fn get_kpis(query: web::Query<KpiQuery>) -> Result<impl Responder, actix_web::Error> {
@@ -84,7 +91,8 @@ async fn get_kpis(query: web::Query<KpiQuery>) -> Result<impl Responder, actix_w
         Some(value) => Some(parse_date(value)?),
         None => None,
     };
-    let data = web::block(move || analytics::dashboard_kpis(start, end))
+    let account_id = query.account_id;
+    let data = web::block(move || analytics::dashboard_kpis(start, end, account_id))
         .await
         .map_err(|e| {
             eprintln!("Blocking error loading KPI summary: {:?}", e);
@@ -107,7 +115,8 @@ async fn get_dashboard(query: web::Query<DashboardQuery>) -> Result<impl Respond
         Some(value) => Some(parse_date(value)?),
         None => None,
     };
-    let data = web::block(move || analytics::dashboard(group_by_parent, start, end))
+    let account_id = query.account_id;
+    let data = web::block(move || analytics::dashboard(group_by_parent, start, end, account_id))
         .await
         .map_err(|e| {
             eprintln!("Blocking error loading dashboard analytics: {:?}", e);
@@ -123,7 +132,8 @@ async fn get_dashboard(query: web::Query<DashboardQuery>) -> Result<impl Respond
 async fn get_breakdown(query: web::Query<BreakdownQuery>) -> Result<impl Responder, actix_web::Error> {
     let start = parse_date(&query.start)?;
     let end = parse_date(&query.end)?;
-    let data = web::block(move || analytics::breakdown(start, end))
+    let account_id = query.account_id;
+    let data = web::block(move || analytics::breakdown(start, end, account_id))
         .await
         .map_err(|e| {
             eprintln!("Blocking error loading breakdown: {:?}", e);
@@ -136,9 +146,26 @@ async fn get_breakdown(query: web::Query<BreakdownQuery>) -> Result<impl Respond
     Ok(HttpResponse::Ok().json(data))
 }
 
+fn drilldown_scope(query: &DrilldownQuery) -> Result<AnalyticsScope, actix_web::Error> {
+    let start = match &query.start {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    let end = match &query.end {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    Ok(AnalyticsScope {
+        start,
+        end,
+        financial_account_id: query.account_id,
+    })
+}
+
 async fn get_recurring(query: web::Query<RecurringQuery>) -> Result<impl Responder, actix_web::Error> {
     let min_occurrences = query.min_occurrences;
-    let data = web::block(move || analytics::recurring(min_occurrences))
+    let account_id = query.account_id;
+    let data = web::block(move || analytics::recurring(min_occurrences, account_id))
         .await
         .map_err(|e| {
             eprintln!("Blocking error loading recurring: {:?}", e);
@@ -156,8 +183,9 @@ async fn get_spending_drilldown_by_name(
 ) -> Result<impl Responder, actix_web::Error> {
     let group_key = query.group_key.clone();
     let group_by_parent = query.group_by_parent;
+    let scope = drilldown_scope(&query)?;
 
-    let rows = web::block(move || analytics::spending_drilldown_by_name(&group_key, group_by_parent))
+    let rows = web::block(move || analytics::spending_drilldown_by_name(&group_key, group_by_parent, scope))
         .await
         .map_err(|e| {
             eprintln!("Blocking error loading drilldown by name: {:?}", e);
@@ -178,9 +206,10 @@ async fn get_spending_drilldown(
     let group_by_parent = query.group_by_parent;
     let page = query.page;
     let per_page = query.per_page;
+    let scope = drilldown_scope(&query)?;
 
     let (items, total) = web::block(move || {
-        analytics::spending_drilldown(&group_key, group_by_parent, page, per_page)
+        analytics::spending_drilldown(&group_key, group_by_parent, page, per_page, scope)
     })
     .await
     .map_err(|e| {
@@ -206,8 +235,9 @@ async fn get_income_drilldown_by_name(
 ) -> Result<impl Responder, actix_web::Error> {
     let group_key = query.group_key.clone();
     let group_by_parent = query.group_by_parent;
+    let scope = drilldown_scope(&query)?;
 
-    let rows = web::block(move || analytics::income_drilldown_by_name(&group_key, group_by_parent))
+    let rows = web::block(move || analytics::income_drilldown_by_name(&group_key, group_by_parent, scope))
         .await
         .map_err(|e| {
             eprintln!("Blocking error loading income drilldown by name: {:?}", e);
@@ -228,9 +258,10 @@ async fn get_income_drilldown(
     let group_by_parent = query.group_by_parent;
     let page = query.page;
     let per_page = query.per_page;
+    let scope = drilldown_scope(&query)?;
 
     let (items, total) = web::block(move || {
-        analytics::income_drilldown(&group_key, group_by_parent, page, per_page)
+        analytics::income_drilldown(&group_key, group_by_parent, page, per_page, scope)
     })
     .await
     .map_err(|e| {

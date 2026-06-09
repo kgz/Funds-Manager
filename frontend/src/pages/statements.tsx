@@ -4,6 +4,7 @@ import {
 	fetchStatementsPage,
 	previewStatementUpload,
 	uploadStatementFiles,
+	type MissingStatementPeriod,
 	type Statement,
 	type StatementPreviewFile,
 } from "@/types/statement";
@@ -19,6 +20,9 @@ import { FileArchive, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, T
 import { useCallback, useEffect, useMemo, useRef, useState, ChangeEvent, DragEvent } from "react";
 import { DateTime } from "luxon";
 import { cn } from "@/lib/utils/cn";
+import { AccountFilter } from '@/components/account-filter';
+import { useAccountFilter } from '@/hooks/useAccountFilter';
+import { accountDisplayLabel } from '@/types/account';
 
 const PER_PAGE = 50;
 
@@ -28,13 +32,14 @@ const formatCurrency = (amount: number): string => {
 };
 
 export const Statements = () => {
+	const { accountIdNumber } = useAccountFilter();
 	const [page, setPage] = useState(1);
 	const [items, setItems] = useState<Statement[]>([]);
 	const [total, setTotal] = useState(0);
 	const [totalPages, setTotalPages] = useState(0);
 	const [loading, setLoading] = useState(true);
 	const [loadError, setLoadError] = useState<string | null>(null);
-	const [missingPeriods, setMissingPeriods] = useState<string[]>([]);
+	const [missingPeriods, setMissingPeriods] = useState<MissingStatementPeriod[]>([]);
 	const [missingLoading, setMissingLoading] = useState(true);
 
 	const [isUploading, setIsUploading] = useState(false);
@@ -59,7 +64,11 @@ export const Statements = () => {
 		setLoadError(null);
 
 		try {
-			const result = await fetchStatementsPage({ page: targetPage, perPage: PER_PAGE });
+			const result = await fetchStatementsPage({
+				page: targetPage,
+				perPage: PER_PAGE,
+				accountId: accountIdNumber,
+			});
 			if (fetchGenerationRef.current !== generation) {
 				return;
 			}
@@ -82,27 +91,31 @@ export const Statements = () => {
 				setLoading(false);
 			}
 		}
-	}, []);
+	}, [accountIdNumber]);
 
 	const reloadMissing = useCallback(async () => {
 		setMissingLoading(true);
 		try {
-			const periods = await fetchMissingStatementPeriods();
+			const periods = await fetchMissingStatementPeriods(accountIdNumber);
 			setMissingPeriods(periods);
 		} catch {
 			setMissingPeriods([]);
 		} finally {
 			setMissingLoading(false);
 		}
-	}, []);
+	}, [accountIdNumber]);
 
 	const refreshAll = useCallback(async () => {
 		await Promise.all([reloadPage(page), reloadMissing()]);
 	}, [page, reloadPage, reloadMissing]);
 
 	useEffect(() => {
+		setPage(1);
+	}, [accountIdNumber]);
+
+	useEffect(() => {
 		void reloadPage(page);
-	}, [page, reloadPage]);
+	}, [page, reloadPage, accountIdNumber]);
 
 	useEffect(() => {
 		void reloadMissing();
@@ -254,6 +267,24 @@ export const Statements = () => {
 			sortFunction: (a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis(),
 		},
 		{
+			key: "financial_account",
+			label: "Account",
+			sortable: true,
+			render: (_v, row) =>
+				row.financial_account
+					? accountDisplayLabel(row.financial_account)
+					: row.account_id,
+			sortFunction: (_a, _b, rowA, rowB) => {
+				const labelA = rowA.financial_account
+					? accountDisplayLabel(rowA.financial_account)
+					: rowA.account_id;
+				const labelB = rowB.financial_account
+					? accountDisplayLabel(rowB.financial_account)
+					: rowB.account_id;
+				return labelA.localeCompare(labelB);
+			},
+		},
+		{
 			key: "closing_balance", label: "Profit/Loss", sortable: true,
 			render: (_v, row) => {
 				const profitOrLoss = row.closing_balance - row.opening_balance;
@@ -301,6 +332,7 @@ export const Statements = () => {
 					subtitle="Upload bank statement PDFs and manage imported periods."
 					icon={<FileArchive className="h-6 w-6 text-secondary-default" />}
 					className="mb-0"
+					actions={<AccountFilter />}
 				/>
 			</div>
 			<Modal
@@ -398,8 +430,10 @@ export const Statements = () => {
 					<InlineAlert variant="warning">
 						<span className="font-semibold">Missing statement periods:</span>
 						<ul className="ml-4 mt-1 list-disc">
-							{missingPeriods.map((period) => (
-								<li key={period}>{period}</li>
+							{missingPeriods.map((entry) => (
+								<li key={`${entry.account_label}-${entry.period}`}>
+									{entry.account_label} — {entry.period}
+								</li>
 							))}
 						</ul>
 					</InlineAlert>

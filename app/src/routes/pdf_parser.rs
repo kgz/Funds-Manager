@@ -7,17 +7,19 @@ use actix_web::{web, HttpResponse, Result};
 use diesel::result::Error as DieselError;
 use chrono::Utc;
 use database::models::{
-    statement::Statement,
+    financial_account::{FinancialAccount, FinancialAccountSummary},
+    statement::{MissingStatementPeriod, Statement},
     transaction::{NewTransaction, Transaction},
     transaction_category_learn::CategoryPredictor,
 };
 use futures_util::StreamExt;
 use sanitize_filename::sanitize;
 use serde::{Deserialize, Serialize};
-use statement_parser::{available_parsers, parse_statement, ParsedStatement, ParserConfig};
+use statement_parser::{
+    available_parsers, parse_statement, parse_statement_auto, ParsedStatement, ParserConfig,
+};
 use uuid::Uuid;
 
-const DEFAULT_BANK_PARSER: &str = "heritage";
 const APP_PDFIUM_LIBRARY_PATH: &str = "./lib/libpdfium.so";
 
 #[derive(Debug, Deserialize)]
@@ -105,15 +107,19 @@ fn non_empty_path(value: OsString) -> Option<PathBuf> {
     Some(PathBuf::from(value))
 }
 
-fn parse_uploaded_pdf(file_path: &str, parser_name: &str) -> Result<ParsedStatement, String> {
-    parse_statement(file_path, parser_name, &parser_config())
-        .map_err(|error| format!("Failed to parse statement: {error}"))
+fn parse_uploaded_pdf(file_path: &str, parser_name: Option<&str>) -> Result<ParsedStatement, String> {
+    let config = parser_config();
+    let result = match parser_name {
+        Some(name) => parse_statement(file_path, name, &config),
+        None => parse_statement_auto(file_path, &config),
+    };
+    result.map_err(|error| format!("Failed to parse statement: {error}"))
 }
 
 fn preview_uploaded_pdf(
     filename: String,
     file_path: &str,
-    parser_name: &str,
+    parser_name: Option<&str>,
 ) -> Result<StatementPreviewFile, String> {
     let parsed = parse_uploaded_pdf(file_path, parser_name)?;
     let existing = existing_statement_for_upload(&parsed)?;
@@ -129,7 +135,7 @@ fn preview_uploaded_pdf(
 
 fn process_single_pdf(
     file_path: &str,
-    parser_name: &str,
+    parser_name: Option<&str>,
     replace: bool,
     predictor: &CategoryPredictor,
 ) -> Result<(), String> {
@@ -173,10 +179,17 @@ fn persist_statement(
         })?;
     }
 
+    let financial_account = FinancialAccount::find_or_create_for_import(
+        &statement.parser_name,
+        &statement.account_id,
+    )
+    .map_err(|error| format!("Failed to resolve financial account: {error}"))?;
+
     let new_statement = Statement::insert(
         statement.statement_date,
         statement.account_id,
         statement.opening_balance_cents,
+        financial_account.id,
     )
     .map_err(|error| format!("Failed to insert statement: {error}"))?;
 
@@ -329,19 +342,19 @@ pub async fn parse_pdf(
     let parser_name = query
         .parser
         .as_deref()
-        .filter(|value| !value.is_empty())
-        .unwrap_or(DEFAULT_BANK_PARSER);
+        .filter(|value| !value.is_empty());
 
-    if !available_parsers().iter().any(|name| *name == parser_name) {
-        let message = format!(
-            "Unsupported statement parser '{}'. Available parsers: {}",
-            parser_name,
-            available_parsers().join(", ")
-        );
-        return Ok(HttpResponse::BadRequest().json(Resp {
-            processed_files: Vec::new(),
-            errors: vec![message],
-        }));
+    if let Some(name) = parser_name {
+        if !available_parsers().iter().any(|parser| *parser == name) {
+            let message = format!(
+                "Unsupported statement parser '{name}'. Available parsers: {}",
+                available_parsers().join(", ")
+            );
+            return Ok(HttpResponse::BadRequest().json(Resp {
+                processed_files: Vec::new(),
+                errors: vec![message],
+            }));
+        }
     }
 
     let (uploads, mut errors) = collect_uploaded_pdfs(payload).await;
@@ -401,6 +414,7 @@ pub struct StatementsQuery {
     pub page: i64,
     #[serde(default = "default_statements_per_page")]
     pub per_page: i64,
+    pub account_id: Option<i64>,
 }
 
 fn default_statements_page() -> i64 {
@@ -412,8 +426,16 @@ fn default_statements_per_page() -> i64 {
 }
 
 #[derive(serde::Serialize)]
+pub struct StatementListItem {
+    #[serde(flatten)]
+    pub statement: Statement,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub financial_account: Option<FinancialAccountSummary>,
+}
+
+#[derive(serde::Serialize)]
 pub struct PaginatedStatements {
-    pub items: Vec<Statement>,
+    pub items: Vec<StatementListItem>,
     pub total: i64,
     pub page: i64,
     pub per_page: i64,
@@ -432,11 +454,39 @@ pub async fn get_all_statements(
 ) -> Result<web::Json<PaginatedStatements>, actix_web::Error> {
     let page = query.page;
     let per_page = query.per_page;
+    let account_id = query.account_id;
 
-    let (items, total) = Statement::list_paginated(page, per_page).map_err(|e| {
-        eprintln!("Database error fetching statements: {}", e);
+    let (statements, total) =
+        Statement::list_paginated(page, per_page, account_id).map_err(|e| {
+            eprintln!("Database error fetching statements: {}", e);
+            actix_web::error::ErrorInternalServerError("Failed to retrieve statements")
+        })?;
+
+    let account_ids: Vec<i64> = statements
+        .iter()
+        .filter_map(|row| row.financial_account_id)
+        .collect();
+    let summaries = FinancialAccount::summaries_for_ids(&account_ids).map_err(|e| {
+        eprintln!("Database error fetching account summaries: {}", e);
         actix_web::error::ErrorInternalServerError("Failed to retrieve statements")
     })?;
+    let summary_by_id: std::collections::HashMap<i64, FinancialAccountSummary> = summaries
+        .into_iter()
+        .map(|summary| (summary.id, summary))
+        .collect();
+
+    let items = statements
+        .into_iter()
+        .map(|statement| {
+            let financial_account = statement
+                .financial_account_id
+                .and_then(|id| summary_by_id.get(&id).cloned());
+            StatementListItem {
+                statement,
+                financial_account,
+            }
+        })
+        .collect();
 
     Ok(web::Json(PaginatedStatements {
         items,
@@ -447,13 +497,20 @@ pub async fn get_all_statements(
     }))
 }
 
-#[derive(serde::Serialize)]
-pub struct MissingPeriodsResponse {
-    pub periods: Vec<String>,
+#[derive(serde::Deserialize, Debug)]
+pub struct MissingPeriodsQuery {
+    pub account_id: Option<i64>,
 }
 
-pub async fn get_missing_statement_periods() -> Result<web::Json<MissingPeriodsResponse>, actix_web::Error> {
-    let periods = Statement::missing_period_labels().map_err(|e| {
+#[derive(serde::Serialize)]
+pub struct MissingPeriodsResponse {
+    pub periods: Vec<MissingStatementPeriod>,
+}
+
+pub async fn get_missing_statement_periods(
+    query: web::Query<MissingPeriodsQuery>,
+) -> Result<web::Json<MissingPeriodsResponse>, actix_web::Error> {
+    let periods = Statement::missing_periods(query.account_id).map_err(|e| {
         eprintln!("Database error fetching missing statement periods: {}", e);
         actix_web::error::ErrorInternalServerError("Failed to retrieve missing periods")
     })?;

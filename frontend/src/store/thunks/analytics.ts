@@ -75,7 +75,14 @@ export type PaginatedTransactionsResponse = {
 export type DashboardDateRange = {
 	start?: string;
 	end?: string;
+	accountId?: number | null;
 };
+
+function appendAccountId(params: URLSearchParams, accountId?: number | null) {
+	if (accountId != null) {
+		params.set('account_id', String(accountId));
+	}
+}
 
 export type DashboardKpiSummary = {
 	spending: number;
@@ -95,6 +102,7 @@ export async function fetchDashboardKpis(
 	if (dateRange?.end !== undefined) {
 		params.set('end', dateRange.end);
 	}
+	appendAccountId(params, dateRange?.accountId);
 	const response = await axios.get(`/api/analytics/kpis?${params.toString()}`, {
 		signal,
 	});
@@ -116,6 +124,7 @@ export async function fetchDashboardAnalytics(
 	if (dateRange?.end !== undefined) {
 		params.set('end', dateRange.end);
 	}
+	appendAccountId(params, dateRange?.accountId);
 	const response = await axios.get(`/api/analytics/dashboard?${params.toString()}`, {
 		signal,
 	});
@@ -125,20 +134,34 @@ export async function fetchDashboardAnalytics(
 export async function fetchBreakdownAnalytics(
 	start: string,
 	end: string,
+	accountId?: number | null,
 	signal?: AbortSignal
 ): Promise<BreakdownParentRow[]> {
 	const params = new URLSearchParams({ start, end });
+	appendAccountId(params, accountId);
 	const response = await axios.get(`/api/analytics/breakdown?${params.toString()}`, {
 		signal,
 	});
 	return response.data as BreakdownParentRow[];
 }
 
+function appendDateRange(params: URLSearchParams, dateRange?: DashboardDateRange) {
+	if (dateRange?.start !== undefined) {
+		params.set('start', dateRange.start);
+	}
+	if (dateRange?.end !== undefined) {
+		params.set('end', dateRange.end);
+	}
+	appendAccountId(params, dateRange?.accountId);
+}
+
 export async function fetchRecurringAnalytics(
 	minOccurrences = 3,
+	accountId?: number | null,
 	signal?: AbortSignal
 ): Promise<RecurringCandidateRow[]> {
 	const params = new URLSearchParams({ min_occurrences: String(minOccurrences) });
+	appendAccountId(params, accountId);
 	const response = await axios.get(`/api/analytics/recurring?${params.toString()}`, {
 		signal,
 	});
@@ -154,12 +177,14 @@ export type SpendingNameRow = {
 export async function fetchSpendingDrilldownByName(params: {
 	groupKey: string;
 	groupByParent: boolean;
+	dateRange?: DashboardDateRange;
 	signal?: AbortSignal;
 }): Promise<SpendingNameRow[]> {
 	const search = new URLSearchParams({ group_key: params.groupKey });
 	if (params.groupByParent) {
 		search.set('group_by_parent', 'true');
 	}
+	appendDateRange(search, params.dateRange);
 	const response = await axios.get(
 		`/api/analytics/spending-drilldown-by-name?${search.toString()}`,
 		{ signal: params.signal }
@@ -175,12 +200,14 @@ export async function fetchSpendingDrilldownByName(params: {
 export async function fetchIncomeDrilldownByName(params: {
 	groupKey: string;
 	groupByParent: boolean;
+	dateRange?: DashboardDateRange;
 	signal?: AbortSignal;
 }): Promise<SpendingNameRow[]> {
 	const search = new URLSearchParams({ group_key: params.groupKey });
 	if (params.groupByParent) {
 		search.set('group_by_parent', 'true');
 	}
+	appendDateRange(search, params.dateRange);
 	const response = await axios.get(
 		`/api/analytics/income-drilldown-by-name?${search.toString()}`,
 		{ signal: params.signal }
@@ -198,6 +225,7 @@ export async function fetchIncomeDrilldown(params: {
 	groupByParent: boolean;
 	page: number;
 	perPage?: number;
+	dateRange?: DashboardDateRange;
 	signal?: AbortSignal;
 }): Promise<PaginatedTransactionsResponse> {
 	const search = new URLSearchParams({
@@ -208,6 +236,7 @@ export async function fetchIncomeDrilldown(params: {
 	if (params.groupByParent) {
 		search.set('group_by_parent', 'true');
 	}
+	appendDateRange(search, params.dateRange);
 	const response = await axios.get(
 		`/api/analytics/income-drilldown?${search.toString()}`,
 		{ signal: params.signal }
@@ -233,6 +262,7 @@ export async function fetchSpendingDrilldown(params: {
 	groupByParent: boolean;
 	page: number;
 	perPage?: number;
+	dateRange?: DashboardDateRange;
 	signal?: AbortSignal;
 }): Promise<PaginatedTransactionsResponse> {
 	const search = new URLSearchParams({
@@ -243,6 +273,7 @@ export async function fetchSpendingDrilldown(params: {
 	if (params.groupByParent) {
 		search.set('group_by_parent', 'true');
 	}
+	appendDateRange(search, params.dateRange);
 	const response = await axios.get(
 		`/api/analytics/spending-drilldown?${search.toString()}`,
 		{ signal: params.signal }

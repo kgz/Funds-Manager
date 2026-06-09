@@ -8,6 +8,7 @@ use chrono::Utc;
 use cron::Schedule;
 
 use crate::routes::{
+    accounts::accounts_service,
     analytics_api::analytics_service,
     api::swagger::openapi,
     categories::categories_service,
@@ -26,6 +27,7 @@ pub fn api() -> Scope {
         //migrations
         // users
         .service(category_mappings_routes()) // <-- Add the category mappings routes
+        .service(accounts_service())
         .service(categories_service())
         .service(analytics_service())
         .service(transactions_service())
