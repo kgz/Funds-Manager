@@ -12,18 +12,26 @@ const PERIODS: DashboardPeriod[] = [
 type PeriodFilterProps = {
 	value: DashboardPeriod;
 	onChange: (value: DashboardPeriod) => void;
+	periods?: DashboardPeriod[];
 	pending?: boolean;
+	ariaLabel?: string;
 };
 
-export function PeriodFilter({ value, onChange, pending = false }: PeriodFilterProps) {
+export function PeriodFilter({
+	value,
+	onChange,
+	periods = PERIODS,
+	pending = false,
+	ariaLabel = 'Dashboard period',
+}: PeriodFilterProps) {
 	return (
 		<div
 			className="inline-flex max-w-full flex-wrap rounded-md border border-white/20 p-0.5 transition-opacity duration-300"
 			role="group"
-			aria-label="Dashboard period"
+			aria-label={ariaLabel}
 			aria-busy={pending}
 		>
-			{PERIODS.map((period) => (
+			{periods.map((period) => (
 				<button
 					key={period}
 					type="button"

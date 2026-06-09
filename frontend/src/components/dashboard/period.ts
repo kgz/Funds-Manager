@@ -8,6 +8,16 @@ export type DashboardPeriod =
 	| 'all';
 
 export const DASHBOARD_PERIOD_STORAGE_KEY = 'dashboardDateRange';
+export const BREAKDOWN_PERIOD_STORAGE_KEY = 'breakdownDateRange';
+export const BREAKDOWN_RANGE_MODE_STORAGE_KEY = 'breakdownRangeMode';
+export const BREAKDOWN_CUSTOM_RANGE_STORAGE_KEY = 'breakdownCustomRange';
+
+export const BREAKDOWN_PRESET_PERIODS: DashboardPeriod[] = [
+	'this-month',
+	'last-3-months',
+	'last-6-months',
+	'last-12-months',
+];
 
 const PERIOD_VALUES: DashboardPeriod[] = [
 	'this-month',
