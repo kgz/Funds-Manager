@@ -14,10 +14,15 @@ import type { Transaction } from "@/types/transaction";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie';
 import { MonthlyBarGraph } from "@/graphs/bar";
+import { BalanceStackGraph, balanceStackAccountColorMap } from '@/graphs/balance-stack';
 import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 import { ChartCard } from '@/components/ChartCard';
+import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { KpiCards } from '@/components/dashboard/KpiCards';
+import { BalanceTrendHelp } from '@/components/dashboard/BalanceTrendHelp';
+import { AccountFilter } from '@/components/account-filter';
 import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
+import { useAccountFilter } from '@/hooks/useAccountFilter';
 import {
 	COMPARISON_LABELS,
 	DASHBOARD_PERIOD_STORAGE_KEY,
@@ -27,7 +32,7 @@ import {
 	readStoredPeriod,
 	type DashboardPeriod,
 } from '@/components/dashboard/period';
-import type { KpiComparison } from '@/components/dashboard/KpiCards';
+import type { KpiComparison, DashboardKpiMetrics } from '@/components/dashboard/KpiCards';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipProps } from 'recharts';
 import { Drawer } from '@/components/layout/Drawer';
@@ -45,39 +50,45 @@ import {
 	formatMonthLabel,
 	formatTransactionDate,
 } from '@/lib/utils/dates';
+import {
+	applyPortfolioTrendToRows,
+	buildAccountOnboardingEvents,
+	buildBalanceTrendSegments,
+	buildTrendSegmentLabels,
+	type AccountOnboardingEvent,
+	type TrendSegmentLabel,
+} from '@/lib/utils/balanceTrendSegments';
+import { portfolioBalanceChangeDetail, portfolioBalanceChangeLine } from '@/lib/utils/linearTrend';
+import {
+	renderTrendEventMarkers,
+	useTrendEventMarkerState,
+} from '@/graphs/trend-event-markers';
+import { renderTrendSegmentLabels } from '@/graphs/trend-segment-labels';
+
+type BalanceChartRow = {
+	date: string;
+	val: number;
+	trend: number | null;
+};
+
+const BALANCE_CHART_MODE_KEY = 'dashboardBalanceChartMode';
+
+type BalanceChartMode = 'stacked' | 'combined';
+
+function readBalanceChartMode(): BalanceChartMode {
+	if (typeof window === 'undefined') {
+		return 'stacked';
+	}
+	return localStorage.getItem(BALANCE_CHART_MODE_KEY) === 'combined'
+		? 'combined'
+		: 'stacked';
+}
 
 const formatCurrencyWithCommas = (value: number | null | undefined): string => {
 	if (value === null || value === undefined) return '$--';
 	const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
 	return `$${value.toLocaleString('en-US', { minimumFractionDigits, maximumFractionDigits: 2 })}`;
 };
-
-function linearTrend(values: number[]): number[] {
-	if (values.length === 0) {
-		return [];
-	}
-	if (values.length === 1) {
-		return [values[0]];
-	}
-	const n = values.length;
-	let sumX = 0;
-	let sumY = 0;
-	let sumXY = 0;
-	let sumXX = 0;
-	for (let i = 0; i < n; i++) {
-		sumX += i;
-		sumY += values[i];
-		sumXY += i * values[i];
-		sumXX += i * i;
-	}
-	const denom = n * sumXX - sumX * sumX;
-	if (denom === 0) {
-		return values.map(() => sumY / n);
-	}
-	const slope = (n * sumXY - sumX * sumY) / denom;
-	const intercept = (sumY - slope * sumX) / n;
-	return values.map((_, i) => slope * i + intercept);
-}
 
 function balanceChartDomain(values: number[]): [number, number] | undefined {
 	if (values.length === 0) {
@@ -157,14 +168,21 @@ type BreakdownFlow = 'spending' | 'income';
 type ActiveBreakdown = {
 	flow: BreakdownFlow;
 	groupKey: string;
+	title: string;
+	total: number;
 };
 
 export const Dashboard = () => {
 	const dispatch = useAppDispatch();
 	const { categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
+	const { accountIdNumber } = useAccountFilter();
 
 	const [period, setPeriod] = useState<DashboardPeriod>(() => readStoredPeriod());
+	const [balanceChartMode, setBalanceChartMode] = useState<BalanceChartMode>(() =>
+		readBalanceChartMode()
+	);
 	const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+	const [currentKpis, setCurrentKpis] = useState<DashboardKpiMetrics | null>(null);
 	const [previousKpis, setPreviousKpis] = useState<KpiComparison | null>(null);
 	const [analyticsLoading, setAnalyticsLoading] = useState(true);
 	const [analyticsError, setAnalyticsError] = useState<string | null>(null);
@@ -181,10 +199,16 @@ export const Dashboard = () => {
 	const DRILLDOWN_PER_PAGE = 50;
 	const periodLabel = PERIOD_LABELS[period];
 	const comparisonLabel = period !== 'all' ? COMPARISON_LABELS[period] : undefined;
-	const dateRange = useMemo(() => periodDateRange(period), [period]);
+	const dateRange = useMemo(
+		() => ({ ...periodDateRange(period), accountId: accountIdNumber }),
+		[period, accountIdNumber]
+	);
 	const previousDateRange = useMemo(
-		() => (period !== 'all' ? previousPeriodDateRange(period) : null),
-		[period]
+		() =>
+			period !== 'all'
+				? { ...previousPeriodDateRange(period), accountId: accountIdNumber }
+				: null,
+		[period, accountIdNumber]
 	);
 
 	const categoriesAutoFetchCommittedRef = useRef(false);
@@ -210,6 +234,10 @@ export const Dashboard = () => {
 	}, [period]);
 
 	useEffect(() => {
+		localStorage.setItem(BALANCE_CHART_MODE_KEY, balanceChartMode);
+	}, [balanceChartMode]);
+
+	useEffect(() => {
 		const gen = analyticsGenRef.current + 1;
 		analyticsGenRef.current = gen;
 		setAnalyticsLoading(true);
@@ -220,12 +248,17 @@ export const Dashboard = () => {
 				? fetchDashboardKpis(previousDateRange).catch(() => null)
 				: Promise.resolve(null);
 
-		void Promise.all([fetchDashboardAnalytics(false, dateRange), previousFetch])
-			.then(([data, previous]) => {
+		void Promise.all([
+			fetchDashboardAnalytics(false, dateRange),
+			fetchDashboardKpis(dateRange),
+			previousFetch,
+		])
+			.then(([data, kpis, previous]) => {
 				if (analyticsGenRef.current !== gen) {
 					return;
 				}
 				setAnalytics(data);
+				setCurrentKpis(kpis);
 				setPreviousKpis(previous);
 			})
 			.catch((err: unknown) => {
@@ -234,6 +267,7 @@ export const Dashboard = () => {
 				}
 				setAnalyticsError(err instanceof Error ? err.message : 'Failed to load dashboard');
 				setAnalytics(null);
+				setCurrentKpis(null);
 				setPreviousKpis(null);
 			})
 			.finally(() => {
@@ -241,7 +275,15 @@ export const Dashboard = () => {
 					setAnalyticsLoading(false);
 				}
 			});
-	}, [period, dateRange.start, dateRange.end, previousDateRange?.start, previousDateRange?.end]);
+	}, [
+		period,
+		dateRange.start,
+		dateRange.end,
+		dateRange.accountId,
+		previousDateRange?.start,
+		previousDateRange?.end,
+		previousDateRange?.accountId,
+	]);
 
 	useEffect(() => {
 		setDrilldownPage(1);
@@ -264,6 +306,7 @@ export const Dashboard = () => {
 			void fetchByName({
 				groupKey,
 				groupByParent: false,
+				dateRange,
 			})
 				.then((rows) => {
 					setDrilldownByNameRows(rows);
@@ -280,6 +323,7 @@ export const Dashboard = () => {
 			groupByParent: false,
 			page: drilldownPage,
 			perPage: DRILLDOWN_PER_PAGE,
+			dateRange,
 		})
 			.then((page) => {
 				setDrilldownRows(page.items);
@@ -288,7 +332,7 @@ export const Dashboard = () => {
 				setDrilldownTotalPages(page.totalPages);
 			})
 			.finally(() => setDrilldownLoading(false));
-	}, [activeBreakdown, breakdownGroupByName, drilldownPage]);
+	}, [activeBreakdown, breakdownGroupByName, drilldownPage, dateRange]);
 
 	const spendingByCategory = useMemo(
 		() => toPieItems(analytics?.spendingByCategory ?? [], '#8884d8'),
@@ -306,63 +350,116 @@ export const Dashboard = () => {
 			})),
 		[analytics]
 	);
-	const balanceChartData = useMemo(() => {
+	const balanceStackData = useMemo(
+		() =>
+			analytics?.balanceStack ?? {
+				accounts: [],
+				rows: [],
+			},
+		[analytics]
+	);
+
+	const balanceChartModel = useMemo((): {
+		rows: BalanceChartRow[];
+		events: AccountOnboardingEvent[];
+		trendLabels: TrendSegmentLabel[];
+	} => {
 		const points = (analytics?.balanceSeries ?? []).map((point) => ({
 			date: point.date,
 			val: point.balance,
 		}));
-		const trend = linearTrend(points.map((point) => point.val));
-		return points.map((point, index) => ({
+
+		if (balanceStackData.rows.length > 0 && balanceStackData.accounts.length > 0) {
+			const segments = buildBalanceTrendSegments(
+				balanceStackData.rows,
+				balanceStackData.accounts,
+			);
+			const rows = applyPortfolioTrendToRows(points, segments);
+			const events = buildAccountOnboardingEvents(
+				balanceStackData.rows,
+				balanceStackData.accounts,
+				segments,
+			);
+			const trendLabels = buildTrendSegmentLabels(balanceStackData.rows, segments);
+			return { rows, events, trendLabels };
+		}
+
+		const totals = points.map((point) => point.val);
+		const trend = portfolioBalanceChangeLine(totals);
+		const rows = points.map((point, index) => ({
 			...point,
-			trend: trend[index],
+			trend: trend[index] ?? null,
 		}));
-	}, [analytics]);
+		const stackRows = points.map((point) => ({ date: point.date, total: point.val }));
+		const trendValues: Array<number | null> = totals.map((_, index) => trend[index] ?? null);
+		const trendLabels = buildTrendSegmentLabels(stackRows, [
+			{ startIndex: 0, label: '', values: trendValues },
+		]);
+		return { rows, events: [], trendLabels };
+	}, [analytics, balanceStackData]);
+
+	const balanceChartData = balanceChartModel.rows;
+	const balanceChartEvents = balanceChartModel.events;
+	const balanceTrendLabels = balanceChartModel.trendLabels;
+	const balanceMarkerState = useTrendEventMarkerState();
+	const balanceAccountColorByKey = useMemo(
+		() => balanceStackAccountColorMap(balanceStackData.accounts),
+		[balanceStackData.accounts],
+	);
 
 	const balanceYDomain = useMemo(
-		() => balanceChartDomain(balanceChartData.flatMap((point) => [point.val, point.trend])),
-		[balanceChartData]
+		() =>
+			balanceChartDomain(
+				balanceChartData.flatMap((point) => {
+					const values: number[] = [point.val];
+					if (point.trend !== null) {
+						values.push(point.trend);
+					}
+					return values;
+				}),
+			),
+		[balanceChartData],
 	);
 
-	const balanceDateSpanDays = useMemo(
-		() => chartDateSpanDays(balanceChartData.map((point) => point.date)),
-		[balanceChartData]
-	);
+	const balanceDateSpanDays = useMemo(() => {
+		const dates =
+			balanceChartMode === 'stacked'
+				? balanceStackData.rows.map((row) => row.date)
+				: balanceChartData.map((point) => point.date);
+		return chartDateSpanDays(dates);
+	}, [balanceChartMode, balanceStackData, balanceChartData]);
 
-	const kpiMetrics = useMemo(() => {
-		if (analytics === null) {
-			return null;
-		}
-		const spending = analytics.spendingByCategory.reduce((sum, row) => sum + row.value, 0);
-		const income = analytics.incomeByCategory.reduce((sum, row) => sum + row.value, 0);
-		const series = analytics.balanceSeries;
-		const balance = series.length > 0 ? series[series.length - 1].balance : null;
-		return {
-			balance,
-			spending,
-			income,
-			net: income - spending,
-		};
-	}, [analytics]);
+	const kpiMetrics = currentKpis;
 
-	const breakdownTitle = useMemo(() => {
-		if (activeBreakdown === null) {
-			return '';
-		}
-		const rows =
-			activeBreakdown.flow === 'spending' ? spendingByCategory : incomeByCategory;
-		const row = rows.find((d) => d.groupKey === activeBreakdown.groupKey);
-		return row?.name ?? 'Category';
-	}, [activeBreakdown, spendingByCategory, incomeByCategory]);
+	const breakdownTitle = activeBreakdown?.title ?? '';
+	const breakdownTotal = activeBreakdown?.total ?? 0;
 
-	const breakdownTotal = useMemo(() => {
-		if (activeBreakdown === null) {
-			return 0;
+	const balanceStackAvailable = balanceStackData.accounts.length > 0;
+	const showStackedBalance = balanceChartMode === 'stacked' && balanceStackAvailable;
+
+	const balanceTrendDetail = useMemo(() => {
+		if (balanceStackData.rows.length > 0 && balanceStackData.accounts.length > 0) {
+			const segments = buildBalanceTrendSegments(
+				balanceStackData.rows,
+				balanceStackData.accounts,
+			);
+			const totals = balanceStackData.rows.map((row) => row.total);
+			return portfolioBalanceChangeDetail(totals, segments);
 		}
-		const rows =
-			activeBreakdown.flow === 'spending' ? spendingByCategory : incomeByCategory;
-		const row = rows.find((d) => d.groupKey === activeBreakdown.groupKey);
-		return row?.value ?? 0;
-	}, [activeBreakdown, spendingByCategory, incomeByCategory]);
+		const totals = balanceChartData.map((point) => point.val);
+		return portfolioBalanceChangeDetail(totals, [{ startIndex: 0, label: 'Balance' }]);
+	}, [balanceStackData, balanceChartData]);
+
+	const balanceChartSubtitle = showStackedBalance
+		? 'Stacked by account — dashed lines show trend per onboarding period'
+		: balanceChartMode === 'stacked'
+			? 'Per-account stack unavailable — showing combined view (restart server if needed)'
+			: 'Combined balance — dashed lines show trend per onboarding period';
+
+	const balanceTrendHeader =
+		balanceTrendDetail === null ? null : (
+			<BalanceTrendHelp detail={balanceTrendDetail} />
+		);
 
 	const breakdownIsSpending = activeBreakdown?.flow === 'spending';
 
@@ -534,11 +631,14 @@ export const Dashboard = () => {
 				sticky
 				pending={isRefreshing}
 				actions={
-					<PeriodFilter
-						value={period}
-						onChange={setPeriod}
-						pending={isRefreshing}
-					/>
+					<div className="flex flex-wrap items-center gap-2">
+						<AccountFilter />
+						<PeriodFilter
+							value={period}
+							onChange={setPeriod}
+							pending={isRefreshing}
+						/>
+					</div>
 				}
 			/>
 
@@ -613,7 +713,12 @@ export const Dashboard = () => {
 										variant="donut"
 										showRankedList
 										onSliceClick={(item) => {
-											setActiveBreakdown({ flow: 'spending', groupKey: item.groupKey });
+											setActiveBreakdown({
+												flow: 'spending',
+												groupKey: item.groupKey,
+												title: item.name,
+												total: item.value,
+											});
 										}}
 									/>
 								</ChartCard>
@@ -628,59 +733,108 @@ export const Dashboard = () => {
 										variant="donut"
 										showRankedList
 										onSliceClick={(item) => {
-											setActiveBreakdown({ flow: 'income', groupKey: item.groupKey });
+											setActiveBreakdown({
+												flow: 'income',
+												groupKey: item.groupKey,
+												title: item.name,
+												total: item.value,
+											});
 										}}
 									/>
 								</ChartCard>
 							</div>
 
-							<ChartCard title="Balance Over Time">
-								<ResponsiveContainer width="100%" height={300}>
-									<LineChart data={balanceChartData}>
-										<CartesianGrid
-											stroke={chartTheme.grid.stroke}
-											strokeDasharray={chartTheme.grid.strokeDasharray}
-										/>
-										<XAxis
-											dataKey="date"
-											stroke={chartTheme.axis.stroke}
-											tick={chartTheme.axis.tick}
-											tickFormatter={(iso) => formatChartAxisDate(iso, balanceDateSpanDays)}
-											interval="preserveStartEnd"
-											minTickGap={40}
-										/>
-										<YAxis
-											dataKey="val"
-											domain={balanceYDomain}
-											stroke={chartTheme.axis.stroke}
-											tick={chartTheme.axis.tick}
-											tickFormatter={formatCurrencyWithCommas}
-											width={88}
-										/>
-										<Tooltip content={balanceTooltip} />
-										<Line
-											type="monotone"
-											dataKey="val"
-											name="Balance"
-											stroke="#6ee7b7"
-											strokeWidth={2}
-											dot={false}
-											isAnimationActive={!isRefreshing}
-											animationDuration={400}
-										/>
-										<Line
-											type="linear"
-											dataKey="trend"
-											name="Trend"
-											stroke="#fbbf24"
-											strokeWidth={1.5}
-											strokeDasharray="8 4"
-											dot={false}
-											isAnimationActive={!isRefreshing}
-											animationDuration={400}
-										/>
-									</LineChart>
-								</ResponsiveContainer>
+							<ChartCard
+								title="Balance Over Time"
+								titleExtra={balanceTrendHeader}
+								subtitle={balanceChartSubtitle}
+								actions={
+									<SegmentedControl
+										ariaLabel="Balance chart mode"
+										value={balanceChartMode}
+										onChange={setBalanceChartMode}
+										options={[
+											{ value: 'stacked', label: 'By account' },
+											{ value: 'combined', label: 'Combined' },
+										]}
+									/>
+								}
+							>
+								{showStackedBalance ? (
+									<BalanceStackGraph
+										data={balanceStackData}
+										dateSpanDays={balanceDateSpanDays}
+										isRefreshing={isRefreshing}
+									/>
+								) : (
+									<ResponsiveContainer width="100%" height={300}>
+										<LineChart data={balanceChartData}>
+											<CartesianGrid
+												stroke={chartTheme.grid.stroke}
+												strokeDasharray={chartTheme.grid.strokeDasharray}
+											/>
+											<XAxis
+												dataKey="date"
+												stroke={chartTheme.axis.stroke}
+												tick={chartTheme.axis.tick}
+												tickFormatter={(iso) =>
+													formatChartAxisDate(iso, balanceDateSpanDays)
+												}
+												interval="preserveStartEnd"
+												minTickGap={40}
+											/>
+											<YAxis
+												dataKey="val"
+												domain={balanceYDomain}
+												stroke={chartTheme.axis.stroke}
+												tick={chartTheme.axis.tick}
+												tickFormatter={formatCurrencyWithCommas}
+												width={88}
+											/>
+											<Tooltip
+												wrapperStyle={
+													balanceMarkerState.suppressChartTooltip
+														? { visibility: 'hidden' }
+														: undefined
+												}
+												content={(props) => {
+													if (balanceMarkerState.suppressChartTooltip) {
+														return null;
+													}
+													return balanceTooltip(props);
+												}}
+											/>
+											<Line
+												type="monotone"
+												dataKey="val"
+												name="Balance"
+												stroke="#6ee7b7"
+												strokeWidth={2}
+												dot={false}
+												isAnimationActive={!isRefreshing}
+												animationDuration={400}
+											/>
+											<Line
+												type="linear"
+												dataKey="trend"
+												name="Trend"
+												stroke="#fbbf24"
+												strokeWidth={2}
+												strokeDasharray="8 4"
+												dot={false}
+												connectNulls={false}
+												isAnimationActive={!isRefreshing}
+												animationDuration={400}
+											/>
+											{renderTrendSegmentLabels(balanceTrendLabels)}
+											{renderTrendEventMarkers(
+												balanceChartEvents,
+												balanceMarkerState,
+												balanceAccountColorByKey,
+											)}
+										</LineChart>
+									</ResponsiveContainer>
+								)}
 							</ChartCard>
 						</div>
 					) : null}

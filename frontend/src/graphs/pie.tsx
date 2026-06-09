@@ -152,7 +152,7 @@ export const CategoryPieChart = ({
 			color: '#64748b',
 			percent: otherPercent,
 			categoryId: null,
-			groupKey: '__other__',
+			groupKey: rest.map((row) => row.groupKey).join(','),
 		};
 		return {
 			chartData: [...top, other],
@@ -201,7 +201,7 @@ export const CategoryPieChart = ({
 						}}
 						onClick={(sector) => {
 							const item = datumFromPieSector(sector);
-							if (item !== undefined && item.groupKey !== '__other__') {
+							if (item !== undefined) {
 								onSliceClick?.(item);
 							}
 						}}
@@ -275,9 +275,7 @@ export const CategoryPieChart = ({
 					onRowClick={
 						onSliceClick !== undefined
 							? (row) => {
-									if (row.groupKey !== '__other__') {
-										onSliceClick(row);
-									}
+									onSliceClick(row);
 								}
 							: undefined
 					}

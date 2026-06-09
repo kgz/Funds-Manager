@@ -42,6 +42,7 @@ pub struct CategoriesListQuery {
     include_deleted: bool,
     #[serde(default)]
     with_counts: bool,
+    account_id: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -166,8 +167,9 @@ async fn get_all_categories(query: web::Query<CategoriesListQuery>) -> Result<im
         return Ok(HttpResponse::Ok().json(categories));
     }
 
-    let usage = Transaction::usage_by_category().map_err(map_db_error)?;
-    let uncategorized_usage = Transaction::uncategorized_usage().map_err(map_db_error)?;
+    let usage = Transaction::usage_by_category(query.account_id).map_err(map_db_error)?;
+    let uncategorized_usage =
+        Transaction::uncategorized_usage(query.account_id).map_err(map_db_error)?;
 
     let categories_with_stats = categories
         .into_iter()

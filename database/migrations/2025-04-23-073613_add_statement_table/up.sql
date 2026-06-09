@@ -1,10 +1,9 @@
--- Your SQL goes here
 CREATE TABLE IF NOT EXISTS statement (
-    id SERIAL PRIMARY KEY,
+    id BIGSERIAL PRIMARY KEY,
     date DATE NOT NULL,
     account_id VARCHAR(25) NOT NULL,
-    opening_balance INT NOT NULL DEFAULT 0,
-    closing_balance INT NOT NULL DEFAULT 0,
-    deleted_at TIMESTAMP NULL,
+    opening_balance INTEGER NOT NULL DEFAULT 0,
+    closing_balance INTEGER NOT NULL DEFAULT 0,
+    deleted_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

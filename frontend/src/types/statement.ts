@@ -1,4 +1,8 @@
 import axios from 'axios';
+import {
+	normalizeFinancialAccountSummary,
+	type FinancialAccountSummary,
+} from '@/types/account';
 
 export type Statement = {
 	id: number;
@@ -8,6 +12,7 @@ export type Statement = {
 	closing_balance: number;
 	deleted_at: string | null;
 	created_at: string;
+	financial_account?: FinancialAccountSummary | null;
 };
 
 export type PaginatedStatementsResponse = {
@@ -22,6 +27,7 @@ export type FetchStatementsPageParams = {
 	page: number;
 	perPage?: number;
 	signal?: AbortSignal;
+	accountId?: number | null;
 };
 
 function readFiniteNumber(value: unknown): number | null {
@@ -59,6 +65,11 @@ function normalizeStatement(raw: unknown): Statement | null {
 	const closingBalance = readFiniteNumber(Reflect.get(raw, 'closing_balance'));
 	const deletedAt = readNullableString(Reflect.get(raw, 'deleted_at'));
 	const createdAt = readString(Reflect.get(raw, 'created_at'));
+	const financialAccountRaw = Reflect.get(raw, 'financial_account');
+	const financialAccount =
+		financialAccountRaw === undefined || financialAccountRaw === null
+			? null
+			: normalizeFinancialAccountSummary(financialAccountRaw);
 
 	if (
 		id === null ||
@@ -79,6 +90,7 @@ function normalizeStatement(raw: unknown): Statement | null {
 		closing_balance: closingBalance,
 		deleted_at: deletedAt,
 		created_at: createdAt,
+		financial_account: financialAccount,
 	};
 }
 
@@ -121,6 +133,9 @@ export async function fetchStatementsPage(
 	const searchParams = new URLSearchParams();
 	searchParams.set('page', String(params.page));
 	searchParams.set('per_page', String(params.perPage ?? 50));
+	if (params.accountId != null) {
+		searchParams.set('account_id', String(params.accountId));
+	}
 
 	const response = await axios.get(`/api/statements?${searchParams.toString()}`, {
 		signal: params.signal,
@@ -281,20 +296,44 @@ export async function uploadStatementFiles(
 	return parsed;
 }
 
+export type MissingStatementPeriod = {
+	account_label: string;
+	period: string;
+};
+
+function normalizeMissingStatementPeriod(raw: unknown): MissingStatementPeriod | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const accountLabel = Reflect.get(raw, 'account_label');
+	const period = Reflect.get(raw, 'period');
+	if (typeof accountLabel !== 'string' || typeof period !== 'string') {
+		return null;
+	}
+	return { account_label: accountLabel, period };
+}
+
 export async function fetchMissingStatementPeriods(
+	accountId?: number | null,
 	signal?: AbortSignal
-): Promise<string[]> {
-	const response = await axios.get('/api/statements/missing-periods', { signal });
+): Promise<MissingStatementPeriod[]> {
+	const params =
+		accountId != null ? { account_id: accountId } : undefined;
+	const response = await axios.get('/api/statements/missing-periods', {
+		params,
+		signal,
+	});
 	const data = response.data as { periods?: unknown };
 	if (!data || !Array.isArray(data.periods)) {
 		throw new Error('Invalid missing periods response');
 	}
-	const periods: string[] = [];
+	const periods: MissingStatementPeriod[] = [];
 	for (const item of data.periods) {
-		if (typeof item !== 'string') {
+		const period = normalizeMissingStatementPeriod(item);
+		if (!period) {
 			throw new Error('Invalid missing periods response');
 		}
-		periods.push(item);
+		periods.push(period);
 	}
 	return periods;
 }

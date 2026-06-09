@@ -3,9 +3,11 @@ use diesel::prelude::*;
 use diesel::OptionalExtension;
 use diesel::sql_query;
 use diesel::dsl::count_star;
+use diesel::pg::Pg;
 use diesel::pg::sql_types::Array;
 use diesel::sql_types::{BigInt, Date, Integer, Nullable, Text};
 use serde::Serialize;
+use std::collections::HashMap;
 
 use crate::models::category::Category;
 use crate::models::transaction::{filter_active_statement, ACTIVE_STATEMENT_WHERE};
@@ -16,6 +18,49 @@ use crate::models::recurring_detection::{
 use crate::models::transaction::Transaction;
 use crate::modules::database::get_dbo;
 use crate::schema::transaction_data;
+
+#[derive(Debug, Clone, Copy)]
+pub struct AnalyticsScope {
+    pub start: Option<NaiveDate>,
+    pub end: Option<NaiveDate>,
+    pub financial_account_id: Option<i64>,
+}
+
+fn apply_date_scope(
+    query: transaction_data::BoxedQuery<'_, Pg>,
+    scope: AnalyticsScope,
+) -> transaction_data::BoxedQuery<'_, Pg> {
+    let mut query = filter_active_statement(query, scope.financial_account_id);
+    if let Some(start_date) = scope.start {
+        query = query.filter(
+            transaction_data::transaction_date
+                .ge(start_date.and_hms_opt(0, 0, 0).expect("midnight")),
+        );
+    }
+    if let Some(end_date) = scope.end {
+        if let Some(end_exclusive) = end_date.succ_opt().and_then(|d| d.and_hms_opt(0, 0, 0)) {
+            query = query.filter(transaction_data::transaction_date.lt(end_exclusive));
+        }
+    }
+    query
+}
+
+const ANALYTICS_SCOPE_WHERE: &str = "
+  AND ($SCOPE_START::date IS NULL OR transaction_date::date >= $SCOPE_START)
+  AND ($SCOPE_END::date IS NULL OR transaction_date::date <= $SCOPE_END)
+  AND ($SCOPE_ACCOUNT::bigint IS NULL OR EXISTS (
+      SELECT 1 FROM statement s2
+      WHERE s2.id = transaction_data.statement_id
+        AND s2.deleted_at IS NULL
+        AND s2.financial_account_id = $SCOPE_ACCOUNT
+  ))";
+
+fn build_scope_where(start_param: &str, end_param: &str, account_param: &str) -> String {
+    ANALYTICS_SCOPE_WHERE
+        .replace("$SCOPE_START", start_param)
+        .replace("$SCOPE_END", end_param)
+        .replace("$SCOPE_ACCOUNT", account_param)
+}
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -45,6 +90,29 @@ pub struct BalancePoint {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct BalanceStackAccount {
+    pub account_key: String,
+    pub account_id: Option<i64>,
+    pub label: String,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BalanceStackRow {
+    pub date: String,
+    pub total: f64,
+    pub values: HashMap<String, f64>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BalanceStackChart {
+    pub accounts: Vec<BalanceStackAccount>,
+    pub rows: Vec<BalanceStackRow>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardKpiSummary {
     pub spending: f64,
     pub income: f64,
@@ -62,8 +130,78 @@ struct KpiTotalsRow {
 
 #[derive(QueryableByName, Debug)]
 struct KpiBalanceRow {
-    #[diesel(sql_type = Integer)]
-    balance: i32,
+    #[diesel(sql_type = BigInt)]
+    balance: i64,
+}
+
+#[derive(QueryableByName, Debug)]
+struct BalanceRow {
+    #[diesel(sql_type = Date)]
+    day: NaiveDate,
+    #[diesel(sql_type = BigInt)]
+    balance: i64,
+}
+
+#[derive(QueryableByName, Debug)]
+struct BalanceAccountRow {
+    #[diesel(sql_type = Date)]
+    day: NaiveDate,
+    #[diesel(sql_type = BigInt)]
+    account_scope: i64,
+    #[diesel(sql_type = Text)]
+    account_label: String,
+    #[diesel(sql_type = BigInt)]
+    balance_cents: i64,
+}
+
+fn account_stack_key(account_scope: i64) -> String {
+    format!("a_{account_scope}")
+}
+
+fn build_balance_stack(
+    rows: Vec<BalanceAccountRow>,
+) -> BalanceStackChart {
+    let mut account_meta: HashMap<String, BalanceStackAccount> = HashMap::new();
+    let mut by_day: HashMap<NaiveDate, HashMap<String, f64>> = HashMap::new();
+
+    for row in rows {
+        let key = account_stack_key(row.account_scope);
+        let account_id = if row.account_scope > 0 {
+            Some(row.account_scope)
+        } else {
+            None
+        };
+        account_meta.entry(key.clone()).or_insert(BalanceStackAccount {
+            account_key: key.clone(),
+            account_id,
+            label: row.account_label.clone(),
+        });
+        by_day
+            .entry(row.day)
+            .or_default()
+            .insert(key, round2(cents_to_dollars(row.balance_cents)));
+    }
+
+    let mut accounts: Vec<BalanceStackAccount> = account_meta.into_values().collect();
+    accounts.sort_by(|left, right| left.label.cmp(&right.label));
+
+    let mut stack_rows: Vec<BalanceStackRow> = by_day
+        .into_iter()
+        .map(|(day, values)| {
+            let total = round2(values.values().copied().sum());
+            BalanceStackRow {
+                date: day.to_string(),
+                total,
+                values,
+            }
+        })
+        .collect();
+    stack_rows.sort_by(|left, right| left.date.cmp(&right.date));
+
+    BalanceStackChart {
+        accounts,
+        rows: stack_rows,
+    }
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -73,6 +211,7 @@ pub struct DashboardAnalytics {
     pub spending_by_category: Vec<CategoryTotalRow>,
     pub income_by_category: Vec<CategoryTotalRow>,
     pub balance_series: Vec<BalancePoint>,
+    pub balance_stack: BalanceStackChart,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -108,12 +247,52 @@ struct MonthlyRow {
     receiving_cents: i64,
 }
 
-#[derive(QueryableByName, Debug)]
-struct BalanceRow {
-    #[diesel(sql_type = Date)]
-    day: NaiveDate,
-    #[diesel(sql_type = Integer)]
-    balance: i32,
+fn sum_latest_balances_cents(
+    conn: &mut impl diesel::connection::LoadConnection<Backend = diesel::pg::Pg>,
+    end: Option<NaiveDate>,
+    financial_account_id: Option<i64>,
+) -> Result<Option<i64>, diesel::result::Error> {
+    let row = sql_query(
+        r#"
+        SELECT COALESCE(SUM(latest.balance), 0)::bigint AS balance
+        FROM (
+            SELECT DISTINCT ON (COALESCE(s.financial_account_id, -s.id))
+                td.balance::bigint AS balance
+            FROM transaction_data td
+            INNER JOIN statement s ON s.id = td.statement_id AND s.deleted_at IS NULL
+            WHERE td.deleted_at IS NULL
+              AND ($2::bigint IS NULL OR s.financial_account_id = $2)
+              AND ($1::date IS NULL OR td.transaction_date::date <= $1)
+            ORDER BY COALESCE(s.financial_account_id, -s.id), td.transaction_date DESC, td.id DESC
+        ) latest
+        "#,
+    )
+    .bind::<Nullable<Date>, _>(end)
+    .bind::<Nullable<BigInt>, _>(financial_account_id)
+    .get_result::<KpiBalanceRow>(conn)?;
+
+    if row.balance == 0 {
+        let has_any = sql_query(
+            r#"
+            SELECT 1 AS balance
+            FROM transaction_data td
+            INNER JOIN statement s ON s.id = td.statement_id AND s.deleted_at IS NULL
+            WHERE td.deleted_at IS NULL
+              AND ($2::bigint IS NULL OR s.financial_account_id = $2)
+              AND ($1::date IS NULL OR td.transaction_date::date <= $1)
+            LIMIT 1
+            "#,
+        )
+        .bind::<Nullable<Date>, _>(end)
+        .bind::<Nullable<BigInt>, _>(financial_account_id)
+        .get_result::<KpiBalanceRow>(conn)
+        .optional()?;
+        if has_any.is_none() {
+            return Ok(None);
+        }
+    }
+
+    Ok(Some(row.balance))
 }
 
 #[derive(QueryableByName, Debug)]
@@ -169,6 +348,7 @@ fn category_display(
 pub fn dashboard_kpis(
     start: Option<NaiveDate>,
     end: Option<NaiveDate>,
+    financial_account_id: Option<i64>,
 ) -> Result<DashboardKpiSummary, diesel::result::Error> {
     let conn = &mut get_dbo();
 
@@ -180,48 +360,26 @@ pub fn dashboard_kpis(
         FROM transaction_data
         WHERE deleted_at IS NULL
           AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+          AND ($3::bigint IS NULL OR EXISTS (
+              SELECT 1 FROM statement s2
+              WHERE s2.id = transaction_data.statement_id
+                AND s2.deleted_at IS NULL
+                AND s2.financial_account_id = $3
+          ))
           AND ($1::date IS NULL OR transaction_date::date >= $1)
           AND ($2::date IS NULL OR transaction_date::date <= $2)
         "#,
     )
     .bind::<Nullable<Date>, _>(start)
     .bind::<Nullable<Date>, _>(end)
+    .bind::<Nullable<BigInt>, _>(financial_account_id)
     .get_result(conn)?;
 
     let spending = round2(cents_to_dollars(totals.spending_cents));
     let income = round2(cents_to_dollars(totals.income_cents));
 
-    let balance = if let Some(end_date) = end {
-        sql_query(
-            r#"
-            SELECT balance
-            FROM transaction_data
-            WHERE deleted_at IS NULL
-              AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
-              AND transaction_date::date <= $1
-            ORDER BY transaction_date DESC, id DESC
-            LIMIT 1
-            "#,
-        )
-        .bind::<Date, _>(end_date)
-        .get_result::<KpiBalanceRow>(conn)
-        .optional()?
-        .map(|row| round2(cents_to_dollars(i64::from(row.balance))))
-    } else {
-        sql_query(
-            r#"
-            SELECT balance
-            FROM transaction_data
-            WHERE deleted_at IS NULL
-              AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
-            ORDER BY transaction_date DESC, id DESC
-            LIMIT 1
-            "#,
-        )
-        .get_result::<KpiBalanceRow>(conn)
-        .optional()?
-        .map(|row| round2(cents_to_dollars(i64::from(row.balance))))
-    };
+    let balance = sum_latest_balances_cents(conn, end, financial_account_id)?
+        .map(|cents| round2(cents_to_dollars(cents)));
 
     Ok(DashboardKpiSummary {
         spending,
@@ -235,6 +393,7 @@ pub fn dashboard(
     group_by_parent: bool,
     start: Option<NaiveDate>,
     end: Option<NaiveDate>,
+    financial_account_id: Option<i64>,
 ) -> Result<DashboardAnalytics, diesel::result::Error> {
     let conn = &mut get_dbo();
     let categories = Category::all(false)?;
@@ -248,6 +407,12 @@ pub fn dashboard(
         FROM transaction_data
         WHERE deleted_at IS NULL
           AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+          AND ($3::bigint IS NULL OR EXISTS (
+              SELECT 1 FROM statement s2
+              WHERE s2.id = transaction_data.statement_id
+                AND s2.deleted_at IS NULL
+                AND s2.financial_account_id = $3
+          ))
           AND ($1::date IS NULL OR transaction_date::date >= $1)
           AND ($2::date IS NULL OR transaction_date::date <= $2)
         GROUP BY date_trunc('month', transaction_date)
@@ -256,6 +421,7 @@ pub fn dashboard(
     )
     .bind::<Nullable<Date>, _>(start)
     .bind::<Nullable<Date>, _>(end)
+    .bind::<Nullable<BigInt>, _>(financial_account_id)
     .load(conn)?;
 
     let monthly_summary: Vec<MonthlySummaryRow> = monthly_rows
@@ -269,33 +435,109 @@ pub fn dashboard(
 
     let balance_rows: Vec<BalanceRow> = sql_query(
         r#"
-        SELECT DISTINCT ON (transaction_date::date)
-            transaction_date::date AS day,
-            balance
-        FROM transaction_data
-        WHERE deleted_at IS NULL
-          AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
-          AND ($1::date IS NULL OR transaction_date::date >= $1)
-          AND ($2::date IS NULL OR transaction_date::date <= $2)
-        ORDER BY transaction_date::date, transaction_date DESC, id DESC
+        WITH balance_tx AS (
+            SELECT
+                td.transaction_date::date AS day,
+                td.balance::bigint AS balance,
+                td.transaction_date,
+                td.id,
+                COALESCE(s.financial_account_id, -s.id) AS account_scope
+            FROM transaction_data td
+            INNER JOIN statement s ON s.id = td.statement_id AND s.deleted_at IS NULL
+            WHERE td.deleted_at IS NULL
+              AND ($3::bigint IS NULL OR s.financial_account_id = $3)
+              AND ($2::date IS NULL OR td.transaction_date::date <= $2)
+        ),
+        days AS (
+            SELECT DISTINCT day FROM balance_tx
+            WHERE ($1::date IS NULL OR day >= $1)
+        )
+        SELECT
+            d.day,
+            COALESCE((
+                SELECT SUM(latest.balance)::bigint
+                FROM (
+                    SELECT DISTINCT ON (f.account_scope)
+                        f.balance
+                    FROM balance_tx f
+                    WHERE f.day <= d.day
+                    ORDER BY f.account_scope, f.transaction_date DESC, f.id DESC
+                ) latest
+            ), 0)::bigint AS balance
+        FROM days d
+        ORDER BY d.day
         "#,
     )
     .bind::<Nullable<Date>, _>(start)
     .bind::<Nullable<Date>, _>(end)
+    .bind::<Nullable<BigInt>, _>(financial_account_id)
     .load(conn)?;
 
     let balance_series: Vec<BalancePoint> = balance_rows
         .into_iter()
         .map(|r| BalancePoint {
             date: r.day.to_string(),
-            balance: cents_to_dollars(i64::from(r.balance)),
+            balance: cents_to_dollars(r.balance),
         })
         .collect();
+
+    let balance_account_rows: Vec<BalanceAccountRow> = sql_query(
+        r#"
+        WITH balance_tx AS (
+            SELECT
+                td.transaction_date::date AS day,
+                td.balance::bigint AS balance,
+                td.transaction_date,
+                td.id,
+                COALESCE(s.financial_account_id, -s.id) AS account_scope,
+                COALESCE(fa.display_name, 'Account ' || COALESCE(s.financial_account_id, -s.id)) AS account_label
+            FROM transaction_data td
+            INNER JOIN statement s ON s.id = td.statement_id AND s.deleted_at IS NULL
+            LEFT JOIN financial_accounts fa ON fa.id = s.financial_account_id AND fa.deleted_at IS NULL
+            WHERE td.deleted_at IS NULL
+              AND ($3::bigint IS NULL OR s.financial_account_id = $3)
+              AND ($2::date IS NULL OR td.transaction_date::date <= $2)
+        ),
+        days AS (
+            SELECT DISTINCT day FROM balance_tx
+            WHERE ($1::date IS NULL OR day >= $1)
+        ),
+        account_scopes AS (
+            SELECT DISTINCT account_scope, account_label FROM balance_tx
+        ),
+        grid AS (
+            SELECT d.day, a.account_scope, a.account_label
+            FROM days d
+            CROSS JOIN account_scopes a
+        )
+        SELECT
+            g.day,
+            g.account_scope,
+            g.account_label,
+            COALESCE((
+                SELECT f.balance
+                FROM balance_tx f
+                WHERE f.account_scope = g.account_scope
+                  AND f.day <= g.day
+                ORDER BY f.transaction_date DESC, f.id DESC
+                LIMIT 1
+            ), 0)::bigint AS balance_cents
+        FROM grid g
+        ORDER BY g.day, g.account_scope
+        "#,
+    )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
+    .bind::<Nullable<BigInt>, _>(financial_account_id)
+    .load(conn)?;
+
+    let balance_stack = build_balance_stack(balance_account_rows);
 
     let mut category_query = filter_active_statement(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .into_boxed(),
+        financial_account_id,
     );
     if let Some(start_date) = start {
         category_query = category_query.filter(
@@ -375,10 +617,15 @@ pub fn dashboard(
         spending_by_category,
         income_by_category,
         balance_series,
+        balance_stack,
     })
 }
 
-pub fn breakdown(start: NaiveDate, end: NaiveDate) -> Result<Vec<ParentBreakdownRow>, diesel::result::Error> {
+pub fn breakdown(
+    start: NaiveDate,
+    end: NaiveDate,
+    financial_account_id: Option<i64>,
+) -> Result<Vec<ParentBreakdownRow>, diesel::result::Error> {
     let conn = &mut get_dbo();
     let categories = Category::all(false)?;
 
@@ -388,12 +635,19 @@ pub fn breakdown(start: NaiveDate, end: NaiveDate) -> Result<Vec<ParentBreakdown
         FROM transaction_data
         WHERE deleted_at IS NULL
           AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+          AND ($3::bigint IS NULL OR EXISTS (
+              SELECT 1 FROM statement s2
+              WHERE s2.id = transaction_data.statement_id
+                AND s2.deleted_at IS NULL
+                AND s2.financial_account_id = $3
+          ))
           AND transaction_date::date >= $1
           AND transaction_date::date <= $2
         "#,
     )
     .bind::<Date, _>(start)
     .bind::<Date, _>(end)
+    .bind::<Nullable<BigInt>, _>(financial_account_id)
     .load(conn)?;
 
     let mut by_cat: std::collections::HashMap<String, Vec<(String, i32)>> = std::collections::HashMap::new();
@@ -487,12 +741,16 @@ pub fn breakdown(start: NaiveDate, end: NaiveDate) -> Result<Vec<ParentBreakdown
     Ok(parents)
 }
 
-pub fn recurring(min_occurrences: i32) -> Result<Vec<RecurringCandidate>, diesel::result::Error> {
+pub fn recurring(
+    min_occurrences: i32,
+    financial_account_id: Option<i64>,
+) -> Result<Vec<RecurringCandidate>, diesel::result::Error> {
     let conn = &mut get_dbo();
     let rows: Vec<(String, i32, NaiveDateTime, Option<i32>)> = filter_active_statement(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .into_boxed(),
+        financial_account_id,
     )
     .select((
         transaction_data::description,
@@ -517,7 +775,7 @@ pub fn recurring(min_occurrences: i32) -> Result<Vec<RecurringCandidate>, diesel
     Ok(out)
 }
 
-fn matching_category_ids(
+fn matching_category_ids_single(
     group_key: &str,
     group_by_parent: bool,
     categories: &[Category],
@@ -540,6 +798,86 @@ fn matching_category_ids(
         )
     } else {
         i32::try_from(id).ok().map(|v| vec![v])
+    }
+}
+
+enum CategoryDrilldownFilter {
+    UncategorizedOnly,
+    CategoryIds(Vec<i32>),
+    UncategorizedOrCategoryIds(Vec<i32>),
+}
+
+fn category_drilldown_filter(
+    group_key: &str,
+    group_by_parent: bool,
+    categories: &[Category],
+) -> CategoryDrilldownFilter {
+    if group_key == "unknown" {
+        return CategoryDrilldownFilter::UncategorizedOnly;
+    }
+
+    if group_key.contains(',') {
+        let mut ids = Vec::new();
+        let mut include_uncategorized = false;
+        for part in group_key.split(',') {
+            let part = part.trim();
+            if part == "unknown" {
+                include_uncategorized = true;
+                continue;
+            }
+            if let Some(part_ids) = matching_category_ids_single(part, group_by_parent, categories) {
+                ids.extend(part_ids);
+            }
+        }
+        ids.sort_unstable();
+        ids.dedup();
+        if include_uncategorized {
+            if ids.is_empty() {
+                return CategoryDrilldownFilter::UncategorizedOnly;
+            }
+            return CategoryDrilldownFilter::UncategorizedOrCategoryIds(ids);
+        }
+        if ids.is_empty() {
+            return CategoryDrilldownFilter::UncategorizedOnly;
+        }
+        return CategoryDrilldownFilter::CategoryIds(ids);
+    }
+
+    match matching_category_ids_single(group_key, group_by_parent, categories) {
+        None => CategoryDrilldownFilter::UncategorizedOnly,
+        Some(ids) if ids.is_empty() => CategoryDrilldownFilter::UncategorizedOnly,
+        Some(ids) => CategoryDrilldownFilter::CategoryIds(ids),
+    }
+}
+
+fn apply_category_drilldown_filter<'a>(
+    query: transaction_data::BoxedQuery<'a, Pg>,
+    filter: &CategoryDrilldownFilter,
+) -> transaction_data::BoxedQuery<'a, Pg> {
+    match filter {
+        CategoryDrilldownFilter::UncategorizedOnly => {
+            query.filter(transaction_data::category_id.is_null())
+        }
+        CategoryDrilldownFilter::CategoryIds(ids) => {
+            query.filter(transaction_data::category_id.eq_any(ids.clone()))
+        }
+        CategoryDrilldownFilter::UncategorizedOrCategoryIds(ids) => query.filter(
+            transaction_data::category_id
+                .is_null()
+                .or(transaction_data::category_id.eq_any(ids.clone())),
+        ),
+    }
+}
+
+fn matching_category_ids(
+    group_key: &str,
+    group_by_parent: bool,
+    categories: &[Category],
+) -> Option<Vec<i32>> {
+    match category_drilldown_filter(group_key, group_by_parent, categories) {
+        CategoryDrilldownFilter::UncategorizedOnly => None,
+        CategoryDrilldownFilter::CategoryIds(ids) => Some(ids),
+        CategoryDrilldownFilter::UncategorizedOrCategoryIds(ids) => Some(ids),
     }
 }
 
@@ -567,13 +905,15 @@ const SPENDING_NAME_GROUP_EXPR: &str =
 pub fn spending_drilldown_by_name(
     group_key: &str,
     group_by_parent: bool,
+    scope: AnalyticsScope,
 ) -> Result<Vec<SpendingNameRow>, diesel::result::Error> {
     let conn = &mut get_dbo();
     let categories = Category::all(false)?;
+    let category_filter = category_drilldown_filter(group_key, group_by_parent, &categories);
+    let scope_sql = build_scope_where("$1", "$2", "$3");
 
-    let rows: Vec<SpendingNameAggRow> = match matching_category_ids(group_key, group_by_parent, &categories)
-    {
-        None => sql_query(&format!(
+    let rows: Vec<SpendingNameAggRow> = match category_filter {
+        CategoryDrilldownFilter::UncategorizedOnly => sql_query(&format!(
             r#"
             SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
                    COALESCE(SUM(ABS(amount)), 0)::bigint AS total_cents,
@@ -583,13 +923,19 @@ pub fn spending_drilldown_by_name(
               AND amount < 0
               AND {ACTIVE_STATEMENT_WHERE}
               AND category_id IS NULL
+              {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}
             ORDER BY total_cents DESC
             "#
         ))
+        .bind::<Nullable<Date>, _>(scope.start)
+        .bind::<Nullable<Date>, _>(scope.end)
+        .bind::<Nullable<BigInt>, _>(scope.financial_account_id)
         .load(conn)?,
-        Some(ids) if ids.is_empty() => return Ok(Vec::new()),
-        Some(ids) => sql_query(&format!(
+        CategoryDrilldownFilter::CategoryIds(ids) if ids.is_empty() => return Ok(Vec::new()),
+        CategoryDrilldownFilter::CategoryIds(ids) => {
+            let scope_sql = build_scope_where("$2", "$3", "$4");
+            sql_query(&format!(
             r#"
             SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
                    COALESCE(SUM(ABS(amount)), 0)::bigint AS total_cents,
@@ -599,12 +945,40 @@ pub fn spending_drilldown_by_name(
               AND amount < 0
               AND {ACTIVE_STATEMENT_WHERE}
               AND category_id = ANY($1)
+              {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}
             ORDER BY total_cents DESC
             "#
         ))
         .bind::<Array<Integer>, _>(ids)
-        .load(conn)?,
+        .bind::<Nullable<Date>, _>(scope.start)
+        .bind::<Nullable<Date>, _>(scope.end)
+        .bind::<Nullable<BigInt>, _>(scope.financial_account_id)
+        .load(conn)?
+        }
+        CategoryDrilldownFilter::UncategorizedOrCategoryIds(ids) => {
+            let scope_sql = build_scope_where("$2", "$3", "$4");
+            sql_query(&format!(
+            r#"
+            SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
+                   COALESCE(SUM(ABS(amount)), 0)::bigint AS total_cents,
+                   COUNT(*)::integer AS count
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND amount < 0
+              AND {ACTIVE_STATEMENT_WHERE}
+              AND (category_id IS NULL OR category_id = ANY($1))
+              {scope_sql}
+            GROUP BY {SPENDING_NAME_GROUP_EXPR}
+            ORDER BY total_cents DESC
+            "#
+        ))
+        .bind::<Array<Integer>, _>(ids)
+        .bind::<Nullable<Date>, _>(scope.start)
+        .bind::<Nullable<Date>, _>(scope.end)
+        .bind::<Nullable<BigInt>, _>(scope.financial_account_id)
+        .load(conn)?
+        }
     };
 
     Ok(rows
@@ -622,6 +996,7 @@ pub fn spending_drilldown(
     group_by_parent: bool,
     page: i64,
     per_page: i64,
+    scope: AnalyticsScope,
 ) -> Result<(Vec<Transaction>, i64), diesel::result::Error> {
     let conn = &mut get_dbo();
     let categories = Category::all(false)?;
@@ -629,31 +1004,33 @@ pub fn spending_drilldown(
     let per_page = per_page.clamp(1, 200);
     let offset = (page - 1) * per_page;
 
-    let mut count_query = filter_active_statement(
+    let category_filter = category_drilldown_filter(group_key, group_by_parent, &categories);
+
+    let count_query = apply_category_drilldown_filter(
+        apply_date_scope(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .filter(transaction_data::amount.lt(0))
             .into_boxed(),
+        scope,
+        ),
+        &category_filter,
     );
 
-    let mut items_query = filter_active_statement(
+    let items_query = apply_category_drilldown_filter(
+        apply_date_scope(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .filter(transaction_data::amount.lt(0))
             .into_boxed(),
+        scope,
+        ),
+        &category_filter,
     );
 
-    match matching_category_ids(group_key, group_by_parent, &categories) {
-        None => {
-            count_query = count_query.filter(transaction_data::category_id.is_null());
-            items_query = items_query.filter(transaction_data::category_id.is_null());
-        }
-        Some(ids) if ids.is_empty() => {
+    if let CategoryDrilldownFilter::CategoryIds(ids) | CategoryDrilldownFilter::UncategorizedOrCategoryIds(ids) = &category_filter {
+        if ids.is_empty() {
             return Ok((Vec::new(), 0));
-        }
-        Some(ids) => {
-            count_query = count_query.filter(transaction_data::category_id.eq_any(ids.clone()));
-            items_query = items_query.filter(transaction_data::category_id.eq_any(ids));
         }
     }
 
@@ -675,13 +1052,15 @@ pub fn spending_drilldown(
 pub fn income_drilldown_by_name(
     group_key: &str,
     group_by_parent: bool,
+    scope: AnalyticsScope,
 ) -> Result<Vec<SpendingNameRow>, diesel::result::Error> {
     let conn = &mut get_dbo();
     let categories = Category::all(false)?;
+    let category_filter = category_drilldown_filter(group_key, group_by_parent, &categories);
+    let scope_sql = build_scope_where("$1", "$2", "$3");
 
-    let rows: Vec<SpendingNameAggRow> = match matching_category_ids(group_key, group_by_parent, &categories)
-    {
-        None => sql_query(&format!(
+    let rows: Vec<SpendingNameAggRow> = match category_filter {
+        CategoryDrilldownFilter::UncategorizedOnly => sql_query(&format!(
             r#"
             SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
                    COALESCE(SUM(amount), 0)::bigint AS total_cents,
@@ -691,13 +1070,19 @@ pub fn income_drilldown_by_name(
               AND amount > 0
               AND {ACTIVE_STATEMENT_WHERE}
               AND category_id IS NULL
+              {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}
             ORDER BY total_cents DESC
             "#
         ))
+        .bind::<Nullable<Date>, _>(scope.start)
+        .bind::<Nullable<Date>, _>(scope.end)
+        .bind::<Nullable<BigInt>, _>(scope.financial_account_id)
         .load(conn)?,
-        Some(ids) if ids.is_empty() => return Ok(Vec::new()),
-        Some(ids) => sql_query(&format!(
+        CategoryDrilldownFilter::CategoryIds(ids) if ids.is_empty() => return Ok(Vec::new()),
+        CategoryDrilldownFilter::CategoryIds(ids) => {
+            let scope_sql = build_scope_where("$2", "$3", "$4");
+            sql_query(&format!(
             r#"
             SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
                    COALESCE(SUM(amount), 0)::bigint AS total_cents,
@@ -707,12 +1092,40 @@ pub fn income_drilldown_by_name(
               AND amount > 0
               AND {ACTIVE_STATEMENT_WHERE}
               AND category_id = ANY($1)
+              {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}
             ORDER BY total_cents DESC
             "#
         ))
         .bind::<Array<Integer>, _>(ids)
-        .load(conn)?,
+        .bind::<Nullable<Date>, _>(scope.start)
+        .bind::<Nullable<Date>, _>(scope.end)
+        .bind::<Nullable<BigInt>, _>(scope.financial_account_id)
+        .load(conn)?
+        }
+        CategoryDrilldownFilter::UncategorizedOrCategoryIds(ids) => {
+            let scope_sql = build_scope_where("$2", "$3", "$4");
+            sql_query(&format!(
+            r#"
+            SELECT {SPENDING_NAME_GROUP_EXPR} AS name,
+                   COALESCE(SUM(amount), 0)::bigint AS total_cents,
+                   COUNT(*)::integer AS count
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND amount > 0
+              AND {ACTIVE_STATEMENT_WHERE}
+              AND (category_id IS NULL OR category_id = ANY($1))
+              {scope_sql}
+            GROUP BY {SPENDING_NAME_GROUP_EXPR}
+            ORDER BY total_cents DESC
+            "#
+        ))
+        .bind::<Array<Integer>, _>(ids)
+        .bind::<Nullable<Date>, _>(scope.start)
+        .bind::<Nullable<Date>, _>(scope.end)
+        .bind::<Nullable<BigInt>, _>(scope.financial_account_id)
+        .load(conn)?
+        }
     };
 
     Ok(rows
@@ -730,6 +1143,7 @@ pub fn income_drilldown(
     group_by_parent: bool,
     page: i64,
     per_page: i64,
+    scope: AnalyticsScope,
 ) -> Result<(Vec<Transaction>, i64), diesel::result::Error> {
     let conn = &mut get_dbo();
     let categories = Category::all(false)?;
@@ -737,31 +1151,33 @@ pub fn income_drilldown(
     let per_page = per_page.clamp(1, 200);
     let offset = (page - 1) * per_page;
 
-    let mut count_query = filter_active_statement(
+    let category_filter = category_drilldown_filter(group_key, group_by_parent, &categories);
+
+    let count_query = apply_category_drilldown_filter(
+        apply_date_scope(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .filter(transaction_data::amount.gt(0))
             .into_boxed(),
+        scope,
+        ),
+        &category_filter,
     );
 
-    let mut items_query = filter_active_statement(
+    let items_query = apply_category_drilldown_filter(
+        apply_date_scope(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .filter(transaction_data::amount.gt(0))
             .into_boxed(),
+        scope,
+        ),
+        &category_filter,
     );
 
-    match matching_category_ids(group_key, group_by_parent, &categories) {
-        None => {
-            count_query = count_query.filter(transaction_data::category_id.is_null());
-            items_query = items_query.filter(transaction_data::category_id.is_null());
-        }
-        Some(ids) if ids.is_empty() => {
+    if let CategoryDrilldownFilter::CategoryIds(ids) | CategoryDrilldownFilter::UncategorizedOrCategoryIds(ids) = &category_filter {
+        if ids.is_empty() {
             return Ok((Vec::new(), 0));
-        }
-        Some(ids) => {
-            count_query = count_query.filter(transaction_data::category_id.eq_any(ids.clone()));
-            items_query = items_query.filter(transaction_data::category_id.eq_any(ids));
         }
     }
 

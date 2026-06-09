@@ -1,5 +1,6 @@
 pub mod analytics;
 pub mod category;
+pub mod financial_account;
 pub mod category_mapping;
 pub mod description_key;
 pub mod recurring_detection;

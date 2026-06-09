@@ -22,6 +22,8 @@ import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SearchInput } from '@/components/layout/SearchInput';
 import { Modal } from '@/components/layout/Modal';
+import { AccountFilter } from '@/components/account-filter';
+import { useAccountFilter } from '@/hooks/useAccountFilter';
 import {
 	buttonDangerClass,
 	buttonOutlineClass,
@@ -103,14 +105,15 @@ export const CategoriesPage = () => {
 	const { categories, categoriesError, categoriesLoading, uncategorized } =
 		useAppSelector((state) => state.CategoryReducer);
 	const dispatch = useAppDispatch();
+	const { accountIdNumber } = useAccountFilter();
 
     const reloadCategories = () => {
-        void dispatch(getAllCategories({ withCounts: true }));
+        void dispatch(getAllCategories({ withCounts: true, accountId: accountIdNumber }));
     };
 
     useEffect(() => {
         reloadCategories();
-    }, []);
+    }, [accountIdNumber]);
 
     // --- Modal Handling ---
     const openModal = (mode: ModalMode, item?: Category, parent?: Category) => {
@@ -360,6 +363,7 @@ export const CategoriesPage = () => {
                 subtitle="Organize spending and income into parent and sub categories."
                 actions={
                     <>
+                        <AccountFilter />
                         <ToggleSwitch
                             checked={showDeleted}
                             onChange={setShowDeleted}

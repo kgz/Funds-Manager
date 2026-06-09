@@ -28,6 +28,6 @@ Broken into independent OpenSpec changes. Recommended order:
 
 **Security:** `user-auth-data-encryption` — login/session auth + AES-256-GCM encryption for sensitive fields at rest.
 
-**Data:** `bank-account-tracking` — financial accounts registry, per-bank filtering, targeted analysis.
+**Data:** `bank-account-tracking` — financial accounts registry, per-bank filtering, targeted analysis. ✓ archived
 
-Start with: `/opsx:apply dashboard-chart-shell` or `bank-account-tracking`.
+Start with: `/opsx:apply dashboard-chart-shell` or `transaction-notes`.

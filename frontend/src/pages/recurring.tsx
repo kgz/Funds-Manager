@@ -18,6 +18,8 @@ import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { StatCard } from '@/components/layout/StatCard';
 import { inputDarkClass } from '@/components/layout/tokens';
+import { AccountFilter } from '@/components/account-filter';
+import { useAccountFilter } from '@/hooks/useAccountFilter';
 import { ChevronDown, ChevronRight, Repeat } from 'lucide-react';
 
 const formatMoney = (n: number) =>
@@ -320,6 +322,7 @@ const DEFAULT_PATTERN_SORT: { key: PatternSortKey; dir: SortDir } = {
 
 const RecurringExpensesPage = () => {
 	const dispatch = useAppDispatch();
+	const { accountIdNumber } = useAccountFilter();
 	const { categories, categoriesLoading, categoriesError } = useAppSelector(
 		(s) => s.CategoryReducer
 	);
@@ -360,14 +363,14 @@ const RecurringExpensesPage = () => {
 	useEffect(() => {
 		setLoading(true);
 		setError(null);
-		void fetchRecurringAnalytics(minOccurrences)
+		void fetchRecurringAnalytics(minOccurrences, accountIdNumber)
 			.then((rows) => setApiRows(rows))
 			.catch((err: unknown) => {
 				setApiRows([]);
 				setError(err instanceof Error ? err.message : 'Failed to load recurring patterns');
 			})
 			.finally(() => setLoading(false));
-	}, [minOccurrences]);
+	}, [minOccurrences, accountIdNumber]);
 
 	const categoriesFetchRef = useRef(false);
 	useEffect(() => {
@@ -937,6 +940,7 @@ const RecurringExpensesPage = () => {
 			/>
 
 			<div className="mb-4 flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+				<AccountFilter />
 				<label className="flex cursor-pointer items-center gap-2 text-sm text-white/80">
 					<input
 						id="recurring-group-by-category"

@@ -1,5 +1,6 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use database::models::category::Category;
+use database::models::financial_account::{FinancialAccount, FinancialAccountSummary};
 use database::models::transaction::Transaction;
 use database::models::transaction_category_learn::{
     apply_suggestions_for_transaction_ids, recategorize_uncategorized_transactions,
@@ -27,6 +28,7 @@ pub struct TransactionsQuery {
     pub uncategorized_only: bool,
     #[serde(default)]
     pub include_suggestions: bool,
+    pub account_id: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -37,6 +39,8 @@ pub struct TransactionListItem {
     pub suggested_category_id: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub suggested_category_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub financial_account: Option<FinancialAccountSummary>,
 }
 
 #[derive(Serialize)]
@@ -65,10 +69,31 @@ fn category_name_map() -> Result<HashMap<i32, String>, DbError> {
     Ok(names)
 }
 
+fn attach_account_summaries(
+    items: Vec<Transaction>,
+    accounts_by_statement: &HashMap<i32, FinancialAccountSummary>,
+) -> Vec<TransactionListItem> {
+    items
+        .into_iter()
+        .map(|transaction| {
+            let financial_account = accounts_by_statement
+                .get(&transaction.statement_id)
+                .cloned();
+            TransactionListItem {
+                transaction,
+                suggested_category_id: None,
+                suggested_category_name: None,
+                financial_account,
+            }
+        })
+        .collect()
+}
+
 fn attach_suggestions(
     items: Vec<Transaction>,
     predictor: &CategoryPredictor,
     names: &HashMap<i32, String>,
+    accounts_by_statement: &HashMap<i32, FinancialAccountSummary>,
 ) -> Vec<TransactionListItem> {
     items
         .into_iter()
@@ -85,10 +110,14 @@ fn attach_suggestions(
                 }
                 _ => (None, None),
             };
+            let financial_account = accounts_by_statement
+                .get(&transaction.statement_id)
+                .cloned();
             TransactionListItem {
                 transaction,
                 suggested_category_id,
                 suggested_category_name,
+                financial_account,
             }
         })
         .collect()
@@ -102,6 +131,7 @@ pub async fn get_transactions(
     let search = query.search.clone();
     let uncategorized_only = query.uncategorized_only;
     let include_suggestions = query.include_suggestions;
+    let account_id = query.account_id;
 
     let (items, total) = web::block(move || {
         Transaction::list_paginated(
@@ -109,6 +139,7 @@ pub async fn get_transactions(
             per_page,
             search.as_deref(),
             uncategorized_only,
+            account_id,
         )
     })
     .await
@@ -118,6 +149,20 @@ pub async fn get_transactions(
     })?
     .map_err(|e| {
         eprintln!("Database error fetching transactions: {}", e);
+        actix_web::error::ErrorInternalServerError("Failed to retrieve transactions")
+    })?;
+
+    let statement_ids: Vec<i32> = items.iter().map(|row| row.statement_id).collect();
+    let accounts_by_statement = web::block(move || {
+        FinancialAccount::summaries_by_statement_ids(&statement_ids)
+    })
+    .await
+    .map_err(|e| {
+        eprintln!("Blocking error loading account summaries: {:?}", e);
+        actix_web::error::ErrorInternalServerError("Failed to retrieve transactions")
+    })?
+    .map_err(|e: DbError| {
+        eprintln!("Database error loading account summaries: {}", e);
         actix_web::error::ErrorInternalServerError("Failed to retrieve transactions")
     })?;
 
@@ -136,16 +181,9 @@ pub async fn get_transactions(
             eprintln!("Database error loading predictor: {}", e);
             actix_web::error::ErrorInternalServerError("Failed to retrieve transactions")
         })?;
-        attach_suggestions(items, &predictor, &names)
+        attach_suggestions(items, &predictor, &names, &accounts_by_statement)
     } else {
-        items
-            .into_iter()
-            .map(|transaction| TransactionListItem {
-                transaction,
-                suggested_category_id: None,
-                suggested_category_name: None,
-            })
-            .collect()
+        attach_account_summaries(items, &accounts_by_statement)
     };
 
     Ok(HttpResponse::Ok().json(PaginatedTransactions {

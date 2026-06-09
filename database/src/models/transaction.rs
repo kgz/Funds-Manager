@@ -18,10 +18,16 @@ pub const ACTIVE_STATEMENT_WHERE: &str =
 
 pub fn filter_active_statement(
     query: transaction_data::BoxedQuery<'_, Pg>,
+    financial_account_id: Option<i64>,
 ) -> transaction_data::BoxedQuery<'_, Pg> {
-    query.filter(
-        diesel::dsl::sql::<diesel::sql_types::Bool>(ACTIVE_STATEMENT_WHERE),
-    )
+    let statement_scope = match financial_account_id {
+        Some(account_id) => format!(
+            "EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL AND s.financial_account_id = {account_id})"
+        ),
+        None => ACTIVE_STATEMENT_WHERE.to_string(),
+    };
+
+    query.filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&statement_scope))
 }
 
 fn like_pattern(term: &str) -> String {
@@ -35,11 +41,13 @@ fn like_pattern(term: &str) -> String {
 fn filtered_transactions_query(
     search: Option<&str>,
     uncategorized_only: bool,
+    financial_account_id: Option<i64>,
 ) -> transaction_data::BoxedQuery<'_, Pg> {
     let mut query = filter_active_statement(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
             .into_boxed(),
+        financial_account_id,
     );
 
     if uncategorized_only {
@@ -125,6 +133,7 @@ impl Transaction {
             transaction_data::table
                 .filter(transaction_data::deleted_at.is_null())
                 .into_boxed(),
+            None,
         )
         .load(conn)
     }
@@ -137,6 +146,7 @@ impl Transaction {
                 .filter(transaction_data::id.eq(id))
                 .filter(transaction_data::deleted_at.is_null())
                 .into_boxed(),
+            None,
         )
         .first::<Self>(conn)
         .optional()
@@ -289,17 +299,26 @@ impl Transaction {
         per_page: i64,
         search: Option<&str>,
         uncategorized_only: bool,
+        financial_account_id: Option<i64>,
     ) -> Result<(Vec<Self>, i64), diesel::result::Error> {
         let conn = &mut get_dbo();
         let page = page.max(1);
         let per_page = per_page.clamp(1, 200);
         let offset = (page - 1) * per_page;
 
-        let total: i64 = filtered_transactions_query(search, uncategorized_only)
-            .select(count_star())
-            .get_result(conn)?;
+        let total: i64 = filtered_transactions_query(
+            search,
+            uncategorized_only,
+            financial_account_id,
+        )
+        .select(count_star())
+        .get_result(conn)?;
 
-        let items = filtered_transactions_query(search, uncategorized_only)
+        let items = filtered_transactions_query(
+            search,
+            uncategorized_only,
+            financial_account_id,
+        )
             .order((
                 transaction_data::transaction_date.desc(),
                 transaction_data::id.desc(),
@@ -320,6 +339,7 @@ impl Transaction {
                 .filter(transaction_data::deleted_at.is_null())
                 .filter(transaction_data::category_id.is_null())
                 .into_boxed(),
+            None,
         )
         .select(count_star())
         .get_result(conn)
@@ -327,9 +347,10 @@ impl Transaction {
 
     /// Per-category usage from imported statement lines (active statements only).
     pub fn usage_by_category(
+        financial_account_id: Option<i64>,
     ) -> Result<std::collections::HashMap<i64, CategoryUsageStats>, diesel::result::Error> {
         use diesel::sql_query;
-        use diesel::sql_types::BigInt;
+        use diesel::sql_types::{BigInt, Nullable};
         use diesel::QueryableByName;
 
         #[derive(QueryableByName)]
@@ -358,9 +379,11 @@ impl Transaction {
                    SELECT 1 FROM statement s
                    WHERE s.id = transaction_data.statement_id
                      AND s.deleted_at IS NULL
+                     AND ($1::bigint IS NULL OR s.financial_account_id = $1)
                )
              GROUP BY category_id",
         )
+        .bind::<Nullable<BigInt>, _>(financial_account_id)
         .load(conn)?;
 
         let mut usage = std::collections::HashMap::new();
@@ -378,9 +401,11 @@ impl Transaction {
     }
 
     /// Uncategorized statement-line totals (active statements only).
-    pub fn uncategorized_usage() -> Result<CategoryUsageStats, diesel::result::Error> {
+    pub fn uncategorized_usage(
+        financial_account_id: Option<i64>,
+    ) -> Result<CategoryUsageStats, diesel::result::Error> {
         use diesel::sql_query;
-        use diesel::sql_types::BigInt;
+        use diesel::sql_types::{BigInt, Nullable};
         use diesel::QueryableByName;
 
         #[derive(QueryableByName)]
@@ -406,8 +431,10 @@ impl Transaction {
                    SELECT 1 FROM statement s
                    WHERE s.id = transaction_data.statement_id
                      AND s.deleted_at IS NULL
+                     AND ($1::bigint IS NULL OR s.financial_account_id = $1)
                )",
         )
+        .bind::<Nullable<BigInt>, _>(financial_account_id)
         .get_result(conn)?;
 
         Ok(CategoryUsageStats {
@@ -424,6 +451,7 @@ impl Transaction {
             transaction_data::table
                 .filter(transaction_data::deleted_at.is_null())
                 .into_boxed(),
+            None,
         )
         .select(count_star())
         .get_result(conn)
