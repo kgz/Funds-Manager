@@ -22,10 +22,20 @@ Requires PostgreSQL running and `app/.env` configured — see [local-development
 ```bash
 cd frontend && pnpm install && pnpm build    # outputs to app/static/
 cd ../app && cargo build --release
-./target/release/server_v2
+DATABASE_URL=postgres://... ./target/release/server_v2
 ```
 
 Release mode serves the built UI from `app/static/` on plain HTTP (default port 2020).
+
+App version is `app/Cargo.toml` → `GET /api/version`. See [releasing.md](releasing.md).
+
+## Development reload
+
+```bash
+cd app && cargo watch -c -w . -x run
+```
+
+Requires `cargo install cargo-watch`.
 
 ## Tests
 
