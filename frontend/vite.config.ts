@@ -24,16 +24,24 @@ export default defineConfig(({ mode }) => {
   const portEnv = env.VITE_PORT
   const port = portEnv ? Number(portEnv) : 3000
 
+  const devHttp = env.VITE_DEV_HTTP === 'true'
   const httpsKeyPath = env.VITE_HTTPS_KEY_PATH
   const httpsCertPath = env.VITE_HTTPS_CERT_PATH
   const apiProxyTarget = env.VITE_API_PROXY_TARGET ?? 'https://127.0.0.1:2020'
+  const devHttps =
+    !devHttp && httpsKeyPath && httpsCertPath
+      ? {
+          key: fs.readFileSync(httpsKeyPath),
+          cert: fs.readFileSync(httpsCertPath),
+        }
+      : undefined
 
   return {
     base,
     plugins: [
       react(),
       tailwindcss(),
-      ...(mode !== 'production' ? [mkcert()] : []),
+      ...(mode !== 'production' && !devHttp ? [mkcert()] : []),
     ],
     build:
       mode === 'production'
@@ -58,12 +66,7 @@ export default defineConfig(({ mode }) => {
         : undefined,
     server: {
       port,
-      https: httpsKeyPath && httpsCertPath
-        ? {
-            key: fs.readFileSync(httpsKeyPath),
-            cert: fs.readFileSync(httpsCertPath),
-          }
-        : undefined,
+      https: devHttps,
       cors: true,
       proxy: {
         '/api': {
