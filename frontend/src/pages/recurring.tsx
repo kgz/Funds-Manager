@@ -19,6 +19,7 @@ import { PageShell } from '@/components/layout/PageShell';
 import { StatCard } from '@/components/layout/StatCard';
 import { inputDarkClass } from '@/components/layout/tokens';
 import { AccountFilter } from '@/components/account-filter';
+import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { useAccountFilter } from '@/hooks/useAccountFilter';
 import { ChevronDown, ChevronRight, Repeat } from 'lucide-react';
 
@@ -939,18 +940,19 @@ const RecurringExpensesPage = () => {
 				}
 			/>
 
-			<div className="mb-4 flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
-				<AccountFilter />
-				<label className="flex cursor-pointer items-center gap-2 text-sm text-white/80">
-					<input
-						id="recurring-group-by-category"
-						type="checkbox"
-						checked={groupByCategory}
-						onChange={(e) => setGroupByCategory(e.target.checked)}
-						className="rounded border-white/20 bg-white/5 text-secondary-default focus:ring-secondary-default"
+			<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+				<div className="flex flex-wrap items-center gap-3">
+					<AccountFilter />
+					<SegmentedControl
+						ariaLabel="Repeat payments view"
+						value={groupByCategory ? 'category' : 'pattern'}
+						onChange={(next) => setGroupByCategory(next === 'category')}
+						options={[
+							{ value: 'pattern', label: 'By pattern' },
+							{ value: 'category', label: 'By category' },
+						]}
 					/>
-					<span>Group by category</span>
-				</label>
+				</div>
 				<label className="flex items-center gap-2 text-sm text-white/80">
 					<span>Minimum occurrences</span>
 					<select
