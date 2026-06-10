@@ -14,6 +14,7 @@ use crate::routes::{
     categories::categories_service,
     category_mappings::category_mappings_routes,
     transactions_api::transactions_service,
+    version_api::get_version,
 };
 
 use super::api_users::api_users;
@@ -22,6 +23,7 @@ use super::api_users::api_users;
 
 pub fn api() -> Scope {
     web::scope("/api")
+        .route("/version", web::get().to(get_version))
         .route("openapi.json", web::get().to(openapi))
 
         //migrations

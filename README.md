@@ -38,7 +38,7 @@ Pull-and-run via `ghcr.io/kgz/funds-manager` — tracked in [#66](https://github
 
 ## Build from source
 
-See [docs/building.md](docs/building.md).
+See [docs/building.md](docs/building.md). Versioning and releases: [docs/releasing.md](docs/releasing.md).
 
 ## Contributing
 
