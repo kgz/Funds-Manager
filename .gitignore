@@ -2,6 +2,10 @@
 !**/.env.skeleton
 !**/.env.example
 
+# Local TLS (mkcert)
+certs/
+*.pem
+
 # Rust
 /target/
 **/target/
@@ -18,3 +22,7 @@ dataset_info.json
 
 # Uploaded PDFs at repo root
 /*.pdf
+
+# Local DB dumps
+backups/
+*.dump
