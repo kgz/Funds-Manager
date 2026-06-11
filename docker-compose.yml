@@ -1,0 +1,37 @@
+# Pull-and-run: postgres + Funds Manager app
+# Usage:
+#   docker compose up -d
+#   open http://localhost:2020
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: funds
+      POSTGRES_PASSWORD: funds
+      POSTGRES_DB: funds
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U funds -d funds"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ghcr.io/kgz/funds-manager:latest
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${SERVER_PORT:-2020}:2020"
+    environment:
+      DATABASE_URL: postgres://funds:funds@postgres:5432/funds?sslmode=disable
+      SERVER_PORT: "2020"
+      PDFIUM_LIBRARY_PATH: /app/lib/libpdfium.so
+      RUST_LOG: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
