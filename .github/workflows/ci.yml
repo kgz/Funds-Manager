@@ -11,18 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  rust:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: cargo test
-        run: cargo test --workspace
-
   frontend:
     runs-on: ubuntu-latest
     steps:
@@ -45,3 +33,27 @@ jobs:
       - name: pnpm run build:embed
         working-directory: frontend
         run: pnpm run build:embed
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-static
+          path: app/static/
+          if-no-files-found: error
+
+  rust:
+    needs: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-static
+          path: app/static
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo test
+        run: cargo test --workspace
