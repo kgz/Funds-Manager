@@ -27,7 +27,8 @@ git tag v0.2.0
 git push origin main --tags
 ```
 
-4. GitHub Release + Docker image publish — see [#69](https://github.com/kgz/Funds-Manager/issues/69) and [#66](https://github.com/kgz/Funds-Manager/issues/66)
+4. Push tag triggers `.github/workflows/docker-publish.yml` → `ghcr.io/kgz/funds-manager:X.Y.Z` and `:latest`
+5. GitHub Release — see [#69](https://github.com/kgz/Funds-Manager/issues/69)
 
 Tag `vX.Y.Z` must match `app/Cargo.toml` version (CI check planned in [#67](https://github.com/kgz/Funds-Manager/issues/67)).
 
