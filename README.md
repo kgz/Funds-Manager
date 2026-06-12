@@ -32,9 +32,15 @@ Open **http://localhost:3000**
 
 Full guide: [docs/local-development.md](docs/local-development.md)
 
-## Docker (coming soon)
+## Docker
 
-Pull-and-run via `ghcr.io/kgz/funds-manager` — tracked in [#66](https://github.com/kgz/Funds-Manager/issues/66).
+```bash
+docker compose up -d
+```
+
+Open **http://localhost:2020**. See [docs/docker.md](docs/docker.md).
+
+Published image: `ghcr.io/kgz/funds-manager` (on release tags).
 
 ## Build from source
 
