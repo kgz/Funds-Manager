@@ -28,11 +28,11 @@ Forks: push to your fork and open a PR from there — same branch naming and `Cl
 ## Local checks
 
 ```bash
-# Rust (workspace)
-cargo test --workspace
-
-# Frontend — production embed build (same as CI / release)
+# Frontend — production embed build (CI)
 cd frontend && pnpm install && pnpm run build:embed
+
+# Rust — run locally before PR (not in CI)
+cargo test --workspace
 
 # Stricter typecheck (optional until TS debt is cleared)
 pnpm run build
