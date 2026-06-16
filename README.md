@@ -52,4 +52,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Spec-driven changes use [OpenSpec](docs/
 
 ## License
 
-License to be added ([#68](https://github.com/kgz/Funds-Manager/issues/68)). Third-party notices in `app/LICENSE` (PDFium, etc.).
+[MIT](LICENSE). Third-party notices (PDFium, etc.) in [`app/LICENSE`](app/LICENSE).
