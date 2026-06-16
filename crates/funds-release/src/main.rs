@@ -210,14 +210,8 @@ fn bundle_docker(
 	let ctx = docker_context(root)?;
 	let ctx_cleanup = ContextCleanup(ctx.clone());
 
-	let export_parent = output_dir.join(format!(".docker-export-{version}"));
-	if export_parent.exists() {
-		fs::remove_dir_all(&export_parent)
-			.map_err(|error| format!("clean export dir: {error}"))?;
-	}
-	fs::create_dir_all(&export_parent).map_err(|error| format!("create export dir: {error}"))?;
-
-	let export_dest = export_parent.display().to_string();
+	let pkg_name = format!("funds-manager-{version}");
+	let image_tag = format!("funds-release-bundle:{version}-{platform_label}");
 	let version_arg = format!("VERSION={version}");
 
 	let mut docker_build = Command::new("docker");
@@ -232,8 +226,8 @@ fn bundle_docker(
 			platform,
 			"--build-arg",
 			&version_arg,
-			"--output",
-			&format!("type=local,dest={export_dest}"),
+			"-t",
+			&image_tag,
 			".",
 		])
 		.current_dir(&ctx)
@@ -245,18 +239,49 @@ fn bundle_docker(
 		docker_build,
 	)?;
 
-	let pkg_name = format!("funds-manager-{version}");
-	let pkg_dir = export_parent.join(&pkg_name);
+	let container_id = run_capture(
+		Command::new("docker")
+			.args(["create", &image_tag])
+			.stdout(Stdio::piped())
+			.stderr(Stdio::inherit()),
+	)?;
+
+	let staging = output_dir.join(format!(".docker-staging-{version}"));
+	if staging.exists() {
+		fs::remove_dir_all(&staging)
+			.map_err(|error| format!("clean staging dir: {error}"))?;
+	}
+	fs::create_dir_all(&staging).map_err(|error| format!("create staging dir: {error}"))?;
+
+	let pkg_dir = staging.join(&pkg_name);
+	let container_path = format!("{container_id}:/{pkg_name}");
+
+	let mut docker_cp = Command::new("docker");
+	docker_cp
+		.args(["cp", &container_path, staging.to_str().expect("utf-8 path")])
+		.stdin(Stdio::inherit())
+		.stdout(Stdio::inherit())
+		.stderr(Stdio::inherit());
+	run_step("docker cp bundle", docker_cp)?;
+
+	let mut docker_rm = Command::new("docker");
+	docker_rm
+		.args(["rm", &container_id])
+		.stdin(Stdio::inherit())
+		.stdout(Stdio::inherit())
+		.stderr(Stdio::inherit());
+	run_step("docker rm", docker_rm)?;
+
 	if !pkg_dir.is_dir() {
 		return Err(format!(
-			"docker export missing package dir: {}",
+			"docker cp missing package dir: {}",
 			pkg_dir.display()
 		));
 	}
 
 	let artifact = package_tarball(root, output_dir, version, platform_label, &pkg_dir)?;
-	fs::remove_dir_all(&export_parent)
-		.map_err(|error| format!("clean export dir: {error}"))?;
+	fs::remove_dir_all(&staging)
+		.map_err(|error| format!("clean staging dir: {error}"))?;
 	ctx_cleanup.done();
 
 	Ok(artifact)

@@ -19,15 +19,16 @@ COPY database/migrations ./database/migrations
 COPY database/src ./database/src
 COPY crates/statement-parser ./crates/statement-parser
 COPY crates/statement-parser-cli ./crates/statement-parser-cli
+COPY crates/funds-release ./crates/funds-release
 COPY --from=frontend /build/app/static ./app/static
 RUN cargo build --release -p server_v2
 
 FROM debian:bookworm-slim AS bundle
 ARG VERSION=0.0.0
 ARG TARGETARCH
-RUN mkdir -p "/bundle/funds-manager-${VERSION}/lib"
-COPY --from=builder /build/target/release/server_v2 "/bundle/funds-manager-${VERSION}/server_v2"
-COPY --from=builder /build/app/lib/libpdfium.so "/bundle/funds-manager-${VERSION}/lib/libpdfium.so"
+RUN mkdir -p "/funds-manager-${VERSION}/lib"
+COPY --from=builder /build/target/release/server_v2 "/funds-manager-${VERSION}/server_v2"
+COPY --from=builder /build/app/lib/libpdfium.so "/funds-manager-${VERSION}/lib/libpdfium.so"
 RUN printf '%s\n' \
 	"Funds Manager ${VERSION} (linux-${TARGETARCH})" \
 	"" \
@@ -36,8 +37,7 @@ RUN printf '%s\n' \
 	"3. Open http://127.0.0.1:2020" \
 	"" \
 	"PDFium: lib/libpdfium.so (set PDFIUM_LIBRARY_PATH=./lib/libpdfium.so if needed)" \
-	> "/bundle/funds-manager-${VERSION}/README.txt"
-WORKDIR /bundle
+	> "/funds-manager-${VERSION}/README.txt"
 
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update \
