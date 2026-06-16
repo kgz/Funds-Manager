@@ -48,7 +48,7 @@ See [docs/building.md](docs/building.md). Versioning and releases: [docs/releasi
 
 ## Contributing
 
-Contributing guide coming in [#67](https://github.com/kgz/Funds-Manager/issues/67). Features are spec'd with [OpenSpec](openspec/changes/README.md) under `openspec/`.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Spec-driven changes use [OpenSpec](docs/openspec.md) under `openspec/`.
 
 ## License
 
