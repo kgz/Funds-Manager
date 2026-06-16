@@ -5,6 +5,7 @@
 # Local TLS (mkcert)
 certs/
 *.pem
+*.key
 
 # Rust
 /target/
