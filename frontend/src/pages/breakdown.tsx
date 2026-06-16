@@ -15,7 +15,7 @@ import {
 	periodDateRange,
 	type DashboardPeriod,
 } from '@/components/dashboard/period';
-import { contrastTextColor } from '@/lib/contrastTextColor';
+import { CategoryPill } from '@/components/CategoryPill';
 import { cn } from '@/lib/utils/cn';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -619,15 +619,7 @@ const BreakdownPage = () => {
 											<td className="px-4 py-3">
 												<div className="flex flex-wrap items-center gap-2">
 													{p.categoryId !== null && p.colour ? (
-														<span
-															className="inline-block px-2 py-0.5 rounded text-xs shrink-0"
-															style={{
-																backgroundColor: p.colour,
-																color: contrastTextColor(p.colour),
-															}}
-														>
-															{p.label}
-														</span>
+														<CategoryPill name={p.label} colour={p.colour} />
 													) : p.categoryId === null ? (
 														<span className="text-sm italic text-white/45">
 															{p.label}
