@@ -2,6 +2,7 @@
 members = [
     "app",
     "database",
+    "crates/funds-release",
     "crates/statement-parser",
     "crates/statement-parser-cli",
 ]
