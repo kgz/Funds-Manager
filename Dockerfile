@@ -41,7 +41,7 @@ RUN printf '%s\n' \
 
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends ca-certificates libstdc++6 \
+	&& apt-get install -y --no-install-recommends ca-certificates libpq5 libstdc++6 \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
