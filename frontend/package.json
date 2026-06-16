@@ -38,7 +38,7 @@
     "regexplained": "^1.0.0",
     "regulex": "^0.0.5",
     "tailwindcss": "^4.1.4",
-    "vite-plugin-mkcert": "^1.17.8",
+    "vite-plugin-mkcert": "^2.1.0",
     "whatwg-fetch": "^3.6.20"
   },
   "devDependencies": {
