@@ -5,7 +5,7 @@ import {
 	fetchRecurringAnalytics,
 	type RecurringCandidateRow,
 } from '@/store/thunks/analytics';
-import { contrastTextColor } from '@/lib/contrastTextColor';
+import { CategoryPill } from '@/components/CategoryPill';
 import {
 	Table,
 	type SortDirection,
@@ -21,6 +21,7 @@ import { inputDarkClass } from '@/components/layout/tokens';
 import { AccountFilter } from '@/components/account-filter';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { useAccountFilter } from '@/hooks/useAccountFilter';
+import { RepeatPaymentsHelp } from '@/components/recurring/RepeatPaymentsHelp';
 import { ChevronDown, ChevronRight, Repeat } from 'lucide-react';
 
 const formatMoney = (n: number) =>
@@ -485,48 +486,23 @@ const RecurringExpensesPage = () => {
 		});
 	};
 
-	const {
-		estimatedMonthlyTotal,
-		sumTypicalPerOccurrence,
-		medianTypicalMin,
-		medianTypicalMax,
-		observedChargeMin,
-		observedChargeMax,
-	} = useMemo(() => {
+	const { estimatedMonthlyTotal } = useMemo(() => {
 		let monthly = 0;
-		let sumTypical = 0;
 		for (const r of expenseRows) {
-			sumTypical += r.typicalAmountDollars;
 			monthly += r.estimatedMonthlyDollars;
 		}
-		const typicals = expenseRows.map((r) => r.typicalAmountDollars);
-		const mins = expenseRows.map((r) => r.minAmountDollars);
-		const maxs = expenseRows.map((r) => r.maxAmountDollars);
 		return {
 			estimatedMonthlyTotal: Math.round(monthly * 100) / 100,
-			sumTypicalPerOccurrence: Math.round(sumTypical * 100) / 100,
-			medianTypicalMin:
-				typicals.length > 0 ? Math.min(...typicals) : 0,
-			medianTypicalMax:
-				typicals.length > 0 ? Math.max(...typicals) : 0,
-			observedChargeMin: mins.length > 0 ? Math.min(...mins) : 0,
-			observedChargeMax: maxs.length > 0 ? Math.max(...maxs) : 0,
 		};
 	}, [expenseRows]);
 
-	const {
-		estimatedMonthlyIncomeTotal,
-		sumTypicalIncomePerOccurrence,
-	} = useMemo(() => {
+	const { estimatedMonthlyIncomeTotal } = useMemo(() => {
 		let monthly = 0;
-		let sumTypical = 0;
 		for (const r of incomeRows) {
-			sumTypical += r.typicalAmountDollars;
 			monthly += r.estimatedMonthlyDollars;
 		}
 		return {
 			estimatedMonthlyIncomeTotal: Math.round(monthly * 100) / 100,
-			sumTypicalIncomePerOccurrence: Math.round(sumTypical * 100) / 100,
 		};
 	}, [incomeRows]);
 
@@ -565,15 +541,7 @@ const RecurringExpensesPage = () => {
 						<div className="max-w-md">
 							<div className="flex flex-wrap gap-1 mb-1.5">
 								{row.modeCategoryId !== null && cat && !cat.deleted_at ? (
-									<span
-										className="inline-block px-2 py-0.5 rounded text-xs shrink-0"
-										style={{
-											backgroundColor: cat.colour ?? '#4b5563',
-											color: contrastTextColor(cat.colour ?? '#4b5563'),
-										}}
-									>
-										{cat.name}
-									</span>
+									<CategoryPill name={cat.name} colour={cat.colour} />
 								) : row.modeCategoryId !== null && showDeleted ? (
 									<span className="inline-block px-2 py-0.5 rounded text-xs text-white/80 bg-gray-600 shrink-0">
 										{cat?.name ?? `ID ${row.modeCategoryId}`} (deleted)
@@ -600,9 +568,6 @@ const RecurringExpensesPage = () => {
 							<p className="text-sm truncate" title={v}>
 								{v}
 							</p>
-							<p className="text-[10px] text-gray-500 truncate" title={row.key}>
-								{row.key}
-							</p>
 						</div>
 					);
 				},
@@ -615,7 +580,7 @@ const RecurringExpensesPage = () => {
 			},
 			{
 				key: 'medianGapDays',
-				label: 'Median gap (days)',
+				label: 'Typical spacing (days)',
 				sortable: true,
 				render: (v) => (
 					<span className="font-mono text-sm">{v}</span>
@@ -623,7 +588,7 @@ const RecurringExpensesPage = () => {
 			},
 			{
 				key: 'typicalAmountDollars',
-				label: 'Typical · est./mo',
+				label: 'Amount · per month',
 				sortable: true,
 				sortFunction: (a, b, rowA, rowB) => {
 					const byMo =
@@ -634,10 +599,7 @@ const RecurringExpensesPage = () => {
 					return a - b;
 				},
 				render: (v, row) => (
-					<div
-						className="flex flex-col gap-1 py-0.5 min-w-[6.75rem]"
-						title="Median amount · below: typical × 30 ÷ median gap (days)"
-					>
+					<div className="flex flex-col gap-1 py-0.5 min-w-[6.75rem]">
 						<span
 							className={`font-mono text-sm tabular-nums leading-none ${mainAmountClass(row.flow)}`}
 						>
@@ -672,7 +634,7 @@ const RecurringExpensesPage = () => {
 			},
 			{
 				key: 'occurrences',
-				label: 'Hits',
+				label: 'Times seen',
 				sortable: true,
 				render: (v) => <span className="text-center">{v}</span>,
 				cellClassName: 'text-center',
@@ -690,7 +652,7 @@ const RecurringExpensesPage = () => {
 			},
 			{
 				key: 'confidence',
-				label: 'Score',
+				label: 'Match score',
 				sortable: true,
 				render: (v) => (
 					<span
@@ -730,15 +692,7 @@ const RecurringExpensesPage = () => {
 						<div className="max-w-md">
 							<div className="flex flex-wrap items-center gap-2">
 								{row.modeCategoryId !== null && cat && !cat.deleted_at ? (
-									<span
-										className="inline-block px-2 py-0.5 rounded text-xs shrink-0"
-										style={{
-											backgroundColor: cat.colour ?? '#4b5563',
-											color: contrastTextColor(cat.colour ?? '#4b5563'),
-										}}
-									>
-										{cat.name}
-									</span>
+									<CategoryPill name={cat.name} colour={cat.colour} />
 								) : row.modeCategoryId !== null && showDeleted ? (
 									<span className="inline-block px-2 py-0.5 rounded text-xs text-white/80 bg-gray-600 shrink-0">
 										{cat?.name ?? `ID ${row.modeCategoryId}`} (deleted)
@@ -769,7 +723,7 @@ const RecurringExpensesPage = () => {
 			},
 			{
 				key: 'medianGapDays',
-				label: 'Median gap (days)',
+				label: 'Typical spacing (days)',
 				sortable: false,
 				render: () => (
 					<span className="font-mono text-sm text-white/35">—</span>
@@ -777,7 +731,7 @@ const RecurringExpensesPage = () => {
 			},
 			{
 				key: 'typicalAmountDollars',
-				label: 'Typical · est./mo',
+				label: 'Est. per month',
 				sortable: true,
 				sortFunction: (_a, _b, rowA, rowB) => {
 					const t =
@@ -823,7 +777,7 @@ const RecurringExpensesPage = () => {
 			},
 			{
 				key: 'occurrences',
-				label: 'Hits',
+				label: 'Times seen',
 				sortable: true,
 				sortFunction: (a, b) => a - b,
 				render: (v) => <span className="text-center">{v}</span>,
@@ -842,7 +796,7 @@ const RecurringExpensesPage = () => {
 			},
 			{
 				key: 'confidence',
-				label: 'Score',
+				label: 'Match score',
 				sortable: true,
 				sortFunction: (a, b) => a - b,
 				render: (v) => (
@@ -887,58 +841,39 @@ const RecurringExpensesPage = () => {
 		<PageShell variant="table" className="p-4">
 			<PageHeader
 				title="Repeat payments"
-				subtitle="Heuristic only: repeat patterns from descriptions and median spacing. Group by category shows one row per category; click a row to expand patterns. Not bank-confirmed."
 				icon={<Repeat className="h-6 w-6 text-secondary-default" />}
+				meta={<RepeatPaymentsHelp />}
 				actions={
 					expenseRows.length > 0 || incomeRows.length > 0 ? (
 						<div className="flex flex-row flex-wrap items-stretch justify-end gap-3">
-							<StatCard
-								label="Est. monthly income (median gaps)"
-								value={formatMoney(estimatedMonthlyIncomeTotal)}
-								valueClassName="text-green-400"
-								hint={
-									<>
-										Sum of typical credits (once each):{' '}
-										<span className="font-mono text-white/70">
-											{formatMoney(sumTypicalIncomePerOccurrence)}
-										</span>
-									</>
-								}
-							/>
-							<StatCard
-								align="right"
-								label="Est. monthly (from median gaps)"
-								value={formatMoney(estimatedMonthlyTotal)}
-								valueClassName="text-red-300"
-								hint={
-									<>
-										<p>
-											Sum of typical charges (once each):{' '}
-											<span className="font-mono text-white/70">
-												{formatMoney(sumTypicalPerOccurrence)}
-											</span>
-										</p>
-										<p className="mt-1">
-											Typical (median) across patterns:{' '}
-											<span className="font-mono text-white/70">
-												{formatMoney(medianTypicalMin)} —{' '}
-												{formatMoney(medianTypicalMax)}
-											</span>
-										</p>
-										<p>
-											Observed charge (all hits):{' '}
-											<span className="font-mono text-white/70">
-												{formatMoney(observedChargeMin)} —{' '}
-												{formatMoney(observedChargeMax)}
-											</span>
-										</p>
-									</>
-								}
-							/>
+							{expenseRows.length > 0 ? (
+								<StatCard
+									label="Estimated monthly spending"
+									value={formatMoney(estimatedMonthlyTotal)}
+									valueClassName="text-red-300"
+									hint={`${expenseRows.length} spending pattern${expenseRows.length === 1 ? '' : 's'}`}
+								/>
+							) : null}
+							{incomeRows.length > 0 ? (
+								<StatCard
+									align="right"
+									label="Estimated monthly income"
+									value={formatMoney(estimatedMonthlyIncomeTotal)}
+									valueClassName="text-green-400"
+									hint={`${incomeRows.length} income pattern${incomeRows.length === 1 ? '' : 's'}`}
+								/>
+							) : null}
 						</div>
 					) : null
 				}
 			/>
+
+			{groupByCategory ? (
+				<p className="mb-3 text-sm text-white/50">
+					Grouped by category — click a row to see the individual payments behind
+					it.
+				</p>
+			) : null}
 
 			<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
 				<div className="flex flex-wrap items-center gap-3">
