@@ -1,0 +1,12 @@
+[package]
+name = "funds-release"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "funds-release"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.6.1", features = ["derive"] }

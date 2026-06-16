@@ -22,6 +22,23 @@ COPY crates/statement-parser-cli ./crates/statement-parser-cli
 COPY --from=frontend /build/app/static ./app/static
 RUN cargo build --release -p server_v2
 
+FROM debian:bookworm-slim AS bundle
+ARG VERSION=0.0.0
+ARG TARGETARCH
+RUN mkdir -p "/bundle/funds-manager-${VERSION}/lib"
+COPY --from=builder /build/target/release/server_v2 "/bundle/funds-manager-${VERSION}/server_v2"
+COPY --from=builder /build/app/lib/libpdfium.so "/bundle/funds-manager-${VERSION}/lib/libpdfium.so"
+RUN printf '%s\n' \
+	"Funds Manager ${VERSION} (linux-${TARGETARCH})" \
+	"" \
+	"1. Set DATABASE_URL" \
+	"2. Run ./server_v2" \
+	"3. Open http://127.0.0.1:2020" \
+	"" \
+	"PDFium: lib/libpdfium.so (set PDFIUM_LIBRARY_PATH=./lib/libpdfium.so if needed)" \
+	> "/bundle/funds-manager-${VERSION}/README.txt"
+WORKDIR /bundle
+
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends ca-certificates libstdc++6 \
