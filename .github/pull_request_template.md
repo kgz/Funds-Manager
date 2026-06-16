@@ -4,8 +4,8 @@
 
 ## Test plan
 
-- [ ] `cargo test --workspace`
-- [ ] Frontend build (`pnpm run build:embed` in `frontend/`)
+- [ ] Frontend build (`pnpm run build:embed` in `frontend/`) — CI
+- [ ] `cargo test --workspace` — local
 - [ ] Manual QA (routes affected):
 
 ## Issue
