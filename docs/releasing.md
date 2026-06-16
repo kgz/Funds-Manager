@@ -2,6 +2,13 @@
 
 Version source of truth: **`app/Cargo.toml`** (`version` field). Git tags use a `v` prefix: `v0.1.0`.
 
+Releases are **manual** from your machine via `cargo release` (no GitHub Actions release workflow).
+
+## Prerequisites
+
+- Rust, pnpm, `tar`
+- [GitHub CLI](https://cli.github.com/) logged in (`gh auth login`) for `cargo release publish`
+
 ## Semver
 
 | Bump | When |
@@ -10,13 +17,6 @@ Version source of truth: **`app/Cargo.toml`** (`version` field). Git tags use a 
 | **Minor** | New features, backward-compatible API changes |
 | **Major** | Breaking API or migration changes |
 
-## Pre-release checklist
-
-- [ ] `main` has the changes you want shipped
-- [ ] `./bin/bump-version.sh X.Y.Z` — tag must match Cargo version (CI enforces this)
-- [ ] Commit the version bump
-- [ ] Optional: smoke test locally (`./bin/dev-setup.sh` or `./bin/docker-build.sh && docker compose up -d`)
-
 ## Cut a release
 
 ```bash
@@ -24,14 +24,22 @@ Version source of truth: **`app/Cargo.toml`** (`version` field). Git tags use a 
 git commit -am "Bump version to 0.2.0"
 git tag v0.2.0
 git push origin main --tags
+
+cargo release publish
 ```
 
-Pushing the tag triggers:
+`cargo release publish` builds the frontend embed, compiles `server_v2` in release mode, packages `dist/funds-manager-X.Y.Z-<os>-<arch>.tar.gz`, and creates a GitHub Release (or uploads if the tag already exists).
 
-| Workflow | Output |
-|----------|--------|
-| `release.yml` | GitHub Release + auto-generated notes + Linux x86_64 tarball |
-| `docker-publish.yml` | `ghcr.io/kgz/funds-manager:0.2.0` and `:latest` |
+### Commands
+
+| Command | Purpose |
+|---------|---------|
+| `cargo release bundle` | Build + tarball only (writes path to stdout) |
+| `cargo release publish` | Bundle + `gh release create` / `upload` |
+| `cargo release bundle --skip-frontend` | Reuse existing `app/static/` |
+| `cargo release publish --draft` | Draft release |
+
+Docker image publish still runs on tag push via `docker-publish.yml` → `ghcr.io/kgz/funds-manager`.
 
 Make the GHCR package **public** after first publish (Settings → Package visibility) if the repo is public.
 

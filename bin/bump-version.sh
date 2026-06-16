@@ -46,4 +46,5 @@ Done. Next:
   git commit -am "Bump version to ${VERSION}"
   git tag v${VERSION}
   git push origin main --tags
+  cargo release publish
 EOF
