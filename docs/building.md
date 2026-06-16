@@ -20,10 +20,18 @@ Requires PostgreSQL running and `app/.env` configured — see [local-development
 ## Release build (single binary + embedded UI)
 
 ```bash
-cd frontend && pnpm install && pnpm build    # outputs to app/static/
-cd ../app && cargo build --release
-DATABASE_URL=postgres://... ./target/release/server_v2
+cd frontend && pnpm install && pnpm run build:embed   # outputs to app/static/
+cd .. && cargo build --release -p server_v2
 ```
+
+Or use the release helper:
+
+```bash
+cargo release bundle
+# tar in dist/ — extract and run:
+DATABASE_URL=postgres://... ./server_v2
+```
+
 
 Release mode serves the built UI from `app/static/` on plain HTTP (default port 2020).
 
