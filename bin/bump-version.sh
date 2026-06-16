@@ -47,4 +47,5 @@ Done. Next:
   git tag v${VERSION}
   git push origin main --tags
   cargo release publish
+  cargo release docker
 EOF

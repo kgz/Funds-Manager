@@ -32,7 +32,8 @@ git commit -am "Bump version to 0.2.0"
 git tag v0.2.0
 git push origin main --tags
 
-cargo release publish
+cargo release publish              # GitHub Release binary
+cargo release docker               # GHCR image (or: cargo release publish --docker)
 ```
 
 `cargo release publish` builds inside Debian Bookworm (same base as the runtime image), packages `dist/funds-manager-X.Y.Z-linux-<arch>.tar.gz`, and creates a GitHub Release (or uploads if the tag already exists).
@@ -43,6 +44,10 @@ cargo release publish
 |---------|---------|
 | `cargo release bundle` | Docker build + tarball (default `linux/amd64`) |
 | `cargo release publish` | Bundle + `gh release create` / `upload` |
+| `cargo release docker` | Build + push `ghcr.io/kgz/funds-manager` locally |
+| `cargo release publish --docker` | Binary release + GHCR push |
+| `cargo release docker --platform linux/arm64` | ARM64 image (e.g. Raspberry Pi) |
+| `cargo release docker --no-push` | Build image only |
 | `cargo release bundle --platform linux/arm64` | ARM64 tarball |
 | `cargo release publish --draft` | Draft release |
 | `cargo release bundle --local` | Host build (needs Rust + pnpm locally) |
@@ -58,7 +63,7 @@ Both targets use **glibc on Debian Bookworm**. They run on modern distros (Ubunt
 
 To ship both architectures, run `cargo release publish` twice with different `--platform` values (uploads a second asset to the same release).
 
-Docker image publish still runs on tag push via `docker-publish.yml` → `ghcr.io/kgz/funds-manager`.
+**Docker image** is published manually via `cargo release docker` (not GitHub Actions — saves CI minutes). Requires `gh auth refresh -s write:packages` once for GHCR push access.
 
 Make the GHCR package **public** after first publish (Settings → Package visibility) if the repo is public.
 

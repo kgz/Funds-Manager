@@ -36,11 +36,14 @@ git tag vX.Y.Z
 git push origin main --tags
 ```
 
-4. Publish the GitHub Release asset:
+4. Publish:
 
 ```bash
-cargo release publish
+cargo release publish        # GitHub Release tarball
+cargo release docker         # ghcr.io/kgz/funds-manager:X.Y.Z + :latest
 ```
+
+Or both at once: `cargo release publish --docker`
 
 Builds run in Docker (Debian Bookworm, same as production image). Default platform: `linux/amd64`.
 
@@ -77,7 +80,7 @@ cargo release bundle --local
 
 ## Notes
 
-- Docker publish on tag push is separate (`docker-publish.yml`).
+- GHCR push needs package scope: `gh auth refresh -s write:packages`
 - Cross-arch from Mac/ARM: ensure binfmt is installed (`docker run --privileged --rm tonistiigi/binfmt --install all`).
 - If `cargo release` alias is missing:
 
