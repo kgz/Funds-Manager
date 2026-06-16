@@ -13,17 +13,29 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-	/// Build frontend + release binary and package a tarball in dist/
+	/// Build and package a tarball in dist/
 	Bundle {
 		#[arg(long, default_value = "dist")]
 		output_dir: PathBuf,
-		#[arg(long)]
+		#[arg(
+			long,
+			default_value = "linux/amd64",
+			help = "Docker platform (e.g. linux/amd64, linux/arm64)"
+		)]
+		platform: String,
+		#[arg(long, help = "Build on host instead of Docker")]
+		local: bool,
+		#[arg(long, help = "Reuse existing app/static/ (local builds only)")]
 		skip_frontend: bool,
 	},
 	/// Bundle and create or update a GitHub Release (requires gh CLI)
 	Publish {
 		#[arg(long, default_value = "dist")]
 		output_dir: PathBuf,
+		#[arg(long, default_value = "linux/amd64")]
+		platform: String,
+		#[arg(long)]
+		local: bool,
 		#[arg(long)]
 		skip_frontend: bool,
 		#[arg(long, help = "Create a draft release")]
@@ -40,8 +52,10 @@ fn main() -> ExitCode {
 	match cli.command {
 		Commands::Bundle {
 			output_dir,
+			platform,
+			local,
 			skip_frontend,
-		} => match bundle(&root, &output_dir, skip_frontend) {
+		} => match bundle(&root, &output_dir, &platform, local, skip_frontend) {
 			Ok(artifact) => {
 				println!("{}", artifact.display());
 				ExitCode::SUCCESS
@@ -53,10 +67,20 @@ fn main() -> ExitCode {
 		},
 		Commands::Publish {
 			output_dir,
+			platform,
+			local,
 			skip_frontend,
 			draft,
 			notes_file,
-		} => match publish(&root, &output_dir, skip_frontend, draft, notes_file.as_deref()) {
+		} => match publish(
+			&root,
+			&output_dir,
+			&platform,
+			local,
+			skip_frontend,
+			draft,
+			notes_file.as_deref(),
+		) {
 			Ok(()) => ExitCode::SUCCESS,
 			Err(error) => {
 				eprintln!("{error}");
@@ -90,8 +114,14 @@ fn app_version(root: &Path) -> Result<String, String> {
 	Err("version not found in app/Cargo.toml".to_string())
 }
 
-fn platform_slug() -> String {
-	format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH)
+fn platform_slug(platform: &str) -> Result<String, String> {
+	match platform {
+		"linux/amd64" => Ok("linux-x86_64".to_string()),
+		"linux/arm64" => Ok("linux-aarch64".to_string()),
+		_ => Err(format!(
+			"unsupported platform {platform:?} (use linux/amd64 or linux/arm64)"
+		)),
+	}
 }
 
 fn run_step(label: &str, mut command: Command) -> Result<(), String> {
@@ -106,7 +136,141 @@ fn run_step(label: &str, mut command: Command) -> Result<(), String> {
 	}
 }
 
-fn build_frontend(root: &Path) -> Result<(), String> {
+fn run_capture(command: &mut Command) -> Result<String, String> {
+	let output = command
+		.output()
+		.map_err(|error| format!("command failed to start: {error}"))?;
+	if output.status.success() {
+		Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+	} else {
+		let stderr = String::from_utf8_lossy(&output.stderr);
+		Err(format!("command failed (exit {}): {stderr}", output.status))
+	}
+}
+
+fn package_tarball(
+	root: &Path,
+	output_dir: &Path,
+	version: &str,
+	platform_label: &str,
+	pkg_dir: &Path,
+) -> Result<PathBuf, String> {
+	let pkg_name = format!("funds-manager-{version}");
+	let artifact_name = format!("{pkg_name}-{platform_label}.tar.gz");
+	let artifact = output_dir.join(&artifact_name);
+
+	if artifact.exists() {
+		fs::remove_file(&artifact)
+			.map_err(|error| format!("remove old artifact: {error}"))?;
+	}
+	fs::create_dir_all(output_dir).map_err(|error| format!("create output dir: {error}"))?;
+
+	let mut tar_cmd = Command::new("tar");
+	tar_cmd
+		.args(["-czf", artifact.to_str().expect("utf-8 path"), "-C"])
+		.arg(pkg_dir.parent().expect("package parent"))
+		.arg(pkg_dir.file_name().expect("package name"))
+		.current_dir(root)
+		.stdin(Stdio::inherit())
+		.stdout(Stdio::inherit())
+		.stderr(Stdio::inherit());
+	run_step(&format!("tar {artifact_name}"), tar_cmd)?;
+
+	Ok(artifact)
+}
+
+fn docker_context(root: &Path) -> Result<PathBuf, String> {
+	let script = root.join("bin/docker-context.sh");
+	if !script.is_file() {
+		return Err(format!("missing {}", script.display()));
+	}
+
+	let ctx = run_capture(
+		Command::new("bash")
+			.arg(&script)
+			.current_dir(root)
+			.stdout(Stdio::piped())
+			.stderr(Stdio::inherit()),
+	)?;
+
+	if ctx.is_empty() {
+		return Err("docker-context.sh returned empty path".to_string());
+	}
+
+	Ok(PathBuf::from(ctx))
+}
+
+fn bundle_docker(
+	root: &Path,
+	output_dir: &Path,
+	platform: &str,
+	version: &str,
+	platform_label: &str,
+) -> Result<PathBuf, String> {
+	let ctx = docker_context(root)?;
+	let ctx_cleanup = ContextCleanup(ctx.clone());
+
+	let export_parent = output_dir.join(format!(".docker-export-{version}"));
+	if export_parent.exists() {
+		fs::remove_dir_all(&export_parent)
+			.map_err(|error| format!("clean export dir: {error}"))?;
+	}
+	fs::create_dir_all(&export_parent).map_err(|error| format!("create export dir: {error}"))?;
+
+	let export_dest = export_parent.display().to_string();
+	let version_arg = format!("VERSION={version}");
+
+	let mut docker_build = Command::new("docker");
+	docker_build
+		.args([
+			"build",
+			"-f",
+			"Dockerfile",
+			"--target",
+			"bundle",
+			"--platform",
+			platform,
+			"--build-arg",
+			&version_arg,
+			"--output",
+			&format!("type=local,dest={export_dest}"),
+			".",
+		])
+		.current_dir(&ctx)
+		.stdin(Stdio::inherit())
+		.stdout(Stdio::inherit())
+		.stderr(Stdio::inherit());
+	run_step(
+		&format!("docker build --platform {platform} --target bundle"),
+		docker_build,
+	)?;
+
+	let pkg_name = format!("funds-manager-{version}");
+	let pkg_dir = export_parent.join(&pkg_name);
+	if !pkg_dir.is_dir() {
+		return Err(format!(
+			"docker export missing package dir: {}",
+			pkg_dir.display()
+		));
+	}
+
+	let artifact = package_tarball(root, output_dir, version, platform_label, &pkg_dir)?;
+	fs::remove_dir_all(&export_parent)
+		.map_err(|error| format!("clean export dir: {error}"))?;
+	ctx_cleanup.done();
+
+	Ok(artifact)
+}
+
+struct ContextCleanup(PathBuf);
+
+impl ContextCleanup {
+	fn done(self) {
+		let _ = fs::remove_dir_all(self.0);
+	}
+}
+
+fn build_frontend_local(root: &Path) -> Result<(), String> {
 	let frontend = root.join("frontend");
 	let mut pnpm_install = Command::new("pnpm");
 	pnpm_install
@@ -127,7 +291,7 @@ fn build_frontend(root: &Path) -> Result<(), String> {
 	run_step("pnpm run build:embed", pnpm_build)
 }
 
-fn build_server(root: &Path) -> Result<(), String> {
+fn build_server_local(root: &Path) -> Result<(), String> {
 	let mut cargo_build = Command::new("cargo");
 	cargo_build
 		.args(["build", "--release", "-p", "server_v2"])
@@ -138,25 +302,23 @@ fn build_server(root: &Path) -> Result<(), String> {
 	run_step("cargo build --release -p server_v2", cargo_build)
 }
 
-fn bundle(
+fn bundle_local(
 	root: &Path,
 	output_dir: &Path,
+	version: &str,
+	platform_label: &str,
 	skip_frontend: bool,
 ) -> Result<PathBuf, String> {
-	let version = app_version(root)?;
-	let platform = platform_slug();
 	let pkg_name = format!("funds-manager-{version}");
-	let artifact_name = format!("{pkg_name}-{platform}.tar.gz");
 	let pkg_dir = output_dir.join(&pkg_name);
-	let artifact = output_dir.join(&artifact_name);
 
 	if !skip_frontend {
-		build_frontend(root)?;
+		build_frontend_local(root)?;
 	} else {
 		println!("→ skipping frontend build");
 	}
 
-	build_server(root)?;
+	build_server_local(root)?;
 
 	let binary = root.join("target/release/server_v2");
 	if !binary.is_file() {
@@ -181,7 +343,7 @@ fn bundle(
 		.map_err(|error| format!("copy pdfium: {error}"))?;
 
 	let readme = format!(
-		"Funds Manager {version} ({platform})\n\n\
+		"Funds Manager {version} ({platform_label})\n\n\
 1. Set DATABASE_URL\n\
 2. Run ./server_v2\n\
 3. Open http://127.0.0.1:2020\n\n\
@@ -190,24 +352,29 @@ PDFium: lib/libpdfium.so (set PDFIUM_LIBRARY_PATH=./lib/libpdfium.so if needed)\
 	fs::write(pkg_dir.join("README.txt"), readme)
 		.map_err(|error| format!("write README.txt: {error}"))?;
 
-	if artifact.exists() {
-		fs::remove_file(&artifact)
-			.map_err(|error| format!("remove old artifact: {error}"))?;
+	package_tarball(root, output_dir, version, platform_label, &pkg_dir)
+}
+
+fn bundle(
+	root: &Path,
+	output_dir: &Path,
+	platform: &str,
+	local: bool,
+	skip_frontend: bool,
+) -> Result<PathBuf, String> {
+	let version = app_version(root)?;
+	let platform_label = platform_slug(platform)?;
+
+	if local {
+		println!("→ local build");
+		return bundle_local(root, output_dir, &version, &platform_label, skip_frontend);
 	}
-	fs::create_dir_all(output_dir).map_err(|error| format!("create output dir: {error}"))?;
 
-	let mut tar_cmd = Command::new("tar");
-	tar_cmd
-		.args(["-czf", artifact.to_str().expect("utf-8 path"), "-C"])
-		.arg(output_dir)
-		.arg(&pkg_name)
-		.current_dir(root)
-		.stdin(Stdio::inherit())
-		.stdout(Stdio::inherit())
-		.stderr(Stdio::inherit());
-	run_step(&format!("tar {}", artifact_name), tar_cmd)?;
+	if skip_frontend {
+		println!("→ note: --skip-frontend ignored for Docker builds");
+	}
 
-	Ok(artifact)
+	bundle_docker(root, output_dir, platform, &version, &platform_label)
 }
 
 fn gh_available() -> Result<(), String> {
@@ -226,6 +393,8 @@ fn gh_available() -> Result<(), String> {
 fn publish(
 	root: &Path,
 	output_dir: &Path,
+	platform: &str,
+	local: bool,
 	skip_frontend: bool,
 	draft: bool,
 	notes_file: Option<&Path>,
@@ -233,7 +402,7 @@ fn publish(
 	gh_available()?;
 	let version = app_version(root)?;
 	let tag = format!("v{version}");
-	let artifact = bundle(root, output_dir, skip_frontend)?;
+	let artifact = bundle(root, output_dir, platform, local, skip_frontend)?;
 
 	let release_exists = Command::new("gh")
 		.args(["release", "view", &tag])
