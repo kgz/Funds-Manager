@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest an improvement or new capability
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or goal
+      description: What user problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: High-level approach; link OpenSpec change if you have one
+    validations:
+      required: false
+  - type: checkboxes
+    id: openspec
+    attributes:
+      label: OpenSpec
+      options:
+        - label: I am willing to add an `openspec/changes/<name>/` proposal before implementation
+          required: false

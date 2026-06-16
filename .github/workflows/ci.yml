@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: pnpm install
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm run build:embed
+        working-directory: frontend
+        run: pnpm run build:embed
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-static
+          path: app/static/
+          if-no-files-found: error
+
+  rust:
+    needs: frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-static
+          path: app/static
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo test
+        run: cargo test --workspace
