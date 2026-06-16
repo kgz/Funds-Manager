@@ -59,12 +59,8 @@ import {
 	visibleMainCategories,
 	visibleSubcategories,
 } from '@/lib/utils/categoryFilter';
-
-const getRandomHexColor = (): string => {
-    // Ensure it generates a full 6-digit hex code
-    const randomColor = Math.floor(Math.random()*16777215).toString(16);
-    return `#${randomColor.padStart(6, '0')}`;
-};
+import { CategoryPill } from '@/components/CategoryPill';
+import { randomCategoryColour } from '@/lib/categoryColour';
 
 // --- Component ---
 
@@ -81,7 +77,7 @@ export const CategoriesPage = () => {
     const [parentCategory, setParentCategory] = useState<Category | null>(null);
     const [inputValue, setInputValue] = useState('');
     const [inputDescription, setInputDescription] = useState('');
-    const [inputColour, setInputColour] = useState<string>('#ffffff');
+    const [inputColour, setInputColour] = useState<string>(randomCategoryColour());
 
     const [searchQuery, setSearchQuery] = useState('');
     const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -127,9 +123,9 @@ export const CategoriesPage = () => {
                 : ''
         );
         if ((mode === 'editMain' || mode === 'editSub') && item && 'colour' in item) {
-            setInputColour(item.colour || getRandomHexColor()); // Use existing or generate if null/undefined
+            setInputColour(item.colour || randomCategoryColour()); // Use existing or generate if null/undefined
         } else if (mode === 'addMain' || mode === 'addSub') {
-            setInputColour(getRandomHexColor()); // Set a random default for add mode
+            setInputColour(randomCategoryColour()); // Set a random default for add mode
         } else {
             setInputColour('#ffffff'); // Fallback default (shouldn't be reached often)
         }
@@ -772,14 +768,24 @@ export const CategoriesPage = () => {
                         <label htmlFor="categoryColourInput" className="mb-1 block text-sm font-medium text-white/80">
                             Category Colour
                         </label>
-                        <input
-                            type="color"
-                            id="categoryColourInput"
-                            value={inputColour}
-                            onChange={(e) => setInputColour(e.target.value)}
-                            className={cn(inputDarkClass, 'h-10 w-full cursor-pointer px-1 py-1')}
-                            disabled={isSubmitting}
-                        />
+                        <div className="flex flex-wrap items-center gap-3">
+                            <input
+                                type="color"
+                                id="categoryColourInput"
+                                value={inputColour}
+                                onChange={(e) => setInputColour(e.target.value)}
+                                className={cn(inputDarkClass, 'h-10 w-24 cursor-pointer px-1 py-1')}
+                                disabled={isSubmitting}
+                            />
+                            <CategoryPill
+                                name={inputValue.trim() || 'Preview'}
+                                colour={inputColour}
+                            />
+                        </div>
+                        <p className="mt-1.5 text-xs text-white/45">
+                            Defaults are dark enough for white labels. Custom colours may need
+                            higher contrast.
+                        </p>
                     </div>
                     <div className="flex justify-end gap-3">
                         <button type="button" onClick={closeModal} disabled={isSubmitting} className={buttonOutlineClass}>

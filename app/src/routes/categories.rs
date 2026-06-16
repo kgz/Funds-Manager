@@ -122,8 +122,8 @@ fn hsl_to_rgb(h: f64, s: f64, l: f64) -> (u8, u8, u8) {
 fn random_category_hex() -> String {
     let mut rng = rand::rng();
     let h = rng.random_range(0.0_f64..360.0);
-    let s = rng.random_range(0.5..0.82);
-    let l = rng.random_range(0.44..0.58);
+    let s = rng.random_range(0.55..0.75);
+    let l = rng.random_range(0.32..0.42);
     let (r, g, b) = hsl_to_rgb(h, s, l);
     format!("#{r:02x}{g:02x}{b:02x}")
 }

@@ -44,22 +44,76 @@ function parseRgbFunction(input: string): { r: number; g: number; b: number } | 
 	return { r, g, b };
 }
 
+function parseBareHex(input: string): { r: number; g: number; b: number } | null {
+	const h = input.trim();
+	if (!/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(h)) {
+		return null;
+	}
+	return parseHexRgb(`#${h}`);
+}
+
 function parseCssRgb(input: string): { r: number; g: number; b: number } | null {
 	const t = input.trim();
 	if (t.startsWith('#')) {
 		return parseHexRgb(t);
 	}
+	const bare = parseBareHex(t);
+	if (bare !== null) {
+		return bare;
+	}
 	return parseRgbFunction(t);
 }
 
-/** Readable foreground (#111827 or #f9fafb) for a CSS hex or rgb() background. */
+const TEXT_DARK = '#111827';
+const TEXT_LIGHT = '#f9fafb';
+const FALLBACK_BG = '#4b5563';
+
+const DARK_TEXT_LUM = relativeLuminance({ r: 17, g: 24, b: 39 });
+const LIGHT_TEXT_LUM = relativeLuminance({ r: 249, g: 250, b: 251 });
+
+function contrastRatio(l1: number, l2: number): number {
+	const lighter = Math.max(l1, l2);
+	const darker = Math.min(l1, l2);
+	return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** Normalise category colour to a CSS background value. */
+export function normalizeCategoryColour(
+	colour: string | undefined | null,
+): string {
+	if (colour === undefined || colour === null || colour.trim() === '') {
+		return FALLBACK_BG;
+	}
+	const t = colour.trim();
+	if (t.startsWith('#') || t.startsWith('rgb')) {
+		return t;
+	}
+	if (/^[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$/.test(t)) {
+		return `#${t}`;
+	}
+	return t;
+}
+
+/** Readable foreground for a CSS hex or rgb() background. */
 export function contrastTextColor(backgroundCss: string | undefined): string {
-	if (backgroundCss === undefined || backgroundCss.trim() === '') {
-		return '#f9fafb';
-	}
-	const rgb = parseCssRgb(backgroundCss);
+	const normalized = normalizeCategoryColour(backgroundCss);
+	const rgb = parseCssRgb(normalized);
 	if (rgb === null) {
-		return '#f9fafb';
+		return TEXT_LIGHT;
 	}
-	return relativeLuminance(rgb) > 0.52 ? '#111827' : '#f9fafb';
+	const bgLum = relativeLuminance(rgb);
+	const withDark = contrastRatio(bgLum, DARK_TEXT_LUM);
+	const withLight = contrastRatio(bgLum, LIGHT_TEXT_LUM);
+	return withDark >= withLight ? TEXT_DARK : TEXT_LIGHT;
+}
+
+export function categoryPillStyle(colour: string | undefined | null): {
+	backgroundColor: string;
+	color: string;
+} {
+	const backgroundColor = normalizeCategoryColour(colour);
+	return {
+		backgroundColor,
+		color: contrastTextColor(backgroundColor),
+	};
 }
