@@ -30,7 +30,7 @@ In **Settings → General → Danger zone** (or repo admin):
    - Enable **Dependabot alerts** and **Dependabot security updates**
 3. **Settings → Branches** → branch protection on `main`:
    - Require PR before merging
-   - Require status checks: `rust`, `frontend` (CI workflow)
+   - Require status checks: `frontend` (CI workflow)
 4. Tag **good first issue** on suitable backlog items (e.g. #63, #59)
 
 Dependabot version updates are configured in `.github/dependabot.yml` (#67).
