@@ -1,9 +1,13 @@
-# Pull-and-run: postgres + Funds Manager app
-# Usage:
-#   docker compose up -d
-#   open http://localhost:2020
+# Pull-and-run: Funds Manager app (+ optional bundled Postgres)
+#
+# Default: app uses your existing dev Postgres on host port 5434
+#   (start it: docker compose -f database/docker-compose.yml up -d postgres)
+#
+# Bundled Postgres instead:
+#   docker compose --profile bundled-db up -d
 services:
   postgres:
+    profiles: ["bundled-db"]
     image: postgres:16
     restart: unless-stopped
     environment:
@@ -22,16 +26,15 @@ services:
     image: ghcr.io/kgz/funds-manager:latest
     build: .
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${SERVER_PORT:-2020}:2020"
     environment:
-      DATABASE_URL: postgres://funds:funds@postgres:5432/funds?sslmode=disable
+      DATABASE_URL: ${DATABASE_URL:-postgres://funds:funds@host.docker.internal:5434/funds?sslmode=disable}
       SERVER_PORT: "2020"
       PDFIUM_LIBRARY_PATH: /app/lib/libpdfium.so
       RUST_LOG: info
-    depends_on:
-      postgres:
-        condition: service_healthy
 
 volumes:
   postgres_data:

@@ -3,10 +3,32 @@
 # Usage: ./bin/board-status.sh <backlog|ready|in-progress|in-review|done> <issue-num> [issue-num...]
 set -euo pipefail
 
-# gh auth token often lacks read:project; prefer GITHUB_PAT when set.
-if [[ -z "${GITHUB_TOKEN:-}" && -n "${GITHUB_PAT:-}" ]]; then
-  export GITHUB_TOKEN="$GITHUB_PAT"
-fi
+gh_stored_token() {
+	if gh auth token >/dev/null 2>&1; then
+		gh auth token
+		return 0
+	fi
+	python3 -c "import yaml, pathlib; print(yaml.safe_load(pathlib.Path('~/.config/gh/hosts.yml').expanduser().read_text())['github.com']['oauth_token'])"
+}
+
+resolve_github_token() {
+	if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+		return 0
+	fi
+
+	local pat="${GITHUB_PAT:-}"
+	if [[ -n "$pat" ]]; then
+		if GITHUB_TOKEN="$pat" gh api user -q .login >/dev/null 2>&1; then
+			export GITHUB_TOKEN="$pat"
+			return 0
+		fi
+		echo "warning: GITHUB_PAT is set but rejected by GitHub — using gh login token instead" >&2
+	fi
+
+	export GITHUB_TOKEN="$(gh_stored_token)"
+}
+
+resolve_github_token
 
 if [[ $# -lt 2 ]]; then
   echo "Usage: $0 <backlog|ready|in-progress|in-review|done> <issue-num> [issue-num...]" >&2

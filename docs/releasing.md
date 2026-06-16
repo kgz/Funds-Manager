@@ -26,6 +26,25 @@ docker run --privileged --rm tonistiigi/binfmt --install all
 
 ## Cut a release
 
+### Plan (optional)
+
+Link backlog issues to the target version with a **GitHub milestone** (visible on [Project #5](https://github.com/users/kgz/projects/5) as the Milestone column):
+
+```bash
+./bin/release-milestone.sh create 0.2.0
+./bin/release-milestone.sh assign 0.2.0 93 94 95
+```
+
+When you close issues for that release, generate notes from the milestone:
+
+```bash
+./bin/release-changelog.sh 0.2.0
+./bin/release-changelog.sh 0.2.0 --write /tmp/notes.md
+cargo release publish --notes-file /tmp/notes.md
+```
+
+### Ship
+
 ```bash
 ./bin/bump-version.sh 0.2.0
 git commit -am "Bump version to 0.2.0"
