@@ -42,6 +42,7 @@ sed -i "s/statement-parser = { version = \"[^\"]*\"/statement-parser = { version
 cat <<EOF
 
 Done. Next:
+  ./bin/release-milestone.sh create ${VERSION}    # optional: link issues to this release
   git diff
   git commit -am "Bump version to ${VERSION}"
   git tag v${VERSION}
