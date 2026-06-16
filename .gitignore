@@ -10,6 +10,7 @@ certs/
 # Rust
 /target/
 **/target/
+/dist/
 
 # Local database data
 app/mysql/
