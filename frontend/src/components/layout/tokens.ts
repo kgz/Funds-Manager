@@ -8,6 +8,9 @@ export const pageSubtitleClass = 'text-sm text-white/60 mt-1 max-w-2xl';
 export const inputDarkClass =
 	'rounded-lg border border-white/10 bg-white/5 text-sm text-white placeholder:text-white/40 focus:border-secondary-default/50 focus:outline-none focus:ring-1 focus:ring-secondary-default/50';
 
+export const dateInputClass =
+	'rounded-lg border border-white/10 bg-white/5 text-sm text-white [color-scheme:dark] focus:border-secondary-default/50 focus:outline-none focus:ring-1 focus:ring-secondary-default/50 cursor-text';
+
 export const selectDarkClass =
 	'rounded-lg border border-white/10 bg-gray-950 px-3 py-1.5 text-sm text-white [color-scheme:dark] focus:border-secondary-default/50 focus:outline-none focus:ring-1 focus:ring-secondary-default/50 cursor-pointer';
 

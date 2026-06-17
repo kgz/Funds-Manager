@@ -11,6 +11,9 @@ export const DASHBOARD_PERIOD_STORAGE_KEY = 'dashboardDateRange';
 export const BREAKDOWN_PERIOD_STORAGE_KEY = 'breakdownDateRange';
 export const BREAKDOWN_RANGE_MODE_STORAGE_KEY = 'breakdownRangeMode';
 export const BREAKDOWN_CUSTOM_RANGE_STORAGE_KEY = 'breakdownCustomRange';
+export const PLANNED_PERIOD_STORAGE_KEY = 'plannedDateRange';
+export const PLANNED_RANGE_MODE_STORAGE_KEY = 'plannedRangeMode';
+export const PLANNED_CUSTOM_RANGE_STORAGE_KEY = 'plannedCustomRange';
 
 export const BREAKDOWN_PRESET_PERIODS: DashboardPeriod[] = [
 	'this-month',
@@ -18,6 +21,81 @@ export const BREAKDOWN_PRESET_PERIODS: DashboardPeriod[] = [
 	'last-6-months',
 	'last-12-months',
 ];
+
+export const PLANNED_PRESET_PERIODS: DashboardPeriod[] = [
+	'this-month',
+	'last-3-months',
+	'last-6-months',
+	'last-12-months',
+];
+
+export type PlannedPeriod =
+	| 'all'
+	| 'future'
+	| 'this-year'
+	| 'next-year'
+	| 'year-after-next';
+
+const PLANNED_PERIOD_VALUES: PlannedPeriod[] = [
+	'all',
+	'future',
+	'this-year',
+	'next-year',
+	'year-after-next',
+];
+
+export const PLANNED_FORWARD_PRESET_PERIODS: PlannedPeriod[] = [
+	...PLANNED_PERIOD_VALUES,
+];
+
+export function plannedPeriodLabels(): Record<PlannedPeriod, string> {
+	return {
+		all: 'All',
+		future: 'Future',
+		'this-year': 'This year',
+		'next-year': 'Next year',
+		'year-after-next': '+1 year',
+	};
+}
+
+function isPlannedPeriod(value: string): value is PlannedPeriod {
+	for (const period of PLANNED_PERIOD_VALUES) {
+		if (period === value) {
+			return true;
+		}
+	}
+	return false;
+}
+
+export function readStoredPlannedPeriod(): PlannedPeriod {
+	const stored = localStorage.getItem(PLANNED_PERIOD_STORAGE_KEY);
+	if (stored !== null && isPlannedPeriod(stored)) {
+		return stored;
+	}
+	return 'all';
+}
+
+export function plannedPeriodDateRange(
+	period: PlannedPeriod,
+	now: DateTime = DateTime.now()
+): { start?: string; end?: string } {
+	if (period === 'all') {
+		return {};
+	}
+	if (period === 'future') {
+		const start = now.toISODate();
+		return start === null ? {} : { start };
+	}
+	const yearOffset =
+		period === 'this-year' ? 0 : period === 'next-year' ? 1 : 2;
+	const year = now.year + yearOffset;
+	const start = DateTime.fromObject({ year, month: 1, day: 1 }).toISODate();
+	const end = DateTime.fromObject({ year, month: 12, day: 31 }).toISODate();
+	if (start === null || end === null) {
+		return {};
+	}
+	return { start, end };
+}
 
 const PERIOD_VALUES: DashboardPeriod[] = [
 	'this-month',

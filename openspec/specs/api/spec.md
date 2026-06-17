@@ -2,9 +2,7 @@
 
 ## Purpose
 HTTP API served by Actix Web (`server_v2`) on port 2020 by default.
-
 ## Requirements
-
 ### Requirement: API base path
 All JSON API routes SHALL be mounted under `/api`.
 
@@ -35,6 +33,10 @@ The API SHALL expose:
 | POST | `/api/statements` | Upload PDF(s) |
 | GET | `/api/statements` | List active statements |
 | DELETE | `/api/statements/{id}` | Soft-delete statement |
+| GET | `/api/planned-spending` | List planned spending |
+| POST | `/api/planned-spending` | Create planned item |
+| PUT | `/api/planned-spending/{id}` | Update planned item |
+| DELETE | `/api/planned-spending/{id}` | Soft-delete planned item |
 
 #### Scenario: OpenAPI available
 - **WHEN** client requests `GET /api/openapi.json`
@@ -86,3 +88,13 @@ The server SHALL run pending embedded migrations on startup before accepting HTT
 #### Scenario: Manual migrate still available
 - **WHEN** an operator runs `cargo run --bin migrate` in `database/`
 - **THEN** pending migrations are applied without starting the HTTP server
+
+### Requirement: Planned spending routes
+
+The API SHALL expose CRUD endpoints under `/api/planned-spending` as defined in the `planned-spending` capability spec.
+
+#### Scenario: Routes registered
+
+- **WHEN** the server starts
+- **THEN** `GET`, `POST`, `PUT`, and `DELETE` handlers for planned spending are available under `/api/planned-spending`
+

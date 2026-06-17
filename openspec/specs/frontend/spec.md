@@ -15,6 +15,7 @@ The SPA SHALL provide these routes:
 | `/category_mapping/:id` | CategoryMappings | Per-category mapping rules |
 | `/recurring` | Recurring | Recurring expense/income detection |
 | `/breakdown` | Breakdown | Parent/subcategory spend by date range |
+| `/planned` | Planned spending | Upcoming expenses and income |
 | `/settings` | Settings | Placeholder |
 
 #### Scenario: Client-side routing
@@ -281,4 +282,38 @@ The `/breakdown` page SHALL use shared layout states: full-page loading on first
 
 ### Requirement: Breakdown table chrome
 The breakdown category table SHALL be wrapped in `GlassCard` with sticky header styling consistent with other data tables. Text colours SHALL use the dark-theme token scale (`text-white/*`).
+
+### Requirement: Planned spending page
+The SPA SHALL provide `/planned` to list, create, edit, and delete planned spending items.
+
+#### Scenario: Nav entry
+- **WHEN** user views the sidebar
+- **THEN** a link to **Planned spending** is visible under General
+
+#### Scenario: Period filter and total
+- **WHEN** user selects a period or custom date range on `/planned`
+- **THEN** the table shows matching items and a summary displays the planned total for that period
+
+#### Scenario: Create item
+- **WHEN** user submits the add form with name, amount, and date
+- **THEN** the item appears in the list without a full page reload
+
+#### Scenario: Edit item
+- **WHEN** user edits an existing item and saves
+- **THEN** the list reflects the updated values
+
+#### Scenario: Delete item
+- **WHEN** user confirms delete on an item
+- **THEN** the item is removed from the list
+
+### Requirement: Planned spending form fields
+The add/edit form SHALL include: name, amount with spending/income toggle, date, optional searchable category picker, optional notes.
+
+#### Scenario: Single date in v1
+- **WHEN** user creates or edits a planned item
+- **THEN** the form exposes one date field (stored as `start_date`; `end_date` remains null)
+
+#### Scenario: Category optional
+- **WHEN** user saves without selecting a category
+- **THEN** the item is stored with no category
 
