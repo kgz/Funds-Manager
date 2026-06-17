@@ -59,6 +59,21 @@ diesel::table! {
 }
 
 diesel::table! {
+    planned_spending (id) {
+        id -> Bigint,
+        #[max_length = 200]
+        name -> Varchar,
+        amount_cents -> Integer,
+        start_date -> Date,
+        end_date -> Nullable<Date>,
+        category_id -> Nullable<Bigint>,
+        notes -> Nullable<Text>,
+        created_at -> Timestamp,
+        deleted_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     statement (id) {
         id -> Bigint,
         date -> Date,
@@ -98,6 +113,7 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(planned_spending -> categories (category_id));
 diesel::joinable!(category_mappings -> categories (category_id));
 diesel::joinable!(statement -> financial_accounts (financial_account_id));
 diesel::joinable!(transaction_categories -> categories (category_id));
@@ -107,6 +123,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     categories,
     category_mappings,
     financial_accounts,
+    planned_spending,
     statement,
     transaction_categories,
     transaction_data,
