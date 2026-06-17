@@ -31,7 +31,12 @@ The SPA SHALL provide `/planned` to list, create, edit, and delete planned spend
 
 ### Requirement: Planned spending form fields
 
-The add/edit form SHALL include: name, amount (currency input), start date, optional end date, optional category picker, optional notes.
+The add/edit form SHALL include: name, amount (currency input), date, optional category picker, optional notes.
+
+#### Scenario: Single date in v1
+
+- **WHEN** user creates or edits a planned item
+- **THEN** the form exposes one date field (stored as `start_date`; `end_date` remains null)
 
 #### Scenario: Category optional
 

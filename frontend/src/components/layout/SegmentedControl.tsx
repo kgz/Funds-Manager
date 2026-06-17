@@ -3,6 +3,8 @@ import { cn } from '@/lib/utils/cn';
 type SegmentOption<T extends string> = {
 	value: T;
 	label: string;
+	activeClassName?: string;
+	inactiveClassName?: string;
 };
 
 type SegmentedControlProps<T extends string> = {
@@ -38,8 +40,10 @@ export function SegmentedControl<T extends string>({
 						className={cn(
 							'cursor-pointer rounded px-3 py-1.5 text-sm transition-colors',
 							active
-								? 'bg-secondary-default/20 text-white shadow-sm'
-								: 'text-white/70 hover:bg-white/5 hover:text-white'
+								? (option.activeClassName ??
+									'bg-secondary-default/20 text-white shadow-sm')
+								: (option.inactiveClassName ??
+									'text-white/70 hover:bg-white/5 hover:text-white')
 						)}
 						aria-pressed={active}
 						onClick={() => onChange(option.value)}

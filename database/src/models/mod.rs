@@ -3,6 +3,7 @@ pub mod category;
 pub mod financial_account;
 pub mod category_mapping;
 pub mod description_key;
+pub mod planned_spending;
 pub mod recurring_detection;
 pub mod statement;
 pub mod transaction;

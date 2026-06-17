@@ -13,6 +13,7 @@ use crate::routes::{
     api::swagger::openapi,
     categories::categories_service,
     category_mappings::category_mappings_routes,
+    planned_spending::planned_spending_service,
     transactions_api::transactions_service,
     version_api::get_version,
 };
@@ -31,6 +32,7 @@ pub fn api() -> Scope {
         .service(category_mappings_routes()) // <-- Add the category mappings routes
         .service(accounts_service())
         .service(categories_service())
+        .service(planned_spending_service())
         .service(analytics_service())
         .service(transactions_service())
         .service(api_users())

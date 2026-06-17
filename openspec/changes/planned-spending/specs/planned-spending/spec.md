@@ -2,17 +2,12 @@
 
 ### Requirement: Planned spending fields
 
-A planned spending item SHALL have: `name` (required), `amount_cents` (positive integer), `start_date` (required), optional `end_date`, optional `category_id`, optional `notes`, `created_at`, and optional `deleted_at`.
+A planned spending item SHALL have: `name` (required), `amount_cents` (non-zero integer; sign matches transactions — positive income, negative spend), `start_date` (required), optional `end_date` (API only in v1; UI uses single date), optional `category_id`, optional `notes`, `created_at`, and optional `deleted_at`.
 
-#### Scenario: Single-day item
+#### Scenario: v1 single date
 
-- **WHEN** `end_date` is omitted or null
-- **THEN** the item represents spending on `start_date` only
-
-#### Scenario: Date range item
-
-- **WHEN** `end_date` is set
-- **THEN** `end_date` MUST be greater than or equal to `start_date`
+- **WHEN** an item is created from the UI in v1
+- **THEN** `end_date` is null and the item matches period filters when `start_date` is within the range
 
 ### Requirement: List planned spending
 
@@ -34,7 +29,7 @@ A planned spending item SHALL have: `name` (required), `amount_cents` (positive 
 
 #### Scenario: Invalid amount
 
-- **WHEN** `amountCents` is zero or negative
+- **WHEN** `amountCents` is zero
 - **THEN** the API returns 400
 
 #### Scenario: Invalid category

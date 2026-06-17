@@ -6,7 +6,7 @@ Users need to record **upcoming discretionary spending** (holidays, renovations,
 
 - New `planned_spending` persistence (Postgres) with CRUD API
 - New `/planned` page: list, add, edit, delete planned items
-- Fields: name, amount, start date, optional end date, optional category, optional notes
+- Fields: name, amount, date, optional category, optional notes (v1 single date; period ranges deferred)
 - Period filter (month + custom range) with **planned total** for that window
 - Sidebar nav entry under General
 - Account filter wired on the page (same global filter as other analytics pages)
