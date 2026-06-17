@@ -48,21 +48,23 @@ Issue **#96** asks for a planned spending area. **#97** will need planned amount
 planned_spending
   id              BIGSERIAL PK
   name            VARCHAR NOT NULL
-  amount_cents    INTEGER NOT NULL   -- positive spend; sign convention matches expenses
+  amount_cents    INTEGER NOT NULL   -- matches transactions: positive = income, negative = spend
   start_date      DATE NOT NULL
-  end_date        DATE NULL          -- NULL = single-day item
+  end_date        DATE NULL          -- reserved; v1 UI uses single date only (NULL)
   category_id     INTEGER NULL FK -> categories.id ON DELETE SET NULL
   notes           TEXT NULL
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
   deleted_at      TIMESTAMPTZ NULL     -- soft delete, matches categories pattern
 ```
 
-**Period overlap rule:** An item counts toward a `[range_start, range_end]` query when its date span overlaps the range:
+**Period filter (v1):** Items with `end_date` NULL match when `start_date` falls within the selected range. Range rows (`end_date` set) remain supported in the API for a future period-transaction feature.
 
-- Single day: `start_date` within range
-- Range: `start_date <= range_end AND (end_date IS NULL OR end_date >= range_start)`
+**Amount in totals:** Full `amount_cents` per matching item (no proration in v1).
 
-**Amount in totals:** Use full `amount_cents` once per item if it overlaps the period (not prorated by days in v1 — simpler, documented in UI).
+### Future (post-v1)
+
+- **Period transactions** — spread a cost over a date range (`end_date` + proration).
+- **Parent grouping** — e.g. “Move to Adelaide” grouping multiple planned line items.
 
 ### 3. Account scoping
 
@@ -100,7 +102,7 @@ JSON uses camelCase in API responses (existing convention).
 
 ## Risks / Trade-offs
 
-- **No proration** — A $3k holiday spanning two months shows full amount in each overlapping month if user views each month. → Mitigation: document in help text; add proration in a follow-up if needed.
+- **No proration** — Deferred until period transactions. v1 is single-date only.
 - **Global vs per-account** — Account filter does not affect planned list in v1. → Mitigation: note in UI; add FK later if users ask.
 - **Overlap with #33** — Trip mode may subsume some use cases. → Keep #96 minimal; link issues.
 
@@ -115,6 +117,7 @@ Rollback: migration down drops table; safe if no production data yet.
 
 ## Open Questions
 
-- Prorate multi-day items across months? **Deferred** (full amount in v1)
+- Prorate multi-day items across months? **Deferred** (period transactions)
+- Parent grouping for related planned items? **Deferred** (e.g. move project)
 - Show planned total on dashboard? **Deferred** (#96 optional deliverable)
 - `financial_account_id` on planned rows? **Deferred** to #97 / #103 era

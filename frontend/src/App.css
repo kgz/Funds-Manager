@@ -9,3 +9,11 @@
 		linear-gradient(to bottom, #030712, #0f172a 45%, #030712);
 	background-attachment: fixed;
 }
+
+input[type='date'] {
+	cursor: text;
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+	cursor: pointer;
+}
