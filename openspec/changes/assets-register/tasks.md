@@ -32,5 +32,5 @@
 
 - [x] 5.1 `cargo test` in `database/` and `app/`
 - [x] 5.2 `pnpm run typecheck` + `pnpm run build:embed`
-- [ ] 5.3 Manual QA: create, edit, delete, total + stale flag
-- [ ] 5.4 PR references Closes #109 and links #107
+- [x] 5.3 Manual QA: create, edit, delete, total + stale flag
+- [x] 5.4 PR references Closes #109 and links #107
