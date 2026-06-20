@@ -97,6 +97,32 @@ diesel::table! {
 }
 
 diesel::table! {
+    liabilities (id) {
+        id -> Bigint,
+        #[max_length = 200]
+        name -> Varchar,
+        #[max_length = 32]
+        kind -> Varchar,
+        #[max_length = 200]
+        lender -> Nullable<Varchar>,
+        balance_cents -> Bigint,
+        credit_limit_cents -> Nullable<Bigint>,
+        original_amount_cents -> Nullable<Bigint>,
+        interest_rate_bps -> Nullable<Integer>,
+        #[max_length = 16]
+        rate_type -> Nullable<Varchar>,
+        repayment_cents -> Nullable<Bigint>,
+        #[max_length = 16]
+        repayment_frequency -> Nullable<Varchar>,
+        term_months -> Nullable<Integer>,
+        financial_account_id -> Nullable<Bigint>,
+        notes -> Nullable<Text>,
+        created_at -> Timestamp,
+        deleted_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     planned_spending (id) {
         id -> Bigint,
         #[max_length = 200]
@@ -151,6 +177,7 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(liabilities -> financial_accounts (financial_account_id));
 diesel::joinable!(planned_spending -> categories (category_id));
 diesel::joinable!(prediction_scenario_lines -> categories (category_id));
 diesel::joinable!(prediction_scenario_lines -> prediction_scenarios (scenario_id));
@@ -163,6 +190,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     categories,
     category_mappings,
     financial_accounts,
+    liabilities,
     planned_spending,
     prediction_goals,
     prediction_scenario_lines,
