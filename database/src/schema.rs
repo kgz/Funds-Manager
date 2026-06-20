@@ -221,6 +221,22 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    income_stream_profiles (stream_key) {
+        #[max_length = 255]
+        stream_key -> Varchar,
+        #[max_length = 255]
+        display_label -> Nullable<Varchar>,
+        is_primary -> Bool,
+        is_confirmed -> Bool,
+        gross_monthly_dollars -> Nullable<Double>,
+        #[max_length = 255]
+        merged_into_key -> Nullable<Varchar>,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
 diesel::joinable!(assets -> liabilities (liability_id));
 diesel::joinable!(asset_valuations -> assets (asset_id));
 diesel::joinable!(liabilities -> financial_accounts (financial_account_id));
@@ -239,6 +255,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     categories,
     category_mappings,
     financial_accounts,
+    income_stream_profiles,
     liabilities,
     liability_balances,
     planned_spending,

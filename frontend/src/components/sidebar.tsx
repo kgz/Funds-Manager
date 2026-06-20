@@ -68,6 +68,10 @@ export const Sidebar = ({ setTheme, theme }: SidebarProps) => {
 							<Repeat size="1rem" className="inline-block mr-2" />
 							<span className="hidden lg:inline">Repeat payments</span>
 						</Link>
+						<Link to="/income">
+							<WalletMinimal size="1rem" className="inline-block mr-2" />
+							<span className="hidden lg:inline">Income</span>
+						</Link>
 						<Link to="/planned">
 							<CalendarRange size="1rem" className="inline-block mr-2" />
 							<span className="hidden lg:inline">Planned spending</span>
