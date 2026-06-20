@@ -296,7 +296,7 @@ export const Statements = () => {
 					</span>
 				);
 			},
-			sortFunction: (a, b, rowA, rowB) => (rowA.closing_balance - rowA.opening_balance) - (rowB.closing_balance - rowB.opening_balance)
+			sortFunction: (_a, _b, rowA, rowB) => (rowA.closing_balance - rowA.opening_balance) - (rowB.closing_balance - rowB.opening_balance)
 		},
 		{
 			key: "created_at",

@@ -30,6 +30,10 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      - name: pnpm run typecheck
+        working-directory: frontend
+        run: pnpm run typecheck
+
       - name: pnpm run build:embed
         working-directory: frontend
         run: pnpm run build:embed
