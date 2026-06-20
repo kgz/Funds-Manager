@@ -1,6 +1,8 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use chrono::NaiveDate;
-use database::models::assets::{is_valid_kind, Asset, AssetChanges, AssetInput};
+use database::models::assets::{
+    is_valid_kind, Asset, AssetChanges, AssetInput, AssetValuation, AssetValuationInput,
+};
 use database::models::liabilities::Liability;
 use diesel::result::Error as DbError;
 use serde::Deserialize;
@@ -14,6 +16,15 @@ pub struct CreateAssetPayload {
     pub value_source: Option<String>,
     pub liability_id: Option<i64>,
     pub notes: Option<String>,
+    pub purchase_price_cents: Option<i64>,
+    pub purchase_date: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CreateValuationPayload {
+    pub value_cents: i64,
+    pub valued_at: String,
+    pub source: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -102,6 +113,19 @@ async fn create_asset(
         Some(value) => Some(parse_date(value)?),
         None => None,
     };
+
+    let purchase_date = match data.purchase_date.as_deref() {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    if let Some(price) = data.purchase_price_cents {
+        if price < 0 {
+            return Err(error::ErrorBadRequest(
+                "purchase_price_cents must not be negative",
+            ));
+        }
+    }
+
     if let Some(liability_id) = data.liability_id {
         ensure_liability_exists(liability_id)?;
     }
@@ -114,6 +138,8 @@ async fn create_asset(
         value_source: clean_optional(data.value_source.as_ref()),
         liability_id: data.liability_id,
         notes: clean_optional(data.notes.as_ref()),
+        purchase_price_cents: data.purchase_price_cents,
+        purchase_date,
     };
 
     let row = Asset::insert(input).map_err(map_db_error)?;
@@ -181,10 +207,56 @@ async fn delete_asset(path: web::Path<i64>) -> Result<impl Responder, error::Err
     Ok(HttpResponse::NoContent().finish())
 }
 
+async fn list_valuations(path: web::Path<i64>) -> Result<impl Responder, error::Error> {
+    let asset_id = path.into_inner();
+    Asset::find_active(asset_id)
+        .map_err(map_db_error)?
+        .ok_or_else(|| error::ErrorNotFound("Asset not found"))?;
+    let items = AssetValuation::list_for_asset(asset_id).map_err(map_db_error)?;
+    Ok(HttpResponse::Ok().json(items))
+}
+
+async fn create_valuation(
+    path: web::Path<i64>,
+    payload: web::Json<CreateValuationPayload>,
+) -> Result<impl Responder, error::Error> {
+    let asset_id = path.into_inner();
+    let data = payload.into_inner();
+
+    Asset::find_active(asset_id)
+        .map_err(map_db_error)?
+        .ok_or_else(|| error::ErrorNotFound("Asset not found"))?;
+
+    if data.value_cents < 0 {
+        return Err(error::ErrorBadRequest("value_cents must not be negative"));
+    }
+    let valued_at = parse_date(&data.valued_at)?;
+
+    let input = AssetValuationInput {
+        valued_at,
+        value_cents: data.value_cents,
+        source: clean_optional(data.source.as_ref()),
+    };
+    let row = AssetValuation::create(asset_id, input).map_err(map_db_error)?;
+    Ok(HttpResponse::Created().json(row))
+}
+
+async fn delete_valuation(path: web::Path<(i64, i64)>) -> Result<impl Responder, error::Error> {
+    let (asset_id, valuation_id) = path.into_inner();
+    AssetValuation::soft_delete(asset_id, valuation_id).map_err(map_db_error)?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 pub fn assets_service() -> Scope {
     web::scope("/assets")
         .route("", web::get().to(list_assets))
         .route("", web::post().to(create_asset))
         .route("/{id}", web::put().to(update_asset))
         .route("/{id}", web::delete().to(delete_asset))
+        .route("/{id}/valuations", web::get().to(list_valuations))
+        .route("/{id}/valuations", web::post().to(create_valuation))
+        .route(
+            "/{id}/valuations/{valuation_id}",
+            web::delete().to(delete_valuation),
+        )
 }

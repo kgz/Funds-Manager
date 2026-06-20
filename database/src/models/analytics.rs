@@ -15,9 +15,10 @@ use crate::models::description_key::canonical_expense_group_key;
 use crate::models::recurring_detection::{
     detect_recurring_expenses, detect_recurring_income, RecurringCandidate, SlimTransaction,
 };
+use crate::models::assets::AssetValuation;
 use crate::models::transaction::Transaction;
 use crate::modules::database::get_dbo;
-use crate::schema::{assets, liabilities, transaction_data};
+use crate::schema::{liabilities, transaction_data};
 
 #[derive(Debug, Clone, Copy)]
 pub struct AnalyticsScope {
@@ -323,6 +324,19 @@ fn round2(n: f64) -> f64 {
     (n * 100.0).round() / 100.0
 }
 
+// Latest known valuation for an asset on/before the given date (0 before it was first valued).
+fn asset_value_as_of(series: &[(NaiveDate, i64)], date: NaiveDate) -> i64 {
+    let mut value = 0;
+    for (valued_at, cents) in series {
+        if *valued_at <= date {
+            value = *cents;
+        } else {
+            break;
+        }
+    }
+    value
+}
+
 fn category_group_id(tx_category_id: Option<i32>, categories: &[Category], group_by_parent: bool) -> String {
     let Some(cid) = tx_category_id else {
         return "unknown".to_string();
@@ -447,27 +461,36 @@ pub fn net_worth_over_time(
     .load(conn)?;
 
     // Manual registers are not account-scoped: only included for the all-accounts view.
-    let (assets_total_cents, liabilities_total_cents) = if financial_account_id.is_some() {
-        (0_i64, 0_i64)
+    let (asset_points, liabilities_total_cents) = if financial_account_id.is_some() {
+        (Vec::new(), 0_i64)
     } else {
-        let asset_values: Vec<i64> = assets::table
-            .filter(assets::deleted_at.is_null())
-            .select(assets::value_cents)
-            .load(conn)?;
         let liability_values: Vec<i64> = liabilities::table
             .filter(liabilities::deleted_at.is_null())
             .select(liabilities::balance_cents)
             .load(conn)?;
-        (asset_values.iter().sum(), liability_values.iter().sum())
+        (AssetValuation::active_points()?, liability_values.iter().sum())
     };
 
-    let assets = round2(cents_to_dollars(assets_total_cents));
+    // Group valuations per asset (rows arrive sorted by asset, then date ascending).
+    let mut by_asset: HashMap<i64, Vec<(NaiveDate, i64)>> = HashMap::new();
+    for (asset_id, valued_at, value_cents) in asset_points {
+        by_asset
+            .entry(asset_id)
+            .or_default()
+            .push((valued_at, value_cents));
+    }
+
     let liabilities = round2(cents_to_dollars(liabilities_total_cents));
 
     let points = balance_rows
         .into_iter()
         .map(|row| {
             let available_cash = round2(cents_to_dollars(row.balance));
+            let assets_cents: i64 = by_asset
+                .values()
+                .map(|series| asset_value_as_of(series, row.day))
+                .sum();
+            let assets = round2(cents_to_dollars(assets_cents));
             NetWorthPoint {
                 date: row.day.to_string(),
                 available_cash,
