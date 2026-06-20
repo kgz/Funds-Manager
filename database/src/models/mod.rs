@@ -1,6 +1,7 @@
 pub mod analytics;
 pub mod category;
 pub mod financial_account;
+pub mod liabilities;
 pub mod category_mapping;
 pub mod description_key;
 pub mod prediction_engine;

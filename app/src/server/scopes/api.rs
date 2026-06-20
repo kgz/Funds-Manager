@@ -13,6 +13,7 @@ use crate::routes::{
     api::swagger::openapi,
     categories::categories_service,
     category_mappings::category_mappings_routes,
+    liabilities::liabilities_service,
     planned_spending::planned_spending_service,
     predictions_api::{
         prediction_goals_service, prediction_scenarios_service, predictions_service,
@@ -36,6 +37,7 @@ pub fn api() -> Scope {
         .service(accounts_service())
         .service(categories_service())
         .service(planned_spending_service())
+        .service(liabilities_service())
         .service(analytics_service())
         .service(transactions_service())
         .service(predictions_service())
