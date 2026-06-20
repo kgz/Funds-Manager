@@ -628,9 +628,16 @@ pub fn dashboard(
               AND ($3::bigint IS NULL OR s.financial_account_id = $3)
               AND ($2::date IS NULL OR td.transaction_date::date <= $2)
         ),
+        bounds AS (
+            SELECT
+                COALESCE($1::date, (SELECT MIN(day) FROM balance_tx)) AS start_day,
+                COALESCE($2::date, (SELECT MAX(day) FROM balance_tx)) AS end_day
+        ),
         days AS (
-            SELECT DISTINCT day FROM balance_tx
-            WHERE ($1::date IS NULL OR day >= $1)
+            SELECT gs.day::date AS day
+            FROM bounds b
+            CROSS JOIN generate_series(b.start_day, b.end_day, INTERVAL '1 day') AS gs(day)
+            WHERE b.start_day IS NOT NULL AND b.end_day IS NOT NULL
         )
         SELECT
             d.day,
@@ -678,9 +685,16 @@ pub fn dashboard(
               AND ($3::bigint IS NULL OR s.financial_account_id = $3)
               AND ($2::date IS NULL OR td.transaction_date::date <= $2)
         ),
+        bounds AS (
+            SELECT
+                COALESCE($1::date, (SELECT MIN(day) FROM balance_tx)) AS start_day,
+                COALESCE($2::date, (SELECT MAX(day) FROM balance_tx)) AS end_day
+        ),
         days AS (
-            SELECT DISTINCT day FROM balance_tx
-            WHERE ($1::date IS NULL OR day >= $1)
+            SELECT gs.day::date AS day
+            FROM bounds b
+            CROSS JOIN generate_series(b.start_day, b.end_day, INTERVAL '1 day') AS gs(day)
+            WHERE b.start_day IS NOT NULL AND b.end_day IS NOT NULL
         ),
         account_scopes AS (
             SELECT DISTINCT account_scope, account_label FROM balance_tx
