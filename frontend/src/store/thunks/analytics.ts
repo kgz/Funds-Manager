@@ -133,6 +133,15 @@ function readNumber(value: unknown): number {
 	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+function readFieldNumber(entry: object, camelKey: string, snakeKey: string): number {
+	const camel = Reflect.get(entry, camelKey);
+	if (typeof camel === 'number' && Number.isFinite(camel)) {
+		return camel;
+	}
+	const snake = Reflect.get(entry, snakeKey);
+	return readNumber(snake);
+}
+
 function normalizeNetWorth(raw: unknown): NetWorthPoint[] {
 	if (!Array.isArray(raw)) {
 		return [];
@@ -148,10 +157,10 @@ function normalizeNetWorth(raw: unknown): NetWorthPoint[] {
 		}
 		points.push({
 			date,
-			availableCash: readNumber(Reflect.get(entry, 'availableCash')),
-			assets: readNumber(Reflect.get(entry, 'assets')),
-			liabilities: readNumber(Reflect.get(entry, 'liabilities')),
-			netWorth: readNumber(Reflect.get(entry, 'netWorth')),
+			availableCash: readFieldNumber(entry, 'availableCash', 'available_cash'),
+			assets: readFieldNumber(entry, 'assets', 'assets'),
+			liabilities: readFieldNumber(entry, 'liabilities', 'liabilities'),
+			netWorth: readFieldNumber(entry, 'netWorth', 'net_worth'),
 		});
 	}
 	return points;

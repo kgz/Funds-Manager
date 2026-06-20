@@ -3,6 +3,7 @@ import {
 	Area,
 	CartesianGrid,
 	ComposedChart,
+	Legend,
 	Line,
 	ResponsiveContainer,
 	Tooltip,
@@ -17,7 +18,8 @@ import type {
 import { ChartCard } from '@/components/ChartCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { chartTheme, chartTooltipClass } from '@/graphs/theme';
-import { formatChartAxisDate } from '@/lib/utils/dates';
+import { formatChartAxisDate, chartDateSpanDays } from '@/lib/utils/dates';
+import { DateTime } from 'luxon';
 import {
 	fetchNetWorthOverTime,
 	type DashboardDateRange,
@@ -25,15 +27,51 @@ import {
 } from '@/store/thunks/analytics';
 import { TrendingUp, Loader2 } from 'lucide-react';
 
-type NetWorthChartProps = {
-	dateRange: DashboardDateRange;
+type NetWorthChartPoint = NetWorthPoint & {
+	ts: number;
+	totalAssets: number;
+	totalDebts: number;
 };
+
+function toChartPoint(point: NetWorthPoint): NetWorthChartPoint | null {
+	const ts = DateTime.fromISO(point.date, { zone: 'utc' }).startOf('day').toMillis();
+	if (!Number.isFinite(ts)) {
+		return null;
+	}
+	return {
+		...point,
+		ts,
+		totalAssets: point.availableCash + point.assets,
+		totalDebts: point.liabilities,
+	};
+}
+
+function formatTimeAxisTick(ts: number, spanDays: number): string {
+	const iso = DateTime.fromMillis(ts, { zone: 'utc' }).toISODate();
+	return iso ? formatChartAxisDate(iso, spanDays) : '';
+}
 
 const currency = (value: number): string =>
 	`${value < 0 ? '-' : ''}$${Math.abs(value).toLocaleString('en-AU', {
 		minimumFractionDigits: 0,
 		maximumFractionDigits: 0,
 	})}`;
+
+type NetWorthChartProps = {
+	dateRange: DashboardDateRange;
+};
+
+function readTooltipDate(row: object): string {
+	const ts = Reflect.get(row, 'ts');
+	if (typeof ts === 'number' && Number.isFinite(ts)) {
+		const iso = DateTime.fromMillis(ts, { zone: 'utc' }).toISODate();
+		if (iso) {
+			return iso;
+		}
+	}
+	const date = Reflect.get(row, 'date');
+	return typeof date === 'string' ? date : '';
+}
 
 function readNumber(value: unknown): number {
 	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
@@ -47,23 +85,24 @@ function NetWorthTooltip({ active, payload }: TooltipProps<ValueType, NameType>)
 	if (!row || typeof row !== 'object') {
 		return null;
 	}
-	const date = Reflect.get(row, 'date');
+	const date = readTooltipDate(row);
 	const netWorth = readNumber(Reflect.get(row, 'netWorth'));
+	const totalAssets = readNumber(Reflect.get(row, 'totalAssets'));
+	const totalDebts = readNumber(Reflect.get(row, 'totalDebts'));
 	const availableCash = readNumber(Reflect.get(row, 'availableCash'));
 	const assets = readNumber(Reflect.get(row, 'assets'));
-	const liabilities = readNumber(Reflect.get(row, 'liabilities'));
 
 	return (
 		<div className={chartTooltipClass}>
-			<p className="mb-1 font-medium">{typeof date === 'string' ? date : ''}</p>
-			<p className="text-emerald-300">Net worth: {currency(netWorth)}</p>
-			<p className="text-white/70">Cash: {currency(availableCash)}</p>
-			{assets !== 0 ? (
-				<p className="text-white/70">Assets: {currency(assets)}</p>
+			<p className="mb-1 font-medium">{date}</p>
+			<p className="text-emerald-200">Net worth: {currency(netWorth)}</p>
+			<p className="text-sky-300">Total assets: {currency(totalAssets)}</p>
+			{totalDebts > 0 ? (
+				<p className="text-red-300">Debts: {currency(totalDebts)}</p>
 			) : null}
-			{liabilities !== 0 ? (
-				<p className="text-white/70">Liabilities: -{currency(liabilities)}</p>
-			) : null}
+			<p className="mt-1 text-xs text-white/50">
+				Cash {currency(availableCash)} · Other assets {currency(assets)}
+			</p>
 		</div>
 	);
 }
@@ -103,22 +142,44 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 			});
 	}, [start, end, accountId]);
 
-	const spanDays = useMemo(() => {
-		if (points.length < 2) {
-			return 0;
+	const chartPoints = useMemo(() => {
+		const mapped: NetWorthChartPoint[] = [];
+		for (const point of points) {
+			const chartPoint = toChartPoint(point);
+			if (chartPoint) {
+				mapped.push(chartPoint);
+			}
 		}
-		const first = new Date(points[0].date).getTime();
-		const last = new Date(points[points.length - 1].date).getTime();
-		if (Number.isNaN(first) || Number.isNaN(last)) {
-			return 0;
-		}
-		return Math.round((last - first) / (1000 * 60 * 60 * 24));
+		mapped.sort((left, right) => left.ts - right.ts);
+		return mapped;
 	}, [points]);
+
+	const spanDays = useMemo(
+		() => chartDateSpanDays(chartPoints.map((point) => point.date)),
+		[chartPoints]
+	);
+
+	const hasDebts = useMemo(
+		() => chartPoints.some((point) => point.totalDebts > 0),
+		[chartPoints]
+	);
+
+	const yDomain = useMemo((): [number, number] | undefined => {
+		if (chartPoints.length === 0) {
+			return undefined;
+		}
+		let max = 0;
+		for (const point of chartPoints) {
+			max = Math.max(max, point.totalAssets, point.availableCash, point.netWorth);
+		}
+		const pad = Math.max(max * 0.08, 1);
+		return [0, max + pad];
+	}, [chartPoints]);
 
 	const accountScoped = accountId != null;
 	const subtitle = accountScoped
-		? 'Cash balance for the selected account. Assets and liabilities show only for All accounts.'
-		: 'Cash + assets − liabilities over time. Manual assets/liabilities are held at their current value.';
+		? 'Cash balance for the selected account.'
+		: 'Net Worth = (Assets + Cash) − Liabilities. Green band = net worth between total assets and debts.';
 
 	return (
 		<ChartCard
@@ -134,64 +195,130 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 				<div className="flex h-[300px] items-center justify-center text-sm text-red-300">
 					{error}
 				</div>
-			) : points.length === 0 && !loading ? (
+			) : loading && chartPoints.length === 0 ? (
+				<div className="flex h-[300px] items-center justify-center">
+					<Loader2 className="h-6 w-6 animate-spin text-secondary-default" aria-label="Loading" />
+				</div>
+			) : chartPoints.length === 0 ? (
 				<EmptyState
 					icon={TrendingUp}
 					title="Not enough history"
-					description="Net worth needs imported statement balances over time. Import statements to see the trend."
+					description="Add assets with valuations or import statement balances to see net worth over time."
 				/>
 			) : (
-				<ResponsiveContainer width="100%" height={300}>
-					<ComposedChart data={points}>
-						<defs>
-							<linearGradient id="netWorthFill" x1="0" y1="0" x2="0" y2="1">
-								<stop offset="0%" stopColor="#34d399" stopOpacity={0.35} />
-								<stop offset="100%" stopColor="#34d399" stopOpacity={0.02} />
-							</linearGradient>
-						</defs>
-						<CartesianGrid
-							stroke={chartTheme.grid.stroke}
-							strokeDasharray={chartTheme.grid.strokeDasharray}
-						/>
-						<XAxis
-							dataKey="date"
-							stroke={chartTheme.axis.stroke}
-							tick={chartTheme.axis.tick}
-							tickFormatter={(iso) => formatChartAxisDate(iso, spanDays)}
-							interval="preserveStartEnd"
-							minTickGap={40}
-						/>
-						<YAxis
-							stroke={chartTheme.axis.stroke}
-							tick={chartTheme.axis.tick}
-							tickFormatter={currency}
-							width={88}
-						/>
-						<Tooltip content={(props) => NetWorthTooltip(props)} />
-						<Area
-							type="monotone"
-							dataKey="netWorth"
-							name="Net worth"
-							stroke="#34d399"
-							strokeWidth={2}
-							fill="url(#netWorthFill)"
-							dot={false}
-							isAnimationActive={false}
-						/>
-						{!accountScoped ? (
-							<Line
-								type="monotone"
-								dataKey="availableCash"
-								name="Cash"
-								stroke="#60a5fa"
-								strokeWidth={1.5}
-								strokeDasharray="6 4"
-								dot={false}
-								isAnimationActive={false}
+				<div data-testid="net-worth-chart">
+					<ResponsiveContainer width="100%" height={300}>
+						<ComposedChart
+							data={chartPoints}
+							margin={{ top: 8, right: 8, left: 0, bottom: accountScoped ? 0 : 28 }}
+						>
+							<defs>
+								<linearGradient id="netWorthBandFill" x1="0" y1="0" x2="0" y2="1">
+									<stop offset="0%" stopColor="#6ee7b7" stopOpacity={0.45} />
+									<stop offset="100%" stopColor="#6ee7b7" stopOpacity={0.12} />
+								</linearGradient>
+								<linearGradient id="netWorthDebtsFill" x1="0" y1="0" x2="0" y2="1">
+									<stop offset="0%" stopColor="#f87171" stopOpacity={0.2} />
+									<stop offset="100%" stopColor="#f87171" stopOpacity={0.05} />
+								</linearGradient>
+								<linearGradient id="netWorthCashFill" x1="0" y1="0" x2="0" y2="1">
+									<stop offset="0%" stopColor="#60a5fa" stopOpacity={0.45} />
+									<stop offset="100%" stopColor="#60a5fa" stopOpacity={0.08} />
+								</linearGradient>
+							</defs>
+							<CartesianGrid
+								stroke={chartTheme.grid.stroke}
+								strokeDasharray={chartTheme.grid.strokeDasharray}
 							/>
-						) : null}
-					</ComposedChart>
-				</ResponsiveContainer>
+							<XAxis
+								type="number"
+								dataKey="ts"
+								domain={['dataMin', 'dataMax']}
+								stroke={chartTheme.axis.stroke}
+								tick={chartTheme.axis.tick}
+								tickFormatter={(ts) => formatTimeAxisTick(ts, spanDays)}
+								minTickGap={40}
+							/>
+							<YAxis
+								domain={yDomain}
+								stroke={chartTheme.axis.stroke}
+								tick={chartTheme.axis.tick}
+								tickFormatter={currency}
+								width={88}
+							/>
+							<Tooltip content={(props) => NetWorthTooltip(props)} />
+							{!accountScoped ? (
+								<Legend
+									iconType="circle"
+									iconSize={8}
+									wrapperStyle={chartTheme.legend.wrapperStyle}
+								/>
+							) : null}
+							{accountScoped ? (
+								<Area
+									type="linear"
+									dataKey="availableCash"
+									name="Cash"
+									stroke="#60a5fa"
+									strokeWidth={2}
+									fill="url(#netWorthCashFill)"
+									baseValue={0}
+									dot={false}
+									isAnimationActive={false}
+								/>
+							) : null}
+							{!accountScoped && hasDebts ? (
+								<Area
+									type="linear"
+									stackId="worth"
+									dataKey="totalDebts"
+									name="Debts"
+									stroke="none"
+									fill="url(#netWorthDebtsFill)"
+									dot={false}
+									isAnimationActive={false}
+									legendType="none"
+								/>
+							) : null}
+							{accountScoped ? null : (
+								<Area
+									type="linear"
+									stackId={hasDebts ? 'worth' : undefined}
+									dataKey="netWorth"
+									name="Net worth"
+									stroke="none"
+									fill="url(#netWorthBandFill)"
+									baseValue={hasDebts ? undefined : 0}
+									dot={false}
+									isAnimationActive={false}
+									legendType="none"
+								/>
+							)}
+							{accountScoped ? null : (
+								<Line
+									type="linear"
+									dataKey="totalAssets"
+									name="Total assets"
+									stroke="#a7f3d0"
+									strokeWidth={2}
+									dot={false}
+									isAnimationActive={false}
+								/>
+							)}
+							{!accountScoped && hasDebts ? (
+								<Line
+									type="linear"
+									dataKey="totalDebts"
+									name="Debts"
+									stroke="#f87171"
+									strokeWidth={2}
+									dot={false}
+									isAnimationActive={false}
+								/>
+							) : null}
+						</ComposedChart>
+					</ResponsiveContainer>
+				</div>
 			)}
 		</ChartCard>
 	);

@@ -1,28 +1,36 @@
-# Asset valuation history + purchase price
+# Register valuation & balance history
 
 ## Why
 
-Assets carry a single current value, so the net worth chart (#56) holds them
-flat across time. A real net worth trend — and a credible broker report — needs
-each asset to track **multiple valuations over time**, seeded by a **purchase
-price + date** so tracking starts from when the asset was bought.
+Net worth over time (#56) needs both sides of the balance sheet to move
+realistically. Assets now track dated valuations with optional purchase price;
+liabilities need the same — **balance snapshots over time**, seeded by an
+**original amount + start date** at loan origination.
 
 ## What changes
 
-- New `asset_valuations` history table (`asset_id`, `valued_at`, `value_cents`,
-  `source`), soft-deletable. Existing assets are backfilled with one valuation
-  from their current snapshot.
-- An asset's `value_cents`/`valued_at`/`value_source` become a denormalised
-  cache of its newest valuation, recomputed whenever valuations change.
-- Asset creation gains an optional "bought at" (purchase price + date) that seeds
-  the earliest valuation.
-- Nested valuations API: list/add/remove under `/api/assets/{id}/valuations`.
-- Asset edit UI manages valuation history; value is edited via valuations.
-- Net worth chart sums each asset's latest valuation as of each date
-  (per-asset carry-forward) instead of a flat current total.
+### Assets (#125)
+- `asset_valuations` history table; backfill from current snapshots
+- Optional "bought at" on create; valuation history in edit modal
+- Net worth interpolates asset values linearly between dates
+
+### Liabilities (same PR — decision 2026-06-20)
+- `liability_balances` history table; backfill from current balances
+- Optional **original amount + started-at date** on create seeds the earliest snapshot
+- Balance history panel in edit modal (add/remove dated snapshots)
+- Net worth interpolates liability balances linearly between dates (mirror of assets)
+- `balance_cents` on the liability row stays a denormalised cache of the newest snapshot
+
+## Decisions
+
+| Topic | Decision |
+|-------|----------|
+| Liability history scope | In scope for #125 / PR #124 — not deferred to a follow-up |
+| Interpolation | Linear between consecutive snapshots (same as assets) |
+| Chart x-axis | Time scale so sparse early years aren't squashed |
+| Automated amortisation | Out of scope — manual snapshots only for now |
 
 ## Impact
 
-- Affected specs: assets, api, frontend
 - Builds on #108 (liabilities), #109 (assets), #56 (net worth)
 - Out of scope: liability balance history, automated market valuations

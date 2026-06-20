@@ -1,8 +1,9 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
+use chrono::NaiveDate;
 use database::models::financial_account::FinancialAccount;
 use database::models::liabilities::{
-    is_valid_frequency, is_valid_kind, is_valid_rate_type, Liability, LiabilityChanges,
-    LiabilityInput,
+    is_valid_frequency, is_valid_kind, is_valid_rate_type, Liability, LiabilityBalance,
+    LiabilityBalanceInput, LiabilityChanges, LiabilityInput,
 };
 use diesel::result::Error as DbError;
 use serde::Deserialize;
@@ -22,6 +23,14 @@ pub struct CreateLiabilityPayload {
     pub term_months: Option<i32>,
     pub financial_account_id: Option<i64>,
     pub notes: Option<String>,
+    pub originated_date: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CreateBalancePayload {
+    pub balance_cents: i64,
+    pub balanced_at: String,
+    pub source: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -47,6 +56,11 @@ fn map_db_error(err: DbError) -> error::Error {
         DbError::NotFound => error::ErrorNotFound("Liability not found"),
         _ => error::ErrorInternalServerError("An internal server error occurred"),
     }
+}
+
+fn parse_date(value: &str) -> Result<NaiveDate, error::Error> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| error::ErrorBadRequest("Invalid date; use YYYY-MM-DD"))
 }
 
 fn validate_kind(kind: &str) -> Result<(), error::Error> {
@@ -147,6 +161,16 @@ async fn create_liability(
         ensure_account_exists(account_id)?;
     }
 
+    let originated_date = match data.originated_date.as_deref() {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    if originated_date.is_some() && data.original_amount_cents.is_none() {
+        return Err(error::ErrorBadRequest(
+            "original_amount_cents is required when originated_date is set",
+        ));
+    }
+
     let input = LiabilityInput {
         name,
         kind,
@@ -161,6 +185,7 @@ async fn create_liability(
         term_months: data.term_months,
         financial_account_id: data.financial_account_id,
         notes: clean_optional(data.notes.as_ref()),
+        originated_date,
     };
 
     let row = Liability::insert(input).map_err(map_db_error)?;
@@ -264,10 +289,53 @@ async fn delete_liability(path: web::Path<i64>) -> Result<impl Responder, error:
     Ok(HttpResponse::NoContent().finish())
 }
 
+async fn list_balances(path: web::Path<i64>) -> Result<impl Responder, error::Error> {
+    let liability_id = path.into_inner();
+    Liability::find_active(liability_id)
+        .map_err(map_db_error)?
+        .ok_or_else(|| error::ErrorNotFound("Liability not found"))?;
+    let items = LiabilityBalance::list_for_liability(liability_id).map_err(map_db_error)?;
+    Ok(HttpResponse::Ok().json(items))
+}
+
+async fn create_balance(
+    path: web::Path<i64>,
+    payload: web::Json<CreateBalancePayload>,
+) -> Result<impl Responder, error::Error> {
+    let liability_id = path.into_inner();
+    let data = payload.into_inner();
+
+    Liability::find_active(liability_id)
+        .map_err(map_db_error)?
+        .ok_or_else(|| error::ErrorNotFound("Liability not found"))?;
+
+    if data.balance_cents < 0 {
+        return Err(error::ErrorBadRequest("balance_cents must not be negative"));
+    }
+    let balanced_at = parse_date(&data.balanced_at)?;
+
+    let input = LiabilityBalanceInput {
+        balanced_at,
+        balance_cents: data.balance_cents,
+        source: clean_optional(data.source.as_ref()),
+    };
+    let row = LiabilityBalance::create(liability_id, input).map_err(map_db_error)?;
+    Ok(HttpResponse::Created().json(row))
+}
+
+async fn delete_balance(path: web::Path<(i64, i64)>) -> Result<impl Responder, error::Error> {
+    let (liability_id, balance_id) = path.into_inner();
+    LiabilityBalance::soft_delete(liability_id, balance_id).map_err(map_db_error)?;
+    Ok(HttpResponse::NoContent().finish())
+}
+
 pub fn liabilities_service() -> Scope {
     web::scope("/liabilities")
         .route("", web::get().to(list_liabilities))
         .route("", web::post().to(create_liability))
         .route("/{id}", web::put().to(update_liability))
         .route("/{id}", web::delete().to(delete_liability))
+        .route("/{id}/balances", web::get().to(list_balances))
+        .route("/{id}/balances", web::post().to(create_balance))
+        .route("/{id}/balances/{balance_id}", web::delete().to(delete_balance))
 }

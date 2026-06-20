@@ -40,8 +40,8 @@ starts from acquisition. The current value SHALL also be seeded as a valuation.
 
 ### Requirement: Net worth uses valuation history
 
-The net worth series SHALL value each asset at its latest valuation as of each
-date (carry-forward), contributing 0 before the asset's first valuation.
+The net worth series SHALL value each asset at its interpolated value as of each
+date (linear between valuations), contributing 0 before the asset's first valuation.
 
 #### Scenario: Asset starts mid-window
 - **WHEN** an asset's earliest valuation is dated within the chart window
