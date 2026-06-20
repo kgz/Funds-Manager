@@ -57,6 +57,50 @@ const currency = (value: number): string =>
 		maximumFractionDigits: 0,
 	})}`;
 
+type ChartLegendItem = {
+	value: string;
+	type: 'line';
+	color: string;
+	strokeDasharray?: string;
+};
+
+function chartLegendItems(accountScoped: boolean, hasDebts: boolean): ChartLegendItem[] {
+	if (accountScoped) {
+		return [];
+	}
+	const items: ChartLegendItem[] = [
+		{ value: 'Total assets', type: 'line', color: '#a7f3d0' },
+	];
+	if (hasDebts) {
+		items.push({ value: 'Debts', type: 'line', color: '#f87171' });
+	}
+	items.push({
+		value: 'Net worth',
+		type: 'line',
+		color: '#ecfdf5',
+		strokeDasharray: '4 4',
+	});
+	return items;
+}
+
+function toLegendPayload(items: ChartLegendItem[]) {
+	return items.map((item) => {
+		if (item.strokeDasharray !== undefined) {
+			return {
+				value: item.value,
+				type: item.type,
+				color: item.color,
+				payload: { strokeDasharray: item.strokeDasharray },
+			};
+		}
+		return {
+			value: item.value,
+			type: item.type,
+			color: item.color,
+		};
+	});
+}
+
 type NetWorthChartProps = {
 	dateRange: DashboardDateRange;
 };
@@ -177,9 +221,11 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 	}, [chartPoints]);
 
 	const accountScoped = accountId != null;
+	const legendItems = toLegendPayload(chartLegendItems(accountScoped, hasDebts));
+
 	const subtitle = accountScoped
 		? 'Cash balance for the selected account.'
-		: 'Net Worth = (Assets + Cash) − Liabilities. Green band = net worth between total assets and debts.';
+		: 'Net Worth = (Assets + Cash) − Debts. Shaded area = Net Worth (the gap between total assets and debts).';
 
 	return (
 		<ChartCard
@@ -247,11 +293,12 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 								width={88}
 							/>
 							<Tooltip content={(props) => NetWorthTooltip(props)} />
-							{!accountScoped ? (
+							{!accountScoped && legendItems.length > 0 ? (
 								<Legend
 									iconType="circle"
 									iconSize={8}
 									wrapperStyle={chartTheme.legend.wrapperStyle}
+									payload={legendItems}
 								/>
 							) : null}
 							{accountScoped ? (
@@ -272,7 +319,6 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 									type="linear"
 									stackId="worth"
 									dataKey="totalDebts"
-									name="Debts"
 									stroke="none"
 									fill="url(#netWorthDebtsFill)"
 									dot={false}
@@ -285,7 +331,6 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 									type="linear"
 									stackId={hasDebts ? 'worth' : undefined}
 									dataKey="netWorth"
-									name="Net worth"
 									stroke="none"
 									fill="url(#netWorthBandFill)"
 									baseValue={hasDebts ? undefined : 0}
@@ -298,24 +343,36 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 								<Line
 									type="linear"
 									dataKey="totalAssets"
-									name="Total assets"
 									stroke="#a7f3d0"
 									strokeWidth={2}
 									dot={false}
 									isAnimationActive={false}
+									legendType="none"
 								/>
 							)}
 							{!accountScoped && hasDebts ? (
 								<Line
 									type="linear"
 									dataKey="totalDebts"
-									name="Debts"
 									stroke="#f87171"
 									strokeWidth={2}
 									dot={false}
 									isAnimationActive={false}
+									legendType="none"
 								/>
 							) : null}
+							{accountScoped ? null : (
+								<Line
+									type="linear"
+									dataKey="netWorth"
+									stroke="#ecfdf5"
+									strokeWidth={1.5}
+									strokeDasharray="5 4"
+									dot={false}
+									isAnimationActive={false}
+									legendType="none"
+								/>
+							)}
 						</ComposedChart>
 					</ResponsiveContainer>
 				</div>
