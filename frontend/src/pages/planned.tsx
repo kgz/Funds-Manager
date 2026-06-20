@@ -98,14 +98,13 @@ function readCustomRange(): { start: string; end: string } {
 			typeof parsed === 'object' &&
 			parsed !== null &&
 			'start' in parsed &&
-			'end' in parsed &&
-			typeof Reflect.get(parsed, 'start') === 'string' &&
-			typeof Reflect.get(parsed, 'end') === 'string'
+			'end' in parsed
 		) {
-			return {
-				start: Reflect.get(parsed, 'start'),
-				end: Reflect.get(parsed, 'end'),
-			};
+			const start = Reflect.get(parsed, 'start');
+			const end = Reflect.get(parsed, 'end');
+			if (typeof start === 'string' && typeof end === 'string') {
+				return { start, end };
+			}
 		}
 	} catch {
 		// ignore
