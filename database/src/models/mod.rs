@@ -1,4 +1,5 @@
 pub mod analytics;
+pub mod assets;
 pub mod category;
 pub mod financial_account;
 pub mod liabilities;

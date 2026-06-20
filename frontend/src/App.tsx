@@ -13,6 +13,7 @@ import BreakdownPage from "./pages/breakdown";
 import PlannedSpendingPage from "./pages/planned";
 import PredictionsPage from "./pages/predictions";
 import LiabilitiesPage from "./pages/liabilities";
+import AssetsPage from "./pages/assets";
 const App = () => {
   const [theme, setTheme] = useState("light");
 
@@ -56,6 +57,7 @@ const App = () => {
 			<Route path="/planned" element={<PlannedSpendingPage />} />
 			<Route path="/predictions" element={<PredictionsPage />} />
 			<Route path="/liabilities" element={<LiabilitiesPage />} />
+			<Route path="/assets" element={<AssetsPage />} />
           </Routes>
         </div>
       </div>
