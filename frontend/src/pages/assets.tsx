@@ -1,6 +1,13 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { DateTime } from 'luxon';
-import { Building2, Edit2, Loader2, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import {
+	Building2,
+	Edit2,
+	Loader2,
+	Plus,
+	Trash2,
+	TriangleAlert,
+} from 'lucide-react';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
@@ -31,11 +38,15 @@ import {
 import {
 	assetKindLabel,
 	ASSET_KIND_OPTIONS,
+	createAssetValuation,
+	deleteAssetValuation,
+	fetchAssetValuations,
 	formatCentsAsDollars,
 	isValuationStale,
 	parsePositiveDollarsToCents,
 	type Asset,
 	type AssetKind,
+	type AssetValuation,
 } from '@/types/assets';
 
 type ModalMode = 'add' | 'edit';
@@ -78,8 +89,17 @@ export default function AssetsPage() {
 	const [valueSource, setValueSource] = useState('');
 	const [liabilityId, setLiabilityId] = useState('');
 	const [notes, setNotes] = useState('');
+	const [purchasePrice, setPurchasePrice] = useState('');
+	const [purchaseDate, setPurchaseDate] = useState('');
 	const [modalError, setModalError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+
+	const [valuations, setValuations] = useState<AssetValuation[]>([]);
+	const [valuationsLoading, setValuationsLoading] = useState(false);
+	const [valDate, setValDate] = useState('');
+	const [valAmount, setValAmount] = useState('');
+	const [valSource, setValSource] = useState('');
+	const [valSubmitting, setValSubmitting] = useState(false);
 
 	const [deleteTarget, setDeleteTarget] = useState<Asset | null>(null);
 
@@ -87,6 +107,23 @@ export default function AssetsPage() {
 		void dispatch(getAssets());
 		void dispatch(getLiabilities());
 	}, [dispatch]);
+
+	const resetValuationForm = () => {
+		setValDate(DateTime.now().toISODate() ?? '');
+		setValAmount('');
+		setValSource('');
+	};
+
+	const loadValuations = async (assetId: string) => {
+		setValuationsLoading(true);
+		try {
+			setValuations(await fetchAssetValuations(assetId));
+		} catch {
+			setValuations([]);
+		} finally {
+			setValuationsLoading(false);
+		}
+	};
 
 	const openAddModal = () => {
 		setModalMode('add');
@@ -98,6 +135,9 @@ export default function AssetsPage() {
 		setValueSource('');
 		setLiabilityId('');
 		setNotes('');
+		setPurchasePrice('');
+		setPurchaseDate('');
+		setValuations([]);
 		setModalError(null);
 		setModalOpen(true);
 	};
@@ -112,8 +152,11 @@ export default function AssetsPage() {
 		setValueSource(item.value_source ?? '');
 		setLiabilityId(item.liability_id ?? '');
 		setNotes(item.notes ?? '');
+		setValuations([]);
+		resetValuationForm();
 		setModalError(null);
 		setModalOpen(true);
+		void loadValuations(item.id);
 	};
 
 	const closeModal = () => {
@@ -139,10 +182,52 @@ export default function AssetsPage() {
 			setModalError('Name is required');
 			return;
 		}
+
+		const liabilityIdValue =
+			kind === 'property' && liabilityId.length > 0 ? Number(liabilityId) : null;
+		const notesValue = notes.trim().length > 0 ? notes.trim() : null;
+
+		// Edit only touches metadata; value is managed through the valuation history.
+		if (modalMode === 'edit' && editingItem !== null) {
+			const payload = {
+				name: trimmedName,
+				kind,
+				value_cents: editingItem.value_cents,
+				valued_at: editingItem.valued_at,
+				value_source: editingItem.value_source,
+				liability_id: liabilityIdValue,
+				notes: notesValue,
+			};
+			setSubmitting(true);
+			setModalError(null);
+			const result = await dispatch(updateAssetThunk({ id: editingItem.id, payload }));
+			setSubmitting(false);
+			if (updateAssetThunk.rejected.match(result)) {
+				setModalError(readThunkRejectMessage(result, 'Failed to save asset'));
+				return;
+			}
+			closeModal();
+			void dispatch(getAssets());
+			return;
+		}
+
 		const valueCents = parsePositiveDollarsToCents(value);
 		if (valueCents === null) {
 			setModalError('Enter a value');
 			return;
+		}
+
+		let purchasePriceCents: number | null = null;
+		if (purchasePrice.trim().length > 0) {
+			purchasePriceCents = parsePositiveDollarsToCents(purchasePrice);
+			if (purchasePriceCents === null) {
+				setModalError('Enter a valid purchase price');
+				return;
+			}
+			if (purchaseDate.length < 10) {
+				setModalError('Enter a purchase date');
+				return;
+			}
 		}
 
 		const payload = {
@@ -151,35 +236,75 @@ export default function AssetsPage() {
 			value_cents: valueCents,
 			valued_at: valuedAt.length >= 10 ? valuedAt : null,
 			value_source: valueSource.trim().length > 0 ? valueSource.trim() : null,
-			liability_id:
-				kind === 'property' && liabilityId.length > 0 ? Number(liabilityId) : null,
-			notes: notes.trim().length > 0 ? notes.trim() : null,
+			liability_id: liabilityIdValue,
+			notes: notesValue,
+			purchase_price_cents: purchasePriceCents,
+			purchase_date:
+				purchasePriceCents !== null && purchaseDate.length >= 10 ? purchaseDate : null,
 		};
 
 		setSubmitting(true);
 		setModalError(null);
 
-		const result =
-			modalMode === 'add'
-				? await dispatch(createAssetThunk(payload))
-				: editingItem !== null
-					? await dispatch(updateAssetThunk({ id: editingItem.id, payload }))
-					: null;
+		const result = await dispatch(createAssetThunk(payload));
 
 		setSubmitting(false);
 
-		if (result === null) {
-			return;
-		}
-
-		const thunk = modalMode === 'add' ? createAssetThunk : updateAssetThunk;
-		if (thunk.rejected.match(result)) {
+		if (createAssetThunk.rejected.match(result)) {
 			setModalError(readThunkRejectMessage(result, 'Failed to save asset'));
 			return;
 		}
 
 		closeModal();
 		void dispatch(getAssets());
+	};
+
+	const onAddValuation = async () => {
+		if (editingItem === null) {
+			return;
+		}
+		const amountCents = parsePositiveDollarsToCents(valAmount);
+		if (amountCents === null) {
+			setModalError('Enter a valuation amount');
+			return;
+		}
+		if (valDate.length < 10) {
+			setModalError('Enter a valuation date');
+			return;
+		}
+		setValSubmitting(true);
+		setModalError(null);
+		try {
+			await createAssetValuation(editingItem.id, {
+				value_cents: amountCents,
+				valued_at: valDate,
+				source: valSource.trim().length > 0 ? valSource.trim() : null,
+			});
+			resetValuationForm();
+			await loadValuations(editingItem.id);
+			void dispatch(getAssets());
+		} catch {
+			setModalError('Failed to add valuation');
+		} finally {
+			setValSubmitting(false);
+		}
+	};
+
+	const onRemoveValuation = async (valuationId: string) => {
+		if (editingItem === null) {
+			return;
+		}
+		setValSubmitting(true);
+		setModalError(null);
+		try {
+			await deleteAssetValuation(editingItem.id, valuationId);
+			await loadValuations(editingItem.id);
+			void dispatch(getAssets());
+		} catch {
+			setModalError('Failed to remove valuation');
+		} finally {
+			setValSubmitting(false);
+		}
 	};
 
 	const onConfirmDelete = async () => {
@@ -425,60 +550,100 @@ export default function AssetsPage() {
 								</select>
 							</div>
 
-							<div>
-								<label
-									htmlFor="assetValueInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
-								>
-									Value ($)
-								</label>
-								<input
-									id="assetValueInput"
-									type="text"
-									inputMode="decimal"
-									value={value}
-									onChange={(e) => setValue(e.target.value)}
-									className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
-									placeholder="0.00"
-									disabled={submitting}
-									required
-								/>
-							</div>
+							{modalMode === 'add' ? (
+								<>
+									<div>
+										<label
+											htmlFor="assetValueInput"
+											className="mb-1.5 block text-sm font-medium text-white/80"
+										>
+											Current value ($)
+										</label>
+										<input
+											id="assetValueInput"
+											type="text"
+											inputMode="decimal"
+											value={value}
+											onChange={(e) => setValue(e.target.value)}
+											className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
+											placeholder="0.00"
+											disabled={submitting}
+											required
+										/>
+									</div>
 
-							<div>
-								<label
-									htmlFor="assetValuedAtInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
-								>
-									Valued as at (optional)
-								</label>
-								<input
-									id="assetValuedAtInput"
-									type="date"
-									value={valuedAt}
-									onChange={(e) => setValuedAt(e.target.value)}
-									className={cn(dateInputClass, 'w-full px-3 py-2')}
-									disabled={submitting}
-								/>
-							</div>
+									<div>
+										<label
+											htmlFor="assetValuedAtInput"
+											className="mb-1.5 block text-sm font-medium text-white/80"
+										>
+											Valued as at (optional)
+										</label>
+										<input
+											id="assetValuedAtInput"
+											type="date"
+											value={valuedAt}
+											onChange={(e) => setValuedAt(e.target.value)}
+											className={cn(dateInputClass, 'w-full px-3 py-2')}
+											disabled={submitting}
+										/>
+									</div>
 
-							<div className="sm:col-span-2">
-								<label
-									htmlFor="assetSourceInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
-								>
-									Valuation source (optional)
-								</label>
-								<input
-									id="assetSourceInput"
-									type="text"
-									value={valueSource}
-									onChange={(e) => setValueSource(e.target.value)}
-									className={cn(inputDarkClass, 'w-full px-3 py-2')}
-									placeholder="e.g. council rates notice, owner estimate"
-									disabled={submitting}
-								/>
-							</div>
+									<div className="sm:col-span-2">
+										<label
+											htmlFor="assetSourceInput"
+											className="mb-1.5 block text-sm font-medium text-white/80"
+										>
+											Valuation source (optional)
+										</label>
+										<input
+											id="assetSourceInput"
+											type="text"
+											value={valueSource}
+											onChange={(e) => setValueSource(e.target.value)}
+											className={cn(inputDarkClass, 'w-full px-3 py-2')}
+											placeholder="e.g. council rates notice, owner estimate"
+											disabled={submitting}
+										/>
+									</div>
+
+									<div>
+										<label
+											htmlFor="assetPurchasePriceInput"
+											className="mb-1.5 block text-sm font-medium text-white/80"
+										>
+											Bought at ($, optional)
+										</label>
+										<input
+											id="assetPurchasePriceInput"
+											type="text"
+											inputMode="decimal"
+											value={purchasePrice}
+											onChange={(e) => setPurchasePrice(e.target.value)}
+											className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
+											placeholder="0.00"
+											disabled={submitting}
+										/>
+									</div>
+
+									<div>
+										<label
+											htmlFor="assetPurchaseDateInput"
+											className="mb-1.5 block text-sm font-medium text-white/80"
+										>
+											Purchase date
+										</label>
+										<input
+											id="assetPurchaseDateInput"
+											type="date"
+											value={purchaseDate}
+											onChange={(e) => setPurchaseDate(e.target.value)}
+											className={cn(dateInputClass, 'w-full px-3 py-2')}
+											disabled={submitting}
+										/>
+									</div>
+								</>
+							) : null}
 
 							{kind === 'property' ? (
 								<div className="sm:col-span-2">
@@ -526,6 +691,122 @@ export default function AssetsPage() {
 								disabled={submitting}
 							/>
 						</div>
+
+						{modalMode === 'edit' ? (
+							<div className="rounded-lg border border-white/10 bg-white/5 p-3">
+								<div className="mb-2 flex items-center justify-between">
+									<span className="text-sm font-medium text-white/80">
+										Valuation history
+									</span>
+									{valuationsLoading ? (
+										<Loader2 className="h-4 w-4 animate-spin text-secondary-default" />
+									) : null}
+								</div>
+
+								{!valuationsLoading && valuations.length === 0 ? (
+									<p className="text-xs text-white/50">No valuations recorded yet.</p>
+								) : null}
+
+								{valuations.length > 0 ? (
+									<ul className="mb-3 space-y-1.5">
+										{valuations.map((entry) => (
+											<li
+												key={entry.id}
+												className="flex items-center justify-between gap-2 rounded-md bg-white/5 px-2.5 py-1.5 text-sm"
+											>
+												<span className="text-white/70">
+													{formatValuedAt(entry.valued_at)}
+												</span>
+												<span className="font-mono tabular-nums text-green-300">
+													{formatMoney(entry.value_cents)}
+												</span>
+												<span className="flex-1 truncate text-xs text-white/40">
+													{entry.source ?? ''}
+												</span>
+												<button
+													type="button"
+													className="text-white/40 transition hover:text-red-300"
+													onClick={() => void onRemoveValuation(entry.id)}
+													disabled={valSubmitting}
+													aria-label="Remove valuation"
+												>
+													<Trash2 size="0.9rem" />
+												</button>
+											</li>
+										))}
+									</ul>
+								) : null}
+
+								<div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_auto] sm:items-end">
+									<div>
+										<label
+											htmlFor="valDateInput"
+											className="mb-1 block text-xs text-white/60"
+										>
+											Date
+										</label>
+										<input
+											id="valDateInput"
+											type="date"
+											value={valDate}
+											onChange={(e) => setValDate(e.target.value)}
+											className={cn(dateInputClass, 'w-full px-2 py-1.5 text-sm')}
+											disabled={valSubmitting}
+										/>
+									</div>
+									<div>
+										<label
+											htmlFor="valAmountInput"
+											className="mb-1 block text-xs text-white/60"
+										>
+											Value ($)
+										</label>
+										<input
+											id="valAmountInput"
+											type="text"
+											inputMode="decimal"
+											value={valAmount}
+											onChange={(e) => setValAmount(e.target.value)}
+											className={cn(inputDarkClass, 'w-full px-2 py-1.5 font-mono text-sm')}
+											placeholder="0.00"
+											disabled={valSubmitting}
+										/>
+									</div>
+									<div>
+										<label
+											htmlFor="valSourceInput"
+											className="mb-1 block text-xs text-white/60"
+										>
+											Source (optional)
+										</label>
+										<input
+											id="valSourceInput"
+											type="text"
+											value={valSource}
+											onChange={(e) => setValSource(e.target.value)}
+											className={cn(inputDarkClass, 'w-full px-2 py-1.5 text-sm')}
+											placeholder="e.g. agent appraisal"
+											disabled={valSubmitting}
+										/>
+									</div>
+									<button
+										type="button"
+										className={cn(buttonOutlineClass, 'justify-center')}
+										onClick={() => void onAddValuation()}
+										disabled={valSubmitting}
+									>
+										{valSubmitting ? (
+											<Loader2 className="inline-block h-4 w-4 animate-spin" />
+										) : (
+											<>
+												<Plus size="0.9rem" className="mr-1 inline-block" />
+												Add
+											</>
+										)}
+									</button>
+								</div>
+							</div>
+						) : null}
 					</div>
 				</form>
 			</Modal>

@@ -115,6 +115,19 @@ diesel::table! {
 }
 
 diesel::table! {
+    asset_valuations (id) {
+        id -> Bigint,
+        asset_id -> Bigint,
+        valued_at -> Date,
+        value_cents -> Bigint,
+        #[max_length = 200]
+        source -> Nullable<Varchar>,
+        created_at -> Timestamp,
+        deleted_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     liabilities (id) {
         id -> Bigint,
         #[max_length = 200]
@@ -135,6 +148,19 @@ diesel::table! {
         term_months -> Nullable<Integer>,
         financial_account_id -> Nullable<Bigint>,
         notes -> Nullable<Text>,
+        created_at -> Timestamp,
+        deleted_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
+    liability_balances (id) {
+        id -> Bigint,
+        liability_id -> Bigint,
+        balanced_at -> Date,
+        balance_cents -> Bigint,
+        #[max_length = 200]
+        source -> Nullable<Varchar>,
         created_at -> Timestamp,
         deleted_at -> Nullable<Timestamp>,
     }
@@ -196,7 +222,9 @@ diesel::table! {
 }
 
 diesel::joinable!(assets -> liabilities (liability_id));
+diesel::joinable!(asset_valuations -> assets (asset_id));
 diesel::joinable!(liabilities -> financial_accounts (financial_account_id));
+diesel::joinable!(liability_balances -> liabilities (liability_id));
 diesel::joinable!(planned_spending -> categories (category_id));
 diesel::joinable!(prediction_scenario_lines -> categories (category_id));
 diesel::joinable!(prediction_scenario_lines -> prediction_scenarios (scenario_id));
@@ -207,10 +235,12 @@ diesel::joinable!(transaction_categories -> transaction_data (transaction_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     assets,
+    asset_valuations,
     categories,
     category_mappings,
     financial_accounts,
     liabilities,
+    liability_balances,
     planned_spending,
     prediction_goals,
     prediction_scenario_lines,

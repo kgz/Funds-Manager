@@ -1,6 +1,6 @@
 use crate::models::liabilities::Liability;
 use crate::modules::database::get_dbo;
-use crate::schema::assets;
+use crate::schema::{asset_valuations, assets};
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -64,6 +64,8 @@ pub struct AssetInput<'a> {
     pub value_source: Option<&'a str>,
     pub liability_id: Option<i64>,
     pub notes: Option<&'a str>,
+    pub purchase_price_cents: Option<i64>,
+    pub purchase_date: Option<NaiveDate>,
 }
 
 #[derive(Debug, Default, AsChangeset)]
@@ -82,6 +84,35 @@ pub struct AssetChanges<'a> {
 pub struct AssetListResponse {
     pub items: Vec<Asset>,
     pub total_value_cents: i64,
+}
+
+#[derive(Queryable, Selectable, Identifiable, Debug, Serialize, Clone)]
+#[diesel(table_name = asset_valuations)]
+#[diesel(check_for_backend(diesel::pg::Pg))]
+pub struct AssetValuation {
+    pub id: i64,
+    pub asset_id: i64,
+    pub valued_at: NaiveDate,
+    pub value_cents: i64,
+    pub source: Option<String>,
+    pub created_at: NaiveDateTime,
+    pub deleted_at: Option<NaiveDateTime>,
+}
+
+#[derive(Insertable, Debug)]
+#[diesel(table_name = asset_valuations)]
+struct NewAssetValuation<'a> {
+    asset_id: i64,
+    valued_at: NaiveDate,
+    value_cents: i64,
+    source: Option<&'a str>,
+    created_at: NaiveDateTime,
+}
+
+pub struct AssetValuationInput<'a> {
+    pub valued_at: NaiveDate,
+    pub value_cents: i64,
+    pub source: Option<&'a str>,
 }
 
 fn ensure_liability_exists(liability_id: i64) -> Result<(), diesel::result::Error> {
@@ -123,20 +154,38 @@ impl Asset {
             ensure_liability_exists(liability_id)?;
         }
         let conn = &mut get_dbo();
-        let row = NewAsset {
-            name: input.name,
-            kind: input.kind,
-            value_cents: input.value_cents,
-            valued_at: input.valued_at,
-            value_source: input.value_source,
-            liability_id: input.liability_id,
-            notes: input.notes,
-            created_at: Utc::now().naive_utc(),
-        };
-        diesel::insert_into(assets::table)
-            .values(&row)
-            .returning(Asset::as_returning())
-            .get_result(conn)
+        let now = Utc::now().naive_utc();
+        conn.transaction(|conn| {
+            let row = NewAsset {
+                name: input.name,
+                kind: input.kind,
+                value_cents: input.value_cents,
+                valued_at: input.valued_at,
+                value_source: input.value_source,
+                liability_id: input.liability_id,
+                notes: input.notes,
+                created_at: now,
+            };
+            let asset: Asset = diesel::insert_into(assets::table)
+                .values(&row)
+                .returning(Asset::as_returning())
+                .get_result(conn)?;
+
+            // Seed the opening valuation from the current value.
+            let current_date = input.valued_at.unwrap_or_else(|| now.date());
+            insert_valuation_row(conn, asset.id, current_date, input.value_cents, input.value_source)?;
+
+            // Optional "bought at" seeds the earliest tracking point.
+            if let (Some(price), Some(date)) = (input.purchase_price_cents, input.purchase_date) {
+                insert_valuation_row(conn, asset.id, date, price, Some("Purchase"))?;
+            }
+
+            recompute_current(conn, asset.id)?;
+            assets::table
+                .filter(assets::id.eq(asset.id))
+                .select(Asset::as_select())
+                .first(conn)
+        })
     }
 
     pub fn update(id: i64, changes: AssetChanges<'_>) -> Result<Self, diesel::result::Error> {
@@ -167,6 +216,129 @@ impl Asset {
             return Err(diesel::result::Error::NotFound);
         }
         Ok(())
+    }
+}
+
+type Conn = crate::modules::database::DbConn;
+
+fn insert_valuation_row(
+    conn: &mut Conn,
+    asset_id: i64,
+    valued_at: NaiveDate,
+    value_cents: i64,
+    source: Option<&str>,
+) -> Result<AssetValuation, diesel::result::Error> {
+    let row = NewAssetValuation {
+        asset_id,
+        valued_at,
+        value_cents,
+        source,
+        created_at: Utc::now().naive_utc(),
+    };
+    diesel::insert_into(asset_valuations::table)
+        .values(&row)
+        .returning(AssetValuation::as_returning())
+        .get_result(conn)
+}
+
+// Keeps the denormalised asset snapshot in sync with its newest valuation.
+fn recompute_current(conn: &mut Conn, asset_id: i64) -> Result<(), diesel::result::Error> {
+    let latest: Option<(i64, NaiveDate, Option<String>)> = asset_valuations::table
+        .filter(asset_valuations::asset_id.eq(asset_id))
+        .filter(asset_valuations::deleted_at.is_null())
+        .order((
+            asset_valuations::valued_at.desc(),
+            asset_valuations::id.desc(),
+        ))
+        .select((
+            asset_valuations::value_cents,
+            asset_valuations::valued_at,
+            asset_valuations::source,
+        ))
+        .first(conn)
+        .optional()?;
+
+    if let Some((value_cents, valued_at, source)) = latest {
+        diesel::update(assets::table.filter(assets::id.eq(asset_id)))
+            .set((
+                assets::value_cents.eq(value_cents),
+                assets::valued_at.eq(Some(valued_at)),
+                assets::value_source.eq(source),
+            ))
+            .execute(conn)?;
+    }
+    Ok(())
+}
+
+impl AssetValuation {
+    pub fn list_for_asset(asset_id: i64) -> Result<Vec<Self>, diesel::result::Error> {
+        let conn = &mut get_dbo();
+        asset_valuations::table
+            .filter(asset_valuations::asset_id.eq(asset_id))
+            .filter(asset_valuations::deleted_at.is_null())
+            .order((
+                asset_valuations::valued_at.desc(),
+                asset_valuations::id.desc(),
+            ))
+            .select(AssetValuation::as_select())
+            .load(conn)
+    }
+
+    pub fn create(
+        asset_id: i64,
+        input: AssetValuationInput<'_>,
+    ) -> Result<Self, diesel::result::Error> {
+        let conn = &mut get_dbo();
+        conn.transaction(|conn| {
+            let row = insert_valuation_row(
+                conn,
+                asset_id,
+                input.valued_at,
+                input.value_cents,
+                input.source,
+            )?;
+            recompute_current(conn, asset_id)?;
+            Ok(row)
+        })
+    }
+
+    pub fn soft_delete(asset_id: i64, id: i64) -> Result<(), diesel::result::Error> {
+        let conn = &mut get_dbo();
+        conn.transaction(|conn| {
+            let updated = diesel::update(
+                asset_valuations::table
+                    .filter(asset_valuations::id.eq(id))
+                    .filter(asset_valuations::asset_id.eq(asset_id))
+                    .filter(asset_valuations::deleted_at.is_null()),
+            )
+            .set(asset_valuations::deleted_at.eq(Some(Utc::now().naive_utc())))
+            .execute(conn)?;
+            if updated == 0 {
+                return Err(diesel::result::Error::NotFound);
+            }
+            recompute_current(conn, asset_id)?;
+            Ok(())
+        })
+    }
+
+    // Active valuations for non-deleted assets, used to build net worth history.
+    pub fn active_points() -> Result<Vec<(i64, NaiveDate, i64)>, diesel::result::Error> {
+        let conn = &mut get_dbo();
+        asset_valuations::table
+            .inner_join(assets::table)
+            .filter(asset_valuations::deleted_at.is_null())
+            .filter(assets::deleted_at.is_null())
+            .order((
+                asset_valuations::asset_id.asc(),
+                asset_valuations::valued_at.asc(),
+                asset_valuations::id.asc(),
+            ))
+            .select((
+                asset_valuations::asset_id,
+                asset_valuations::valued_at,
+                asset_valuations::value_cents,
+            ))
+            .load(conn)
     }
 }
 

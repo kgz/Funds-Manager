@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { DateTime } from 'luxon';
 import { Edit2, Landmark, Loader2, Plus, Trash2 } from 'lucide-react';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -12,6 +13,7 @@ import {
 	buttonDangerClass,
 	buttonOutlineClass,
 	buttonPrimaryClass,
+	dateInputClass,
 	glassCardClass,
 	inputDarkClass,
 	selectDarkClass,
@@ -28,6 +30,9 @@ import {
 } from '@/store/thunks/liabilities';
 import {
 	bpsToPercentText,
+	createLiabilityBalance,
+	deleteLiabilityBalance,
+	fetchLiabilityBalances,
 	formatCentsAsDollars,
 	liabilityKindLabel,
 	LIABILITY_FREQUENCY_OPTIONS,
@@ -35,6 +40,7 @@ import {
 	parsePercentToBps,
 	parsePositiveDollarsToCents,
 	type Liability,
+	type LiabilityBalance,
 	type LiabilityFrequency,
 	type LiabilityKind,
 	type LiabilityRateType,
@@ -80,6 +86,14 @@ function formatRepayment(liability: Liability): string {
 	return `${formatMoney(liability.repayment_cents)}${freq}`;
 }
 
+function formatBalancedAt(balancedAt: string | null): string {
+	if (!balancedAt) {
+		return '—';
+	}
+	const parsed = DateTime.fromISO(balancedAt);
+	return parsed.isValid ? parsed.toFormat('d MMM yyyy') : '—';
+}
+
 export default function LiabilitiesPage() {
 	const dispatch = useAppDispatch();
 	const { items, totalBalanceCents, loading, error } = useAppSelector(
@@ -96,6 +110,7 @@ export default function LiabilitiesPage() {
 	const [balance, setBalance] = useState('');
 	const [creditLimit, setCreditLimit] = useState('');
 	const [originalAmount, setOriginalAmount] = useState('');
+	const [originatedDate, setOriginatedDate] = useState('');
 	const [ratePercent, setRatePercent] = useState('');
 	const [rateType, setRateType] = useState<LiabilityRateType | ''>('');
 	const [repayment, setRepayment] = useState('');
@@ -106,12 +121,36 @@ export default function LiabilitiesPage() {
 	const [modalError, setModalError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 
+	const [balances, setBalances] = useState<LiabilityBalance[]>([]);
+	const [balancesLoading, setBalancesLoading] = useState(false);
+	const [balDate, setBalDate] = useState('');
+	const [balAmount, setBalAmount] = useState('');
+	const [balSource, setBalSource] = useState('');
+	const [balSubmitting, setBalSubmitting] = useState(false);
+
 	const [deleteTarget, setDeleteTarget] = useState<Liability | null>(null);
 
 	useEffect(() => {
 		void dispatch(getLiabilities());
 		void dispatch(getAllAccounts());
 	}, [dispatch]);
+
+	const resetBalanceForm = () => {
+		setBalDate(DateTime.now().toISODate() ?? '');
+		setBalAmount('');
+		setBalSource('');
+	};
+
+	const loadBalances = async (liabilityId: string) => {
+		setBalancesLoading(true);
+		try {
+			setBalances(await fetchLiabilityBalances(liabilityId));
+		} catch {
+			setBalances([]);
+		} finally {
+			setBalancesLoading(false);
+		}
+	};
 
 	const openAddModal = () => {
 		setModalMode('add');
@@ -122,6 +161,7 @@ export default function LiabilitiesPage() {
 		setBalance('');
 		setCreditLimit('');
 		setOriginalAmount('');
+		setOriginatedDate('');
 		setRatePercent('');
 		setRateType('');
 		setRepayment('');
@@ -129,6 +169,7 @@ export default function LiabilitiesPage() {
 		setTermMonths('');
 		setAccountId('');
 		setNotes('');
+		setBalances([]);
 		setModalError(null);
 		setModalOpen(true);
 	};
@@ -150,6 +191,7 @@ export default function LiabilitiesPage() {
 				? ''
 				: formatCentsAsDollars(item.original_amount_cents)
 		);
+		setOriginatedDate('');
 		setRatePercent(
 			item.interest_rate_bps === null ? '' : bpsToPercentText(item.interest_rate_bps)
 		);
@@ -161,8 +203,11 @@ export default function LiabilitiesPage() {
 		setTermMonths(item.term_months === null ? '' : String(item.term_months));
 		setAccountId(item.financial_account_id ?? '');
 		setNotes(item.notes ?? '');
+		setBalances([]);
+		resetBalanceForm();
 		setModalError(null);
 		setModalOpen(true);
+		void loadBalances(item.id);
 	};
 
 	const closeModal = () => {
@@ -188,11 +233,6 @@ export default function LiabilitiesPage() {
 			setModalError('Name is required');
 			return;
 		}
-		const balanceCents = parsePositiveDollarsToCents(balance);
-		if (balanceCents === null) {
-			setModalError('Enter a current balance');
-			return;
-		}
 
 		const termValue = termMonths.trim();
 		let termPayload: number | null = null;
@@ -205,13 +245,61 @@ export default function LiabilitiesPage() {
 			termPayload = parsed;
 		}
 
+		const originalAmountCents = parsePositiveDollarsToCents(originalAmount);
+
+		if (modalMode === 'edit' && editingItem !== null) {
+			const payload = {
+				name: trimmedName,
+				kind,
+				lender: lender.trim().length > 0 ? lender.trim() : null,
+				balance_cents: editingItem.balance_cents,
+				credit_limit_cents: parsePositiveDollarsToCents(creditLimit),
+				original_amount_cents: originalAmountCents,
+				interest_rate_bps: parsePercentToBps(ratePercent),
+				rate_type: rateType === '' ? null : rateType,
+				repayment_cents: parsePositiveDollarsToCents(repayment),
+				repayment_frequency: frequency === '' ? null : frequency,
+				term_months: termPayload,
+				financial_account_id: accountId.length > 0 ? Number(accountId) : null,
+				notes: notes.trim().length > 0 ? notes.trim() : null,
+			};
+			setSubmitting(true);
+			setModalError(null);
+			const result = await dispatch(
+				updateLiabilityThunk({ id: editingItem.id, payload })
+			);
+			setSubmitting(false);
+			if (updateLiabilityThunk.rejected.match(result)) {
+				setModalError(readThunkRejectMessage(result, 'Failed to save liability'));
+				return;
+			}
+			closeModal();
+			void dispatch(getLiabilities());
+			return;
+		}
+
+		const balanceCents = parsePositiveDollarsToCents(balance);
+		if (balanceCents === null) {
+			setModalError('Enter a current balance');
+			return;
+		}
+
+		if (originalAmount.trim().length > 0 && originalAmountCents === null) {
+			setModalError('Enter a valid original amount');
+			return;
+		}
+		if (originalAmountCents !== null && originatedDate.length < 10) {
+			setModalError('Enter a start date for the original amount');
+			return;
+		}
+
 		const payload = {
 			name: trimmedName,
 			kind,
 			lender: lender.trim().length > 0 ? lender.trim() : null,
 			balance_cents: balanceCents,
 			credit_limit_cents: parsePositiveDollarsToCents(creditLimit),
-			original_amount_cents: parsePositiveDollarsToCents(originalAmount),
+			original_amount_cents: originalAmountCents,
 			interest_rate_bps: parsePercentToBps(ratePercent),
 			rate_type: rateType === '' ? null : rateType,
 			repayment_cents: parsePositiveDollarsToCents(repayment),
@@ -219,34 +307,74 @@ export default function LiabilitiesPage() {
 			term_months: termPayload,
 			financial_account_id: accountId.length > 0 ? Number(accountId) : null,
 			notes: notes.trim().length > 0 ? notes.trim() : null,
+			originated_date:
+				originalAmountCents !== null && originatedDate.length >= 10
+					? originatedDate
+					: null,
 		};
 
 		setSubmitting(true);
 		setModalError(null);
 
-		const result =
-			modalMode === 'add'
-				? await dispatch(createLiabilityThunk(payload))
-				: editingItem !== null
-					? await dispatch(
-							updateLiabilityThunk({ id: editingItem.id, payload })
-						)
-					: null;
+		const result = await dispatch(createLiabilityThunk(payload));
 
 		setSubmitting(false);
 
-		if (result === null) {
-			return;
-		}
-
-		const thunk = modalMode === 'add' ? createLiabilityThunk : updateLiabilityThunk;
-		if (thunk.rejected.match(result)) {
+		if (createLiabilityThunk.rejected.match(result)) {
 			setModalError(readThunkRejectMessage(result, 'Failed to save liability'));
 			return;
 		}
 
 		closeModal();
 		void dispatch(getLiabilities());
+	};
+
+	const onAddBalance = async () => {
+		if (editingItem === null) {
+			return;
+		}
+		const amountCents = parsePositiveDollarsToCents(balAmount);
+		if (amountCents === null) {
+			setModalError('Enter a balance amount');
+			return;
+		}
+		if (balDate.length < 10) {
+			setModalError('Enter a balance date');
+			return;
+		}
+		setBalSubmitting(true);
+		setModalError(null);
+		try {
+			await createLiabilityBalance(editingItem.id, {
+				balance_cents: amountCents,
+				balanced_at: balDate,
+				source: balSource.trim().length > 0 ? balSource.trim() : null,
+			});
+			resetBalanceForm();
+			await loadBalances(editingItem.id);
+			void dispatch(getLiabilities());
+		} catch {
+			setModalError('Failed to add balance snapshot');
+		} finally {
+			setBalSubmitting(false);
+		}
+	};
+
+	const onRemoveBalance = async (balanceId: string) => {
+		if (editingItem === null) {
+			return;
+		}
+		setBalSubmitting(true);
+		setModalError(null);
+		try {
+			await deleteLiabilityBalance(editingItem.id, balanceId);
+			await loadBalances(editingItem.id);
+			void dispatch(getLiabilities());
+		} catch {
+			setModalError('Failed to remove balance snapshot');
+		} finally {
+			setBalSubmitting(false);
+		}
 	};
 
 	const onConfirmDelete = async () => {
@@ -505,18 +633,64 @@ export default function LiabilitiesPage() {
 								>
 									Current balance ($)
 								</label>
-								<input
-									id="liabilityBalanceInput"
-									type="text"
-									inputMode="decimal"
-									value={balance}
-									onChange={(e) => setBalance(e.target.value)}
-									className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
-									placeholder="0.00"
-									disabled={submitting}
-									required
-								/>
+								{modalMode === 'add' ? (
+									<input
+										id="liabilityBalanceInput"
+										type="text"
+										inputMode="decimal"
+										value={balance}
+										onChange={(e) => setBalance(e.target.value)}
+										className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
+										placeholder="0.00"
+										disabled={submitting}
+										required
+									/>
+								) : (
+									<p className="px-3 py-2 font-mono text-red-300">
+										{editingItem ? formatMoney(editingItem.balance_cents) : '—'}
+									</p>
+								)}
 							</div>
+
+							{modalMode === 'add' ? (
+								<>
+									<div>
+										<label
+											htmlFor="liabilityOriginalInput"
+											className="mb-1.5 block text-sm font-medium text-white/80"
+										>
+											Original amount ($, optional)
+										</label>
+										<input
+											id="liabilityOriginalInput"
+											type="text"
+											inputMode="decimal"
+											value={originalAmount}
+											onChange={(e) => setOriginalAmount(e.target.value)}
+											className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
+											placeholder="0.00"
+											disabled={submitting}
+										/>
+									</div>
+
+									<div>
+										<label
+											htmlFor="liabilityOriginatedInput"
+											className="mb-1.5 block text-sm font-medium text-white/80"
+										>
+											Started at (optional)
+										</label>
+										<input
+											id="liabilityOriginatedInput"
+											type="date"
+											value={originatedDate}
+											onChange={(e) => setOriginatedDate(e.target.value)}
+											className={cn(dateInputClass, 'w-full px-3 py-2')}
+											disabled={submitting}
+										/>
+									</div>
+								</>
+							) : null}
 
 							<div>
 								<label
@@ -537,24 +711,26 @@ export default function LiabilitiesPage() {
 								/>
 							</div>
 
-							<div>
-								<label
-									htmlFor="liabilityOriginalInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
-								>
-									Original amount ($, optional)
-								</label>
-								<input
-									id="liabilityOriginalInput"
-									type="text"
-									inputMode="decimal"
-									value={originalAmount}
-									onChange={(e) => setOriginalAmount(e.target.value)}
-									className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
-									placeholder="0.00"
-									disabled={submitting}
-								/>
-							</div>
+							{modalMode === 'edit' ? (
+								<div>
+									<label
+										htmlFor="liabilityOriginalEditInput"
+										className="mb-1.5 block text-sm font-medium text-white/80"
+									>
+										Original amount ($, optional)
+									</label>
+									<input
+										id="liabilityOriginalEditInput"
+										type="text"
+										inputMode="decimal"
+										value={originalAmount}
+										onChange={(e) => setOriginalAmount(e.target.value)}
+										className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
+										placeholder="0.00"
+										disabled={submitting}
+									/>
+								</div>
+							) : null}
 
 							<div>
 								<label
@@ -704,6 +880,122 @@ export default function LiabilitiesPage() {
 								disabled={submitting}
 							/>
 						</div>
+
+						{modalMode === 'edit' ? (
+							<div className="rounded-lg border border-white/10 bg-white/5 p-3">
+								<div className="mb-2 flex items-center justify-between">
+									<span className="text-sm font-medium text-white/80">
+										Balance history
+									</span>
+									{balancesLoading ? (
+										<Loader2 className="h-4 w-4 animate-spin text-secondary-default" />
+									) : null}
+								</div>
+
+								{!balancesLoading && balances.length === 0 ? (
+									<p className="text-xs text-white/50">No balance snapshots yet.</p>
+								) : null}
+
+								{balances.length > 0 ? (
+									<ul className="mb-3 space-y-1.5">
+										{balances.map((entry) => (
+											<li
+												key={entry.id}
+												className="flex items-center justify-between gap-2 rounded-md bg-white/5 px-2.5 py-1.5 text-sm"
+											>
+												<span className="text-white/70">
+													{formatBalancedAt(entry.balanced_at)}
+												</span>
+												<span className="font-mono tabular-nums text-red-300">
+													{formatMoney(entry.balance_cents)}
+												</span>
+												<span className="flex-1 truncate text-xs text-white/40">
+													{entry.source ?? ''}
+												</span>
+												<button
+													type="button"
+													className="text-white/40 transition hover:text-red-300"
+													onClick={() => void onRemoveBalance(entry.id)}
+													disabled={balSubmitting}
+													aria-label="Remove balance snapshot"
+												>
+													<Trash2 size="0.9rem" />
+												</button>
+											</li>
+										))}
+									</ul>
+								) : null}
+
+								<div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_auto] sm:items-end">
+									<div>
+										<label
+											htmlFor="balDateInput"
+											className="mb-1 block text-xs text-white/60"
+										>
+											Date
+										</label>
+										<input
+											id="balDateInput"
+											type="date"
+											value={balDate}
+											onChange={(e) => setBalDate(e.target.value)}
+											className={cn(dateInputClass, 'w-full px-2 py-1.5 text-sm')}
+											disabled={balSubmitting}
+										/>
+									</div>
+									<div>
+										<label
+											htmlFor="balAmountInput"
+											className="mb-1 block text-xs text-white/60"
+										>
+											Balance ($)
+										</label>
+										<input
+											id="balAmountInput"
+											type="text"
+											inputMode="decimal"
+											value={balAmount}
+											onChange={(e) => setBalAmount(e.target.value)}
+											className={cn(inputDarkClass, 'w-full px-2 py-1.5 font-mono text-sm')}
+											placeholder="0.00"
+											disabled={balSubmitting}
+										/>
+									</div>
+									<div>
+										<label
+											htmlFor="balSourceInput"
+											className="mb-1 block text-xs text-white/60"
+										>
+											Source (optional)
+										</label>
+										<input
+											id="balSourceInput"
+											type="text"
+											value={balSource}
+											onChange={(e) => setBalSource(e.target.value)}
+											className={cn(inputDarkClass, 'w-full px-2 py-1.5 text-sm')}
+											placeholder="e.g. statement"
+											disabled={balSubmitting}
+										/>
+									</div>
+									<button
+										type="button"
+										className={cn(buttonOutlineClass, 'justify-center')}
+										onClick={() => void onAddBalance()}
+										disabled={balSubmitting}
+									>
+										{balSubmitting ? (
+											<Loader2 className="inline-block h-4 w-4 animate-spin" />
+										) : (
+											<>
+												<Plus size="0.9rem" className="mr-1 inline-block" />
+												Add
+											</>
+										)}
+									</button>
+								</div>
+							</div>
+						) : null}
 					</div>
 				</form>
 			</Modal>
