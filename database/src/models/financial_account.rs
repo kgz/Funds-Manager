@@ -1,9 +1,11 @@
 use crate::modules::database::get_dbo;
 use crate::schema::{financial_accounts, statement};
-use chrono::{NaiveDateTime, Utc};
-use diesel::dsl::count_star;
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use diesel::prelude::*;
+use diesel::sql_query;
+use diesel::sql_types::{BigInt, Date};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(
     Queryable,
@@ -52,6 +54,87 @@ pub struct FinancialAccountWithStats {
     #[serde(flatten)]
     pub account: FinancialAccount,
     pub statement_count: i64,
+    #[serde(rename = "lastKnownBalance")]
+    pub last_known_balance: Option<f64>,
+    #[serde(rename = "lastKnownBalanceDate")]
+    pub last_known_balance_date: Option<String>,
+}
+
+#[derive(QueryableByName, Debug)]
+struct StatementCountRow {
+    #[diesel(sql_type = BigInt)]
+    financial_account_id: i64,
+    #[diesel(sql_type = BigInt)]
+    statement_count: i64,
+}
+
+#[derive(QueryableByName, Debug)]
+struct LastKnownBalanceRow {
+    #[diesel(sql_type = BigInt)]
+    financial_account_id: i64,
+    #[diesel(sql_type = BigInt)]
+    balance_cents: i64,
+    #[diesel(sql_type = Date)]
+    balance_date: NaiveDate,
+}
+
+fn cents_to_dollars(cents: i64) -> f64 {
+    cents as f64 / 100.0
+}
+
+fn round2(n: f64) -> f64 {
+    (n * 100.0).round() / 100.0
+}
+
+fn load_statement_counts_by_account_id(
+    conn: &mut impl diesel::connection::LoadConnection<Backend = diesel::pg::Pg>,
+) -> Result<HashMap<i64, i64>, diesel::result::Error> {
+    let rows = sql_query(
+        r#"
+        SELECT financial_account_id, COUNT(*)::bigint AS statement_count
+        FROM statement
+        WHERE deleted_at IS NULL
+        GROUP BY financial_account_id
+        "#,
+    )
+    .load::<StatementCountRow>(conn)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| (row.financial_account_id, row.statement_count))
+        .collect())
+}
+
+fn load_last_known_balances_by_account_id(
+    conn: &mut impl diesel::connection::LoadConnection<Backend = diesel::pg::Pg>,
+) -> Result<HashMap<i64, (f64, String)>, diesel::result::Error> {
+    let rows = sql_query(
+        r#"
+        SELECT DISTINCT ON (s.financial_account_id)
+            s.financial_account_id,
+            td.balance::bigint AS balance_cents,
+            td.transaction_date::date AS balance_date
+        FROM transaction_data td
+        INNER JOIN statement s ON s.id = td.statement_id AND s.deleted_at IS NULL
+        WHERE td.deleted_at IS NULL
+          AND s.financial_account_id IS NOT NULL
+        ORDER BY s.financial_account_id, td.transaction_date DESC, td.id DESC
+        "#,
+    )
+    .load::<LastKnownBalanceRow>(conn)?;
+
+    Ok(rows
+        .into_iter()
+        .map(|row| {
+            (
+                row.financial_account_id,
+                (
+                    round2(cents_to_dollars(row.balance_cents)),
+                    row.balance_date.format("%Y-%m-%d").to_string(),
+                ),
+            )
+        })
+        .collect())
 }
 
 impl From<FinancialAccount> for FinancialAccountSummary {
@@ -109,19 +192,25 @@ impl FinancialAccount {
     pub fn all_active_with_stats() -> Result<Vec<FinancialAccountWithStats>, diesel::result::Error> {
         let accounts = Self::all_active()?;
         let conn = &mut get_dbo();
-        let mut rows = Vec::with_capacity(accounts.len());
+        let statement_counts = load_statement_counts_by_account_id(conn)?;
+        let last_balances = load_last_known_balances_by_account_id(conn)?;
 
-        for account in accounts {
-            let statement_count: i64 = statement::table
-                .filter(statement::financial_account_id.eq(account.id))
-                .filter(statement::deleted_at.is_null())
-                .select(count_star())
-                .get_result(conn)?;
-            rows.push(FinancialAccountWithStats {
-                account,
-                statement_count,
-            });
-        }
+        let rows = accounts
+            .into_iter()
+            .map(|account| {
+                let statement_count = statement_counts.get(&account.id).copied().unwrap_or(0);
+                let (last_known_balance, last_known_balance_date) = last_balances
+                    .get(&account.id)
+                    .map(|(balance, date)| (Some(*balance), Some(date.clone())))
+                    .unwrap_or((None, None));
+                FinancialAccountWithStats {
+                    account,
+                    statement_count,
+                    last_known_balance,
+                    last_known_balance_date,
+                }
+            })
+            .collect();
 
         Ok(rows)
     }

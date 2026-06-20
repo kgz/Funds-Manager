@@ -10,6 +10,8 @@ export type FinancialAccount = {
 	created_at: string;
 	deleted_at: string | null;
 	statement_count?: number;
+	lastKnownBalance?: number | null;
+	lastKnownBalanceDate?: string | null;
 };
 
 export type FinancialAccountSummary = {
@@ -47,6 +49,23 @@ function readFiniteNumber(value: unknown): number | undefined {
 	return undefined;
 }
 
+function readNullableFiniteNumber(value: unknown): number | null | undefined {
+	if (value === null) {
+		return null;
+	}
+	if (typeof value === 'number' && Number.isFinite(value)) {
+		return value;
+	}
+	return undefined;
+}
+
+function readOptionalField(raw: object, camelKey: string, snakeKey: string): unknown {
+	if (Reflect.has(raw, camelKey)) {
+		return Reflect.get(raw, camelKey);
+	}
+	return Reflect.get(raw, snakeKey);
+}
+
 export function normalizeFinancialAccount(raw: unknown): FinancialAccount | null {
 	if (!raw || typeof raw !== 'object') {
 		return null;
@@ -61,6 +80,12 @@ export function normalizeFinancialAccount(raw: unknown): FinancialAccount | null
 	const createdAt = readString(Reflect.get(raw, 'created_at'));
 	const deletedAt = readNullableString(Reflect.get(raw, 'deleted_at'));
 	const statementCount = readFiniteNumber(Reflect.get(raw, 'statement_count'));
+	const lastKnownBalance = readNullableFiniteNumber(
+		readOptionalField(raw, 'lastKnownBalance', 'last_known_balance')
+	);
+	const lastKnownBalanceDate = readNullableString(
+		readOptionalField(raw, 'lastKnownBalanceDate', 'last_known_balance_date')
+	);
 
 	if (
 		id === null ||
@@ -83,6 +108,8 @@ export function normalizeFinancialAccount(raw: unknown): FinancialAccount | null
 		created_at: createdAt,
 		deleted_at: deletedAt,
 		statement_count: statementCount,
+		lastKnownBalance,
+		lastKnownBalanceDate,
 	};
 }
 
