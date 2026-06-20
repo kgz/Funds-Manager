@@ -7,3 +7,11 @@
 The balance SHALL be the `balance` field (converted to dollars) from the latest non-deleted transaction on a non-deleted statement linked to that account, ordered by `transaction_date` descending then transaction id descending.
 
 When no such transaction exists, both fields SHALL be `null`.
+
+#### Scenario: Account with transactions
+- **WHEN** an account has at least one non-deleted transaction on a non-deleted statement
+- **THEN** `lastKnownBalance` and `lastKnownBalanceDate` reflect the latest transaction by date and id
+
+#### Scenario: Account without transactions
+- **WHEN** an account has no qualifying transactions
+- **THEN** `lastKnownBalance` and `lastKnownBalanceDate` are both `null`
