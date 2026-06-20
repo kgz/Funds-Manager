@@ -14,6 +14,7 @@ import PlannedSpendingPage from "./pages/planned";
 import PredictionsPage from "./pages/predictions";
 import LiabilitiesPage from "./pages/liabilities";
 import AssetsPage from "./pages/assets";
+import { IncomePage } from "./pages/income";
 const App = () => {
   const [theme, setTheme] = useState("light");
 
@@ -53,6 +54,7 @@ const App = () => {
 			<Route path="/accounts" element={<AccountsPage />} />
 			<Route path="/transactions" element={<TransactionsPage />} />
 			<Route path="/recurring" element={<RecurringExpensesPage />} />
+			<Route path="/income" element={<IncomePage />} />
 			<Route path="/breakdown" element={<BreakdownPage />} />
 			<Route path="/planned" element={<PlannedSpendingPage />} />
 			<Route path="/predictions" element={<PredictionsPage />} />

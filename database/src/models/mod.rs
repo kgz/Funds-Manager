@@ -2,6 +2,7 @@ pub mod analytics;
 pub mod assets;
 pub mod category;
 pub mod financial_account;
+pub mod income_stream;
 pub mod liabilities;
 pub mod category_mapping;
 pub mod description_key;
