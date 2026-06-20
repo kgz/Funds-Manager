@@ -128,6 +128,8 @@ export function useTrendEventMarkerState() {
 
 type TrendEventMarkerState = ReturnType<typeof useTrendEventMarkerState>;
 
+export type { TrendEventMarkerState };
+
 export function renderTrendEventMarkers(
 	events: AccountOnboardingEvent[],
 	markerState: TrendEventMarkerState,
