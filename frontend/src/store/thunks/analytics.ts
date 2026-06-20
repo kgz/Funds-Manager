@@ -121,6 +121,62 @@ export async function fetchDashboardKpis(
 	return response.data as DashboardKpiSummary;
 }
 
+export type NetWorthPoint = {
+	date: string;
+	availableCash: number;
+	assets: number;
+	liabilities: number;
+	netWorth: number;
+};
+
+function readNumber(value: unknown): number {
+	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function normalizeNetWorth(raw: unknown): NetWorthPoint[] {
+	if (!Array.isArray(raw)) {
+		return [];
+	}
+	const points: NetWorthPoint[] = [];
+	for (const entry of raw) {
+		if (!entry || typeof entry !== 'object') {
+			continue;
+		}
+		const date = Reflect.get(entry, 'date');
+		if (typeof date !== 'string') {
+			continue;
+		}
+		points.push({
+			date,
+			availableCash: readNumber(Reflect.get(entry, 'availableCash')),
+			assets: readNumber(Reflect.get(entry, 'assets')),
+			liabilities: readNumber(Reflect.get(entry, 'liabilities')),
+			netWorth: readNumber(Reflect.get(entry, 'netWorth')),
+		});
+	}
+	return points;
+}
+
+export async function fetchNetWorthOverTime(
+	dateRange?: DashboardDateRange,
+	signal?: AbortSignal
+): Promise<NetWorthPoint[]> {
+	const params = new URLSearchParams();
+	if (dateRange?.start !== undefined) {
+		params.set('start', dateRange.start);
+	}
+	if (dateRange?.end !== undefined) {
+		params.set('end', dateRange.end);
+	}
+	appendAccountId(params, dateRange?.accountId);
+	const query = params.toString();
+	const response = await axios.get(
+		`/api/analytics/net-worth${query.length > 0 ? `?${query}` : ''}`,
+		{ signal }
+	);
+	return normalizeNetWorth(response.data);
+}
+
 export async function fetchDashboardAnalytics(
 	groupByParent: boolean,
 	dateRange?: DashboardDateRange,

@@ -17,7 +17,7 @@ use crate::models::recurring_detection::{
 };
 use crate::models::transaction::Transaction;
 use crate::modules::database::get_dbo;
-use crate::schema::transaction_data;
+use crate::schema::{assets, liabilities, transaction_data};
 
 #[derive(Debug, Clone, Copy)]
 pub struct AnalyticsScope {
@@ -109,6 +109,16 @@ pub struct BalanceStackRow {
 pub struct BalanceStackChart {
     pub accounts: Vec<BalanceStackAccount>,
     pub rows: Vec<BalanceStackRow>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct NetWorthPoint {
+    pub date: String,
+    pub available_cash: f64,
+    pub assets: f64,
+    pub liabilities: f64,
+    pub net_worth: f64,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -387,6 +397,88 @@ pub fn dashboard_kpis(
         net: round2(income - spending),
         balance,
     })
+}
+
+pub fn net_worth_over_time(
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+    financial_account_id: Option<i64>,
+) -> Result<Vec<NetWorthPoint>, diesel::result::Error> {
+    let conn = &mut get_dbo();
+
+    let balance_rows: Vec<BalanceRow> = sql_query(
+        r#"
+        WITH balance_tx AS (
+            SELECT
+                td.transaction_date::date AS day,
+                td.balance::bigint AS balance,
+                td.transaction_date,
+                td.id,
+                COALESCE(s.financial_account_id, -s.id) AS account_scope
+            FROM transaction_data td
+            INNER JOIN statement s ON s.id = td.statement_id AND s.deleted_at IS NULL
+            WHERE td.deleted_at IS NULL
+              AND ($3::bigint IS NULL OR s.financial_account_id = $3)
+              AND ($2::date IS NULL OR td.transaction_date::date <= $2)
+        ),
+        days AS (
+            SELECT DISTINCT day FROM balance_tx
+            WHERE ($1::date IS NULL OR day >= $1)
+        )
+        SELECT
+            d.day,
+            COALESCE((
+                SELECT SUM(latest.balance)::bigint
+                FROM (
+                    SELECT DISTINCT ON (f.account_scope)
+                        f.balance
+                    FROM balance_tx f
+                    WHERE f.day <= d.day
+                    ORDER BY f.account_scope, f.transaction_date DESC, f.id DESC
+                ) latest
+            ), 0)::bigint AS balance
+        FROM days d
+        ORDER BY d.day
+        "#,
+    )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
+    .bind::<Nullable<BigInt>, _>(financial_account_id)
+    .load(conn)?;
+
+    // Manual registers are not account-scoped: only included for the all-accounts view.
+    let (assets_total_cents, liabilities_total_cents) = if financial_account_id.is_some() {
+        (0_i64, 0_i64)
+    } else {
+        let asset_values: Vec<i64> = assets::table
+            .filter(assets::deleted_at.is_null())
+            .select(assets::value_cents)
+            .load(conn)?;
+        let liability_values: Vec<i64> = liabilities::table
+            .filter(liabilities::deleted_at.is_null())
+            .select(liabilities::balance_cents)
+            .load(conn)?;
+        (asset_values.iter().sum(), liability_values.iter().sum())
+    };
+
+    let assets = round2(cents_to_dollars(assets_total_cents));
+    let liabilities = round2(cents_to_dollars(liabilities_total_cents));
+
+    let points = balance_rows
+        .into_iter()
+        .map(|row| {
+            let available_cash = round2(cents_to_dollars(row.balance));
+            NetWorthPoint {
+                date: row.day.to_string(),
+                available_cash,
+                assets,
+                liabilities,
+                net_worth: round2(available_cash + assets - liabilities),
+            }
+        })
+        .collect();
+
+    Ok(points)
 }
 
 pub fn dashboard(
