@@ -217,3 +217,12 @@ When `start` and `end` are omitted (**All time**), the series SHALL span from th
 - **WHEN** analytics are fetched without start or end
 - **THEN** balance chart data spans the full transaction history with a daily grid between first and last transaction days
 
+### Requirement: Income streams summary API
+
+`GET /api/income-streams` SHALL return detected income streams with frequency, estimated monthly amount, months observed, irregular flag, and user profile fields (label, primary, confirmed, gross monthly).
+
+#### Scenario: Streams listed
+
+- **WHEN** regular credit transactions exist
+- **THEN** the response lists income streams sorted with primary first
+
