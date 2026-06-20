@@ -13,12 +13,21 @@ import {
 	inputDarkClass,
 } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
+import { formatTransactionDate } from '@/lib/utils/dates';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllAccounts, type FinancialAccount } from '@/store/thunks/account.get.all';
 import { updateAccount } from '@/store/thunks/account.update.single';
 import { readThunkRejectMessage } from '@/lib/utils/thunkError';
 
 const EDIT_ACCOUNT_FORM_ID = 'edit-account-form';
+
+const formatCurrency = (value: number): string => {
+	const abs = Math.abs(value).toLocaleString('en-AU', {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	});
+	return `${value < 0 ? '-' : ''}$${abs}`;
+};
 
 export function AccountsPage() {
 	const dispatch = useAppDispatch();
@@ -110,6 +119,8 @@ export function AccountsPage() {
 								<th className="px-4 py-3 font-medium">Bank</th>
 								<th className="px-4 py-3 font-medium">Account number</th>
 								<th className="px-4 py-3 font-medium">Statements</th>
+								<th className="px-4 py-3 font-medium text-right">Last balance</th>
+								<th className="px-4 py-3 font-medium">As at</th>
 								<th className="px-4 py-3 font-medium" />
 							</tr>
 						</thead>
@@ -126,6 +137,32 @@ export function AccountsPage() {
 									</td>
 									<td className="px-4 py-3 tabular-nums">
 										{account.statement_count ?? 0}
+									</td>
+									<td className="px-4 py-3 text-right tabular-nums font-mono">
+										{account.lastKnownBalance != null ? (
+											<span
+												className={
+													account.lastKnownBalance < 0
+														? 'text-red-400'
+														: 'text-emerald-300/90'
+												}
+											>
+												{formatCurrency(account.lastKnownBalance)}
+											</span>
+										) : (
+											<span className="text-white/40" title="No transactions yet">
+												—
+											</span>
+										)}
+									</td>
+									<td className="px-4 py-3 text-white/70">
+										{account.lastKnownBalanceDate != null ? (
+											formatTransactionDate(account.lastKnownBalanceDate)
+										) : (
+											<span className="text-white/40" title="No transactions yet">
+												—
+											</span>
+										)}
 									</td>
 									<td className="px-4 py-3 text-right">
 										<button
