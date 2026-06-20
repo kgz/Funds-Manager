@@ -59,6 +59,44 @@ diesel::table! {
 }
 
 diesel::table! {
+    prediction_goals (id) {
+        id -> Bigint,
+        #[max_length = 200]
+        name -> Varchar,
+        target_amount_cents -> Bigint,
+        target_date -> Date,
+        created_at -> Timestamp,
+        deleted_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
+    prediction_scenario_lines (id) {
+        id -> Bigint,
+        scenario_id -> Bigint,
+        #[max_length = 200]
+        name -> Varchar,
+        amount_cents -> Integer,
+        #[max_length = 20]
+        frequency -> Varchar,
+        start_date -> Date,
+        end_date -> Nullable<Date>,
+        category_id -> Nullable<Bigint>,
+        sort_order -> Integer,
+    }
+}
+
+diesel::table! {
+    prediction_scenarios (id) {
+        id -> Bigint,
+        #[max_length = 200]
+        name -> Varchar,
+        created_at -> Timestamp,
+        deleted_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     planned_spending (id) {
         id -> Bigint,
         #[max_length = 200]
@@ -114,6 +152,8 @@ diesel::table! {
 }
 
 diesel::joinable!(planned_spending -> categories (category_id));
+diesel::joinable!(prediction_scenario_lines -> categories (category_id));
+diesel::joinable!(prediction_scenario_lines -> prediction_scenarios (scenario_id));
 diesel::joinable!(category_mappings -> categories (category_id));
 diesel::joinable!(statement -> financial_accounts (financial_account_id));
 diesel::joinable!(transaction_categories -> categories (category_id));
@@ -124,6 +164,9 @@ diesel::allow_tables_to_appear_in_same_query!(
     category_mappings,
     financial_accounts,
     planned_spending,
+    prediction_goals,
+    prediction_scenario_lines,
+    prediction_scenarios,
     statement,
     transaction_categories,
     transaction_data,

@@ -203,3 +203,94 @@ export function previousPeriodDateRange(
 	}
 	return previousRollingRange(currentStart, monthsInclusive);
 }
+
+export type PredictionHorizon = '3-months' | '6-months' | '12-months' | 'custom';
+
+export const PREDICTION_HORIZON_STORAGE_KEY = 'predictionHorizon';
+export const PREDICTION_RANGE_MODE_STORAGE_KEY = 'predictionRangeMode';
+export const PREDICTION_CUSTOM_RANGE_STORAGE_KEY = 'predictionCustomRange';
+
+export type PredictionRangeMode = 'preset' | 'custom';
+
+export const PREDICTION_HORIZON_VALUES: PredictionHorizon[] = [
+	'3-months',
+	'6-months',
+	'12-months',
+	'custom',
+];
+
+export function predictionHorizonLabels(): Record<PredictionHorizon, string> {
+	return {
+		'3-months': '3 months',
+		'6-months': '6 months',
+		'12-months': '12 months',
+		custom: 'Custom',
+	};
+}
+
+function isPredictionHorizon(value: string): value is PredictionHorizon {
+	return PREDICTION_HORIZON_VALUES.includes(value as PredictionHorizon);
+}
+
+export function readStoredPredictionHorizon(): PredictionHorizon {
+	const stored = localStorage.getItem(PREDICTION_HORIZON_STORAGE_KEY);
+	if (stored !== null && isPredictionHorizon(stored)) {
+		return stored;
+	}
+	return '6-months';
+}
+
+export function readStoredPredictionRangeMode(): PredictionRangeMode {
+	const stored = localStorage.getItem(PREDICTION_RANGE_MODE_STORAGE_KEY);
+	return stored === 'custom' ? 'custom' : 'preset';
+}
+
+export function defaultPredictionCustomRange(now: DateTime = DateTime.now()): {
+	start: string;
+	end: string;
+} {
+	const start = now.toISODate() ?? '';
+	const end = now.plus({ months: 6 }).toISODate() ?? start;
+	return { start, end };
+}
+
+export function readStoredPredictionCustomRange(
+	now: DateTime = DateTime.now()
+): { start: string; end: string } {
+	try {
+		const raw = localStorage.getItem(PREDICTION_CUSTOM_RANGE_STORAGE_KEY);
+		if (raw === null) {
+			return defaultPredictionCustomRange(now);
+		}
+		const parsed: unknown = JSON.parse(raw);
+		if (
+			typeof parsed === 'object' &&
+			parsed !== null &&
+			'start' in parsed &&
+			'end' in parsed &&
+			typeof parsed.start === 'string' &&
+			typeof parsed.end === 'string'
+		) {
+			return { start: parsed.start, end: parsed.end };
+		}
+	} catch {
+		// ignore
+	}
+	return defaultPredictionCustomRange(now);
+}
+
+export function predictionHorizonDateRange(
+	horizon: PredictionHorizon,
+	customRange?: { start: string; end: string },
+	now: DateTime = DateTime.now()
+): { from: string; to: string } {
+	if (horizon === 'custom') {
+		const range = customRange ?? readStoredPredictionCustomRange(now);
+		return { from: range.start, to: range.end };
+	}
+	const from = now.toISODate() ?? '';
+	const months =
+		horizon === '3-months' ? 3 : horizon === '6-months' ? 6 : 12;
+	const to = now.plus({ months }).toISODate() ?? from;
+	return { from, to };
+}
