@@ -35,6 +35,7 @@ import {
 import type { KpiComparison, DashboardKpiMetrics } from '@/components/dashboard/KpiCards';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipProps } from 'recharts';
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { Drawer } from '@/components/layout/Drawer';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -101,7 +102,7 @@ function balanceChartDomain(values: number[]): [number, number] | undefined {
 	return [min - pad, max + pad];
 }
 
-function balanceTooltip({ active, payload, label }: TooltipProps) {
+function balanceTooltip({ active, payload, label }: TooltipProps<ValueType, NameType>) {
 	if (!active || payload === undefined || payload.length === 0) {
 		return null;
 	}

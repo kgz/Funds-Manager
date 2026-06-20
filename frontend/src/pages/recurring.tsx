@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import {
@@ -26,6 +26,11 @@ import { ChevronDown, ChevronRight, Repeat } from 'lucide-react';
 
 const formatMoney = (n: number) =>
 	`$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+// Keep render/key correlation generic so the column union doesn't collapse to never.
+function renderCell<TData>(col: TColumn<TData>, row: TData): ReactNode {
+	return col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '');
+}
 
 const mainAmountClass = (flow: RecurringCandidateRow['flow']) =>
 	flow === 'income' ? 'text-green-400' : 'text-red-300';
@@ -1025,9 +1030,7 @@ const RecurringExpensesPage = () => {
 																col.cellClassName
 															)}
 														>
-															{col.render
-																? col.render(agg[col.key], agg)
-																: String(agg[col.key] ?? '')}
+															{renderCell(col, agg)}
 														</td>
 													))}
 												</tr>
@@ -1105,12 +1108,7 @@ const RecurringExpensesPage = () => {
 																			col.cellClassName
 																		)}
 																	>
-																		{col.render
-																			? col.render(
-																					pattern[col.key],
-																					pattern
-																				)
-																			: String(pattern[col.key] ?? '')}
+																		{renderCell(col, pattern)}
 																	</td>
 																))}
 															</tr>

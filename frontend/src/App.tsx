@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import { NavLink } from "react-router-dom";
 import { Sidebar } from "./components/sidebar";
 import { Dashboard } from "./components/dashboard";
 import { Settings } from "./components/settings";

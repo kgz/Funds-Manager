@@ -52,14 +52,14 @@ export function maskAccountsBeforeFirstAppearance<
 	TRow extends { [key: string]: string | number | null },
 >(rows: TRow[], accounts: Array<{ accountKey: string }>, firstIndexByKey: Record<string, number>): TRow[] {
 	return rows.map((row, index) => {
-		const masked = { ...row };
+		const overrides: Record<string, null> = {};
 		for (const account of accounts) {
 			const firstIndex = firstIndexByKey[account.accountKey];
 			if (firstIndex !== undefined && index < firstIndex) {
-				masked[account.accountKey] = null;
+				overrides[account.accountKey] = null;
 			}
 		}
-		return masked;
+		return { ...row, ...overrides };
 	});
 }
 
