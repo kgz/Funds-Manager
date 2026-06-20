@@ -17,6 +17,7 @@ import { MonthlyBarGraph } from "@/graphs/bar";
 import { BalanceStackGraph, balanceStackAccountColorMap } from '@/graphs/balance-stack';
 import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 import { ChartCard } from '@/components/ChartCard';
+import { NetWorthChart } from '@/graphs/net-worth';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { KpiCards } from '@/components/dashboard/KpiCards';
 import { BalanceTrendHelp } from '@/components/dashboard/BalanceTrendHelp';
@@ -837,6 +838,8 @@ export const Dashboard = () => {
 									</ResponsiveContainer>
 								)}
 							</ChartCard>
+
+							<NetWorthChart dateRange={dateRange} />
 						</div>
 					) : null}
 				</div>

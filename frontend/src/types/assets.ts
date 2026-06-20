@@ -26,6 +26,15 @@ export type AssetListResult = {
 	total_value_cents: number;
 };
 
+export type AssetValuation = {
+	id: string;
+	asset_id: string;
+	valued_at: string;
+	value_cents: number;
+	source: string | null;
+	created_at: string;
+};
+
 export const ASSET_KIND_OPTIONS: { value: AssetKind; label: string }[] = [
 	{ value: 'property', label: 'Property' },
 	{ value: 'vehicle', label: 'Vehicle' },
@@ -148,6 +157,36 @@ export function normalizeAssetList(raw: unknown): AssetListResult {
 	};
 }
 
+export function normalizeAssetValuation(raw: unknown): AssetValuation | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const id = readIdAsString(Reflect.get(raw, 'id'));
+	const assetId = readIdAsString(Reflect.get(raw, 'asset_id'));
+	const valuedAt = readString(Reflect.get(raw, 'valued_at'));
+	const valueCents = readFiniteNumber(Reflect.get(raw, 'value_cents'));
+	const createdAt = readString(Reflect.get(raw, 'created_at'));
+
+	if (
+		id === null ||
+		assetId === null ||
+		valuedAt === null ||
+		valueCents === null ||
+		createdAt === null
+	) {
+		return null;
+	}
+
+	return {
+		id,
+		asset_id: assetId,
+		valued_at: valuedAt,
+		value_cents: Math.trunc(valueCents),
+		source: readNullableString(Reflect.get(raw, 'source')),
+		created_at: createdAt,
+	};
+}
+
 export type AssetWritePayload = {
 	name: string;
 	kind: AssetKind;
@@ -156,6 +195,14 @@ export type AssetWritePayload = {
 	value_source?: string | null;
 	liability_id?: number | null;
 	notes?: string | null;
+	purchase_price_cents?: number | null;
+	purchase_date?: string | null;
+};
+
+export type ValuationWritePayload = {
+	value_cents: number;
+	valued_at: string;
+	source?: string | null;
 };
 
 export async function fetchAssets(): Promise<AssetListResult> {
@@ -183,6 +230,41 @@ export async function updateAsset(id: string, payload: AssetWritePayload): Promi
 
 export async function deleteAssetItem(id: string): Promise<void> {
 	await axios.delete(`/api/assets/${id}`);
+}
+
+export async function fetchAssetValuations(assetId: string): Promise<AssetValuation[]> {
+	const response = await axios.get(`/api/assets/${assetId}/valuations`);
+	if (!Array.isArray(response.data)) {
+		throw new Error('Invalid valuations response');
+	}
+	const items: AssetValuation[] = [];
+	for (const entry of response.data) {
+		const item = normalizeAssetValuation(entry);
+		if (!item) {
+			throw new Error('Invalid valuations response');
+		}
+		items.push(item);
+	}
+	return items;
+}
+
+export async function createAssetValuation(
+	assetId: string,
+	payload: ValuationWritePayload
+): Promise<AssetValuation> {
+	const response = await axios.post(`/api/assets/${assetId}/valuations`, payload);
+	const item = normalizeAssetValuation(response.data);
+	if (!item) {
+		throw new Error('Invalid valuations response');
+	}
+	return item;
+}
+
+export async function deleteAssetValuation(
+	assetId: string,
+	valuationId: string
+): Promise<void> {
+	await axios.delete(`/api/assets/${assetId}/valuations/${valuationId}`);
 }
 
 export function formatCentsAsDollars(amountCents: number): string {

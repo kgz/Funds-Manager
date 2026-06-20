@@ -206,7 +206,53 @@ export type LiabilityWritePayload = {
 	term_months?: number | null;
 	financial_account_id?: number | null;
 	notes?: string | null;
+	originated_date?: string | null;
 };
+
+export type LiabilityBalance = {
+	id: string;
+	liability_id: string;
+	balanced_at: string;
+	balance_cents: number;
+	source: string | null;
+	created_at: string;
+};
+
+export type BalanceWritePayload = {
+	balance_cents: number;
+	balanced_at: string;
+	source?: string | null;
+};
+
+export function normalizeLiabilityBalance(raw: unknown): LiabilityBalance | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const id = readIdAsString(Reflect.get(raw, 'id'));
+	const liabilityId = readIdAsString(Reflect.get(raw, 'liability_id'));
+	const balancedAt = readString(Reflect.get(raw, 'balanced_at'));
+	const balanceCents = readFiniteNumber(Reflect.get(raw, 'balance_cents'));
+	const createdAt = readString(Reflect.get(raw, 'created_at'));
+
+	if (
+		id === null ||
+		liabilityId === null ||
+		balancedAt === null ||
+		balanceCents === null ||
+		createdAt === null
+	) {
+		return null;
+	}
+
+	return {
+		id,
+		liability_id: liabilityId,
+		balanced_at: balancedAt,
+		balance_cents: Math.trunc(balanceCents),
+		source: readNullableString(Reflect.get(raw, 'source')),
+		created_at: createdAt,
+	};
+}
 
 export async function fetchLiabilities(): Promise<LiabilityListResult> {
 	const response = await axios.get('/api/liabilities');
@@ -236,6 +282,41 @@ export async function updateLiability(
 
 export async function deleteLiabilityItem(id: string): Promise<void> {
 	await axios.delete(`/api/liabilities/${id}`);
+}
+
+export async function fetchLiabilityBalances(liabilityId: string): Promise<LiabilityBalance[]> {
+	const response = await axios.get(`/api/liabilities/${liabilityId}/balances`);
+	if (!Array.isArray(response.data)) {
+		throw new Error('Invalid balances response');
+	}
+	const items: LiabilityBalance[] = [];
+	for (const entry of response.data) {
+		const item = normalizeLiabilityBalance(entry);
+		if (!item) {
+			throw new Error('Invalid balances response');
+		}
+		items.push(item);
+	}
+	return items;
+}
+
+export async function createLiabilityBalance(
+	liabilityId: string,
+	payload: BalanceWritePayload
+): Promise<LiabilityBalance> {
+	const response = await axios.post(`/api/liabilities/${liabilityId}/balances`, payload);
+	const item = normalizeLiabilityBalance(response.data);
+	if (!item) {
+		throw new Error('Invalid balances response');
+	}
+	return item;
+}
+
+export async function deleteLiabilityBalance(
+	liabilityId: string,
+	balanceId: string
+): Promise<void> {
+	await axios.delete(`/api/liabilities/${liabilityId}/balances/${balanceId}`);
 }
 
 export function formatCentsAsDollars(amountCents: number): string {

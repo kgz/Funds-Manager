@@ -14,6 +14,13 @@ pub struct DashboardQuery {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct NetWorthQuery {
+    pub start: Option<String>,
+    pub end: Option<String>,
+    pub account_id: Option<i64>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct BreakdownQuery {
     pub start: String,
     pub end: String,
@@ -125,6 +132,29 @@ async fn get_dashboard(query: web::Query<DashboardQuery>) -> Result<impl Respond
         .map_err(|e| {
             eprintln!("Database error loading dashboard analytics: {}", e);
             actix_web::error::ErrorInternalServerError("Failed to load dashboard analytics")
+        })?;
+    Ok(HttpResponse::Ok().json(data))
+}
+
+async fn get_net_worth(query: web::Query<NetWorthQuery>) -> Result<impl Responder, actix_web::Error> {
+    let start = match &query.start {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    let end = match &query.end {
+        Some(value) => Some(parse_date(value)?),
+        None => None,
+    };
+    let account_id = query.account_id;
+    let data = web::block(move || analytics::net_worth_over_time(start, end, account_id))
+        .await
+        .map_err(|e| {
+            eprintln!("Blocking error loading net worth: {:?}", e);
+            actix_web::error::ErrorInternalServerError("Failed to load net worth")
+        })?
+        .map_err(|e| {
+            eprintln!("Database error loading net worth: {}", e);
+            actix_web::error::ErrorInternalServerError("Failed to load net worth")
         })?;
     Ok(HttpResponse::Ok().json(data))
 }
@@ -286,6 +316,7 @@ pub fn analytics_service() -> Scope {
     web::scope("/analytics")
         .route("/dashboard", web::get().to(get_dashboard))
         .route("/kpis", web::get().to(get_kpis))
+        .route("/net-worth", web::get().to(get_net_worth))
         .route("/breakdown", web::get().to(get_breakdown))
         .route("/recurring", web::get().to(get_recurring))
         .route("/spending-drilldown", web::get().to(get_spending_drilldown))

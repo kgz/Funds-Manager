@@ -15,6 +15,8 @@ use crate::models::description_key::canonical_expense_group_key;
 use crate::models::recurring_detection::{
     detect_recurring_expenses, detect_recurring_income, RecurringCandidate, SlimTransaction,
 };
+use crate::models::assets::AssetValuation;
+use crate::models::liabilities::LiabilityBalance;
 use crate::models::transaction::Transaction;
 use crate::modules::database::get_dbo;
 use crate::schema::transaction_data;
@@ -109,6 +111,16 @@ pub struct BalanceStackRow {
 pub struct BalanceStackChart {
     pub accounts: Vec<BalanceStackAccount>,
     pub rows: Vec<BalanceStackRow>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct NetWorthPoint {
+    pub date: String,
+    pub available_cash: f64,
+    pub assets: f64,
+    pub liabilities: f64,
+    pub net_worth: f64,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -313,6 +325,40 @@ fn round2(n: f64) -> f64 {
     (n * 100.0).round() / 100.0
 }
 
+// Linear between consecutive snapshots; flat before the first and after the last.
+fn value_interpolated(series: &[(NaiveDate, i64)], date: NaiveDate) -> i64 {
+    if series.is_empty() {
+        return 0;
+    }
+    if date < series[0].0 {
+        return 0;
+    }
+    if date >= series[series.len() - 1].0 {
+        return series[series.len() - 1].1;
+    }
+
+    for window in series.windows(2) {
+        let (start_date, start_cents) = window[0];
+        let (end_date, end_cents) = window[1];
+        if date > end_date {
+            continue;
+        }
+        if start_date == end_date {
+            return end_cents;
+        }
+        let total_days = (end_date - start_date).num_days();
+        if total_days <= 0 {
+            return start_cents;
+        }
+        let elapsed = (date - start_date).num_days();
+        let fraction = elapsed as f64 / total_days as f64;
+        let value = start_cents as f64 + fraction * (end_cents - start_cents) as f64;
+        return value.round() as i64;
+    }
+
+    series[series.len() - 1].1
+}
+
 fn category_group_id(tx_category_id: Option<i32>, categories: &[Category], group_by_parent: bool) -> String {
     let Some(cid) = tx_category_id else {
         return "unknown".to_string();
@@ -387,6 +433,140 @@ pub fn dashboard_kpis(
         net: round2(income - spending),
         balance,
     })
+}
+
+pub fn net_worth_over_time(
+    start: Option<NaiveDate>,
+    end: Option<NaiveDate>,
+    financial_account_id: Option<i64>,
+) -> Result<Vec<NetWorthPoint>, diesel::result::Error> {
+    let conn = &mut get_dbo();
+
+    let balance_rows: Vec<BalanceRow> = sql_query(
+        r#"
+        WITH balance_tx AS (
+            SELECT
+                td.transaction_date::date AS day,
+                td.balance::bigint AS balance,
+                td.transaction_date,
+                td.id,
+                COALESCE(s.financial_account_id, -s.id) AS account_scope
+            FROM transaction_data td
+            INNER JOIN statement s ON s.id = td.statement_id AND s.deleted_at IS NULL
+            WHERE td.deleted_at IS NULL
+              AND ($3::bigint IS NULL OR s.financial_account_id = $3)
+              AND ($2::date IS NULL OR td.transaction_date::date <= $2)
+        ),
+        valuation_days AS (
+            SELECT DISTINCT av.valued_at AS day
+            FROM asset_valuations av
+            INNER JOIN assets a ON a.id = av.asset_id AND a.deleted_at IS NULL
+            WHERE av.deleted_at IS NULL
+              AND $3::bigint IS NULL
+              AND ($1::date IS NULL OR av.valued_at >= $1)
+              AND ($2::date IS NULL OR av.valued_at <= $2)
+        ),
+        liability_days AS (
+            SELECT DISTINCT lb.balanced_at AS day
+            FROM liability_balances lb
+            INNER JOIN liabilities l ON l.id = lb.liability_id AND l.deleted_at IS NULL
+            WHERE lb.deleted_at IS NULL
+              AND $3::bigint IS NULL
+              AND ($1::date IS NULL OR lb.balanced_at >= $1)
+              AND ($2::date IS NULL OR lb.balanced_at <= $2)
+        ),
+        event_days AS (
+            SELECT DISTINCT day FROM balance_tx
+            WHERE ($1::date IS NULL OR day >= $1)
+            UNION
+            SELECT day FROM valuation_days
+            UNION
+            SELECT day FROM liability_days
+        ),
+        bounds AS (
+            SELECT
+                COALESCE($1::date, (SELECT MIN(day) FROM event_days)) AS start_day,
+                COALESCE($2::date, (SELECT MAX(day) FROM event_days)) AS end_day
+        ),
+        days AS (
+            SELECT gs.day::date AS day
+            FROM bounds b
+            CROSS JOIN generate_series(b.start_day, b.end_day, INTERVAL '1 day') AS gs(day)
+            WHERE b.start_day IS NOT NULL AND b.end_day IS NOT NULL
+        )
+        SELECT
+            d.day,
+            COALESCE((
+                SELECT SUM(latest.balance)::bigint
+                FROM (
+                    SELECT DISTINCT ON (f.account_scope)
+                        f.balance
+                    FROM balance_tx f
+                    WHERE f.day <= d.day
+                    ORDER BY f.account_scope, f.transaction_date DESC, f.id DESC
+                ) latest
+            ), 0)::bigint AS balance
+        FROM days d
+        ORDER BY d.day
+        "#,
+    )
+    .bind::<Nullable<Date>, _>(start)
+    .bind::<Nullable<Date>, _>(end)
+    .bind::<Nullable<BigInt>, _>(financial_account_id)
+    .load(conn)?;
+
+    // Manual registers are not account-scoped: only included for the all-accounts view.
+    let (asset_points, liability_points) = if financial_account_id.is_some() {
+        (Vec::new(), Vec::new())
+    } else {
+        (
+            AssetValuation::active_points()?,
+            LiabilityBalance::active_points()?,
+        )
+    };
+
+    // Group snapshots per register (rows arrive sorted by id, then date ascending).
+    let mut by_asset: HashMap<i64, Vec<(NaiveDate, i64)>> = HashMap::new();
+    for (asset_id, valued_at, value_cents) in asset_points {
+        by_asset
+            .entry(asset_id)
+            .or_default()
+            .push((valued_at, value_cents));
+    }
+
+    let mut by_liability: HashMap<i64, Vec<(NaiveDate, i64)>> = HashMap::new();
+    for (liability_id, balanced_at, balance_cents) in liability_points {
+        by_liability
+            .entry(liability_id)
+            .or_default()
+            .push((balanced_at, balance_cents));
+    }
+
+    let points = balance_rows
+        .into_iter()
+        .map(|row| {
+            let available_cash = round2(cents_to_dollars(row.balance));
+            let assets_cents: i64 = by_asset
+                .values()
+                .map(|series| value_interpolated(series, row.day))
+                .sum();
+            let liabilities_cents: i64 = by_liability
+                .values()
+                .map(|series| value_interpolated(series, row.day))
+                .sum();
+            let assets = round2(cents_to_dollars(assets_cents));
+            let liabilities = round2(cents_to_dollars(liabilities_cents));
+            NetWorthPoint {
+                date: row.day.to_string(),
+                available_cash,
+                assets,
+                liabilities,
+                net_worth: round2(available_cash + assets - liabilities),
+            }
+        })
+        .collect();
+
+    Ok(points)
 }
 
 pub fn dashboard(
@@ -1195,4 +1375,32 @@ pub fn income_drilldown(
         .load(conn)?;
 
     Ok((items, total))
+}
+
+#[cfg(test)]
+mod net_worth_tests {
+    use super::value_interpolated;
+    use chrono::NaiveDate;
+
+    fn d(y: i32, m: u32, day: u32) -> NaiveDate {
+        NaiveDate::from_ymd_opt(y, m, day).expect("valid date")
+    }
+
+    #[test]
+    fn before_first_valuation_is_zero() {
+        let series = [(d(2020, 1, 1), 500_000_00), (d(2024, 1, 1), 600_000_00)];
+        assert_eq!(value_interpolated(&series, d(2019, 6, 1)), 0);
+    }
+
+    #[test]
+    fn interpolates_midpoint() {
+        let series = [(d(2020, 1, 1), 0), (d(2020, 1, 3), 100_000_00)];
+        assert_eq!(value_interpolated(&series, d(2020, 1, 2)), 50_000_00);
+    }
+
+    #[test]
+    fn holds_after_last_valuation() {
+        let series = [(d(2020, 1, 1), 500_000_00)];
+        assert_eq!(value_interpolated(&series, d(2025, 1, 1)), 500_000_00);
+    }
 }
