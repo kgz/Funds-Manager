@@ -597,7 +597,7 @@ export default function PredictionsPage() {
 	if (pageBusy && baseline === null && scenarios.length === 0) {
 		return (
 			<PageShell>
-				<PageLoadingState message="Loading future predictions…" />
+				<PageLoadingState label="Loading future predictions…" />
 			</PageShell>
 		);
 	}

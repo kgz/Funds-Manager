@@ -8,6 +8,7 @@ type PredictionHorizonFilterProps = {
 	value: PredictionHorizon;
 	onChange: (value: PredictionHorizon) => void;
 	pending?: boolean;
+	ariaLabel?: string;
 };
 
 const horizons = PREDICTION_HORIZON_VALUES;
@@ -16,6 +17,7 @@ export function PredictionHorizonFilter({
 	value,
 	onChange,
 	pending = false,
+	ariaLabel = 'Forecast horizon',
 }: PredictionHorizonFilterProps) {
 	const labels = predictionHorizonLabels();
 
@@ -23,7 +25,7 @@ export function PredictionHorizonFilter({
 		<div
 			className="inline-flex max-w-full flex-wrap rounded-md border border-white/20 p-0.5 transition-opacity duration-300"
 			role="group"
-			aria-label="Forecast horizon"
+			aria-label={ariaLabel}
 			aria-busy={pending}
 		>
 			{horizons.map((horizon) => (
