@@ -5,6 +5,7 @@ import { CategoryReducer } from './slices/categorySlice'
 import { PlannedReducer } from './slices/plannedSlice'
 import { PredictionsReducer } from './slices/predictionsSlice'
 import { LiabilitiesReducer } from './slices/liabilitiesSlice'
+import { AssetsReducer } from './slices/assetsSlice'
 
 const reducers = combineReducers({
 	AccountReducer,
@@ -12,6 +13,7 @@ const reducers = combineReducers({
 	PlannedReducer,
 	PredictionsReducer,
 	LiabilitiesReducer,
+	AssetsReducer,
 })
 
 export const store = configureStore({
