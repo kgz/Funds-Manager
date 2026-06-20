@@ -63,6 +63,21 @@ export function maskAccountsBeforeFirstAppearance<
 	});
 }
 
+export function accountOnboardingIndexInWindow(
+	rows: Array<{ values: Record<string, number> }>,
+	accountKey: string,
+): number | null {
+	const firstIndex = rows.findIndex((row) => (row.values[accountKey] ?? 0) > 0);
+	if (firstIndex <= 0) {
+		return null;
+	}
+	const previousBalance = rows[firstIndex - 1]?.values[accountKey] ?? 0;
+	if (previousBalance > 0) {
+		return null;
+	}
+	return firstIndex;
+}
+
 export function buildAccountOnboardingEvents(
 	rows: Array<{ date: string; values: Record<string, number> }>,
 	accounts: Array<{ accountKey: string; label: string }>,
@@ -76,9 +91,12 @@ export function buildAccountOnboardingEvents(
 		.map((account) => ({
 			accountKey: account.accountKey,
 			label: account.label,
-			firstIndex: rows.findIndex((row) => (row.values[account.accountKey] ?? 0) > 0),
+			firstIndex: accountOnboardingIndexInWindow(rows, account.accountKey),
 		}))
-		.filter((account) => account.firstIndex >= 0);
+		.filter(
+			(account): account is typeof account & { firstIndex: number } =>
+				account.firstIndex !== null,
+		);
 
 	return segments.flatMap((segment, segmentIndex) => {
 		const rowIndex = segment.startIndex;
