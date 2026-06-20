@@ -14,6 +14,9 @@ use crate::routes::{
     categories::categories_service,
     category_mappings::category_mappings_routes,
     planned_spending::planned_spending_service,
+    predictions_api::{
+        prediction_goals_service, prediction_scenarios_service, predictions_service,
+    },
     transactions_api::transactions_service,
     version_api::get_version,
 };
@@ -35,6 +38,9 @@ pub fn api() -> Scope {
         .service(planned_spending_service())
         .service(analytics_service())
         .service(transactions_service())
+        .service(predictions_service())
+        .service(prediction_scenarios_service())
+        .service(prediction_goals_service())
         .service(api_users())
         // //user
 
