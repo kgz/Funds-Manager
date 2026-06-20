@@ -149,3 +149,12 @@ The API SHALL expose CRUD for prediction goals under `/api/prediction-goals`.
 - **WHEN** a scenario id and date range are provided
 - **THEN** the response includes monthly points suitable for chart overlay
 
+### Requirement: Liabilities routes
+
+The API SHALL expose CRUD endpoints under `/api/liabilities` as defined in the `liabilities` capability spec.
+
+#### Scenario: Routes registered
+
+- **WHEN** the server starts
+- **THEN** `GET`, `POST`, `PUT`, and `DELETE` handlers for liabilities are available under `/api/liabilities`
+
