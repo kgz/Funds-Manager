@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils/cn";
-import { ChartPie, CalendarRange, CopyCheck, FileArchive, Landmark, LayoutList, LineChart, Receipt, Repeat, WalletMinimal } from "lucide-react";
+import { ChartPie, CalendarRange, CopyCheck, FileArchive, HandCoins, Landmark, LayoutList, LineChart, Receipt, Repeat, WalletMinimal } from "lucide-react";
 import { NavLink } from "react-router-dom";
 type SidebarProps = {
 	setTheme: React.Dispatch<React.SetStateAction<string>>;
@@ -91,6 +91,10 @@ export const Sidebar = ({ setTheme, theme }: SidebarProps) => {
 						<Link to="/accounts">
 							<Landmark size="1rem" className="inline-block mr-2" />
 							<span className="hidden lg:inline">Accounts</span>
+						</Link>
+						<Link to="/liabilities">
+							<HandCoins size="1rem" className="inline-block mr-2" />
+							<span className="hidden lg:inline">Liabilities</span>
 						</Link>
 
 				</ul>
