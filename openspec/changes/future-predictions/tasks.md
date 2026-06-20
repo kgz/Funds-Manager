@@ -37,5 +37,5 @@
 
 - [x] 6.1 `cargo test` in `database/` and `app/`
 - [x] 6.2 `pnpm run build:embed`
-- [ ] 6.3 Manual QA: baseline, two scenarios compared, goal gap
-- [ ] 6.4 PR references Closes #97 and links #29
+- [x] 6.3 Manual QA: baseline, two scenarios compared, goal gap
+- [x] 6.4 PR references Closes #97 and links #29
