@@ -16,6 +16,7 @@ The SPA SHALL provide these routes:
 | `/recurring` | Recurring | Recurring expense/income detection |
 | `/breakdown` | Breakdown | Parent/subcategory spend by date range |
 | `/planned` | Planned spending | Upcoming expenses and income |
+| `/lender-expenses` | Living expenses | Lender bucket summary and category mapping |
 | `/settings` | Settings | Placeholder |
 
 #### Scenario: Client-side routing
@@ -286,6 +287,24 @@ The breakdown category table SHALL be wrapped in `GlassCard` with sticky header 
 #### Scenario: Card chrome
 - **WHEN** the breakdown category table renders
 - **THEN** it is wrapped in a `GlassCard` with a sticky header and dark-theme text tokens
+
+### Requirement: Living expenses page
+
+The app SHALL provide route `/lender-expenses` with nav label **Living expenses** under the Cash flow sidebar section.
+
+The page SHALL have sub-routes: **Monthly summary** (`/lender-expenses`) and **Category mapping** (`/lender-expenses/mappings`). Category mapping SHALL be a full page with search and table layout, not a modal.
+
+#### Scenario: Period filter
+- **WHEN** user selects a dashboard period on the summary tab
+- **THEN** summary reloads for that date range
+
+#### Scenario: Edit mapping
+- **WHEN** user changes a category's lender bucket on the mapping page and saves
+- **THEN** summary reflects the new mapping on reload
+
+#### Scenario: Bucket drill-down
+- **WHEN** user expands a lender bucket row on the summary tab
+- **THEN** contributing app categories and amounts are loaded for that bucket
 
 ### Requirement: Planned spending page
 The SPA SHALL provide `/planned` to list, create, edit, and delete planned spending items.

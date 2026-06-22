@@ -37,6 +37,12 @@ The API SHALL expose:
 | POST | `/api/planned-spending` | Create planned item |
 | PUT | `/api/planned-spending/{id}` | Update planned item |
 | DELETE | `/api/planned-spending/{id}` | Soft-delete planned item |
+| GET | `/api/lender-expenses/buckets` | List lender living-expense buckets |
+| GET | `/api/lender-expenses/mappings` | Category → lender bucket mappings |
+| PUT | `/api/lender-expenses/mappings` | Upsert mapping or exclusion |
+| GET | `/api/lender-expenses/summary` | Living expense totals by bucket |
+| GET | `/api/lender-expenses/buckets/{bucket_key}/breakdown` | Category lines for a bucket |
+| PATCH | `/api/transactions/categories-by-group` | Bulk recategorise breakdown merchant group |
 
 #### Scenario: OpenAPI available
 - **WHEN** client requests `GET /api/openapi.json`
@@ -97,6 +103,20 @@ The API SHALL expose CRUD endpoints under `/api/planned-spending` as defined in 
 
 - **WHEN** the server starts
 - **THEN** `GET`, `POST`, `PUT`, and `DELETE` handlers for planned spending are available under `/api/planned-spending`
+
+### Requirement: Lender expense API
+
+The API SHALL expose lender expense endpoints under `/api/lender-expenses`:
+
+- `GET /buckets` — list canonical buckets
+- `GET /mappings` — categories with resolved lender bucket
+- `PUT /mappings` — upsert category → bucket override or exclusion (`category_id`, optional `bucket_key`)
+- `GET /summary` — bucket totals and monthly averages (`start_date`, `end_date`, optional `account_id`)
+- `GET /buckets/{bucket_key}/breakdown` — category-level drill-down for a bucket
+
+#### Scenario: Summary query
+- **WHEN** `GET /api/lender-expenses/summary?start_date=2025-01-01&end_date=2025-06-30`
+- **THEN** response includes buckets with `totalDollars`, `monthlyAverageDollars`, and `transactionCount`
 
 ### Requirement: Baseline prediction API
 

@@ -32,5 +32,5 @@
 
 ## 6. Verification
 
-- [ ] 6.1 Manual QA
-- [ ] 6.2 PR `Closes #112`
+- [x] 6.1 Manual QA
+- [x] 6.2 PR `Closes #112`
