@@ -1,5 +1,6 @@
 use crate::models::analytics::dashboard_kpis;
 use crate::models::planned_spending::PlannedSpending;
+use crate::models::transaction::EXCLUDE_CONFIRMED_TRANSFERS_AND;
 use crate::modules::database::get_dbo;
 use chrono::{Datelike, Duration, NaiveDate};
 use diesel::prelude::*;
@@ -400,7 +401,7 @@ fn recent_avg_net_cents(
         NaiveDate::from_ymd_opt(year, month, 1).ok_or(diesel::result::Error::NotFound)?
     };
 
-    let row = sql_query(
+    let row = sql_query(&format!(
         r#"
         WITH monthly AS (
             SELECT
@@ -420,18 +421,19 @@ fn recent_avg_net_cents(
               ))
               AND transaction_date::date >= $1
               AND transaction_date::date <= $2
+              {EXCLUDE_CONFIRMED_TRANSFERS_AND}
             GROUP BY date_trunc('month', transaction_date)
         )
         SELECT COALESCE(AVG(net_cents), 0)::bigint AS net_cents
         FROM monthly
         "#,
-    )
+    ))
     .bind::<Date, _>(lookback_start)
     .bind::<Date, _>(end)
     .bind::<Nullable<BigInt>, _>(financial_account_id)
     .get_result::<MonthNetRow>(conn)?;
 
-    let months_row = sql_query(
+    let months_row = sql_query(&format!(
         r#"
         SELECT COUNT(DISTINCT date_trunc('month', transaction_date))::bigint AS net_cents
         FROM transaction_data
@@ -448,8 +450,9 @@ fn recent_avg_net_cents(
           ))
           AND transaction_date::date >= $1
           AND transaction_date::date <= $2
+          {EXCLUDE_CONFIRMED_TRANSFERS_AND}
         "#,
-    )
+    ))
     .bind::<Date, _>(lookback_start)
     .bind::<Date, _>(end)
     .bind::<Nullable<BigInt>, _>(financial_account_id)

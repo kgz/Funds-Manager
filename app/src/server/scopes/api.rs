@@ -22,6 +22,7 @@ use crate::routes::{
         prediction_goals_service, prediction_scenarios_service, predictions_service,
     },
     transactions_api::transactions_service,
+    transfers_api::transfers_service,
     version_api::get_version,
 };
 
@@ -46,6 +47,7 @@ pub fn api() -> Scope {
         .service(lender_expenses_service())
         .service(analytics_service())
         .service(transactions_service())
+        .service(transfers_service())
         .service(predictions_service())
         .service(prediction_scenarios_service())
         .service(prediction_goals_service())

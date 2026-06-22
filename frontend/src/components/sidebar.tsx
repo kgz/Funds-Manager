@@ -1,4 +1,6 @@
 import { cn } from '@/lib/utils/cn';
+import { ActionableBadge } from '@/components/layout/ActionableBadge';
+import { useActionableItemCount } from '@/hooks/useActionableItemCount';
 import {
 	Banknote,
 	Building2,
@@ -27,6 +29,7 @@ type NavItem = {
 	to: string;
 	label: string;
 	icon: LucideIcon;
+	actionableCount?: number;
 };
 
 type NavSection = {
@@ -70,31 +73,53 @@ const navSections: NavSection[] = [
 	},
 ];
 
-function NavItemLink({ to, label, icon: Icon }: NavItem) {
+function NavItemLink({ to, label, icon: Icon, actionableCount }: NavItem) {
+	const showBadge = actionableCount !== undefined && actionableCount > 0;
+	const attentionTitle =
+		actionableCount === 1
+			? '1 item needs your attention'
+			: `${actionableCount} items need your attention`;
+
 	return (
 		<li>
 			<NavLink
 				to={to}
 				end={to === '/'}
-				title={label}
-				aria-label={label}
+				title={showBadge ? `${label} — ${attentionTitle}` : label}
+				aria-label={showBadge ? `${label}, ${attentionTitle}` : label}
 				className={({ isActive }) =>
 					cn(
-						'block overflow-hidden px-6 py-4 text-sm transition duration-200 lg:py-2',
+						'flex items-center gap-2 overflow-hidden px-6 py-4 text-sm transition duration-200 lg:py-2',
 						!isActive && 'bg-transparent opacity-50 hover:opacity-70',
 						isActive &&
 							'border-l-2 border-secondary-default bg-white/10 pl-[1.375rem] text-secondary-default opacity-100'
 					)
 				}
 			>
-				<Icon size="1rem" className="mr-2 inline-block shrink-0" aria-hidden />
-				<span className="hidden lg:inline">{label}</span>
+				<span className="relative inline-flex shrink-0">
+					<Icon size="1rem" className="inline-block" aria-hidden />
+					{showBadge ? (
+						<span className="absolute -right-1.5 -top-1.5 lg:hidden">
+							<ActionableBadge />
+						</span>
+					) : null}
+				</span>
+				<span className="hidden min-w-0 flex-1 truncate lg:inline">{label}</span>
+				{showBadge ? (
+					<span className="hidden shrink-0 lg:inline">
+						<ActionableBadge />
+					</span>
+				) : null}
 			</NavLink>
 		</li>
 	);
 }
 
-function NavSectionBlock({ title, items, isFirst }: NavSection & { isFirst: boolean }) {
+function NavSectionBlock({
+	title,
+	items,
+	isFirst,
+}: NavSection & { isFirst: boolean }) {
 	return (
 		<div
 			className={cn(
@@ -114,6 +139,21 @@ function NavSectionBlock({ title, items, isFirst }: NavSection & { isFirst: bool
 }
 
 export function Sidebar(_props: SidebarProps) {
+	const actionableCount = useActionableItemCount();
+
+	const sections = navSections.map((section) => ({
+		...section,
+		items: section.items.map((item) => {
+			if (item.to !== '/transactions') {
+				return item;
+			}
+			return {
+				...item,
+				actionableCount,
+			};
+		}),
+	}));
+
 	return (
 		<div className="fixed left-0 top-0 h-full w-16 border-r border-white/10 bg-gray-950/80 text-white/90 backdrop-blur-md transition-all duration-500 lg:w-64">
 			<div className="flex h-16 items-center justify-between px-4">
@@ -124,7 +164,7 @@ export function Sidebar(_props: SidebarProps) {
 			</div>
 
 			<nav className="mt-4 overflow-y-auto pb-6 lg:mt-6" aria-label="Main">
-				{navSections.map((section, index) => (
+				{sections.map((section, index) => (
 					<NavSectionBlock key={section.title} {...section} isFirst={index === 0} />
 				))}
 			</nav>

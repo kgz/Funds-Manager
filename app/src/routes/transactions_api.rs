@@ -1,5 +1,6 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use chrono::NaiveDate;
+use database::models::account_transfer::AccountTransfer;
 use database::models::category::Category;
 use database::models::financial_account::{FinancialAccount, FinancialAccountSummary};
 use database::models::transaction::Transaction;
@@ -42,6 +43,8 @@ pub struct TransactionListItem {
     pub suggested_category_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub financial_account: Option<FinancialAccountSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transfer_pair_status: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -85,6 +88,7 @@ fn attach_account_summaries(
                 suggested_category_id: None,
                 suggested_category_name: None,
                 financial_account,
+                transfer_pair_status: None,
             }
         })
         .collect()
@@ -119,9 +123,20 @@ fn attach_suggestions(
                 suggested_category_id,
                 suggested_category_name,
                 financial_account,
+                transfer_pair_status: None,
             }
         })
         .collect()
+}
+
+fn attach_transfer_statuses(
+    mut items: Vec<TransactionListItem>,
+    statuses: &HashMap<i64, String>,
+) -> Vec<TransactionListItem> {
+    for item in &mut items {
+        item.transfer_pair_status = statuses.get(&item.transaction.id).cloned();
+    }
+    items
 }
 
 pub async fn get_transactions(
@@ -186,6 +201,20 @@ pub async fn get_transactions(
     } else {
         attach_account_summaries(items, &accounts_by_statement)
     };
+
+    let transaction_ids: Vec<i64> = list_items.iter().map(|row| row.transaction.id).collect();
+    let statuses = web::block(move || AccountTransfer::transfer_status_for_transactions(&transaction_ids))
+        .await
+        .map_err(|e| {
+            eprintln!("Blocking error loading transfer statuses: {:?}", e);
+            actix_web::error::ErrorInternalServerError("Failed to retrieve transactions")
+        })?
+        .map_err(|e: DbError| {
+            eprintln!("Database error loading transfer statuses: {}", e);
+            actix_web::error::ErrorInternalServerError("Failed to retrieve transactions")
+        })?;
+
+    let list_items = attach_transfer_statuses(list_items, &statuses);
 
     Ok(HttpResponse::Ok().json(PaginatedTransactions {
         items: list_items,

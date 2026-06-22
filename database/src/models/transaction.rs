@@ -19,6 +19,28 @@ pub struct CategoryUsageStats {
 pub const ACTIVE_STATEMENT_WHERE: &str =
     "EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)";
 
+pub const EXCLUDE_CONFIRMED_TRANSFERS: &str = "NOT EXISTS (
+    SELECT 1 FROM account_transfer_pairs p
+    WHERE p.status = 'confirmed'
+      AND (p.out_transaction_id = transaction_data.id OR p.in_transaction_id = transaction_data.id)
+)";
+
+pub const EXCLUDE_CONFIRMED_TRANSFERS_AND: &str = "AND NOT EXISTS (
+    SELECT 1 FROM account_transfer_pairs p
+    WHERE p.status = 'confirmed'
+      AND (p.out_transaction_id = transaction_data.id OR p.in_transaction_id = transaction_data.id)
+)";
+
+pub fn exclude_confirmed_transfers_sql(transaction_alias: &str) -> String {
+    format!(
+        "NOT EXISTS (
+            SELECT 1 FROM account_transfer_pairs p
+            WHERE p.status = 'confirmed'
+              AND (p.out_transaction_id = {transaction_alias}.id OR p.in_transaction_id = {transaction_alias}.id)
+        )"
+    )
+}
+
 #[derive(QueryableByName, Debug)]
 struct BreakdownGroupMatchRow {
     #[diesel(sql_type = BigInt)]
@@ -399,6 +421,9 @@ impl Transaction {
             transaction_data::table
                 .filter(transaction_data::deleted_at.is_null())
                 .filter(transaction_data::category_id.is_null())
+                .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(
+                    EXCLUDE_CONFIRMED_TRANSFERS,
+                ))
                 .into_boxed(),
             None,
         )
@@ -441,6 +466,12 @@ impl Transaction {
                    WHERE s.id = transaction_data.statement_id
                      AND s.deleted_at IS NULL
                      AND ($1::bigint IS NULL OR s.financial_account_id = $1)
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM account_transfer_pairs p
+                   WHERE p.status = 'confirmed'
+                     AND (p.out_transaction_id = transaction_data.id
+                          OR p.in_transaction_id = transaction_data.id)
                )
              GROUP BY category_id",
         )
@@ -493,6 +524,12 @@ impl Transaction {
                    WHERE s.id = transaction_data.statement_id
                      AND s.deleted_at IS NULL
                      AND ($1::bigint IS NULL OR s.financial_account_id = $1)
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM account_transfer_pairs p
+                   WHERE p.status = 'confirmed'
+                     AND (p.out_transaction_id = transaction_data.id
+                          OR p.in_transaction_id = transaction_data.id)
                )",
         )
         .bind::<Nullable<BigInt>, _>(financial_account_id)
