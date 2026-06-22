@@ -85,6 +85,8 @@ impl BankStatementParser for BankSaParser {
             parser_name: self.name().to_string(),
             account_id,
             statement_date,
+            period_start,
+            period_end: statement_date,
             opening_balance_cents,
             closing_balance_cents,
             transactions,
@@ -382,6 +384,14 @@ SCM012464470
         assert_eq!(statement.account_id, "045692740");
         assert_eq!(
             statement.statement_date,
+            NaiveDate::from_ymd_opt(2025, 6, 19).unwrap()
+        );
+        assert_eq!(
+            statement.period_start,
+            NaiveDate::from_ymd_opt(2024, 12, 20).unwrap()
+        );
+        assert_eq!(
+            statement.period_end,
             NaiveDate::from_ymd_opt(2025, 6, 19).unwrap()
         );
         assert_eq!(statement.opening_balance_cents, 157_278);

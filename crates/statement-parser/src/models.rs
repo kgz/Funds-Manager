@@ -6,6 +6,8 @@ pub struct ParsedStatement {
     pub parser_name: String,
     pub account_id: String,
     pub statement_date: NaiveDate,
+    pub period_start: NaiveDate,
+    pub period_end: NaiveDate,
     pub opening_balance_cents: i32,
     pub closing_balance_cents: i32,
     pub transactions: Vec<ParsedTransaction>,
