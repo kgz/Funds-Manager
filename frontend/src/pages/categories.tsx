@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent, DragEvent } from 'react';
+import { useState, useEffect, FormEvent, DragEvent, ReactNode } from 'react';
 import {
 	Plus,
 	Edit2,
@@ -349,6 +349,135 @@ export const CategoriesPage = () => {
 
     const mainCategories = visibleMainCategories(categories, searchQuery, showDeleted);
 
+    const renderSubcategoryRows = (
+        parentId: string,
+        depth: number,
+        mainCategory: Category
+    ): ReactNode[] => {
+        const subs = visibleSubcategories(
+            categories,
+            parentId,
+            searchQuery,
+            showDeleted
+        );
+
+        return subs.flatMap((sub) => {
+            const isSubDeleted = !!sub.deleted_at;
+            const subUsage = categoryUsageLabel(sub);
+            const subUsageHint = categoryUsageTitle(sub);
+            const parent = categories.find((item) => item.id === sub.parent_category_id);
+            const row = (
+                <li
+                    key={sub.id}
+                    className={cn(
+                        'group flex items-center justify-between px-3 py-1.5 transition-opacity',
+                        !isSubDeleted && 'hover:bg-white/5',
+                        isSubDeleted && 'opacity-60',
+                        draggingId === sub.id && 'opacity-50'
+                    )}
+                    style={{ paddingLeft: `${12 + depth * 16}px` }}
+                    onDragOver={(e) => {
+                        if (!isSubDeleted) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                        e.preventDefault();
+                        if (!isSubDeleted && sub.parent_category_id) {
+                            handleSubDrop(sub.parent_category_id, sub.id);
+                        }
+                    }}
+                >
+                    <span className="flex items-center min-w-0">
+                        {!isSubDeleted && (
+                            <button
+                                type="button"
+                                draggable
+                                onDragStart={(e) => onDragStart(e, sub.id)}
+                                onDragEnd={onDragEnd}
+                                className="p-1 text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing"
+                                title="Drag to reorder"
+                            >
+                                <GripVertical size={14} />
+                            </button>
+                        )}
+                        {!isSubDeleted && sub.colour && (
+                            <div
+                                className="w-2.5 h-2.5 rounded-full flex-shrink-0 ml-2 mr-2 relative"
+                                style={{ backgroundColor: sub.colour }}
+                                title={`Colour: ${sub.colour}`}
+                            />
+                        )}
+                        <span
+                            className={cn(
+                                'text-white/80 text-sm truncate',
+                                isSubDeleted && 'line-through text-white/50'
+                            )}
+                        >
+                            {sub.name}
+                        </span>
+                        {subUsage && (
+                            <span
+                                className="text-xs text-white/40 ml-2 flex-shrink-0"
+                                title={subUsageHint ?? undefined}
+                            >
+                                {subUsage}
+                            </span>
+                        )}
+                    </span>
+                    <div
+                        className={cn(
+                            'flex items-center gap-1 flex-shrink-0 ml-2 transition-opacity duration-150',
+                            isSubDeleted ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                        )}
+                    >
+                        {isSubDeleted ? (
+                            <button
+                                title="Restore Subcategory"
+                                onClick={() => handleRestore(sub)}
+                                disabled={isSubmitting}
+                                className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                                {isSubmitting ? (
+                                    <Loader2 className="animate-spin h-3.5 w-3.5" />
+                                ) : (
+                                    <RotateCcw size={14} />
+                                )}
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    title="Edit Subcategory"
+                                    onClick={() => openModal('editSub', sub, parent ?? mainCategory)}
+                                    disabled={isSubmitting}
+                                    className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                >
+                                    <Edit2 size={14} />
+                                </button>
+                                <button
+                                    title="Merge into another category"
+                                    onClick={() => openMergeModal(sub)}
+                                    disabled={isSubmitting}
+                                    className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                >
+                                    <GitMerge size={14} />
+                                </button>
+                                <button
+                                    title="Delete Subcategory"
+                                    onClick={() => requestDelete(sub)}
+                                    disabled={isSubmitting}
+                                    className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </li>
+            );
+
+            return [row, ...renderSubcategoryRows(sub.id, depth + 1, mainCategory)];
+        });
+    };
+
     // --- Render Logic ---
     const listError = error ?? categoriesError;
 
@@ -604,105 +733,7 @@ export const CategoriesPage = () => {
                                 <div className="border-t border-white/10 bg-black/20">
                                     {sub_categories.length > 0 ? (
                                         <ul className="py-2">
-                                            {sub_categories.map((sub) => {
-                                                const isSubDeleted = !!sub.deleted_at;
-                                                const subUsage = categoryUsageLabel(sub);
-                                                const subUsageHint = categoryUsageTitle(sub);
-                                                return (
-                                                    <li
-                                                        key={sub.id}
-                                                        className={cn(
-                                                            "group flex items-center justify-between px-3 py-1.5 transition-opacity",
-                                                            !isSubDeleted && "hover:bg-white/5",
-                                                            isSubDeleted && "opacity-60",
-                                                            draggingId === sub.id && "opacity-50"
-                                                        )}
-                                                        onDragOver={(e) => {
-                                                            if (!isSubDeleted) e.preventDefault();
-                                                        }}
-                                                        onDrop={(e) => {
-                                                            e.preventDefault();
-                                                            if (!isSubDeleted) {
-                                                                handleSubDrop(category.id, sub.id);
-                                                            }
-                                                        }}
-                                                    >
-														<span className='flex items-center min-w-0'>
-                                                            {!isSubDeleted && (
-                                                                <button
-                                                                    type="button"
-                                                                    draggable
-                                                                    onDragStart={(e) => onDragStart(e, sub.id)}
-                                                                    onDragEnd={onDragEnd}
-                                                                    className="p-1 ml-6 text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing"
-                                                                    title="Drag to reorder"
-                                                                >
-                                                                    <GripVertical size={14} />
-                                                                </button>
-                                                            )}
-															{!isSubDeleted && sub.colour && (
-																<div className="w-2.5 h-2.5 rounded-full flex-shrink-0 ml-10 mr-2 relative" style={{ backgroundColor: sub.colour }} title={`Colour: ${sub.colour}`}></div>
-															)}
-															<span className={cn(
-																"text-white/80 text-sm truncate",
-																isSubDeleted && "line-through text-white/50"
-															)}>
-																{sub.name}
-															</span>
-                                                            {subUsage && (
-                                                                <span
-                                                                    className="text-xs text-white/40 ml-2 flex-shrink-0"
-                                                                    title={subUsageHint ?? undefined}
-                                                                >
-                                                                    {subUsage}
-                                                                </span>
-                                                            )}
-														</span>
-                                                        <div className={cn(
-                                                            "flex items-center gap-1 flex-shrink-0 ml-2 transition-opacity duration-150",
-                                                            isSubDeleted ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                                                        )}>
-                                                            {isSubDeleted ? (
-                                                                <button
-                                                                    title="Restore Subcategory"
-                                                                    onClick={() => handleRestore(sub)}
-                                                                    disabled={isSubmitting}
-                                                                    className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                                                >
-                                                                     {isSubmitting ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <RotateCcw size={14}/>}
-                                                                </button>
-                                                            ) : (
-                                                                <>
-                                                                    <button
-                                                                        title="Edit Subcategory"
-                                                                        onClick={() => openModal('editSub', sub, category)}
-                                                                        disabled={isSubmitting}
-                                                                        className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                                                    >
-                                                                         <Edit2 size={14}/>
-                                                                    </button>
-                                                                    <button
-                                                                        title="Merge into another category"
-                                                                        onClick={() => openMergeModal(sub)}
-                                                                        disabled={isSubmitting}
-                                                                        className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                                                    >
-                                                                        <GitMerge size={14} />
-                                                                    </button>
-                                                                    <button
-                                                                        title="Delete Subcategory"
-                                                                        onClick={() => requestDelete(sub)}
-                                                                        disabled={isSubmitting}
-                                                                        className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                                                    >
-                                                                        <Trash2 size={14} />
-                                                                    </button>
-                                                                </>
-                                                            )}
-                                                        </div>
-                                                    </li>
-                                                );
-                                            })}
+                                            {renderSubcategoryRows(category.id, 0, category)}
                                         </ul>
                                     ) : (
                                         <p className="px-3 py-2 text-sm text-white/50 pl-14">No subcategories defined.</p>

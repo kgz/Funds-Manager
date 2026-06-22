@@ -1,7 +1,7 @@
 import { inputDarkClass } from '@/components/layout/tokens';
 import {
 	buildCategorySelectGroups,
-	categoryLabel,
+	categoryBreadcrumb,
 } from '@/lib/utils/categoryGroups';
 import { cn } from '@/lib/utils/cn';
 import { ChevronDown } from 'lucide-react';
@@ -24,11 +24,33 @@ function categoryDisplayName(
 	category: Category,
 	categories: Category[]
 ): string {
+	return categoryBreadcrumb(category, categories);
+}
+
+function categoryDepth(category: Category, categories: Category[]): number {
+	let depth = 0;
+	let current: Category | undefined = category;
+	while (current?.parent_category_id) {
+		depth += 1;
+		current = categories.find((item) => item.id === current?.parent_category_id);
+	}
+	return depth;
+}
+
+function optionLabelInGroup(
+	category: Category,
+	categories: Category[],
+	groupLabel: string
+): string {
+	const breadcrumb = categoryBreadcrumb(category, categories);
 	if (!category.parent_category_id) {
 		return category.name;
 	}
-	const parent = categories.find((item) => item.id === category.parent_category_id);
-	return categoryLabel(category, parent?.name);
+	const prefix = `${groupLabel} › `;
+	if (breadcrumb.startsWith(prefix)) {
+		return breadcrumb.slice(prefix.length);
+	}
+	return breadcrumb;
 }
 
 function categoryMatchesQuery(
@@ -40,9 +62,10 @@ function categoryMatchesQuery(
 	if (normalized.length === 0) {
 		return true;
 	}
-	return categoryDisplayName(category, categories)
-		.toLowerCase()
-		.includes(normalized);
+	return (
+		categoryDisplayName(category, categories).toLowerCase().includes(normalized) ||
+		category.name.toLowerCase().includes(normalized)
+	);
 }
 
 export function CategoryPicker({
@@ -283,32 +306,37 @@ export function CategoryPicker({
 					<div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-white/40">
 						{group.label}
 					</div>
-					{group.options.map((category) => (
-						<button
-							key={category.id}
-							type="button"
-							role="option"
-							aria-selected={value === category.id}
-							onClick={() => selectValue(category.id)}
-							className={cn(
-								'flex w-full items-center gap-2 py-2 text-left text-xs text-white/85 cursor-pointer',
-								category.parent_category_id ? 'pl-6 pr-3' : 'px-3',
-								'hover:bg-white/10',
-								value === category.id &&
-									'bg-secondary-default/20 text-white'
-							)}
-						>
-							{category.colour ? (
-								<span
-									className="h-2 w-2 shrink-0 rounded-full"
-									style={{ backgroundColor: category.colour }}
-								/>
-							) : (
-								<span className="h-2 w-2 shrink-0 rounded-full bg-white/20" />
-							)}
-							<span className="truncate">{category.name}</span>
-						</button>
-					))}
+					{group.options.map((category) => {
+						const depth = categoryDepth(category, categories);
+						return (
+							<button
+								key={category.id}
+								type="button"
+								role="option"
+								aria-selected={value === category.id}
+								onClick={() => selectValue(category.id)}
+								className={cn(
+									'flex w-full items-center gap-2 py-2 pr-3 text-left text-xs text-white/85 cursor-pointer',
+									depth === 0 ? 'px-3' : depth === 1 ? 'pl-6' : 'pl-9',
+									'hover:bg-white/10',
+									value === category.id &&
+										'bg-secondary-default/20 text-white'
+								)}
+							>
+								{category.colour ? (
+									<span
+										className="h-2 w-2 shrink-0 rounded-full"
+										style={{ backgroundColor: category.colour }}
+									/>
+								) : (
+									<span className="h-2 w-2 shrink-0 rounded-full bg-white/20" />
+								)}
+								<span className="truncate">
+									{optionLabelInGroup(category, categories, group.label)}
+								</span>
+							</button>
+						);
+					})}
 				</div>
 			))}
 		</>

@@ -222,6 +222,32 @@ diesel::table! {
 }
 
 diesel::table! {
+    category_lender_exclusions (category_id) {
+        category_id -> Bigint,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    category_lender_mappings (category_id) {
+        category_id -> Bigint,
+        #[max_length = 64]
+        bucket_key -> Varchar,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    lender_expense_buckets (bucket_key) {
+        #[max_length = 64]
+        bucket_key -> Varchar,
+        #[max_length = 120]
+        label -> Varchar,
+        sort_order -> Integer,
+    }
+}
+
+diesel::table! {
     income_stream_profiles (stream_key) {
         #[max_length = 255]
         stream_key -> Varchar,
@@ -237,6 +263,9 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(category_lender_exclusions -> categories (category_id));
+diesel::joinable!(category_lender_mappings -> categories (category_id));
+diesel::joinable!(category_lender_mappings -> lender_expense_buckets (bucket_key));
 diesel::joinable!(assets -> liabilities (liability_id));
 diesel::joinable!(asset_valuations -> assets (asset_id));
 diesel::joinable!(liabilities -> financial_accounts (financial_account_id));
@@ -253,9 +282,12 @@ diesel::allow_tables_to_appear_in_same_query!(
     assets,
     asset_valuations,
     categories,
+    category_lender_exclusions,
+    category_lender_mappings,
     category_mappings,
     financial_accounts,
     income_stream_profiles,
+    lender_expense_buckets,
     liabilities,
     liability_balances,
     planned_spending,

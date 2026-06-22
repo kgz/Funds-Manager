@@ -15,6 +15,7 @@ use crate::routes::{
     assets::assets_service,
     category_mappings::category_mappings_routes,
     income_streams::income_streams_service,
+    lender_expenses::lender_expenses_service,
     liabilities::liabilities_service,
     planned_spending::planned_spending_service,
     predictions_api::{
@@ -42,6 +43,7 @@ pub fn api() -> Scope {
         .service(liabilities_service())
         .service(assets_service())
         .service(income_streams_service())
+        .service(lender_expenses_service())
         .service(analytics_service())
         .service(transactions_service())
         .service(predictions_service())
