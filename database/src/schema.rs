@@ -224,6 +224,18 @@ diesel::table! {
 }
 
 diesel::table! {
+    account_transfer_pairs (id) {
+        id -> Bigint,
+        out_transaction_id -> Bigint,
+        in_transaction_id -> Bigint,
+        #[max_length = 16]
+        status -> Varchar,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     category_lender_exclusions (category_id) {
         category_id -> Bigint,
         updated_at -> Timestamp,
@@ -281,6 +293,7 @@ diesel::joinable!(transaction_categories -> categories (category_id));
 diesel::joinable!(transaction_categories -> transaction_data (transaction_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    account_transfer_pairs,
     assets,
     asset_valuations,
     categories,

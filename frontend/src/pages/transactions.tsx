@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import {
     bulkPatchTransactionCategories,
@@ -11,6 +11,7 @@ import { DateTime } from "luxon";
 import { ErrorState } from '@/components/layout/ErrorState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { ActionableBadge } from '@/components/layout/ActionableBadge';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SearchInput } from '@/components/layout/SearchInput';
@@ -34,7 +35,14 @@ import { CategoryPicker } from '@/components/transactions/CategoryPicker';
 import { readThunkRejectMessage } from '@/lib/utils/thunkError';
 import { AccountFilter } from '@/components/account-filter';
 import { useAccountFilter } from '@/hooks/useAccountFilter';
+import { notifyTransferSuggestionsChanged } from '@/hooks/useActionableItemCount';
 import { accountDisplayLabel } from '@/types/account';
+import {
+	confirmTransferPair,
+	dismissTransferPair,
+	fetchTransferSuggestions,
+	type TransferSuggestion,
+} from '@/types/transfer';
 
 const PER_PAGE = 50;
 
@@ -42,6 +50,25 @@ const formatCurrency = (amount: number): string => {
     const absAmount = Math.abs(amount / 100).toFixed(2);
     return `${amount < 0 ? '-' : ''}$${absAmount}`;
 };
+
+function ColoredAmount({ amount }: { amount: number }) {
+    const isPositive = amount >= 0;
+    return (
+        <span
+            className={cn(
+                'font-mono tabular-nums',
+                isPositive ? 'text-green-400' : 'text-red-400'
+            )}
+        >
+            {formatCurrency(amount)}
+        </span>
+    );
+}
+
+function formatTransferDate(value: string): string {
+    const parsed = DateTime.fromISO(value);
+    return parsed.isValid ? parsed.toFormat('dd LLL yyyy') : value;
+}
 
 function descriptionKey(description: string): string {
     return description.trim().toLowerCase();
@@ -83,6 +110,11 @@ const TransactionsPage = () => {
     const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
     const [bulkCategoryId, setBulkCategoryId] = useState('');
     const [bulkBusy, setBulkBusy] = useState(false);
+    const [transferSuggestions, setTransferSuggestions] = useState<TransferSuggestion[]>([]);
+    const [transferBusy, setTransferBusy] = useState(false);
+    const [hideTransfers, setHideTransfers] = useState<boolean>(() => {
+        return localStorage.getItem('hideTransferTransactions') === 'true';
+    });
     const fetchGenerationRef = useRef(0);
 
     const updateItems = useCallback((updater: (rows: Transaction[]) => Transaction[]) => {
@@ -437,6 +469,96 @@ const TransactionsPage = () => {
         localStorage.setItem('showUncategorizedOnly', String(showUncategorizedOnly));
     }, [showUncategorizedOnly]);
 
+    useEffect(() => {
+        localStorage.setItem('hideTransferTransactions', String(hideTransfers));
+    }, [hideTransfers]);
+
+    useEffect(() => {
+        void fetchTransferSuggestions(accountIdNumber ?? undefined)
+            .then(setTransferSuggestions)
+            .catch(() => setTransferSuggestions([]));
+    }, [accountIdNumber]);
+
+    const reloadTransferSuggestions = useCallback(() => {
+        void fetchTransferSuggestions(accountIdNumber ?? undefined)
+            .then(setTransferSuggestions)
+            .catch(() => setTransferSuggestions([]));
+        notifyTransferSuggestionsChanged();
+    }, [accountIdNumber]);
+
+    const selectedTransferPair = useMemo(() => {
+        const selectedRows = items.filter((row) => selectedIds.has(row.id));
+        if (selectedRows.length !== 2) {
+            return null;
+        }
+        const outRow = selectedRows.find((row) => row.amount < 0);
+        const inRow = selectedRows.find((row) => row.amount > 0);
+        if (!outRow || !inRow || outRow.amount !== -inRow.amount) {
+            return null;
+        }
+        const outAccountId = outRow.financial_account?.id;
+        const inAccountId = inRow.financial_account?.id;
+        if (
+            outAccountId !== undefined &&
+            inAccountId !== undefined &&
+            outAccountId === inAccountId
+        ) {
+            return null;
+        }
+        return { outId: outRow.id, inId: inRow.id };
+    }, [items, selectedIds]);
+
+    const handleMarkSelectedAsTransfer = useCallback(async () => {
+        if (!selectedTransferPair) {
+            return;
+        }
+        setTransferBusy(true);
+        try {
+            await confirmTransferPair(
+                selectedTransferPair.outId,
+                selectedTransferPair.inId
+            );
+            setSelectedIds(new Set());
+            reloadTransferSuggestions();
+            await reloadPage(page);
+        } finally {
+            setTransferBusy(false);
+        }
+    }, [page, reloadPage, reloadTransferSuggestions, selectedTransferPair]);
+
+    const handleConfirmSuggestion = useCallback(
+        async (suggestion: TransferSuggestion) => {
+            setTransferBusy(true);
+            try {
+                await confirmTransferPair(
+                    suggestion.outTransaction.id,
+                    suggestion.inTransaction.id
+                );
+                reloadTransferSuggestions();
+                await reloadPage(page);
+            } finally {
+                setTransferBusy(false);
+            }
+        },
+        [page, reloadPage, reloadTransferSuggestions]
+    );
+
+    const handleDismissSuggestion = useCallback(
+        async (suggestion: TransferSuggestion) => {
+            setTransferBusy(true);
+            try {
+                await dismissTransferPair(
+                    suggestion.outTransaction.id,
+                    suggestion.inTransaction.id
+                );
+                reloadTransferSuggestions();
+            } finally {
+                setTransferBusy(false);
+            }
+        },
+        [reloadTransferSuggestions]
+    );
+
     const allOnPageSelected =
         items.length > 0 && items.every((item) => selectedIds.has(item.id));
 
@@ -506,7 +628,16 @@ const TransactionsPage = () => {
             key: "description",
             label: "Description",
             sortable: true,
-            render: (v) => v,
+            render: (v, row) => (
+                <span className="inline-flex items-center gap-2">
+                    <span className="truncate">{v}</span>
+                    {row.transfer_pair_status === 'confirmed' ? (
+                        <span className="shrink-0 rounded bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-300">
+                            Transfer
+                        </span>
+                    ) : null}
+                </span>
+            ),
             sortFunction: (a, b) => a.localeCompare(b),
             cellClassName: "max-w-xs truncate",
         },
@@ -579,10 +710,12 @@ const TransactionsPage = () => {
         toggleSelected,
     ]);
 
-    const sortedItems = useMemo(
-        () => sortRows(items, columns, sortState),
-        [items, columns, sortState]
-    );
+    const sortedItems = useMemo(() => {
+        const visible = hideTransfers
+            ? items.filter((row) => row.transfer_pair_status !== 'confirmed')
+            : items;
+        return sortRows(visible, columns, sortState);
+    }, [hideTransfers, items, columns, sortState]);
 
     const initialLoading = loading && items.length === 0 && error === null;
     if (initialLoading) {
@@ -641,6 +774,15 @@ const TransactionsPage = () => {
                                 { value: 'uncategorized', label: 'Uncategorized' },
                             ]}
                         />
+                        <label className="flex cursor-pointer items-center gap-2 text-sm text-white/70">
+                            <input
+                                type="checkbox"
+                                checked={hideTransfers}
+                                onChange={(event) => setHideTransfers(event.target.checked)}
+                                className="form-checkbox h-4 w-4 rounded border-gray-600 bg-gray-800 text-secondary-default"
+                            />
+                            Hide transfers
+                        </label>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
                         <button
@@ -717,6 +859,100 @@ const TransactionsPage = () => {
                 </div>
             </div>
 
+            {transferSuggestions.length > 0 ? (
+                <div className="space-y-3 border-b border-white/10 bg-sky-950/30 px-4 py-3">
+                    <p className="flex items-center gap-2 text-sm text-sky-200">
+                        <ActionableBadge />
+                        <span>
+                            {transferSuggestions.length} possible inter-account transfer
+                            {transferSuggestions.length === 1 ? '' : 's'} detected
+                        </span>
+                    </p>
+                    <div className="overflow-x-auto rounded border border-white/10 bg-black/20">
+                        <table className="w-full min-w-[40rem] text-sm">
+                            <thead>
+                                <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-white/45">
+                                    <th className="px-3 py-2 font-medium">Leg</th>
+                                    <th className="px-3 py-2 font-medium">Account</th>
+                                    <th className="px-3 py-2 font-medium">Date</th>
+                                    <th className="px-3 py-2 font-medium">Description</th>
+                                    <th className="px-3 py-2 text-right font-medium">Amount</th>
+                                    <th className="px-3 py-2 text-right font-medium">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {transferSuggestions.slice(0, 5).map((suggestion) => (
+                                    <Fragment
+                                        key={`${suggestion.outTransaction.id}-${suggestion.inTransaction.id}`}
+                                    >
+                                        <tr
+                                            key={`${suggestion.outTransaction.id}-out`}
+                                            className="border-t border-white/10"
+                                        >
+                                            <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-white/50">
+                                                Out
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-white/90">
+                                                {suggestion.outTransaction.accountLabel}
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-white/60">
+                                                {formatTransferDate(suggestion.outTransaction.transactionDate)}
+                                            </td>
+                                            <td className="max-w-xs truncate px-3 py-2 text-white/80">
+                                                {suggestion.outTransaction.description}
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <ColoredAmount amount={suggestion.outTransaction.amount} />
+                                            </td>
+                                            <td
+                                                rowSpan={2}
+                                                className="border-l border-white/10 px-3 py-2 align-middle text-right"
+                                            >
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                                                    <button
+                                                        type="button"
+                                                        disabled={transferBusy}
+                                                        onClick={() => void handleConfirmSuggestion(suggestion)}
+                                                        className={buttonAccentClass}
+                                                    >
+                                                        Confirm
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={transferBusy}
+                                                        onClick={() => void handleDismissSuggestion(suggestion)}
+                                                        className={buttonOutlineClass}
+                                                    >
+                                                        Dismiss
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr key={`${suggestion.inTransaction.id}-in`}>
+                                            <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-white/50">
+                                                In
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-white/90">
+                                                {suggestion.inTransaction.accountLabel}
+                                            </td>
+                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-white/60">
+                                                {formatTransferDate(suggestion.inTransaction.transactionDate)}
+                                            </td>
+                                            <td className="max-w-xs truncate px-3 py-2 text-white/80">
+                                                {suggestion.inTransaction.description}
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <ColoredAmount amount={suggestion.inTransaction.amount} />
+                                            </td>
+                                        </tr>
+                                    </Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : null}
+
             {selectedIds.size > 0 ? (
                 <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3">
                     <span className="text-sm text-white/80">
@@ -745,6 +981,14 @@ const TransactionsPage = () => {
                         className={buttonAccentClass}
                     >
                         Accept suggestions ({selectedWithSuggestions.length})
+                    </button>
+                    <button
+                        type="button"
+                        disabled={transferBusy || selectedTransferPair === null}
+                        onClick={() => void handleMarkSelectedAsTransfer()}
+                        className={buttonOutlineClass}
+                    >
+                        Mark as transfer
                     </button>
                     {selectedOnPage.length === 1 &&
                     selectedOnPage[0].category_id !== null &&

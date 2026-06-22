@@ -1,3 +1,4 @@
+pub mod account_transfer;
 pub mod analytics;
 pub mod assets;
 pub mod category;

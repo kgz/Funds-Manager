@@ -10,7 +10,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 use crate::models::category::Category;
-use crate::models::transaction::{filter_active_statement, ACTIVE_STATEMENT_WHERE};
+use crate::models::transaction::{filter_active_statement, ACTIVE_STATEMENT_WHERE, EXCLUDE_CONFIRMED_TRANSFERS, EXCLUDE_CONFIRMED_TRANSFERS_AND};
 use crate::models::description_key::canonical_expense_group_key;
 use crate::models::recurring_detection::{
     detect_recurring_expenses, detect_recurring_income, RecurringCandidate, SlimTransaction,
@@ -33,6 +33,9 @@ fn apply_date_scope(
     scope: AnalyticsScope,
 ) -> transaction_data::BoxedQuery<'_, Pg> {
     let mut query = filter_active_statement(query, scope.financial_account_id);
+    query = query.filter(diesel::dsl::sql::<diesel::sql_types::Bool>(
+        EXCLUDE_CONFIRMED_TRANSFERS,
+    ));
     if let Some(start_date) = scope.start {
         query = query.filter(
             transaction_data::transaction_date
@@ -414,6 +417,11 @@ pub fn dashboard_kpis(
           ))
           AND ($1::date IS NULL OR transaction_date::date >= $1)
           AND ($2::date IS NULL OR transaction_date::date <= $2)
+          AND NOT EXISTS (
+              SELECT 1 FROM account_transfer_pairs p
+              WHERE p.status = 'confirmed'
+                AND (p.out_transaction_id = transaction_data.id OR p.in_transaction_id = transaction_data.id)
+          )
         "#,
     )
     .bind::<Nullable<Date>, _>(start)
@@ -595,6 +603,11 @@ pub fn dashboard(
           ))
           AND ($1::date IS NULL OR transaction_date::date >= $1)
           AND ($2::date IS NULL OR transaction_date::date <= $2)
+          AND NOT EXISTS (
+              SELECT 1 FROM account_transfer_pairs p
+              WHERE p.status = 'confirmed'
+                AND (p.out_transaction_id = transaction_data.id OR p.in_transaction_id = transaction_data.id)
+          )
         GROUP BY date_trunc('month', transaction_date)
         ORDER BY date_trunc('month', transaction_date)
         "#,
@@ -745,6 +758,9 @@ pub fn dashboard(
         }
     }
     let slim: Vec<(Option<i32>, i32)> = category_query
+        .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(
+            EXCLUDE_CONFIRMED_TRANSFERS,
+        ))
         .select((transaction_data::category_id, transaction_data::amount))
         .load(conn)?;
 
@@ -824,7 +840,7 @@ pub fn breakdown(
     let conn = &mut get_dbo();
     let categories = Category::all(false)?;
 
-    let rows: Vec<SlimTxnRow> = sql_query(
+    let rows: Vec<SlimTxnRow> = sql_query(&format!(
         r#"
         SELECT category_id, description, amount
         FROM transaction_data
@@ -838,8 +854,9 @@ pub fn breakdown(
           ))
           AND transaction_date::date >= $1
           AND transaction_date::date <= $2
+          {EXCLUDE_CONFIRMED_TRANSFERS_AND}
         "#,
-    )
+    ))
     .bind::<Date, _>(start)
     .bind::<Date, _>(end)
     .bind::<Nullable<BigInt>, _>(financial_account_id)
@@ -944,6 +961,9 @@ pub fn recurring(
     let rows: Vec<(String, i32, NaiveDateTime, Option<i32>)> = filter_active_statement(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
+            .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(
+                EXCLUDE_CONFIRMED_TRANSFERS,
+            ))
             .into_boxed(),
         financial_account_id,
     )
@@ -1117,6 +1137,7 @@ pub fn spending_drilldown_by_name(
             WHERE deleted_at IS NULL
               AND amount < 0
               AND {ACTIVE_STATEMENT_WHERE}
+              {EXCLUDE_CONFIRMED_TRANSFERS_AND}
               AND category_id IS NULL
               {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}
@@ -1139,6 +1160,7 @@ pub fn spending_drilldown_by_name(
             WHERE deleted_at IS NULL
               AND amount < 0
               AND {ACTIVE_STATEMENT_WHERE}
+              {EXCLUDE_CONFIRMED_TRANSFERS_AND}
               AND category_id = ANY($1)
               {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}
@@ -1162,6 +1184,7 @@ pub fn spending_drilldown_by_name(
             WHERE deleted_at IS NULL
               AND amount < 0
               AND {ACTIVE_STATEMENT_WHERE}
+              {EXCLUDE_CONFIRMED_TRANSFERS_AND}
               AND (category_id IS NULL OR category_id = ANY($1))
               {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}
@@ -1264,6 +1287,7 @@ pub fn income_drilldown_by_name(
             WHERE deleted_at IS NULL
               AND amount > 0
               AND {ACTIVE_STATEMENT_WHERE}
+              {EXCLUDE_CONFIRMED_TRANSFERS_AND}
               AND category_id IS NULL
               {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}
@@ -1286,6 +1310,7 @@ pub fn income_drilldown_by_name(
             WHERE deleted_at IS NULL
               AND amount > 0
               AND {ACTIVE_STATEMENT_WHERE}
+              {EXCLUDE_CONFIRMED_TRANSFERS_AND}
               AND category_id = ANY($1)
               {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}
@@ -1309,6 +1334,7 @@ pub fn income_drilldown_by_name(
             WHERE deleted_at IS NULL
               AND amount > 0
               AND {ACTIVE_STATEMENT_WHERE}
+              {EXCLUDE_CONFIRMED_TRANSFERS_AND}
               AND (category_id IS NULL OR category_id = ANY($1))
               {scope_sql}
             GROUP BY {SPENDING_NAME_GROUP_EXPR}

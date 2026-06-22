@@ -19,6 +19,7 @@ export type Transaction = {
 	suggested_category_id?: number | null;
 	suggested_category_name?: string | null;
 	financial_account?: FinancialAccountSummary | null;
+	transfer_pair_status?: string | null;
 };
 
 function readString(value: unknown): string | null {
@@ -83,6 +84,9 @@ export function normalizeTransaction(raw: unknown): Transaction | null {
 		financialAccountRaw === undefined || financialAccountRaw === null
 			? null
 			: normalizeFinancialAccountSummary(financialAccountRaw);
+	const transferPairStatus = readNullableString(
+		Reflect.get(raw, 'transfer_pair_status')
+	);
 
 	if (
 		id === null ||
@@ -113,6 +117,7 @@ export function normalizeTransaction(raw: unknown): Transaction | null {
 		suggested_category_id: suggestedCategoryId,
 		suggested_category_name: suggestedCategoryName,
 		financial_account: financialAccount,
+		transfer_pair_status: transferPairStatus,
 	};
 }
 

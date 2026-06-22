@@ -434,6 +434,11 @@ fn load_expense_agg_rows(
           ))
           AND transaction_date::date >= $1
           AND transaction_date::date <= $2
+          AND NOT EXISTS (
+              SELECT 1 FROM account_transfer_pairs p
+              WHERE p.status = 'confirmed'
+                AND (p.out_transaction_id = transaction_data.id OR p.in_transaction_id = transaction_data.id)
+          )
         GROUP BY category_id
         "#,
     )

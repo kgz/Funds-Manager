@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::models::recurring_detection::{detect_recurring_income, RecurringCandidate, SlimTransaction};
-use crate::models::transaction::filter_active_statement;
+use crate::models::transaction::{filter_active_statement, EXCLUDE_CONFIRMED_TRANSFERS};
 use crate::modules::database::get_dbo;
 use crate::schema::{income_stream_profiles, transaction_data};
 
@@ -215,6 +215,9 @@ pub fn income_summary(
     let rows: Vec<(String, i32, NaiveDateTime, Option<i32>)> = filter_active_statement(
         transaction_data::table
             .filter(transaction_data::deleted_at.is_null())
+            .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(
+                EXCLUDE_CONFIRMED_TRANSFERS,
+            ))
             .into_boxed(),
         financial_account_id,
     )
