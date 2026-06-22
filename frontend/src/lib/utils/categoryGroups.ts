@@ -5,47 +5,67 @@ export type CategorySelectGroup = {
 	options: Category[];
 };
 
+function activeCategories(categories: Category[]): Category[] {
+	return categories.filter((category) => !category.deleted_at);
+}
+
+export function categoryBreadcrumb(category: Category, categories: Category[]): string {
+	const names: string[] = [];
+	let current: Category | undefined = category;
+	while (current) {
+		names.unshift(current.name);
+		if (!current.parent_category_id) {
+			break;
+		}
+		current = categories.find((item) => item.id === current?.parent_category_id);
+	}
+	return names.join(' › ');
+}
+
+export function categoryLabel(category: Category, categories: Category[]): string {
+	return categoryBreadcrumb(category, categories);
+}
+
+function collectDescendants(active: Category[], rootId: string): Category[] {
+	const result: Category[] = [];
+	const walk = (parentId: string) => {
+		const children = active
+			.filter((category) => category.parent_category_id === parentId)
+			.sort((a, b) => a.name.localeCompare(b.name));
+		for (const child of children) {
+			result.push(child);
+			walk(child.id);
+		}
+	};
+	walk(rootId);
+	return result;
+}
+
 export function buildCategorySelectGroups(
 	categories: Category[]
 ): { ungrouped: Category[]; groups: CategorySelectGroup[] } {
-	const active = categories.filter((category) => !category.deleted_at);
-	const parents = active
+	const active = activeCategories(categories);
+	const roots = active
 		.filter((category) => !category.parent_category_id)
 		.sort((a, b) => a.name.localeCompare(b.name));
-
-	const subsByParent = new Map<string, Category[]>();
-	for (const category of active) {
-		if (!category.parent_category_id) {
-			continue;
-		}
-		const list = subsByParent.get(category.parent_category_id) ?? [];
-		list.push(category);
-		subsByParent.set(category.parent_category_id, list);
-	}
 
 	const ungrouped: Category[] = [];
 	const groups: CategorySelectGroup[] = [];
 
-	for (const parent of parents) {
-		const subs = (subsByParent.get(parent.id) ?? []).sort((a, b) =>
-			a.name.localeCompare(b.name)
-		);
-		if (subs.length > 0) {
-			groups.push({
-				label: parent.name,
-				options: [parent, ...subs],
-			});
-		} else {
-			ungrouped.push(parent);
+	for (const root of roots) {
+		const descendants = collectDescendants(active, root.id);
+		if (descendants.length === 0) {
+			ungrouped.push(root);
+			continue;
 		}
+		const options = [root, ...descendants].sort((a, b) =>
+			categoryBreadcrumb(a, active).localeCompare(categoryBreadcrumb(b, active))
+		);
+		groups.push({
+			label: root.name,
+			options,
+		});
 	}
 
 	return { ungrouped, groups };
-}
-
-export function categoryLabel(category: Category, parentName?: string): string {
-	if (category.parent_category_id && parentName) {
-		return `${parentName} › ${category.name}`;
-	}
-	return category.name;
 }

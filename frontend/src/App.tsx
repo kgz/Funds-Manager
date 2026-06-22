@@ -15,6 +15,9 @@ import PredictionsPage from "./pages/predictions";
 import LiabilitiesPage from "./pages/liabilities";
 import AssetsPage from "./pages/assets";
 import { IncomePage } from "./pages/income";
+import { LenderExpensesLayout } from "./pages/lender-expenses/layout";
+import { LenderExpenseMappingsPage } from "./pages/lender-expenses/mappings-page";
+import { LenderExpensesSummaryPage } from "./pages/lender-expenses/summary-page";
 const App = () => {
   const [theme, setTheme] = useState("light");
 
@@ -55,6 +58,10 @@ const App = () => {
 			<Route path="/transactions" element={<TransactionsPage />} />
 			<Route path="/recurring" element={<RecurringExpensesPage />} />
 			<Route path="/income" element={<IncomePage />} />
+			<Route path="/lender-expenses" element={<LenderExpensesLayout />}>
+				<Route index element={<LenderExpensesSummaryPage />} />
+				<Route path="mappings" element={<LenderExpenseMappingsPage />} />
+			</Route>
 			<Route path="/breakdown" element={<BreakdownPage />} />
 			<Route path="/planned" element={<PlannedSpendingPage />} />
 			<Route path="/predictions" element={<PredictionsPage />} />

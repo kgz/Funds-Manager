@@ -1,9 +1,12 @@
+use crate::models::description_key::canonical_expense_group_key;
 use crate::modules::database::get_dbo;
 use crate::schema::transaction_data;
-use chrono::{NaiveDateTime, Utc};
+use chrono::{NaiveDate, NaiveDateTime, Utc};
 use diesel::dsl::count_star;
 use diesel::pg::Pg;
 use diesel::prelude::*;
+use diesel::sql_query;
+use diesel::sql_types::{BigInt, Date, Integer, Nullable, Text};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy)]
@@ -15,6 +18,16 @@ pub struct CategoryUsageStats {
 
 pub const ACTIVE_STATEMENT_WHERE: &str =
     "EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)";
+
+#[derive(QueryableByName, Debug)]
+struct BreakdownGroupMatchRow {
+    #[diesel(sql_type = BigInt)]
+    id: i64,
+    #[diesel(sql_type = Text)]
+    description: String,
+    #[diesel(sql_type = Nullable<Integer>)]
+    category_id: Option<i32>,
+}
 
 pub fn filter_active_statement(
     query: transaction_data::BoxedQuery<'_, Pg>,
@@ -259,6 +272,54 @@ impl Transaction {
             transaction_data::last_updated.eq(now),
         ))
         .execute(conn)
+    }
+
+    /// Updates category for transactions matching a breakdown merchant group in a date range.
+    pub fn bulk_update_category_for_breakdown_group(
+        group_key: &str,
+        source_category_id: Option<i64>,
+        start: NaiveDate,
+        end: NaiveDate,
+        financial_account_id: Option<i64>,
+        category_id: Option<i32>,
+    ) -> Result<usize, diesel::result::Error> {
+        let conn = &mut get_dbo();
+        let rows: Vec<BreakdownGroupMatchRow> = sql_query(
+            r#"
+            SELECT id, description, category_id
+            FROM transaction_data
+            WHERE deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM statement s WHERE s.id = transaction_data.statement_id AND s.deleted_at IS NULL)
+              AND ($3::bigint IS NULL OR EXISTS (
+                  SELECT 1 FROM statement s2
+                  WHERE s2.id = transaction_data.statement_id
+                    AND s2.deleted_at IS NULL
+                    AND s2.financial_account_id = $3
+              ))
+              AND transaction_date::date >= $1
+              AND transaction_date::date <= $2
+            "#,
+        )
+        .bind::<Date, _>(start)
+        .bind::<Date, _>(end)
+        .bind::<Nullable<BigInt>, _>(financial_account_id)
+        .load(conn)?;
+
+        let ids: Vec<i64> = rows
+            .into_iter()
+            .filter(|row| {
+                if canonical_expense_group_key(&row.description) != group_key {
+                    return false;
+                }
+                match source_category_id {
+                    None => row.category_id.is_none(),
+                    Some(source) => row.category_id.map(i64::from) == Some(source),
+                }
+            })
+            .map(|row| row.id)
+            .collect();
+
+        Self::bulk_update_category(&ids, category_id)
     }
 
     /// Updates the category_id for a specific, non-deleted transaction.

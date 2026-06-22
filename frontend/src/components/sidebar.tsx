@@ -10,6 +10,7 @@ import {
 	Landmark,
 	LayoutList,
 	LineChart,
+	ListChecks,
 	LucideIcon,
 	Receipt,
 	Repeat,
@@ -39,6 +40,7 @@ const navSections: NavSection[] = [
 		items: [
 			{ to: '/', label: 'Dashboard', icon: ChartPie },
 			{ to: '/breakdown', label: 'Breakdown', icon: LayoutList },
+			{ to: '/predictions', label: 'Future predictions', icon: LineChart },
 		],
 	},
 	{
@@ -46,9 +48,9 @@ const navSections: NavSection[] = [
 		items: [
 			{ to: '/transactions', label: 'Transactions', icon: CopyCheck },
 			{ to: '/income', label: 'Income', icon: Banknote },
+			{ to: '/lender-expenses', label: 'Living expenses', icon: ListChecks },
 			{ to: '/recurring', label: 'Repeat payments', icon: Repeat },
 			{ to: '/planned', label: 'Planned spending', icon: CalendarRange },
-			{ to: '/predictions', label: 'Future predictions', icon: LineChart },
 		],
 	},
 	{

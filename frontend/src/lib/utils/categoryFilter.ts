@@ -18,6 +18,31 @@ export function categoryMatchesQuery(category: Category, query: string): boolean
 	return false;
 }
 
+export function descendantCategories(
+	categories: Category[],
+	parentId: string,
+	showDeleted: boolean
+): Category[] {
+	const result: Category[] = [];
+	const queue = [parentId];
+	while (queue.length > 0) {
+		const currentParentId = queue.shift();
+		if (currentParentId === undefined) {
+			continue;
+		}
+		const children = categories.filter(
+			(category) =>
+				category.parent_category_id === currentParentId &&
+				(showDeleted ? true : !category.deleted_at)
+		);
+		for (const child of children) {
+			result.push(child);
+			queue.push(child.id);
+		}
+	}
+	return result;
+}
+
 export function visibleMainCategories(
 	categories: Category[],
 	query: string,
@@ -38,11 +63,8 @@ export function visibleMainCategories(
 		if (categoryMatchesQuery(main, q)) {
 			return true;
 		}
-		return categories.some(
-			(sub) =>
-				sub.parent_category_id === main.id &&
-				(showDeleted ? true : !sub.deleted_at) &&
-				categoryMatchesQuery(sub, q)
+		return descendantCategories(categories, main.id, showDeleted).some((sub) =>
+			categoryMatchesQuery(sub, q)
 		);
 	});
 }
@@ -62,7 +84,14 @@ export function visibleSubcategories(
 	if (q.length === 0) {
 		return subs;
 	}
-	return subs.filter((sub) => categoryMatchesQuery(sub, q));
+	return subs.filter((sub) => {
+		if (categoryMatchesQuery(sub, q)) {
+			return true;
+		}
+		return descendantCategories(categories, sub.id, showDeleted).some((child) =>
+			categoryMatchesQuery(child, q)
+		);
+	});
 }
 
 export function shouldExpandForSearch(
@@ -75,5 +104,21 @@ export function shouldExpandForSearch(
 	if (q.length === 0) {
 		return false;
 	}
-	return visibleSubcategories(categories, mainId, query, showDeleted).length > 0;
+	return descendantCategories(categories, mainId, showDeleted).some((sub) =>
+		categoryMatchesQuery(sub, q)
+	);
+}
+
+export function subcategoryMatchesSearch(
+	categories: Category[],
+	sub: Category,
+	query: string,
+	showDeleted: boolean
+): boolean {
+	if (categoryMatchesQuery(sub, query)) {
+		return true;
+	}
+	return descendantCategories(categories, sub.id, showDeleted).some((child) =>
+		categoryMatchesQuery(child, query)
+	);
 }
