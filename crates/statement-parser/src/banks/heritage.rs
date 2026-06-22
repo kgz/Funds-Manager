@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -97,10 +97,22 @@ impl BankStatementParser for HeritageBankParser {
             }
         }
 
+        let period_start = NaiveDate::from_ymd_opt(
+            statement_date.year(),
+            statement_date.month(),
+            1,
+        )
+        .ok_or(ParseError::InvalidField {
+            context: "statement month start",
+            value: statement_date.to_string(),
+        })?;
+
         Ok(ParsedStatement {
             parser_name: self.name().to_string(),
             account_id,
             statement_date,
+            period_start,
+            period_end: statement_date,
             opening_balance_cents,
             closing_balance_cents: running_balance_cents,
             transactions,

@@ -192,6 +192,8 @@ diesel::table! {
         deleted_at -> Nullable<Timestamp>,
         created_at -> Timestamp,
         financial_account_id -> Nullable<Bigint>,
+        period_start -> Nullable<Date>,
+        period_end -> Nullable<Date>,
     }
 }
 

@@ -6,7 +6,7 @@ use chrono::{Datelike, Months, NaiveDate, NaiveDateTime, Utc};
 use diesel::dsl::count_star;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 #[derive(Queryable, Selectable, Debug, Serialize, Deserialize, Clone, AsChangeset)]
 #[diesel(table_name = statement)]
@@ -20,6 +20,8 @@ pub struct Statement {
     pub deleted_at: Option<NaiveDateTime>,
     pub created_at: NaiveDateTime,
     pub financial_account_id: Option<i64>,
+    pub period_start: Option<NaiveDate>,
+    pub period_end: Option<NaiveDate>,
 }
 
 #[derive(Insertable)]
@@ -32,6 +34,8 @@ pub struct NewStatement {
     pub deleted_at: Option<NaiveDateTime>,
     pub created_at: NaiveDateTime,
     pub financial_account_id: Option<i64>,
+    pub period_start: Option<NaiveDate>,
+    pub period_end: Option<NaiveDate>,
 }
 
 #[derive(Debug, Serialize, Clone, PartialEq, Eq)]
@@ -90,6 +94,8 @@ impl Statement {
         account_id: String,
         opening_balance: i32,
         financial_account_id: i64,
+        period_start: NaiveDate,
+        period_end: NaiveDate,
     ) -> Result<Statement, diesel::result::Error> {
         let conn = &mut get_dbo();
         let now = Utc::now().naive_utc();
@@ -101,6 +107,8 @@ impl Statement {
             deleted_at: None,
             created_at: now,
             financial_account_id: Some(financial_account_id),
+            period_start: Some(period_start),
+            period_end: Some(period_end),
         };
         diesel::insert_into(statement::table)
             .values(&new_statement)
@@ -168,31 +176,41 @@ impl Statement {
             query = query.filter(statement::financial_account_id.eq(account_id));
         }
 
-        let rows: Vec<(Option<i64>, String, NaiveDate)> = query
-            .select((statement::financial_account_id, statement::account_id, statement::date))
-            .load(conn)?;
+        let rows: Vec<(Option<i64>, String, NaiveDate, Option<NaiveDate>, Option<NaiveDate>)> =
+            query
+                .select((
+                    statement::financial_account_id,
+                    statement::account_id,
+                    statement::date,
+                    statement::period_start,
+                    statement::period_end,
+                ))
+                .load(conn)?;
 
         let label_by_id: HashMap<i64, String> = FinancialAccount::all_active()?
             .into_iter()
             .map(|account| (account.id, account.display_name))
             .collect();
 
-        let mut dates_by_account: BTreeMap<AccountScope, Vec<NaiveDate>> = BTreeMap::new();
+        let mut ranges_by_account: BTreeMap<AccountScope, Vec<(NaiveDate, NaiveDate)>> =
+            BTreeMap::new();
 
-        for (linked_id, account_id, date) in rows {
+        for (linked_id, account_id, date, period_start, period_end) in rows {
             let scope = match linked_id {
                 Some(id) => AccountScope::Linked(id),
                 None => AccountScope::Legacy(account_id),
             };
-            dates_by_account.entry(scope).or_default().push(date);
+            let start = period_start.unwrap_or_else(|| start_of_month(date));
+            let end = period_end.unwrap_or(date);
+            ranges_by_account
+                .entry(scope)
+                .or_default()
+                .push((start, end));
         }
 
         let mut missing = Vec::new();
 
-        for (scope, mut dates) in dates_by_account {
-            dates.sort();
-            dates.dedup();
-
+        for (scope, ranges) in ranges_by_account {
             let account_label = match scope {
                 AccountScope::Linked(id) => label_by_id
                     .get(&id)
@@ -201,7 +219,7 @@ impl Statement {
                 AccountScope::Legacy(account_id) => account_id,
             };
 
-            for period in missing_month_labels_for_dates(&dates) {
+            for period in missing_month_labels_for_ranges(&ranges, Utc::now().date_naive()) {
                 missing.push(MissingStatementPeriod {
                     account_label: account_label.clone(),
                     period,
@@ -247,53 +265,56 @@ impl Statement {
     }
 }
 
-fn missing_month_labels_for_dates(dates: &[NaiveDate]) -> Vec<String> {
-    if dates.is_empty() {
+fn missing_month_labels_for_ranges(
+    ranges: &[(NaiveDate, NaiveDate)],
+    as_of: NaiveDate,
+) -> Vec<String> {
+    if ranges.is_empty() {
         return Vec::new();
     }
 
-    let mut missing = Vec::new();
-
-    for window in dates.windows(2) {
-        let Some(&prev) = window.first() else {
-            continue;
-        };
-        let Some(&curr) = window.get(1) else {
-            continue;
-        };
-        let mut cursor = start_of_month(prev);
-        if let Some(next) = cursor.checked_add_months(Months::new(1)) {
-            cursor = next;
-        } else {
-            continue;
-        }
-        let curr_start = start_of_month(curr);
-        while cursor < curr_start {
-            missing.push(month_label(cursor));
-            cursor = match cursor.checked_add_months(Months::new(1)) {
-                Some(d) => d,
-                None => break,
-            };
+    let mut covered = HashSet::new();
+    for &(start, end) in ranges {
+        for month in months_in_range(start, end) {
+            covered.insert(month);
         }
     }
 
-    if let Some(&last) = dates.last() {
-        let last_start = start_of_month(last);
-        let now_start = start_of_month(Utc::now().date_naive());
-        let mut cursor = match last_start.checked_add_months(Months::new(1)) {
-            Some(d) => d,
-            None => return missing,
-        };
-        while cursor < now_start {
+    let Some(earliest) = ranges.iter().map(|(start, _)| *start).min() else {
+        return Vec::new();
+    };
+
+    let mut missing = Vec::new();
+    let mut cursor = start_of_month(earliest);
+    let now_start = start_of_month(as_of);
+
+    while cursor < now_start {
+        if !covered.contains(&cursor) {
             missing.push(month_label(cursor));
-            cursor = match cursor.checked_add_months(Months::new(1)) {
-                Some(d) => d,
-                None => break,
-            };
         }
+        cursor = match cursor.checked_add_months(Months::new(1)) {
+            Some(d) => d,
+            None => break,
+        };
     }
 
     missing
+}
+
+fn months_in_range(start: NaiveDate, end: NaiveDate) -> Vec<NaiveDate> {
+    let mut months = Vec::new();
+    let mut cursor = start_of_month(start);
+    let end_month = start_of_month(end);
+
+    while cursor <= end_month {
+        months.push(cursor);
+        cursor = match cursor.checked_add_months(Months::new(1)) {
+            Some(d) => d,
+            None => break,
+        };
+    }
+
+    months
 }
 
 fn start_of_month(d: NaiveDate) -> NaiveDate {
@@ -308,4 +329,72 @@ fn parse_period_label(label: &str) -> NaiveDate {
     NaiveDate::parse_from_str(label, "%b %Y")
         .map(start_of_month)
         .unwrap_or_else(|_| NaiveDate::from_ymd_opt(1970, 1, 1).expect("epoch"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn multi_month_statement_covers_intermediate_months() {
+        let ranges = [(
+            NaiveDate::from_ymd_opt(2024, 12, 20).unwrap(),
+            NaiveDate::from_ymd_opt(2025, 6, 19).unwrap(),
+        )];
+
+        let missing = missing_month_labels_for_ranges(
+            &ranges,
+            NaiveDate::from_ymd_opt(2025, 6, 19).unwrap(),
+        );
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn gap_between_multi_month_statements_is_flagged() {
+        let ranges = [
+            (
+                NaiveDate::from_ymd_opt(2024, 12, 27).unwrap(),
+                NaiveDate::from_ymd_opt(2025, 6, 19).unwrap(),
+            ),
+            (
+                NaiveDate::from_ymd_opt(2025, 12, 27).unwrap(),
+                NaiveDate::from_ymd_opt(2026, 6, 18).unwrap(),
+            ),
+        ];
+
+        let missing = missing_month_labels_for_ranges(
+            &ranges,
+            NaiveDate::from_ymd_opt(2026, 6, 22).unwrap(),
+        );
+        assert_eq!(
+            missing,
+            vec![
+                "Jul 2025".to_string(),
+                "Aug 2025".to_string(),
+                "Sep 2025".to_string(),
+                "Oct 2025".to_string(),
+                "Nov 2025".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn monthly_statements_with_gap_flag_missing_month() {
+        let ranges = [
+            (
+                NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                NaiveDate::from_ymd_opt(2024, 1, 31).unwrap(),
+            ),
+            (
+                NaiveDate::from_ymd_opt(2024, 3, 1).unwrap(),
+                NaiveDate::from_ymd_opt(2024, 3, 31).unwrap(),
+            ),
+        ];
+
+        let missing = missing_month_labels_for_ranges(
+            &ranges,
+            NaiveDate::from_ymd_opt(2024, 3, 31).unwrap(),
+        );
+        assert_eq!(missing, vec!["Feb 2024".to_string()]);
+    }
 }

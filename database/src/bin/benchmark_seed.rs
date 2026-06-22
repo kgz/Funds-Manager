@@ -1,6 +1,6 @@
 use std::env;
 
-use chrono::{Datelike, Months, NaiveDate, Utc};
+use chrono::{Datelike, Days, Months, NaiveDate, Utc};
 use database::models::category::Category;
 use database::models::financial_account::FinancialAccount;
 use database::models::statement::Statement;
@@ -205,6 +205,11 @@ fn seed_statement_month(
         account.spec.account_number.to_string(),
         opening,
         account.financial_account_id,
+        month,
+        month
+            .checked_add_months(Months::new(1))
+            .and_then(|next| next.checked_sub_days(Days::new(1)))
+            .unwrap_or(month),
     )
     .expect("insert statement");
     let statement_id = i32::try_from(statement.id).expect("statement id fits i32");

@@ -190,6 +190,8 @@ fn persist_statement(
         statement.account_id,
         statement.opening_balance_cents,
         financial_account.id,
+        statement.period_start,
+        statement.period_end,
     )
     .map_err(|error| format!("Failed to insert statement: {error}"))?;
 
