@@ -63,6 +63,7 @@ pub struct CategoryLenderMappingRow {
     pub is_override: bool,
     pub is_excluded: bool,
     pub is_manual_exclude: bool,
+    pub auto_exclude_reason: Option<String>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -139,16 +140,39 @@ fn cents_to_dollars(cents: i64) -> f64 {
     round2(cents as f64 / 100.0)
 }
 
-pub fn default_bucket_for_category(name: &str) -> Option<&'static str> {
+pub fn is_income_like_category(name: &str) -> bool {
     let n = name.to_lowercase();
-    if n.contains("income")
+    n.contains("income")
         || n.contains("salary")
         || n.contains("wage")
         || n.contains("payroll")
         || n.contains("refund")
-    {
+}
+
+pub fn is_debt_like_category(name: &str) -> bool {
+    let n = name.to_lowercase();
+    n.contains("loan")
+        || n.contains("mortgage")
+        || n.contains("bnpl")
+        || n.contains("hecs")
+        || (n.contains("repayment") && !n.contains("insur"))
+}
+
+pub fn auto_exclude_reason_for_category(name: &str) -> Option<&'static str> {
+    if is_income_like_category(name) {
+        return Some("income");
+    }
+    if is_debt_like_category(name) {
+        return Some("debt");
+    }
+    None
+}
+
+pub fn default_bucket_for_category(name: &str) -> Option<&'static str> {
+    if auto_exclude_reason_for_category(name).is_some() {
         return None;
     }
+    let n = name.to_lowercase();
     if n.contains("food") || n.contains("groc") {
         return Some("groceries");
     }
@@ -310,6 +334,11 @@ pub fn list_category_mappings() -> Result<Vec<CategoryLenderMappingRow>, diesel:
         let override_key = overrides.get(&category.id).cloned();
         let is_excluded = is_manual_exclude
             || (default_bucket_key.is_none() && override_key.is_none());
+        let auto_exclude_reason = if is_excluded && !is_manual_exclude {
+            auto_exclude_reason_for_category(&category.name).map(str::to_string)
+        } else {
+            None
+        };
         let bucket_key = if is_excluded {
             None
         } else {
@@ -328,6 +357,7 @@ pub fn list_category_mappings() -> Result<Vec<CategoryLenderMappingRow>, diesel:
             is_override: override_key.is_some(),
             is_excluded,
             is_manual_exclude,
+            auto_exclude_reason,
         });
     }
     rows.sort_by(|left, right| left.category_name.cmp(&right.category_name));
@@ -652,7 +682,10 @@ pub fn expense_summary(
 
 #[cfg(test)]
 mod tests {
-    use super::{default_bucket_for_category, resolve_category_bucket_for_name};
+    use super::{
+        auto_exclude_reason_for_category, default_bucket_for_category,
+        is_debt_like_category, resolve_category_bucket_for_name,
+    };
 
     #[test]
     fn default_bucket_maps_food_to_groceries() {
@@ -662,11 +695,23 @@ mod tests {
     #[test]
     fn default_bucket_excludes_income() {
         assert_eq!(default_bucket_for_category("income"), None);
+        assert_eq!(auto_exclude_reason_for_category("Salary"), Some("income"));
     }
 
     #[test]
-    fn manual_exclude_overrides_default_other_bucket() {
-        assert_eq!(default_bucket_for_category("Home loan"), Some("other"));
+    fn default_bucket_excludes_debt_categories() {
+        assert_eq!(default_bucket_for_category("Home loan"), None);
+        assert_eq!(default_bucket_for_category("Car loan repayment"), None);
+        assert!(is_debt_like_category("Home loan"));
+        assert_eq!(auto_exclude_reason_for_category("Home loan"), Some("debt"));
+        assert_eq!(
+            resolve_category_bucket_for_name("Home loan", None, false),
+            None
+        );
+    }
+
+    #[test]
+    fn manual_exclude_overrides_default_debt_bucket() {
         assert_eq!(
             resolve_category_bucket_for_name("Home loan", None, true),
             None

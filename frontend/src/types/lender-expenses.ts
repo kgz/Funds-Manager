@@ -15,6 +15,7 @@ export type CategoryLenderMappingRow = {
 	isOverride: boolean;
 	isExcluded: boolean;
 	isManualExclude: boolean;
+	autoExcludeReason: 'income' | 'debt' | null;
 };
 
 export type LenderExpenseBucketSummary = {
@@ -122,6 +123,15 @@ function normalizeMappingRow(raw: unknown): CategoryLenderMappingRow | null {
 	const isManualExclude = readBoolean(
 		readOptionalField(raw, 'isManualExclude', 'is_manual_exclude')
 	);
+	const autoExcludeReasonRaw = readOptionalField(
+		raw,
+		'autoExcludeReason',
+		'auto_exclude_reason'
+	);
+	const autoExcludeReason =
+		autoExcludeReasonRaw === 'income' || autoExcludeReasonRaw === 'debt'
+			? autoExcludeReasonRaw
+			: null;
 	if (
 		categoryId === undefined ||
 		categoryName === null ||
@@ -140,6 +150,7 @@ function normalizeMappingRow(raw: unknown): CategoryLenderMappingRow | null {
 		isOverride,
 		isExcluded,
 		isManualExclude,
+		autoExcludeReason,
 	};
 }
 

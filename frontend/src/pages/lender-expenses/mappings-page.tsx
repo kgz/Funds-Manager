@@ -122,7 +122,8 @@ export function LenderExpenseMappingsPage() {
 			<InlineAlert variant="info" className="mb-6">
 				Map each app category to a lender living-expense bucket, or choose{' '}
 				<strong className="font-medium text-white/90">Excluded</strong> for debt repayments and
-				other non-living spend (e.g. home loan, car loan). Income categories default to excluded.
+				other non-living spend. Salary/income and loan categories (e.g. home loan, car loan) are
+				excluded by default.
 			</InlineAlert>
 
 			{error !== null ? <InlineAlert variant="error">{error}</InlineAlert> : null}
@@ -228,7 +229,11 @@ export function LenderExpenseMappingsPage() {
 																: 'bg-white/10 text-white/55'
 														)}
 													>
-														{row.isManualExclude ? 'Excluded' : 'Income default'}
+														{row.isManualExclude
+															? 'Excluded'
+															: row.autoExcludeReason === 'debt'
+																? 'Debt default'
+																: 'Income default'}
 													</span>
 												) : row.isOverride ? (
 													<span className="rounded bg-sky-500/20 px-2 py-0.5 text-xs text-sky-300">

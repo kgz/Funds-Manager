@@ -16,7 +16,7 @@ The system SHALL define a fixed set of lender expense buckets seeded in `lender_
 
 ### Requirement: Category mapping
 
-Each app category SHALL resolve to at most one lender bucket, or be excluded from living expenses. User overrides in `category_lender_mappings` take precedence over name-based defaults. Income-like categories SHALL NOT map to any bucket. Users SHALL be able to explicitly exclude any category (e.g. home loan, car loan repayment) so that spend appears in the summary **Excluded** block rather than a living bucket.
+Each app category SHALL resolve to at most one lender bucket, or be excluded from living expenses. User overrides in `category_lender_mappings` take precedence over name-based defaults. Income-like categories SHALL NOT map to any bucket. Debt repayment categories (names containing loan, mortgage, BNPL, HECS, etc.) SHALL default to excluded unless the user maps them to a living bucket. Users SHALL be able to explicitly exclude any category (e.g. home loan, car loan repayment) so that spend appears in the summary **Excluded** block rather than a living bucket.
 
 #### Scenario: Default mapping
 - **WHEN** category "food" has no override
@@ -29,6 +29,10 @@ Each app category SHALL resolve to at most one lender bucket, or be excluded fro
 #### Scenario: User exclude
 - **WHEN** user sets category "Home loan" to Excluded on the mapping page
 - **THEN** subsequent summaries omit that category from all living buckets and include it in `excluded`
+
+#### Scenario: Debt default exclude
+- **WHEN** category "Car loan repayment" has no override
+- **THEN** resolved bucket is none and spend appears in `excluded`
 
 ### Requirement: Expense summary
 

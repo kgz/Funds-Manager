@@ -22,7 +22,7 @@
 - [x] 4.1 Migration `category_lender_exclusions` (or equivalent)
 - [x] 4.2 API: persist/clear exclusion; summary respects explicit excludes
 - [x] 4.3 Mapping page: **Excluded** option in lender bucket dropdown
-- [ ] 4.4 Default heuristics: loan/debt category names suggest exclude (optional)
+- [x] 4.4 Default heuristics: loan/debt category names suggest exclude (optional)
 
 ## 5. Bucket breakdown
 
