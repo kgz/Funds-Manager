@@ -224,6 +224,29 @@ export async function bulkPatchTransactionCategories(
 	return parsed;
 }
 
+export async function bulkPatchTransactionCategoriesByGroup(params: {
+	groupKey: string;
+	sourceCategoryId: number | null;
+	startDate: string;
+	endDate: string;
+	accountId?: number | null;
+	categoryId: number | null;
+}): Promise<number> {
+	const response = await axios.patch('/api/transactions/categories-by-group', {
+		group_key: params.groupKey,
+		source_category_id: params.sourceCategoryId,
+		start_date: params.startDate,
+		end_date: params.endDate,
+		account_id: params.accountId ?? null,
+		category_id: params.categoryId,
+	});
+	const parsed = readUpdatedCount(response.data);
+	if (typeof parsed === 'string') {
+		throw new Error(parsed);
+	}
+	return parsed;
+}
+
 export async function acceptTransactionSuggestions(
 	transactionIds: number[]
 ): Promise<number> {

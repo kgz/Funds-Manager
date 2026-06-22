@@ -13,18 +13,23 @@ import {
 	type DashboardPeriod,
 } from '@/components/dashboard/period';
 import { CategoryPill } from '@/components/CategoryPill';
+import { CategoryPicker } from '@/components/transactions/CategoryPicker';
 import { cn } from '@/lib/utils/cn';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { GlassCard } from '@/components/layout/GlassCard';
 import { InlineAlert } from '@/components/layout/InlineAlert';
+import { Modal } from '@/components/layout/Modal';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { StatCard } from '@/components/layout/StatCard';
-import { buttonOutlineClass, inputDarkClass } from '@/components/layout/tokens';
+import { buttonOutlineClass, buttonPrimaryClass, inputDarkClass } from '@/components/layout/tokens';
 import { ChevronDown, ChevronRight, LayoutList, Loader2 } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '@/store/store';
+import { getAllCategories } from '@/store/thunks/category.get.all';
+import { bulkPatchTransactionCategoriesByGroup } from '@/types/transaction';
 
 type BreakdownRangeMode = 'preset' | 'custom';
 
@@ -33,6 +38,22 @@ const formatMoney = (n: number) =>
 
 function round2(n: number): number {
 	return Math.round(n * 100) / 100;
+}
+
+type MoveGroupTarget = {
+	groupKey: string;
+	labelSample: string;
+	sourceCategoryId: number | null;
+	parentLabel: string;
+	count: number;
+};
+
+function parseOptionalCategoryId(value: string): number | null {
+	if (value.trim().length === 0) {
+		return null;
+	}
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : null;
 }
 
 type SubBreakdownRow = {
@@ -181,6 +202,8 @@ function readCustomRange(): { start: string; end: string } {
 }
 
 const BreakdownPage = () => {
+	const dispatch = useAppDispatch();
+	const { categories } = useAppSelector((state) => state.CategoryReducer);
 	const { accountIdNumber } = useAccountFilter();
 	const [rangeMode, setRangeMode] = useState<BreakdownRangeMode>(readBreakdownRangeMode);
 	const [period, setPeriod] = useState<DashboardPeriod>(readBreakdownPeriod);
@@ -196,7 +219,36 @@ const BreakdownPage = () => {
 	const [subSortBySection, setSubSortBySection] = useState<
 		Record<string, { key: SubSortKey; dir: SortDir }>
 	>({});
+	const [moveTarget, setMoveTarget] = useState<MoveGroupTarget | null>(null);
+	const [moveCategoryId, setMoveCategoryId] = useState('');
+	const [moveSaving, setMoveSaving] = useState(false);
+	const [moveError, setMoveError] = useState<string | null>(null);
 
+	useEffect(() => {
+		if (categories.length === 0) {
+			void dispatch(getAllCategories({ withCounts: false, accountId: accountIdNumber }));
+		}
+	}, [accountIdNumber, categories.length, dispatch]);
+
+	const openMoveModal = (parent: ParentBreakdownRow, sub: SubBreakdownRow) => {
+		setMoveTarget({
+			groupKey: sub.key,
+			labelSample: sub.labelSample,
+			sourceCategoryId: parent.categoryId,
+			parentLabel: parent.label,
+			count: sub.count,
+		});
+		setMoveCategoryId('');
+		setMoveError(null);
+	};
+
+	const closeMoveModal = () => {
+		if (moveSaving) {
+			return;
+		}
+		setMoveTarget(null);
+		setMoveError(null);
+	};
 
 	const effectiveRange = useMemo(() => {
 		if (rangeMode === 'custom') {
@@ -244,6 +296,34 @@ const BreakdownPage = () => {
 			setLoading(false);
 		}
 	}, [accountIdNumber, end, rangeInvalid, start]);
+
+	const confirmMove = async () => {
+		if (moveTarget === null || rangeInvalid || !start || !end) {
+			return;
+		}
+		setMoveSaving(true);
+		setMoveError(null);
+		try {
+			const updated = await bulkPatchTransactionCategoriesByGroup({
+				groupKey: moveTarget.groupKey,
+				sourceCategoryId: moveTarget.sourceCategoryId,
+				startDate: start,
+				endDate: end,
+				accountId: accountIdNumber,
+				categoryId: parseOptionalCategoryId(moveCategoryId),
+			});
+			if (updated === 0) {
+				setMoveError('No matching transactions found in this period.');
+				return;
+			}
+			setMoveTarget(null);
+			await reload();
+		} catch (err: unknown) {
+			setMoveError(err instanceof Error ? err.message : 'Failed to move transactions');
+		} finally {
+			setMoveSaving(false);
+		}
+	};
 
 	useEffect(() => {
 		if (rangeInvalid || !start || !end) {
@@ -580,6 +660,7 @@ const BreakdownPage = () => {
 											: ''}
 									</button>
 								</th>
+								<th className="px-2 py-3 w-24" aria-label="Actions" />
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-white/10">
@@ -663,6 +744,7 @@ const BreakdownPage = () => {
 											<td className="px-4 py-3 text-center text-sm">
 												{p.txnCount}
 											</td>
+											<td className="px-2 py-3" />
 										</tr>
 										{isOpen ? (
 											<>
@@ -776,6 +858,9 @@ const BreakdownPage = () => {
 																	: ' ▼'
 																: ''}
 														</button>
+													</td>
+													<td className="px-2 py-2 text-[10px] font-medium uppercase tracking-wider text-white/45">
+														Move
 													</td>
 												</tr>
 												{sortedSubs.map((s) => {
@@ -892,6 +977,15 @@ const BreakdownPage = () => {
 															<td className="px-4 py-2 text-center text-xs">
 																{s.count}
 															</td>
+															<td className="px-2 py-2 text-right">
+																<button
+																	type="button"
+																	className={buttonOutlineClass}
+																	onClick={() => openMoveModal(p, s)}
+																>
+																	Move
+																</button>
+															</td>
 														</tr>
 													);
 												})}
@@ -905,6 +999,49 @@ const BreakdownPage = () => {
 					</GlassCard>
 				)}
 			</div>
+
+			<Modal
+				open={moveTarget !== null}
+				onClose={closeMoveModal}
+				closeDisabled={moveSaving}
+				title="Move to category"
+				description={
+					moveTarget !== null
+						? `${moveTarget.count} transaction${moveTarget.count === 1 ? '' : 's'} matching “${moveTarget.labelSample}” under ${moveTarget.parentLabel} in this period.`
+						: undefined
+				}
+				footer={
+					<>
+						<button
+							type="button"
+							className={buttonOutlineClass}
+							onClick={closeMoveModal}
+							disabled={moveSaving}
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							className={cn(buttonPrimaryClass, 'min-w-[5rem]')}
+							onClick={() => void confirmMove()}
+							disabled={moveSaving || moveCategoryId.trim().length === 0}
+						>
+							{moveSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Move'}
+						</button>
+					</>
+				}
+			>
+				{moveError !== null ? <InlineAlert variant="error">{moveError}</InlineAlert> : null}
+				<CategoryPicker
+					value={moveCategoryId}
+					categories={categories}
+					onChange={setMoveCategoryId}
+					disabled={moveSaving}
+					searchable
+					variant="form"
+					placeholder="Choose category"
+				/>
+			</Modal>
 		</PageShell>
 	);
 };

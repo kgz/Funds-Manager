@@ -1,4 +1,5 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
+use chrono::NaiveDate;
 use database::models::category::Category;
 use database::models::financial_account::{FinancialAccount, FinancialAccountSummary};
 use database::models::transaction::Transaction;
@@ -249,6 +250,62 @@ async fn bulk_patch_categories(body: web::Json<BulkPatchCategoriesBody>) -> Resu
 }
 
 #[derive(Deserialize, Debug)]
+pub struct BulkPatchCategoriesByGroupBody {
+    pub group_key: String,
+    pub source_category_id: Option<i64>,
+    pub start_date: String,
+    pub end_date: String,
+    pub account_id: Option<i64>,
+    pub category_id: Option<i32>,
+}
+
+fn parse_date(value: &str) -> Result<NaiveDate, error::Error> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d")
+        .map_err(|_| error::ErrorBadRequest("Dates must be YYYY-MM-DD"))
+}
+
+async fn bulk_patch_categories_by_group(
+    body: web::Json<BulkPatchCategoriesByGroupBody>,
+) -> Result<impl Responder> {
+    if body.group_key.trim().is_empty() {
+        return Err(error::ErrorBadRequest("group_key is required"));
+    }
+    let start = parse_date(&body.start_date)?;
+    let end = parse_date(&body.end_date)?;
+    if end < start {
+        return Err(error::ErrorBadRequest(
+            "end_date must be on or after start_date",
+        ));
+    }
+    if let Some(cid) = body.category_id {
+        Category::find(i64::from(cid), false)
+            .map_err(map_db_error)?
+            .ok_or_else(|| error::ErrorBadRequest("Unknown category"))?;
+    }
+    let group_key = body.group_key.clone();
+    let source_category_id = body.source_category_id;
+    let account_id = body.account_id;
+    let category_id = body.category_id;
+    let updated = web::block(move || {
+        Transaction::bulk_update_category_for_breakdown_group(
+            &group_key,
+            source_category_id,
+            start,
+            end,
+            account_id,
+            category_id,
+        )
+    })
+    .await
+    .map_err(|e| {
+        eprintln!("Blocking error bulk updating categories by group: {:?}", e);
+        error::ErrorInternalServerError("Failed to update categories")
+    })?
+    .map_err(map_db_error)?;
+    Ok(HttpResponse::Ok().json(BulkUpdateResponse { updated }))
+}
+
+#[derive(Deserialize, Debug)]
 pub struct AcceptSuggestionsBody {
     pub transaction_ids: Vec<i64>,
 }
@@ -283,6 +340,10 @@ pub fn transactions_service() -> Scope {
             web::post().to(post_recategorize_uncategorized),
         )
         .route("/categories", web::patch().to(bulk_patch_categories))
+        .route(
+            "/categories-by-group",
+            web::patch().to(bulk_patch_categories_by_group),
+        )
         .route("/accept-suggestions", web::post().to(post_accept_suggestions))
         .route("/{id}/category", web::patch().to(patch_transaction_category))
 }
