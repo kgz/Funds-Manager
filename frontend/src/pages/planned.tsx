@@ -385,7 +385,7 @@ export default function PlannedSpendingPage() {
 
 	return (
 		<PageShell variant="table">
-			<div className="space-y-3 border-b border-white/10 p-4">
+			<div className="shrink-0 space-y-3 border-b border-white/10 p-4">
 				<PageHeader
 					title="Planned spending"
 					subtitle="Upcoming expenses you expect but have not recorded yet. Items are global — the account filter does not apply here."
@@ -499,6 +499,7 @@ export default function PlannedSpendingPage() {
 				) : null}
 			</div>
 
+			<div className="min-h-0 flex-grow overflow-auto p-4">
 			{showEmpty ? (
 				<EmptyState
 					icon={CalendarRange}
@@ -590,6 +591,7 @@ export default function PlannedSpendingPage() {
 					</table>
 				</div>
 			) : null}
+			</div>
 
 			<Modal
 				open={modalOpen}
