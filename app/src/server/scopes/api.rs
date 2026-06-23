@@ -9,6 +9,7 @@ use cron::Schedule;
 
 use crate::routes::{
     accounts::accounts_service,
+    ai_api::get_api_catalog,
     analytics_api::analytics_service,
     api::swagger::openapi,
     categories::categories_service,
@@ -33,6 +34,8 @@ use super::api_users::api_users;
 pub fn api() -> Scope {
     web::scope("/api")
         .route("/version", web::get().to(get_version))
+        .route("/ai", web::get().to(get_api_catalog))
+        .route("/mcp", web::get().to(get_api_catalog))
         .route("openapi.json", web::get().to(openapi))
 
         //migrations
