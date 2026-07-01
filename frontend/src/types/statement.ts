@@ -28,7 +28,21 @@ export type FetchStatementsPageParams = {
 	perPage?: number;
 	signal?: AbortSignal;
 	accountId?: number | null;
+	sortBy?: keyof Statement | null;
+	sortDir?: 'asc' | 'desc';
 };
+
+export function statementSortApiKey(
+	sortBy: keyof Statement | null | undefined
+): string | undefined {
+	if (sortBy === null || sortBy === undefined) {
+		return undefined;
+	}
+	if (sortBy === 'financial_account') {
+		return 'account';
+	}
+	return String(sortBy);
+}
 
 function readFiniteNumber(value: unknown): number | null {
 	if (typeof value === 'number' && Number.isFinite(value)) {
@@ -135,6 +149,13 @@ export async function fetchStatementsPage(
 	searchParams.set('per_page', String(params.perPage ?? 50));
 	if (params.accountId != null) {
 		searchParams.set('account_id', String(params.accountId));
+	}
+	const sortBy = statementSortApiKey(params.sortBy);
+	if (sortBy) {
+		searchParams.set('sort_by', sortBy);
+	}
+	if (params.sortDir) {
+		searchParams.set('sort_dir', params.sortDir);
 	}
 
 	const response = await axios.get(`/api/statements?${searchParams.toString()}`, {

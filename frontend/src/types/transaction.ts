@@ -148,8 +148,23 @@ export type FetchTransactionsPageParams = {
 	uncategorizedOnly?: boolean;
 	includeSuggestions?: boolean;
 	accountId?: number | null;
+	excludeConfirmedTransfers?: boolean;
+	sortBy?: keyof Transaction | null;
+	sortDir?: 'asc' | 'desc';
 	signal?: AbortSignal;
 };
+
+export function transactionSortApiKey(
+	sortBy: keyof Transaction | null | undefined
+): string | undefined {
+	if (sortBy === null || sortBy === undefined) {
+		return undefined;
+	}
+	if (sortBy === 'financial_account') {
+		return 'account';
+	}
+	return String(sortBy);
+}
 
 function parsePaginatedTransactionsPayload(
 	payload: unknown
@@ -203,6 +218,16 @@ export async function fetchTransactionsPage(
 	}
 	if (params.accountId != null) {
 		searchParams.set('account_id', String(params.accountId));
+	}
+	if (params.excludeConfirmedTransfers === true) {
+		searchParams.set('exclude_confirmed_transfers', 'true');
+	}
+	const sortBy = transactionSortApiKey(params.sortBy);
+	if (sortBy) {
+		searchParams.set('sort_by', sortBy);
+	}
+	if (params.sortDir) {
+		searchParams.set('sort_dir', params.sortDir);
 	}
 
 	const response = await axios.get(`/api/transactions?${searchParams.toString()}`, {

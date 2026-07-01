@@ -73,10 +73,105 @@ fn like_pattern(term: &str) -> String {
     format!("%{escaped}%")
 }
 
+fn sort_descending(sort_dir: Option<&str>) -> bool {
+    !matches!(sort_dir, Some(direction) if direction.eq_ignore_ascii_case("asc"))
+}
+
+fn apply_transaction_list_order<'a>(
+    query: transaction_data::BoxedQuery<'a, Pg>,
+    sort_by: Option<&str>,
+    sort_dir: Option<&str>,
+) -> transaction_data::BoxedQuery<'a, Pg> {
+    let descending = sort_descending(sort_dir);
+    match sort_by.unwrap_or("transaction_date") {
+        "amount" => {
+            if descending {
+                query.order((
+                    transaction_data::amount.desc(),
+                    transaction_data::id.desc(),
+                ))
+            } else {
+                query.order((
+                    transaction_data::amount.asc(),
+                    transaction_data::id.desc(),
+                ))
+            }
+        }
+        "description" => {
+            if descending {
+                query.order((
+                    transaction_data::description.desc(),
+                    transaction_data::id.desc(),
+                ))
+            } else {
+                query.order((
+                    transaction_data::description.asc(),
+                    transaction_data::id.desc(),
+                ))
+            }
+        }
+        "balance" => {
+            if descending {
+                query.order((
+                    transaction_data::balance.desc(),
+                    transaction_data::id.desc(),
+                ))
+            } else {
+                query.order((
+                    transaction_data::balance.asc(),
+                    transaction_data::id.desc(),
+                ))
+            }
+        }
+        "status" => {
+            if descending {
+                query.order((
+                    transaction_data::status.desc(),
+                    transaction_data::id.desc(),
+                ))
+            } else {
+                query.order((
+                    transaction_data::status.asc(),
+                    transaction_data::id.desc(),
+                ))
+            }
+        }
+        "id" => {
+            if descending {
+                query.order(transaction_data::id.desc())
+            } else {
+                query.order(transaction_data::id.asc())
+            }
+        }
+        "account" | "financial_account" => {
+            let direction = if descending { "DESC" } else { "ASC" };
+            query
+                .order(diesel::dsl::sql::<diesel::sql_types::Text>(&format!(
+                    "(SELECT COALESCE(fa.display_name, fa.bank_name, '') FROM statement s LEFT JOIN financial_accounts fa ON fa.id = s.financial_account_id WHERE s.id = transaction_data.statement_id) {direction}"
+                )))
+                .then_order_by(transaction_data::id.desc())
+        }
+        _ => {
+            if descending {
+                query.order((
+                    transaction_data::transaction_date.desc(),
+                    transaction_data::id.desc(),
+                ))
+            } else {
+                query.order((
+                    transaction_data::transaction_date.asc(),
+                    transaction_data::id.desc(),
+                ))
+            }
+        }
+    }
+}
+
 fn filtered_transactions_query(
     search: Option<&str>,
     uncategorized_only: bool,
     financial_account_id: Option<i64>,
+    exclude_confirmed_transfers: bool,
 ) -> transaction_data::BoxedQuery<'_, Pg> {
     let mut query = filter_active_statement(
         transaction_data::table
@@ -87,6 +182,12 @@ fn filtered_transactions_query(
 
     if uncategorized_only {
         query = query.filter(transaction_data::category_id.is_null());
+    }
+
+    if exclude_confirmed_transfers {
+        query = query.filter(diesel::dsl::sql::<diesel::sql_types::Bool>(
+            EXCLUDE_CONFIRMED_TRANSFERS,
+        ));
     }
 
     if let Some(term) = search.map(str::trim).filter(|t| !t.is_empty()) {
@@ -383,6 +484,9 @@ impl Transaction {
         search: Option<&str>,
         uncategorized_only: bool,
         financial_account_id: Option<i64>,
+        exclude_confirmed_transfers: bool,
+        sort_by: Option<&str>,
+        sort_dir: Option<&str>,
     ) -> Result<(Vec<Self>, i64), diesel::result::Error> {
         let conn = &mut get_dbo();
         let page = page.max(1);
@@ -393,23 +497,25 @@ impl Transaction {
             search,
             uncategorized_only,
             financial_account_id,
+            exclude_confirmed_transfers,
         )
         .select(count_star())
         .get_result(conn)?;
 
-        let items = filtered_transactions_query(
-            search,
-            uncategorized_only,
-            financial_account_id,
+        let items = apply_transaction_list_order(
+            filtered_transactions_query(
+                search,
+                uncategorized_only,
+                financial_account_id,
+                exclude_confirmed_transfers,
+            ),
+            sort_by,
+            sort_dir,
         )
-            .order((
-                transaction_data::transaction_date.desc(),
-                transaction_data::id.desc(),
-            ))
-            .limit(per_page)
-            .offset(offset)
-            .select(Transaction::as_select())
-            .load(conn)?;
+        .limit(per_page)
+        .offset(offset)
+        .select(Transaction::as_select())
+        .load(conn)?;
 
         Ok((items, total))
     }

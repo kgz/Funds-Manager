@@ -35,6 +35,10 @@ pub struct TransactionsQuery {
     #[serde(default)]
     pub include_suggestions: bool,
     pub account_id: Option<i64>,
+    pub sort_by: Option<String>,
+    pub sort_dir: Option<String>,
+    #[serde(default)]
+    pub exclude_confirmed_transfers: bool,
 }
 
 fn category_name_map() -> Result<HashMap<i32, String>, DbError> {
@@ -118,6 +122,9 @@ pub async fn get_transactions(
     let uncategorized_only = query.uncategorized_only;
     let include_suggestions = query.include_suggestions;
     let account_id = query.account_id;
+    let sort_by = query.sort_by.clone();
+    let sort_dir = query.sort_dir.clone();
+    let exclude_confirmed_transfers = query.exclude_confirmed_transfers;
 
     let (items, total) = web::block(move || {
         Transaction::list_paginated(
@@ -126,6 +133,9 @@ pub async fn get_transactions(
             search.as_deref(),
             uncategorized_only,
             account_id,
+            exclude_confirmed_transfers,
+            sort_by.as_deref(),
+            sort_dir.as_deref(),
         )
     })
     .await
