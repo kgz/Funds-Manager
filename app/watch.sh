@@ -1,1 +1,1 @@
-cargo watch -c -w . -x run -C .
+cargo watch -c -w . -w ../database -x run -C .

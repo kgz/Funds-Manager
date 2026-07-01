@@ -4,9 +4,54 @@ use crate::modules::database::get_dbo;
 use crate::schema::statement;
 use chrono::{Datelike, Months, NaiveDate, NaiveDateTime, Utc};
 use diesel::dsl::count_star;
+use diesel::pg::Pg;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
+
+fn sort_descending(sort_dir: Option<&str>) -> bool {
+    !matches!(sort_dir, Some(direction) if direction.eq_ignore_ascii_case("asc"))
+}
+
+fn apply_statement_list_order<'a>(
+    query: statement::BoxedQuery<'a, Pg>,
+    sort_by: Option<&str>,
+    sort_dir: Option<&str>,
+) -> statement::BoxedQuery<'a, Pg> {
+    let descending = sort_descending(sort_dir);
+    match sort_by.unwrap_or("date") {
+        "id" => {
+            if descending {
+                query.order(statement::id.desc())
+            } else {
+                query.order(statement::id.asc())
+            }
+        }
+        "closing_balance" => {
+            let direction = if descending { "DESC" } else { "ASC" };
+            query
+                .order(diesel::dsl::sql::<diesel::sql_types::Integer>(&format!(
+                    "(statement.closing_balance - statement.opening_balance) {direction}"
+                )))
+                .then_order_by(statement::id.desc())
+        }
+        "account" | "financial_account" => {
+            let direction = if descending { "DESC" } else { "ASC" };
+            query
+                .order(diesel::dsl::sql::<diesel::sql_types::Text>(&format!(
+                    "(SELECT COALESCE(fa.display_name, fa.bank_name, statement.account_id) FROM financial_accounts fa WHERE fa.id = statement.financial_account_id) {direction}"
+                )))
+                .then_order_by(statement::id.desc())
+        }
+        _ => {
+            if descending {
+                query.order((statement::date.desc(), statement::id.desc()))
+            } else {
+                query.order((statement::date.asc(), statement::id.desc()))
+            }
+        }
+    }
+}
 
 #[derive(Queryable, Selectable, Debug, Serialize, Deserialize, Clone, AsChangeset)]
 #[diesel(table_name = statement)]
@@ -132,6 +177,8 @@ impl Statement {
         page: i64,
         per_page: i64,
         financial_account_id: Option<i64>,
+        sort_by: Option<&str>,
+        sort_dir: Option<&str>,
     ) -> Result<(Vec<Statement>, i64), diesel::result::Error> {
         let conn = &mut get_dbo();
         let page = page.max(1);
@@ -152,8 +199,7 @@ impl Statement {
 
         let total: i64 = count_query.select(count_star()).get_result(conn)?;
 
-        let items = items_query
-            .order((statement::date.desc(), statement::id.desc()))
+        let items = apply_statement_list_order(items_query, sort_by, sort_dir)
             .limit(per_page)
             .offset(offset)
             .select(Statement::as_select())

@@ -1,4 +1,4 @@
-import { Table, sortRows, type SortState, type TColumn } from "@/components/table";
+import { Table, type SortState, type TColumn } from "@/components/table";
 import {
 	fetchMissingStatementPeriods,
 	fetchStatementsPage,
@@ -68,6 +68,8 @@ export const Statements = () => {
 				page: targetPage,
 				perPage: PER_PAGE,
 				accountId: accountIdNumber,
+				sortBy: sortState.key,
+				sortDir: sortState.direction,
 			});
 			if (fetchGenerationRef.current !== generation) {
 				return;
@@ -91,7 +93,7 @@ export const Statements = () => {
 				setLoading(false);
 			}
 		}
-	}, [accountIdNumber]);
+	}, [accountIdNumber, sortState]);
 
 	const reloadMissing = useCallback(async () => {
 		setMissingLoading(true);
@@ -111,11 +113,11 @@ export const Statements = () => {
 
 	useEffect(() => {
 		setPage(1);
-	}, [accountIdNumber]);
+	}, [accountIdNumber, sortState]);
 
 	useEffect(() => {
 		void reloadPage(page);
-	}, [page, reloadPage, accountIdNumber]);
+	}, [page, reloadPage]);
 
 	useEffect(() => {
 		void reloadMissing();
@@ -315,11 +317,6 @@ export const Statements = () => {
 		},
 	], [deletingId]);
 
-	const sortedItems = useMemo(
-		() => sortRows(items, columns, sortState),
-		[items, columns, sortState]
-	);
-
 	const initialLoading = loading && items.length === 0 && loadError === null;
 	const showEmpty =
 		!loading && !isUploading && total === 0 && loadError === null;
@@ -461,7 +458,7 @@ export const Statements = () => {
 				) : (
 					<Table<Statement>
 						columns={columns}
-						data={sortedItems}
+						data={items}
 						header={{ sticky: true }}
 						loading={loading && !isUploading}
 						sortState={sortState}

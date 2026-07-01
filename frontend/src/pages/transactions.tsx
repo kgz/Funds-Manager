@@ -5,7 +5,7 @@ import {
     fetchTransactionsPage,
     type Transaction,
 } from '../types/transaction';
-import { Table, sortRows, type SortState, type TColumn } from "@/components/table";
+import { Table, type SortState, type TColumn } from "@/components/table";
 import { cn } from "@/lib/utils/cn";
 import { DateTime } from "luxon";
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -153,6 +153,9 @@ const TransactionsPage = () => {
                 uncategorizedOnly: showUncategorizedOnly,
                 includeSuggestions: true,
                 accountId: accountIdNumber,
+                excludeConfirmedTransfers: hideTransfers,
+                sortBy: sortState.key,
+                sortDir: sortState.direction,
             });
 
             if (fetchGenerationRef.current !== generation) {
@@ -181,15 +184,15 @@ const TransactionsPage = () => {
                 setLoading(false);
             }
         }
-    }, [accountIdNumber, debouncedSearchTerm, showUncategorizedOnly]);
+    }, [accountIdNumber, debouncedSearchTerm, hideTransfers, showUncategorizedOnly, sortState]);
 
     useEffect(() => {
         setPage(1);
-    }, [accountIdNumber, debouncedSearchTerm, showUncategorizedOnly]);
+    }, [accountIdNumber, debouncedSearchTerm, hideTransfers, showUncategorizedOnly, sortState]);
 
     useEffect(() => {
         void reloadPage(page);
-    }, [page, reloadPage, accountIdNumber]);
+    }, [page, reloadPage]);
 
     const { categories, categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
 
@@ -710,16 +713,6 @@ const TransactionsPage = () => {
         toggleSelected,
     ]);
 
-    const sortedItems = useMemo(() => {
-        const visible = hideTransfers
-            ? items.filter(
-                  (row) =>
-                      !row.is_transfer_leg || row.transfer_pair_status !== 'confirmed'
-              )
-            : items;
-        return sortRows(visible, columns, sortState);
-    }, [hideTransfers, items, columns, sortState]);
-
     const initialLoading = loading && items.length === 0 && error === null;
     if (initialLoading) {
         return <PageLoadingState label="Loading transactions…" />;
@@ -1025,7 +1018,7 @@ const TransactionsPage = () => {
             <div className="flex-grow overflow-hidden">
                 <Table<Transaction>
                     columns={columns}
-                    data={sortedItems}
+                    data={items}
                     header={{ sticky: true }}
                     loading={loading}
                     sortState={sortState}

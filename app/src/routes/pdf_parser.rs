@@ -417,6 +417,8 @@ pub struct StatementsQuery {
     #[serde(default = "default_statements_per_page")]
     pub per_page: i64,
     pub account_id: Option<i64>,
+    pub sort_by: Option<String>,
+    pub sort_dir: Option<String>,
 }
 
 fn default_statements_page() -> i64 {
@@ -457,9 +459,12 @@ pub async fn get_all_statements(
     let page = query.page;
     let per_page = query.per_page;
     let account_id = query.account_id;
+    let sort_by = query.sort_by.clone();
+    let sort_dir = query.sort_dir.clone();
 
     let (statements, total) =
-        Statement::list_paginated(page, per_page, account_id).map_err(|e| {
+        Statement::list_paginated(page, per_page, account_id, sort_by.as_deref(), sort_dir.as_deref())
+            .map_err(|e| {
             eprintln!("Database error fetching statements: {}", e);
             actix_web::error::ErrorInternalServerError("Failed to retrieve statements")
         })?;
