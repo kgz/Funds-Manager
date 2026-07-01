@@ -18,6 +18,7 @@ import { Modal } from '@/components/layout/Modal';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
+import { SearchInput } from '@/components/layout/SearchInput';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { StatCard } from '@/components/layout/StatCard';
 import {
@@ -38,6 +39,7 @@ import {
 	readStoredPlannedPeriod,
 	type PlannedPeriod,
 } from '@/components/dashboard/period';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import {
@@ -132,6 +134,28 @@ function categoryLabel(cat: Category, categories: Category[]): string {
 	return cat.name;
 }
 
+function matchesPlannedSearch(
+	item: PlannedSpendingItem,
+	query: string,
+	categories: Category[]
+): boolean {
+	const normalized = query.trim().toLowerCase();
+	if (normalized.length === 0) {
+		return true;
+	}
+	if (item.name.toLowerCase().includes(normalized)) {
+		return true;
+	}
+	if (item.notes !== null && item.notes.toLowerCase().includes(normalized)) {
+		return true;
+	}
+	const cat = categoryById(categories, item.category_id);
+	if (cat !== null && categoryLabel(cat, categories).toLowerCase().includes(normalized)) {
+		return true;
+	}
+	return false;
+}
+
 export default function PlannedSpendingPage() {
 	const dispatch = useAppDispatch();
 	const { items, totalCents, loading, error } = useAppSelector(
@@ -156,6 +180,8 @@ export default function PlannedSpendingPage() {
 	const [submitting, setSubmitting] = useState(false);
 
 	const [deleteTarget, setDeleteTarget] = useState<PlannedSpendingItem | null>(null);
+	const [searchQuery, setSearchQuery] = useState('');
+	const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
 	const activeCategories = useMemo(
 		() => categories.filter((cat) => !cat.deleted_at),
@@ -226,6 +252,21 @@ export default function PlannedSpendingPage() {
 	useEffect(() => {
 		reload();
 	}, [reload]);
+
+	const filteredItems = useMemo(
+		() =>
+			items.filter((item) =>
+				matchesPlannedSearch(item, debouncedSearchQuery, activeCategories)
+			),
+		[items, debouncedSearchQuery, activeCategories]
+	);
+
+	const filteredTotalCents = useMemo(
+		() => filteredItems.reduce((sum, item) => sum + item.amount_cents, 0),
+		[filteredItems]
+	);
+
+	const searchActive = debouncedSearchQuery.trim().length > 0;
 
 	const openAddModal = () => {
 		setModalMode('add');
@@ -368,6 +409,26 @@ export default function PlannedSpendingPage() {
 	const isRefreshing = loading && items.length > 0;
 	const showEmpty =
 		!loading && !rangeInvalid && items.length === 0 && error === null;
+	const showSearchEmpty =
+		!loading &&
+		!rangeInvalid &&
+		items.length > 0 &&
+		filteredItems.length === 0 &&
+		searchActive &&
+		error === null;
+
+	const plannedTotalHint = (() => {
+		if (searchActive) {
+			return `${filteredItems.length} of ${items.length} items match search.`;
+		}
+		if (showAllItems) {
+			return 'All planned items.';
+		}
+		if (showFutureOnly) {
+			return 'Items dated today or later.';
+		}
+		return 'Items dated in this period.';
+	})();
 
 	if (initialLoading) {
 		return <PageLoadingState label="Loading planned spending…" />;
@@ -472,21 +533,26 @@ export default function PlannedSpendingPage() {
 					{!rangeInvalid ? (
 						<StatCard
 							label="Planned total"
-							value={formatMoney(totalCents)}
+							value={formatMoney(searchActive ? filteredTotalCents : totalCents)}
 							valueClassName={
-								totalCents >= 0 ? 'text-green-300' : 'text-red-300'
+								(searchActive ? filteredTotalCents : totalCents) >= 0
+									? 'text-green-300'
+									: 'text-red-300'
 							}
-							hint={
-								showAllItems
-									? 'All planned items.'
-									: showFutureOnly
-										? 'Items dated today or later.'
-										: 'Items dated in this period.'
-							}
+							hint={plannedTotalHint}
 							align="right"
 						/>
 					) : null}
 				</div>
+
+				{!rangeInvalid && items.length > 0 ? (
+					<SearchInput
+						value={searchQuery}
+						onChange={setSearchQuery}
+						placeholder="Search name, notes, category…"
+						className="w-full lg:max-w-md"
+					/>
+				) : null}
 
 				{rangeInvalid ? (
 					<InlineAlert variant="warning">
@@ -518,7 +584,15 @@ export default function PlannedSpendingPage() {
 				/>
 			) : null}
 
-			{!loading && !rangeInvalid && items.length > 0 ? (
+			{showSearchEmpty ? (
+				<EmptyState
+					icon={CalendarRange}
+					title="No planned items match your search"
+					description="Try clearing the search or using a different term."
+				/>
+			) : null}
+
+			{!loading && !rangeInvalid && filteredItems.length > 0 ? (
 				<div className={glassCardClass}>
 					<table className="w-full text-sm">
 						<thead>
@@ -532,7 +606,7 @@ export default function PlannedSpendingPage() {
 							</tr>
 						</thead>
 						<tbody>
-							{items.map((item) => {
+							{filteredItems.map((item) => {
 								const cat = categoryById(activeCategories, item.category_id);
 								return (
 									<tr
