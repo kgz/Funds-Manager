@@ -19,6 +19,9 @@ export type Transaction = {
 	suggested_category_id?: number | null;
 	suggested_category_name?: string | null;
 	financial_account?: FinancialAccountSummary | null;
+	transfer_pair_id?: number | null;
+	is_transfer_leg?: boolean;
+	transfer_leg?: 'out' | 'in' | null;
 	transfer_pair_status?: string | null;
 };
 
@@ -87,6 +90,12 @@ export function normalizeTransaction(raw: unknown): Transaction | null {
 	const transferPairStatus = readNullableString(
 		Reflect.get(raw, 'transfer_pair_status')
 	);
+	const transferPairId = readFiniteNumber(Reflect.get(raw, 'transfer_pair_id'));
+	const isTransferLegRaw = Reflect.get(raw, 'is_transfer_leg');
+	const isTransferLeg = isTransferLegRaw === true;
+	const transferLegRaw = readNullableString(Reflect.get(raw, 'transfer_leg'));
+	const transferLeg =
+		transferLegRaw === 'out' || transferLegRaw === 'in' ? transferLegRaw : null;
 
 	if (
 		id === null ||
@@ -117,6 +126,9 @@ export function normalizeTransaction(raw: unknown): Transaction | null {
 		suggested_category_id: suggestedCategoryId,
 		suggested_category_name: suggestedCategoryName,
 		financial_account: financialAccount,
+		transfer_pair_id: transferPairId,
+		is_transfer_leg: isTransferLeg ? true : undefined,
+		transfer_leg: transferLeg,
 		transfer_pair_status: transferPairStatus,
 	};
 }
