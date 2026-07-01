@@ -434,9 +434,9 @@ fn catalog() -> ApiCatalog {
                             },
                         ],
                         body: None,
-                        response: "Paginated transactions with optional account and transfer pair status.",
+                        response: "Paginated transactions with transfer_pair_id, is_transfer_leg, transfer_leg, transfer_pair_status.",
                         purpose: "Search and inspect individual ledger lines.",
-                        ai_use: "Free-text search, audit uncategorized items, verify a specific payment.",
+                        ai_use: "Filter is_transfer_leg && transfer_pair_status === 'confirmed' to exclude internal transfers from manual totals.",
                         read_only: true,
                     },
                     EndpointDoc {

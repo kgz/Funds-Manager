@@ -12,6 +12,10 @@ use diesel::result::Error as DbError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use super::transaction_list_item::{
+    apply_transfer_meta, total_pages, PaginatedTransactionList, TransactionListItem,
+};
+
 fn map_db_error(e: DbError) -> error::Error {
     eprintln!("Database Error: {:?}", e);
     match e {
@@ -31,36 +35,6 @@ pub struct TransactionsQuery {
     #[serde(default)]
     pub include_suggestions: bool,
     pub account_id: Option<i64>,
-}
-
-#[derive(Serialize)]
-pub struct TransactionListItem {
-    #[serde(flatten)]
-    pub transaction: Transaction,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub suggested_category_id: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub suggested_category_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub financial_account: Option<FinancialAccountSummary>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub transfer_pair_status: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct PaginatedTransactions {
-    pub items: Vec<TransactionListItem>,
-    pub total: i64,
-    pub page: i64,
-    pub per_page: i64,
-    pub total_pages: i64,
-}
-
-fn total_pages(total: i64, per_page: i64) -> i64 {
-    if total <= 0 {
-        return 0;
-    }
-    (total + per_page - 1) / per_page
 }
 
 fn category_name_map() -> Result<HashMap<i32, String>, DbError> {
@@ -88,6 +62,9 @@ fn attach_account_summaries(
                 suggested_category_id: None,
                 suggested_category_name: None,
                 financial_account,
+                transfer_pair_id: None,
+                is_transfer_leg: false,
+                transfer_leg: None,
                 transfer_pair_status: None,
             }
         })
@@ -123,20 +100,13 @@ fn attach_suggestions(
                 suggested_category_id,
                 suggested_category_name,
                 financial_account,
+                transfer_pair_id: None,
+                is_transfer_leg: false,
+                transfer_leg: None,
                 transfer_pair_status: None,
             }
         })
         .collect()
-}
-
-fn attach_transfer_statuses(
-    mut items: Vec<TransactionListItem>,
-    statuses: &HashMap<i64, String>,
-) -> Vec<TransactionListItem> {
-    for item in &mut items {
-        item.transfer_pair_status = statuses.get(&item.transaction.id).cloned();
-    }
-    items
 }
 
 pub async fn get_transactions(
@@ -182,7 +152,7 @@ pub async fn get_transactions(
         actix_web::error::ErrorInternalServerError("Failed to retrieve transactions")
     })?;
 
-    let list_items = if include_suggestions {
+    let mut list_items = if include_suggestions {
         let (predictor, names) = web::block(|| {
             let predictor = CategoryPredictor::load_from_db()?;
             let names = category_name_map()?;
@@ -203,20 +173,21 @@ pub async fn get_transactions(
     };
 
     let transaction_ids: Vec<i64> = list_items.iter().map(|row| row.transaction.id).collect();
-    let statuses = web::block(move || AccountTransfer::transfer_status_for_transactions(&transaction_ids))
+    let transfer_meta =
+        web::block(move || AccountTransfer::transfer_meta_for_transactions(&transaction_ids))
         .await
         .map_err(|e| {
-            eprintln!("Blocking error loading transfer statuses: {:?}", e);
+            eprintln!("Blocking error loading transfer metadata: {:?}", e);
             actix_web::error::ErrorInternalServerError("Failed to retrieve transactions")
         })?
         .map_err(|e: DbError| {
-            eprintln!("Database error loading transfer statuses: {}", e);
+            eprintln!("Database error loading transfer metadata: {}", e);
             actix_web::error::ErrorInternalServerError("Failed to retrieve transactions")
         })?;
 
-    let list_items = attach_transfer_statuses(list_items, &statuses);
+    apply_transfer_meta(&mut list_items, &transfer_meta);
 
-    Ok(HttpResponse::Ok().json(PaginatedTransactions {
+    Ok(HttpResponse::Ok().json(PaginatedTransactionList {
         items: list_items,
         total,
         page,

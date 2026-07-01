@@ -631,7 +631,7 @@ const TransactionsPage = () => {
             render: (v, row) => (
                 <span className="inline-flex items-center gap-2">
                     <span className="truncate">{v}</span>
-                    {row.transfer_pair_status === 'confirmed' ? (
+                    {row.is_transfer_leg && row.transfer_pair_status === 'confirmed' ? (
                         <span className="shrink-0 rounded bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-300">
                             Transfer
                         </span>
@@ -712,7 +712,10 @@ const TransactionsPage = () => {
 
     const sortedItems = useMemo(() => {
         const visible = hideTransfers
-            ? items.filter((row) => row.transfer_pair_status !== 'confirmed')
+            ? items.filter(
+                  (row) =>
+                      !row.is_transfer_leg || row.transfer_pair_status !== 'confirmed'
+              )
             : items;
         return sortRows(visible, columns, sortState);
     }, [hideTransfers, items, columns, sortState]);

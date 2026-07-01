@@ -67,6 +67,13 @@ pub struct TransferTransactionSummary {
     pub account_label: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct TransactionTransferMeta {
+    pub pair_id: i64,
+    pub status: String,
+    pub leg: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransferSuggestion {
@@ -301,21 +308,22 @@ impl AccountTransfer {
             .get_result(conn)
     }
 
-    pub fn transfer_status_for_transactions(
+    pub fn transfer_meta_for_transactions(
         transaction_ids: &[i64],
-    ) -> Result<std::collections::HashMap<i64, String>, diesel::result::Error> {
+    ) -> Result<std::collections::HashMap<i64, TransactionTransferMeta>, diesel::result::Error> {
         if transaction_ids.is_empty() {
             return Ok(std::collections::HashMap::new());
         }
 
         let conn = &mut get_dbo();
-        let rows: Vec<(i64, i64, String)> = account_transfer_pairs::table
+        let rows: Vec<(i64, i64, i64, String)> = account_transfer_pairs::table
             .filter(
                 account_transfer_pairs::out_transaction_id
                     .eq_any(transaction_ids)
                     .or(account_transfer_pairs::in_transaction_id.eq_any(transaction_ids)),
             )
             .select((
+                account_transfer_pairs::id,
                 account_transfer_pairs::out_transaction_id,
                 account_transfer_pairs::in_transaction_id,
                 account_transfer_pairs::status,
@@ -323,9 +331,23 @@ impl AccountTransfer {
             .load(conn)?;
 
         let mut map = std::collections::HashMap::new();
-        for (out_id, in_id, status) in rows {
-            map.insert(out_id, status.clone());
-            map.insert(in_id, status);
+        for (pair_id, out_id, in_id, status) in rows {
+            map.insert(
+                out_id,
+                TransactionTransferMeta {
+                    pair_id,
+                    status: status.clone(),
+                    leg: "out".to_string(),
+                },
+            );
+            map.insert(
+                in_id,
+                TransactionTransferMeta {
+                    pair_id,
+                    status,
+                    leg: "in".to_string(),
+                },
+            );
         }
 
         Ok(map)

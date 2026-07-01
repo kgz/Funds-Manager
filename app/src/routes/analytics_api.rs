@@ -1,8 +1,13 @@
 use actix_web::{web, HttpResponse, Responder, Result, Scope};
 use chrono::NaiveDate;
+use database::models::account_transfer::AccountTransfer;
 use database::models::analytics::{self, AnalyticsScope};
+use diesel::result::Error as DbError;
 use serde::Deserialize;
-use serde::Serialize;
+
+use super::transaction_list_item::{
+    apply_transfer_meta, bare_list_items, total_pages, PaginatedTransactionList,
+};
 
 #[derive(Deserialize, Debug)]
 pub struct DashboardQuery {
@@ -60,26 +65,30 @@ fn default_per_page() -> i64 {
     50
 }
 
-#[derive(Serialize)]
-pub struct PaginatedTransactions {
-    pub items: Vec<database::models::transaction::Transaction>,
-    pub total: i64,
-    pub page: i64,
-    pub per_page: i64,
-    pub total_pages: i64,
+async fn enrich_drilldown_items(
+    items: Vec<database::models::transaction::Transaction>,
+) -> Result<Vec<super::transaction_list_item::TransactionListItem>, actix_web::Error> {
+    let mut list_items = bare_list_items(items);
+    let transaction_ids: Vec<i64> = list_items.iter().map(|row| row.transaction.id).collect();
+    let transfer_meta =
+        web::block(move || AccountTransfer::transfer_meta_for_transactions(&transaction_ids))
+            .await
+            .map_err(|e| {
+                eprintln!("Blocking error loading transfer metadata: {:?}", e);
+                actix_web::error::ErrorInternalServerError("Failed to load drilldown")
+            })?
+            .map_err(|e: DbError| {
+                eprintln!("Database error loading transfer metadata: {}", e);
+                actix_web::error::ErrorInternalServerError("Failed to load drilldown")
+            })?;
+    apply_transfer_meta(&mut list_items, &transfer_meta);
+    Ok(list_items)
 }
 
 fn parse_date(value: &str) -> Result<NaiveDate, actix_web::Error> {
     NaiveDate::parse_from_str(value, "%Y-%m-%d").map_err(|_| {
         actix_web::error::ErrorBadRequest(format!("Invalid date: {value} (expected YYYY-MM-DD)"))
     })
-}
-
-fn total_pages(total: i64, per_page: i64) -> i64 {
-    if total <= 0 {
-        return 0;
-    }
-    (total + per_page - 1) / per_page
 }
 
 #[derive(Deserialize, Debug)]
@@ -251,8 +260,10 @@ async fn get_spending_drilldown(
         actix_web::error::ErrorInternalServerError("Failed to load drilldown")
     })?;
 
-    Ok(HttpResponse::Ok().json(PaginatedTransactions {
-        items,
+    let enriched_items = enrich_drilldown_items(items).await?;
+
+    Ok(HttpResponse::Ok().json(PaginatedTransactionList {
+        items: enriched_items,
         total,
         page,
         per_page,
@@ -303,8 +314,10 @@ async fn get_income_drilldown(
         actix_web::error::ErrorInternalServerError("Failed to load income drilldown")
     })?;
 
-    Ok(HttpResponse::Ok().json(PaginatedTransactions {
-        items,
+    let enriched_items = enrich_drilldown_items(items).await?;
+
+    Ok(HttpResponse::Ok().json(PaginatedTransactionList {
+        items: enriched_items,
         total,
         page,
         per_page,
