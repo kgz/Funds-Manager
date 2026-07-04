@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { StatCard } from '@/components/layout/StatCard';
+import { ReportCoveragePanel } from '@/pages/report-snapshots/coverage-panel';
 import { glassCardClass } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -235,6 +236,10 @@ export function ReportSnapshotDetailPage() {
 						Read-only snapshot captured {detail.createdAt}. Figures will not change when live
 						data is updated.
 					</InlineAlert>
+
+					{detail.payload.coverage !== null ? (
+						<ReportCoveragePanel coverage={detail.payload.coverage} />
+					) : null}
 
 					<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 						<StatCard

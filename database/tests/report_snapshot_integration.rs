@@ -37,6 +37,7 @@ fn capture_persists_and_replays_payload() {
 
     let detail = snapshot.to_detail().expect("detail");
     assert_eq!(detail.payload["version"], PAYLOAD_VERSION);
+    assert!(detail.payload.get("coverage").is_some());
     assert_eq!(
         detail.payload["serviceability"]["startDate"],
         start.to_string()
