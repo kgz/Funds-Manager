@@ -10,6 +10,26 @@ export type PlannedSpendingItem = {
 	notes: string | null;
 	created_at: string;
 	deleted_at: string | null;
+	resolved_at?: string | null;
+	linked_transactions: PlannedMatchTransaction[];
+	linked_total_cents: number;
+};
+
+export type PlannedMatchTransaction = {
+	id: number;
+	description: string;
+	amount: number;
+	transaction_date: string;
+	category_id: number | null;
+	account_label: string;
+};
+
+export type PlannedMatchSuggestion = {
+	planned: PlannedSpendingItem;
+	transaction: PlannedMatchTransaction;
+	date_variance_days: number;
+	amount_variance_cents: number;
+	reasons: string[];
 };
 
 export type PlannedSpendingListResult = {
@@ -63,6 +83,9 @@ export function normalizePlannedSpendingItem(raw: unknown): PlannedSpendingItem 
 	const notes = readNullableString(Reflect.get(raw, 'notes'));
 	const createdAt = readString(Reflect.get(raw, 'created_at'));
 	const deletedAt = readNullableString(Reflect.get(raw, 'deleted_at'));
+	const resolvedAt = readNullableString(Reflect.get(raw, 'resolved_at'));
+	const linkedTotalCents = readFiniteNumber(Reflect.get(raw, 'linked_total_cents'));
+	const linkedTransactionsRaw = Reflect.get(raw, 'linked_transactions');
 
 	if (
 		id === null ||
@@ -84,6 +107,91 @@ export function normalizePlannedSpendingItem(raw: unknown): PlannedSpendingItem 
 		notes,
 		created_at: createdAt,
 		deleted_at: deletedAt,
+		resolved_at: resolvedAt,
+		linked_total_cents: Math.trunc(linkedTotalCents ?? 0),
+		linked_transactions: normalizePlannedMatchTransactions(linkedTransactionsRaw),
+	};
+}
+
+function normalizePlannedMatchTransactions(raw: unknown): PlannedMatchTransaction[] {
+	if (!Array.isArray(raw)) {
+		return [];
+	}
+	const transactions: PlannedMatchTransaction[] = [];
+	for (const entry of raw) {
+		const transaction = normalizePlannedMatchTransaction(entry);
+		if (transaction) {
+			transactions.push(transaction);
+		}
+	}
+	return transactions;
+}
+
+function normalizePlannedMatchTransaction(raw: unknown): PlannedMatchTransaction | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const id = readFiniteNumber(Reflect.get(raw, 'id'));
+	const description = readString(Reflect.get(raw, 'description'));
+	const amount = readFiniteNumber(Reflect.get(raw, 'amount'));
+	const transactionDate = readString(Reflect.get(raw, 'transaction_date'));
+	const categoryIdRaw = Reflect.get(raw, 'category_id');
+	const categoryId =
+		categoryIdRaw === null || categoryIdRaw === undefined
+			? null
+			: readFiniteNumber(categoryIdRaw);
+	const accountLabel = readString(Reflect.get(raw, 'account_label'));
+	if (
+		id === null ||
+		description === null ||
+		amount === null ||
+		transactionDate === null ||
+		accountLabel === null
+	) {
+		return null;
+	}
+	return {
+		id: Math.trunc(id),
+		description,
+		amount: Math.trunc(amount),
+		transaction_date: transactionDate,
+		category_id: categoryId === null ? null : Math.trunc(categoryId),
+		account_label: accountLabel,
+	};
+}
+
+export function normalizePlannedMatchSuggestion(
+	raw: unknown
+): PlannedMatchSuggestion | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const planned = normalizePlannedSpendingItem(Reflect.get(raw, 'planned'));
+	const transaction = normalizePlannedMatchTransaction(Reflect.get(raw, 'transaction'));
+	const dateVariance = readFiniteNumber(Reflect.get(raw, 'date_variance_days'));
+	const amountVariance = readFiniteNumber(Reflect.get(raw, 'amount_variance_cents'));
+	const reasonsRaw = Reflect.get(raw, 'reasons');
+	if (
+		planned === null ||
+		transaction === null ||
+		dateVariance === null ||
+		amountVariance === null ||
+		!Array.isArray(reasonsRaw)
+	) {
+		return null;
+	}
+	const reasons: string[] = [];
+	for (const entry of reasonsRaw) {
+		if (typeof entry === 'string') {
+			reasons.push(entry);
+		}
+	}
+	return {
+		planned,
+		transaction,
+		date_variance_days: Math.trunc(dateVariance),
+		amount_variance_cents: Math.trunc(amountVariance),
+		reasons,
 	};
 }
 
@@ -180,6 +288,87 @@ export async function updatePlannedSpendingItem(
 
 export async function deletePlannedSpendingItem(id: string): Promise<void> {
 	await axios.delete(`/api/planned-spending/${id}`);
+}
+
+export async function fetchPlannedMatchSuggestions(): Promise<PlannedMatchSuggestion[]> {
+	const response = await axios.get('/api/planned-spending/match-suggestions');
+	if (!Array.isArray(response.data)) {
+		throw new Error('Invalid planned match suggestions response');
+	}
+	const suggestions: PlannedMatchSuggestion[] = [];
+	for (const entry of response.data) {
+		const suggestion = normalizePlannedMatchSuggestion(entry);
+		if (!suggestion) {
+			throw new Error('Invalid planned match suggestions response');
+		}
+		suggestions.push(suggestion);
+	}
+	return suggestions;
+}
+
+export async function fetchPlannedMatchSuggestionCount(): Promise<number> {
+	const response = await axios.get('/api/planned-spending/match-suggestions/count');
+	if (!response.data || typeof response.data !== 'object') {
+		throw new Error('Invalid planned match count response');
+	}
+	const count = readFiniteNumber(Reflect.get(response.data, 'count'));
+	if (count === null) {
+		throw new Error('Invalid planned match count response');
+	}
+	return Math.trunc(count);
+}
+
+export type ResolvePlannedMatchAction =
+	| 'confirm'
+	| 'link'
+	| 'dismiss'
+	| 'complete'
+	| 'unlink';
+
+export async function fetchPlannedLinkCandidates(
+	plannedId: string,
+	search?: string
+): Promise<PlannedMatchTransaction[]> {
+	const searchParams = new URLSearchParams();
+	if (search && search.trim().length > 0) {
+		searchParams.set('search', search.trim());
+	}
+	const query = searchParams.toString();
+	const url =
+		query.length > 0
+			? `/api/planned-spending/${plannedId}/link-candidates?${query}`
+			: `/api/planned-spending/${plannedId}/link-candidates`;
+	const response = await axios.get(url);
+	if (!Array.isArray(response.data)) {
+		throw new Error('Invalid link candidates response');
+	}
+	const candidates: PlannedMatchTransaction[] = [];
+	for (const entry of response.data) {
+		const candidate = normalizePlannedMatchTransaction(entry);
+		if (!candidate) {
+			throw new Error('Invalid link candidates response');
+		}
+		candidates.push(candidate);
+	}
+	return candidates;
+}
+
+export async function resolvePlannedMatch(
+	plannedId: string,
+	transactionId: number | null,
+	action: ResolvePlannedMatchAction
+): Promise<void> {
+	const payload: { action: ResolvePlannedMatchAction; transaction_id?: number } = {
+		action,
+	};
+	if (transactionId !== null) {
+		payload.transaction_id = transactionId;
+	}
+	await axios.post(`/api/planned-spending/${plannedId}/resolve-match`, payload);
+}
+
+export async function markPlannedComplete(plannedId: string): Promise<void> {
+	await resolvePlannedMatch(plannedId, null, 'complete');
 }
 
 export type PlannedAmountType = 'spending' | 'income';

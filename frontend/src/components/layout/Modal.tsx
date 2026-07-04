@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { glassCardClass } from './tokens';
 
-type ModalSize = 'sm' | 'md' | 'lg';
+type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
 
 type ModalProps = {
 	open: boolean;
@@ -15,12 +15,15 @@ type ModalProps = {
 	size?: ModalSize;
 	titleClassName?: string;
 	closeDisabled?: boolean;
+	/** Tall modal: header/footer fixed, children area grows and scrolls internally */
+	fillViewport?: boolean;
 };
 
 const sizeClass: Record<ModalSize, string> = {
 	sm: 'max-w-md',
 	md: 'max-w-lg',
 	lg: 'max-w-2xl',
+	xl: 'max-w-5xl',
 };
 
 export function Modal({
@@ -33,6 +36,7 @@ export function Modal({
 	size = 'sm',
 	titleClassName,
 	closeDisabled = false,
+	fillViewport = false,
 }: ModalProps) {
 	if (!open) {
 		return null;
@@ -40,7 +44,7 @@ export function Modal({
 
 	return (
 		<div
-			className="fixed inset-0 z-50 flex items-center justify-center p-4"
+			className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
 			aria-modal="true"
 			role="dialog"
 		>
@@ -54,11 +58,17 @@ export function Modal({
 			<div
 				className={cn(
 					glassCardClass,
-					'relative z-10 w-full p-5 shadow-2xl shadow-black/40',
+					'relative z-10 flex w-full flex-col shadow-2xl shadow-black/40',
+					fillViewport ? 'max-h-[calc(100dvh-2rem)]' : 'p-5',
 					sizeClass[size]
 				)}
 			>
-				<div className="mb-4 flex items-start justify-between gap-3">
+				<div
+					className={cn(
+						'flex shrink-0 items-start justify-between gap-3',
+						fillViewport ? 'border-b border-white/10 px-5 py-4' : 'mb-4'
+					)}
+				>
 					<div className="min-w-0">
 						<h2
 							className={cn(
@@ -82,9 +92,24 @@ export function Modal({
 						<X className="h-5 w-5" />
 					</button>
 				</div>
-				{children}
+				{children !== undefined && fillViewport ? (
+					<div className="flex min-h-0 flex-1 flex-col overflow-hidden px-5 py-4">
+						{children}
+					</div>
+				) : (
+					children
+				)}
 				{footer !== undefined ? (
-					<div className="mt-5 flex justify-end gap-3">{footer}</div>
+					<div
+						className={cn(
+							'flex shrink-0 justify-end gap-3',
+							fillViewport
+								? 'border-t border-white/10 px-5 py-4'
+								: 'mt-5'
+						)}
+					>
+						{footer}
+					</div>
 				) : null}
 			</div>
 		</div>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { fetchPlannedMatchSuggestionCount } from '@/types/plannedSpending';
 import { fetchTransferSuggestions } from '@/types/transfer';
 
 export const ACTIONABLE_ITEMS_CHANGED = 'actionable-items-changed';
@@ -14,18 +15,41 @@ export function notifyTransferSuggestionsChanged(): void {
 	notifyActionableItemsChanged();
 }
 
-async function fetchActionableItemCount(): Promise<number> {
-	const transferSuggestions = await fetchTransferSuggestions();
-	return transferSuggestions.length;
+export function notifyPlannedMatchesChanged(): void {
+	notifyActionableItemsChanged();
 }
 
-export function useActionableItemCount(): number {
-	const [count, setCount] = useState(0);
+export type ActionableCounts = {
+	transfers: number;
+	plannedMatches: number;
+};
+
+async function fetchActionableCounts(): Promise<ActionableCounts> {
+	const [transferSuggestions, plannedMatchCount] = await Promise.all([
+		fetchTransferSuggestions(),
+		fetchPlannedMatchSuggestionCount(),
+	]);
+	return {
+		transfers: transferSuggestions.length,
+		plannedMatches: plannedMatchCount,
+	};
+}
+
+export function useActionableCounts(): ActionableCounts {
+	const [counts, setCounts] = useState<ActionableCounts>({
+		transfers: 0,
+		plannedMatches: 0,
+	});
 
 	const refresh = useCallback(() => {
-		void fetchActionableItemCount()
-			.then(setCount)
-			.catch(() => setCount(0));
+		void fetchActionableCounts()
+			.then(setCounts)
+			.catch(() =>
+				setCounts({
+					transfers: 0,
+					plannedMatches: 0,
+				})
+			);
 	}, []);
 
 	useEffect(() => {
@@ -39,5 +63,10 @@ export function useActionableItemCount(): number {
 		};
 	}, [refresh]);
 
-	return count;
+	return counts;
+}
+
+export function useActionableItemCount(): number {
+	const { transfers } = useActionableCounts();
+	return transfers;
 }

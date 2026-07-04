@@ -178,6 +178,25 @@ diesel::table! {
         notes -> Nullable<Text>,
         created_at -> Timestamp,
         deleted_at -> Nullable<Timestamp>,
+        resolved_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
+    planned_spending_links (id) {
+        id -> Bigint,
+        planned_spending_id -> Bigint,
+        transaction_id -> Bigint,
+        linked_at -> Timestamp,
+    }
+}
+
+diesel::table! {
+    planned_spending_dismissed_matches (id) {
+        id -> Bigint,
+        planned_spending_id -> Bigint,
+        transaction_id -> Bigint,
+        dismissed_at -> Timestamp,
     }
 }
 
@@ -285,6 +304,10 @@ diesel::joinable!(asset_valuations -> assets (asset_id));
 diesel::joinable!(liabilities -> financial_accounts (financial_account_id));
 diesel::joinable!(liability_balances -> liabilities (liability_id));
 diesel::joinable!(planned_spending -> categories (category_id));
+diesel::joinable!(planned_spending_dismissed_matches -> planned_spending (planned_spending_id));
+diesel::joinable!(planned_spending_dismissed_matches -> transaction_data (transaction_id));
+diesel::joinable!(planned_spending_links -> planned_spending (planned_spending_id));
+diesel::joinable!(planned_spending_links -> transaction_data (transaction_id));
 diesel::joinable!(prediction_scenario_lines -> categories (category_id));
 diesel::joinable!(prediction_scenario_lines -> prediction_scenarios (scenario_id));
 diesel::joinable!(category_mappings -> categories (category_id));
@@ -306,6 +329,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     liabilities,
     liability_balances,
     planned_spending,
+    planned_spending_dismissed_matches,
+    planned_spending_links,
     prediction_goals,
     prediction_scenario_lines,
     prediction_scenarios,

@@ -480,7 +480,7 @@ pub fn compute_baseline(
     let (baseline_monthly_net_cents, months_averaged) =
         recent_avg_net_cents(today, financial_account_id, BASELINE_LOOKBACK_MONTHS)?;
 
-    let planned = PlannedSpending::list_overlapping(from, to)?;
+    let planned = PlannedSpending::list_overlapping(from, to, false)?;
     let planned_item_count = planned.len();
     let extra_lines: Vec<AdjustmentLine> = planned
         .iter()
