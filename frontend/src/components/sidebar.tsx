@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils/cn';
 import { ActionableBadge } from '@/components/layout/ActionableBadge';
-import { useActionableItemCount } from '@/hooks/useActionableItemCount';
+import { useActionableCounts } from '@/hooks/useActionableItemCount';
 import {
 	Banknote,
 	Building2,
@@ -139,18 +139,24 @@ function NavSectionBlock({
 }
 
 export function Sidebar(_props: SidebarProps) {
-	const actionableCount = useActionableItemCount();
+	const { transfers, plannedMatches } = useActionableCounts();
 
 	const sections = navSections.map((section) => ({
 		...section,
 		items: section.items.map((item) => {
-			if (item.to !== '/transactions') {
-				return item;
+			if (item.to === '/transactions') {
+				return {
+					...item,
+					actionableCount: transfers,
+				};
 			}
-			return {
-				...item,
-				actionableCount,
-			};
+			if (item.to === '/planned') {
+				return {
+					...item,
+					actionableCount: plannedMatches,
+				};
+			}
+			return item;
 		}),
 	}));
 
