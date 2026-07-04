@@ -255,6 +255,7 @@ impl Statement {
         }
 
         let mut missing = Vec::new();
+        let as_of = Utc::now().date_naive();
 
         for (scope, ranges) in ranges_by_account {
             let account_label = match scope {
@@ -265,7 +266,31 @@ impl Statement {
                 AccountScope::Legacy(account_id) => account_id,
             };
 
-            for period in missing_month_labels_for_ranges(&ranges, Utc::now().date_naive()) {
+            let Some(earliest) = ranges.iter().map(|(start, _)| *start).min() else {
+                continue;
+            };
+
+            let coverage = statement_coverage_in_window(
+                &ranges,
+                earliest,
+                missing_periods_window_end(as_of),
+            );
+
+            if coverage.sufficient {
+                continue;
+            }
+
+            if coverage.multi_month_cadence && !coverage.gap_ranges.is_empty() {
+                for gap in coverage.gap_ranges {
+                    missing.push(MissingStatementPeriod {
+                        account_label: account_label.clone(),
+                        period: format!("{} to {}", gap.start_date, gap.end_date),
+                    });
+                }
+                continue;
+            }
+
+            for period in coverage.missing_months {
                 missing.push(MissingStatementPeriod {
                     account_label: account_label.clone(),
                     period,
@@ -311,6 +336,232 @@ impl Statement {
     }
 }
 
+pub const STATEMENT_RANGE_JOIN_DAYS: i64 = 7;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StatementCoverageResult {
+    pub missing_months: Vec<String>,
+    pub gap_ranges: Vec<StatementCoverageGap>,
+    pub multi_month_cadence: bool,
+    pub sufficient: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatementCoverageGap {
+    pub start_date: String,
+    pub end_date: String,
+}
+
+pub fn gap_days_between(last_end: NaiveDate, next_start: NaiveDate) -> i64 {
+    if next_start <= last_end {
+        return 0;
+    }
+    next_start.signed_duration_since(last_end).num_days() - 1
+}
+
+pub fn merge_statement_ranges(
+    ranges: &[(NaiveDate, NaiveDate)],
+    join_gap_days: i64,
+) -> Vec<(NaiveDate, NaiveDate)> {
+    if ranges.is_empty() {
+        return Vec::new();
+    }
+
+    let mut sorted: Vec<(NaiveDate, NaiveDate)> = ranges.to_vec();
+    sorted.sort_by_key(|(start, _)| *start);
+
+    let mut merged = vec![sorted[0]];
+    for (start, end) in sorted.into_iter().skip(1) {
+        let (_, last_end) = merged
+            .last_mut()
+            .expect("merged ranges should not be empty");
+        if gap_days_between(*last_end, start) <= join_gap_days {
+            if end > *last_end {
+                *last_end = end;
+            }
+        } else {
+            merged.push((start, end));
+        }
+    }
+
+    merged
+}
+
+fn median_statement_span_days(ranges: &[(NaiveDate, NaiveDate)]) -> i32 {
+    if ranges.is_empty() {
+        return 30;
+    }
+    let mut spans: Vec<i64> = ranges
+        .iter()
+        .map(|(start, end)| end.signed_duration_since(*start).num_days())
+        .filter(|days| *days >= 0)
+        .collect();
+    if spans.is_empty() {
+        return 30;
+    }
+    spans.sort_unstable();
+    let mid = spans.len() / 2;
+    i32::try_from(spans[mid]).unwrap_or(30)
+}
+
+pub fn end_of_month(d: NaiveDate) -> NaiveDate {
+    let month_start = start_of_month(d);
+    month_start
+        .checked_add_months(Months::new(1))
+        .expect("next month")
+        - chrono::Duration::days(1)
+}
+
+fn month_overlaps_merged_ranges(
+    month: NaiveDate,
+    merged: &[(NaiveDate, NaiveDate)],
+    window_start: NaiveDate,
+    window_end: NaiveDate,
+) -> bool {
+    let month_start = start_of_month(month);
+    let month_end = end_of_month(month);
+    let clip_start = month_start.max(window_start);
+    let clip_end = month_end.min(window_end);
+    if clip_start > clip_end {
+        return true;
+    }
+    merged
+        .iter()
+        .any(|(range_start, range_end)| *range_start <= clip_end && *range_end >= clip_start)
+}
+
+fn uncovered_gaps_in_window(
+    merged: &[(NaiveDate, NaiveDate)],
+    window_start: NaiveDate,
+    window_end: NaiveDate,
+) -> Vec<(NaiveDate, NaiveDate)> {
+    if window_end < window_start {
+        return Vec::new();
+    }
+
+    let mut gaps = Vec::new();
+    let mut cursor = window_start;
+
+    if merged.is_empty() {
+        return vec![(window_start, window_end)];
+    }
+
+    for &(range_start, range_end) in merged {
+        if range_end < window_start {
+            continue;
+        }
+        if range_start > window_end {
+            break;
+        }
+        if range_start > cursor {
+            let gap_end = range_start.pred_opt().unwrap_or(range_start);
+            if gap_end >= cursor {
+                gaps.push((cursor, gap_end));
+            }
+        }
+        cursor = range_end
+            .succ_opt()
+            .unwrap_or(range_end)
+            .max(cursor);
+        if cursor > window_end {
+            return gaps;
+        }
+    }
+
+    if cursor <= window_end {
+        gaps.push((cursor, window_end));
+    }
+
+    gaps
+}
+
+fn apply_trailing_grace(
+    gaps: Vec<(NaiveDate, NaiveDate)>,
+    merged: &[(NaiveDate, NaiveDate)],
+    window_end: NaiveDate,
+    median_span_days: i32,
+) -> Vec<(NaiveDate, NaiveDate)> {
+    if gaps.is_empty() || merged.is_empty() {
+        return gaps;
+    }
+
+    let Some((_, last_end)) = merged.last() else {
+        return gaps;
+    };
+
+    let grace_days = i64::from(median_span_days) + 14;
+    gaps.into_iter()
+        .filter(|(gap_start, gap_end)| {
+            if *gap_end < window_end {
+                return true;
+            }
+            if *gap_start <= *last_end {
+                return true;
+            }
+            let gap_len = gap_end
+                .signed_duration_since(*gap_start)
+                .num_days()
+                .max(0);
+            gap_len > grace_days
+        })
+        .collect()
+}
+
+pub fn statement_coverage_in_window(
+    ranges: &[(NaiveDate, NaiveDate)],
+    window_start: NaiveDate,
+    window_end: NaiveDate,
+) -> StatementCoverageResult {
+    let month_window_start = start_of_month(window_start);
+    let month_window_end = start_of_month(window_end);
+    if month_window_end < month_window_start {
+        return StatementCoverageResult {
+            missing_months: Vec::new(),
+            gap_ranges: Vec::new(),
+            multi_month_cadence: false,
+            sufficient: true,
+        };
+    }
+
+    let median_span = median_statement_span_days(ranges);
+    let multi_month_cadence = median_span >= 45;
+    let merged = merge_statement_ranges(ranges, STATEMENT_RANGE_JOIN_DAYS);
+    let raw_gaps = uncovered_gaps_in_window(&merged, window_start, window_end);
+    let gaps = if multi_month_cadence {
+        apply_trailing_grace(raw_gaps, &merged, window_end, median_span)
+    } else {
+        raw_gaps
+    };
+
+    let mut missing = Vec::new();
+    for month in months_in_range(month_window_start, month_window_end) {
+        if !month_overlaps_merged_ranges(month, &merged, window_start, window_end) {
+            missing.push(month_label(month));
+        }
+    }
+
+    StatementCoverageResult {
+        sufficient: gaps.is_empty(),
+        missing_months: missing,
+        gap_ranges: gaps
+            .into_iter()
+            .map(|(start, end)| StatementCoverageGap {
+                start_date: start.to_string(),
+                end_date: end.to_string(),
+            })
+            .collect(),
+        multi_month_cadence,
+    }
+}
+
+fn missing_periods_window_end(as_of: NaiveDate) -> NaiveDate {
+    let prior_month = start_of_month(as_of)
+        .checked_sub_months(Months::new(1))
+        .unwrap_or_else(|| start_of_month(as_of));
+    end_of_month(prior_month)
+}
+
 fn missing_month_labels_for_ranges(
     ranges: &[(NaiveDate, NaiveDate)],
     as_of: NaiveDate,
@@ -319,35 +570,22 @@ fn missing_month_labels_for_ranges(
         return Vec::new();
     }
 
-    let mut covered = HashSet::new();
-    for &(start, end) in ranges {
-        for month in months_in_range(start, end) {
-            covered.insert(month);
-        }
-    }
-
     let Some(earliest) = ranges.iter().map(|(start, _)| *start).min() else {
         return Vec::new();
     };
 
-    let mut missing = Vec::new();
-    let mut cursor = start_of_month(earliest);
-    let now_start = start_of_month(as_of);
-
-    while cursor < now_start {
-        if !covered.contains(&cursor) {
-            missing.push(month_label(cursor));
-        }
-        cursor = match cursor.checked_add_months(Months::new(1)) {
-            Some(d) => d,
-            None => break,
-        };
-    }
-
-    missing
+    statement_coverage_in_window(&ranges, earliest, missing_periods_window_end(as_of)).missing_months
 }
 
-fn months_in_range(start: NaiveDate, end: NaiveDate) -> Vec<NaiveDate> {
+pub fn missing_month_labels_in_window(
+    ranges: &[(NaiveDate, NaiveDate)],
+    window_start: NaiveDate,
+    window_end: NaiveDate,
+) -> Vec<String> {
+    statement_coverage_in_window(ranges, window_start, window_end).missing_months
+}
+
+pub fn months_in_range(start: NaiveDate, end: NaiveDate) -> Vec<NaiveDate> {
     let mut months = Vec::new();
     let mut cursor = start_of_month(start);
     let end_month = start_of_month(end);
@@ -363,7 +601,7 @@ fn months_in_range(start: NaiveDate, end: NaiveDate) -> Vec<NaiveDate> {
     months
 }
 
-fn start_of_month(d: NaiveDate) -> NaiveDate {
+pub fn start_of_month(d: NaiveDate) -> NaiveDate {
     NaiveDate::from_ymd_opt(d.year(), d.month(), 1).unwrap_or(d)
 }
 
@@ -396,6 +634,81 @@ mod tests {
     }
 
     #[test]
+    fn banksa_week_handoff_between_half_year_statements_merges() {
+        let ranges = [
+            (
+                NaiveDate::from_ymd_opt(2024, 12, 27).unwrap(),
+                NaiveDate::from_ymd_opt(2025, 6, 19).unwrap(),
+            ),
+            (
+                NaiveDate::from_ymd_opt(2025, 6, 20).unwrap(),
+                NaiveDate::from_ymd_opt(2025, 12, 19).unwrap(),
+            ),
+            (
+                NaiveDate::from_ymd_opt(2025, 12, 27).unwrap(),
+                NaiveDate::from_ymd_opt(2026, 6, 18).unwrap(),
+            ),
+        ];
+
+        assert_eq!(gap_days_between(
+            NaiveDate::from_ymd_opt(2025, 12, 19).unwrap(),
+            NaiveDate::from_ymd_opt(2025, 12, 27).unwrap(),
+        ), 7);
+
+        let coverage = statement_coverage_in_window(
+            &ranges,
+            NaiveDate::from_ymd_opt(2024, 12, 27).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 6, 18).unwrap(),
+        );
+        assert!(coverage.sufficient, "expected no gaps: {:?}", coverage.gap_ranges);
+        assert!(coverage.gap_ranges.is_empty());
+    }
+
+    #[test]
+    fn banksa_contiguous_half_year_missing_labels_empty() {
+        let ranges = [
+            (
+                NaiveDate::from_ymd_opt(2024, 12, 20).unwrap(),
+                NaiveDate::from_ymd_opt(2025, 6, 19).unwrap(),
+            ),
+            (
+                NaiveDate::from_ymd_opt(2025, 6, 20).unwrap(),
+                NaiveDate::from_ymd_opt(2025, 12, 19).unwrap(),
+            ),
+        ];
+
+        let missing = missing_month_labels_for_ranges(
+            &ranges,
+            NaiveDate::from_ymd_opt(2025, 12, 31).unwrap(),
+        );
+        assert!(missing.is_empty());
+    }
+
+    #[test]
+    fn banksa_contiguous_half_year_statements_have_no_interior_gaps() {
+        let ranges = [
+            (
+                NaiveDate::from_ymd_opt(2024, 12, 20).unwrap(),
+                NaiveDate::from_ymd_opt(2025, 6, 19).unwrap(),
+            ),
+            (
+                NaiveDate::from_ymd_opt(2025, 6, 20).unwrap(),
+                NaiveDate::from_ymd_opt(2025, 12, 19).unwrap(),
+            ),
+        ];
+
+        let coverage = statement_coverage_in_window(
+            &ranges,
+            NaiveDate::from_ymd_opt(2025, 1, 1).unwrap(),
+            NaiveDate::from_ymd_opt(2025, 12, 31).unwrap(),
+        );
+        assert!(coverage.sufficient);
+        assert!(coverage.multi_month_cadence);
+        assert!(coverage.missing_months.is_empty());
+        assert!(coverage.gap_ranges.is_empty());
+    }
+
+    #[test]
     fn gap_between_multi_month_statements_is_flagged() {
         let ranges = [
             (
@@ -420,6 +733,28 @@ mod tests {
                 "Sep 2025".to_string(),
                 "Oct 2025".to_string(),
                 "Nov 2025".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn missing_month_labels_in_window_respects_bounds() {
+        let ranges = [(
+            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            NaiveDate::from_ymd_opt(2024, 3, 31).unwrap(),
+        )];
+
+        let missing = missing_month_labels_in_window(
+            &ranges,
+            NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            NaiveDate::from_ymd_opt(2024, 6, 30).unwrap(),
+        );
+        assert_eq!(
+            missing,
+            vec![
+                "Apr 2024".to_string(),
+                "May 2024".to_string(),
+                "Jun 2024".to_string(),
             ]
         );
     }
