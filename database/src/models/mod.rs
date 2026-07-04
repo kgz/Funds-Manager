@@ -13,6 +13,7 @@ pub mod prediction_goal;
 pub mod prediction_scenario;
 pub mod planned_spending;
 pub mod planned_spending_match;
+pub mod report_coverage;
 pub mod report_snapshot;
 pub mod serviceability;
 pub mod recurring_detection;

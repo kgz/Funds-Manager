@@ -1,5 +1,9 @@
 import axios from 'axios';
 import {
+	normalizeReportCoverageSummary,
+	type ReportCoverageSummaryResponse,
+} from '@/types/report-coverage';
+import {
 	normalizeServiceabilitySummary,
 	type ServiceabilitySummaryResponse,
 } from '@/types/serviceability';
@@ -56,6 +60,7 @@ export type ReportSnapshotPayload = {
 		items: unknown[];
 	};
 	netWorth: ReportSnapshotNetWorth;
+	coverage: ReportCoverageSummaryResponse | null;
 };
 
 export type ReportSnapshotDetail = {
@@ -242,6 +247,11 @@ function normalizePayload(raw: unknown): ReportSnapshotPayload | null {
 	const incomeStreamsRaw = readOptionalField(incomeRaw, 'streams', 'streams');
 	const assetItemsRaw = readOptionalField(assetsRaw, 'items', 'items');
 	const liabilityItemsRaw = readOptionalField(liabilitiesRaw, 'items', 'items');
+	const coverageRaw = readOptionalField(raw, 'coverage', 'coverage');
+	const coverage =
+		coverageRaw === null || coverageRaw === undefined
+			? null
+			: normalizeReportCoverageSummary(coverageRaw);
 	return {
 		version: Math.trunc(version),
 		accounts,
@@ -260,6 +270,7 @@ function normalizePayload(raw: unknown): ReportSnapshotPayload | null {
 			items: Array.isArray(liabilityItemsRaw) ? liabilityItemsRaw : [],
 		},
 		netWorth: { points, latest },
+		coverage,
 	};
 }
 

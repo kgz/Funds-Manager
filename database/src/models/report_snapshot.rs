@@ -4,6 +4,7 @@ use crate::models::financial_account::FinancialAccount;
 use crate::models::income_stream::{self, IncomeSummaryResponse};
 use crate::models::lender_expense::{self, LenderExpenseSummaryResponse};
 use crate::models::liabilities::{Liability, LiabilityListResponse};
+use crate::models::report_coverage::{self, ReportCoverageSummaryResponse};
 use crate::models::serviceability::{self, ServiceabilitySummaryResponse, DEFAULT_RATE_BUFFER_BPS};
 use crate::modules::database::get_dbo;
 use crate::schema::broker_report_snapshots;
@@ -12,7 +13,7 @@ use diesel::prelude::*;
 use serde::Serialize;
 use serde_json::Value as JsonValue;
 
-pub const PAYLOAD_VERSION: i32 = 1;
+pub const PAYLOAD_VERSION: i32 = 2;
 
 #[derive(
     Queryable,
@@ -90,6 +91,7 @@ pub struct ReportSnapshotPayload {
     pub assets: AssetListResponse,
     pub liabilities: LiabilityListResponse,
     pub net_worth: ReportSnapshotNetWorth,
+    pub coverage: ReportCoverageSummaryResponse,
 }
 
 #[derive(Insertable, Debug)]
@@ -158,6 +160,11 @@ pub fn build_payload(input: &CaptureInput) -> Result<ReportSnapshotPayload, dies
         input.account_id,
     )?;
     let latest = latest_net_worth_on_or_before(&points, input.as_at);
+    let coverage = report_coverage::coverage_summary(
+        input.start_date,
+        input.end_date,
+        input.account_id,
+    )?;
 
     Ok(ReportSnapshotPayload {
         version: PAYLOAD_VERSION,
@@ -168,6 +175,7 @@ pub fn build_payload(input: &CaptureInput) -> Result<ReportSnapshotPayload, dies
         assets,
         liabilities,
         net_worth: ReportSnapshotNetWorth { points, latest },
+        coverage,
     })
 }
 
