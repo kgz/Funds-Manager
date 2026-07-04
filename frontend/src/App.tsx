@@ -16,6 +16,8 @@ import LiabilitiesPage from "./pages/liabilities";
 import AssetsPage from "./pages/assets";
 import { IncomePage } from "./pages/income";
 import { ServiceabilityPage } from "./pages/serviceability";
+import { ReportSnapshotsPage } from "./pages/report-snapshots/index";
+import { ReportSnapshotDetailPage } from "./pages/report-snapshots/detail";
 import { LenderExpensesLayout } from "./pages/lender-expenses/layout";
 import { LenderExpenseMappingsPage } from "./pages/lender-expenses/mappings-page";
 import { LenderExpensesSummaryPage } from "./pages/lender-expenses/summary-page";
@@ -64,6 +66,8 @@ const App = () => {
 				<Route path="mappings" element={<LenderExpenseMappingsPage />} />
 			</Route>
 			<Route path="/serviceability" element={<ServiceabilityPage />} />
+			<Route path="/report-snapshots" element={<ReportSnapshotsPage />} />
+			<Route path="/report-snapshots/:id" element={<ReportSnapshotDetailPage />} />
 			<Route path="/breakdown" element={<BreakdownPage />} />
 			<Route path="/planned" element={<PlannedSpendingPage />} />
 			<Route path="/predictions" element={<PredictionsPage />} />
