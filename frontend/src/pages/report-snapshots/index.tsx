@@ -17,6 +17,11 @@ import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { glassCardClass } from '@/components/layout/tokens';
 import { useAccountFilter } from '@/hooks/useAccountFilter';
+import { ReportCoveragePanel } from '@/pages/report-snapshots/coverage-panel';
+import {
+	fetchReportCoverageSummary,
+	type ReportCoverageSummaryResponse,
+} from '@/types/report-coverage';
 import {
 	createReportSnapshot,
 	deleteReportSnapshot,
@@ -44,8 +49,32 @@ export function ReportSnapshotsPage() {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
+	const [coverage, setCoverage] = useState<ReportCoverageSummaryResponse | null>(null);
+	const [coverageLoading, setCoverageLoading] = useState(false);
 
 	const dateRange = useMemo(() => periodDateRange(period), [period]);
+
+	const loadCoverage = useCallback(async () => {
+		const start = dateRange.start;
+		const end = dateRange.end;
+		if (start === undefined || end === undefined) {
+			setCoverage(null);
+			return;
+		}
+		setCoverageLoading(true);
+		try {
+			const data = await fetchReportCoverageSummary({
+				startDate: start,
+				endDate: end,
+				accountId: accountIdNumber,
+			});
+			setCoverage(data);
+		} catch {
+			setCoverage(null);
+		} finally {
+			setCoverageLoading(false);
+		}
+	}, [accountIdNumber, dateRange.end, dateRange.start]);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -69,12 +98,25 @@ export function ReportSnapshotsPage() {
 		void load();
 	}, [load]);
 
+	useEffect(() => {
+		void loadCoverage();
+	}, [loadCoverage]);
+
 	const handleSave = async (event: React.FormEvent) => {
 		event.preventDefault();
 		const start = dateRange.start;
 		const end = dateRange.end;
 		const trimmed = name.trim();
 		if (!trimmed || start === undefined || end === undefined) {
+			return;
+		}
+		if (
+			coverage !== null &&
+			!coverage.sufficient &&
+			!window.confirm(
+				`${coverage.summaryStatement}. Save this snapshot anyway?`
+			)
+		) {
 			return;
 		}
 		setSaving(true);
@@ -162,6 +204,7 @@ export function ReportSnapshotsPage() {
 					</button>
 				</div>
 				{saveError !== null ? <InlineAlert variant="error">{saveError}</InlineAlert> : null}
+				<ReportCoveragePanel coverage={coverage} loading={coverageLoading} />
 			</form>
 
 			{loading ? <PageLoadingState label="Loading snapshots…" /> : null}

@@ -425,11 +425,12 @@ export const Statements = () => {
 			{missingPeriods.length > 0 && !missingLoading ? (
 				<div className="mx-4 mb-4">
 					<InlineAlert variant="warning">
-						<span className="font-semibold">Missing statement periods:</span>
+						<span className="font-semibold">Missing statement coverage:</span>
 						<ul className="ml-4 mt-1 list-disc">
 							{missingPeriods.map((entry) => (
 								<li key={`${entry.account_label}-${entry.period}`}>
-									{entry.account_label} — {entry.period}
+									{entry.account_label} —{' '}
+									{entry.period.includes(' to ') ? `${entry.period} uncovered` : entry.period}
 								</li>
 							))}
 						</ul>
