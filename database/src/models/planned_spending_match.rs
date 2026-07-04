@@ -601,7 +601,11 @@ pub fn link_candidates(
         .filter(planned_spending::deleted_at.is_null())
         .filter(planned_spending::resolved_at.is_null())
         .select(PlannedSpending::as_select())
-        .first(conn)?;
+        .first(conn)
+        .optional()?;
+    let Some(planned) = planned else {
+        return Ok(Vec::new());
+    };
 
     let linked_map = load_linked_transactions_for_planned_ids(&[planned_id])?;
     let linked_total_cents: i32 = linked_map
