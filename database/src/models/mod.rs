@@ -12,6 +12,7 @@ pub mod prediction_engine;
 pub mod prediction_goal;
 pub mod prediction_scenario;
 pub mod planned_spending;
+pub mod planned_spending_match;
 pub mod recurring_detection;
 pub mod statement;
 pub mod transaction;

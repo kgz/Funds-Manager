@@ -24,7 +24,8 @@ export function SearchInput({
 				className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
 			/>
 			<input
-				type="search"
+				type="text"
+				role="searchbox"
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				placeholder={placeholder}

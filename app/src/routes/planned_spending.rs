@@ -1,6 +1,7 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use chrono::NaiveDate;
 use database::models::planned_spending::{PlannedSpending, PlannedSpendingChanges};
+use database::models::planned_spending_match;
 use diesel::result::Error as DbError;
 use serde::Deserialize;
 
@@ -8,6 +9,19 @@ use serde::Deserialize;
 pub struct PlannedSpendingListQuery {
     pub from: Option<String>,
     pub to: Option<String>,
+    #[serde(default)]
+    pub include_resolved: bool,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct LinkCandidatesQuery {
+    pub search: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ResolvePlannedMatchPayload {
+    pub transaction_id: Option<i64>,
+    pub action: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -91,8 +105,109 @@ async fn list_planned_spending(
             return Err(error::ErrorBadRequest("from must be on or before to"));
         }
     }
-    let response = PlannedSpending::list_with_total(range_start, range_end).map_err(map_db_error)?;
+    let response = PlannedSpending::list_with_total(
+        range_start,
+        range_end,
+        query.include_resolved,
+    )
+    .map_err(map_db_error)?;
     Ok(HttpResponse::Ok().json(response))
+}
+
+async fn list_match_suggestions() -> Result<impl Responder, error::Error> {
+    let suggestions = web::block(planned_spending_match::detect_suggestions)
+        .await
+        .map_err(|e| {
+            eprintln!("Blocking error loading planned match suggestions: {:?}", e);
+            error::ErrorInternalServerError("Failed to load planned match suggestions")
+        })?
+        .map_err(|e| {
+            eprintln!("Database error loading planned match suggestions: {}", e);
+            error::ErrorInternalServerError("Failed to load planned match suggestions")
+        })?;
+    Ok(HttpResponse::Ok().json(suggestions))
+}
+
+async fn match_suggestion_count() -> Result<impl Responder, error::Error> {
+    let count = web::block(planned_spending_match::suggestion_count)
+        .await
+        .map_err(|e| {
+            eprintln!("Blocking error counting planned match suggestions: {:?}", e);
+            error::ErrorInternalServerError("Failed to count planned match suggestions")
+        })?
+        .map_err(|e| {
+            eprintln!("Database error counting planned match suggestions: {}", e);
+            error::ErrorInternalServerError("Failed to count planned match suggestions")
+        })?;
+    Ok(HttpResponse::Ok().json(serde_json::json!({ "count": count })))
+}
+
+async fn resolve_planned_match(
+    path: web::Path<i64>,
+    payload: web::Json<ResolvePlannedMatchPayload>,
+) -> Result<impl Responder, error::Error> {
+    let planned_id = path.into_inner();
+    let data = payload.into_inner();
+    match data.action.as_str() {
+        "confirm" | "link" => {
+            let transaction_id = data.transaction_id.ok_or_else(|| {
+                error::ErrorBadRequest("transaction_id is required for link")
+            })?;
+            let row = web::block(move || {
+                planned_spending_match::link_transaction(planned_id, transaction_id)
+            })
+            .await
+            .map_err(|e| {
+                eprintln!("Blocking error linking planned transaction: {:?}", e);
+                error::ErrorInternalServerError("Failed to link planned transaction")
+            })?
+            .map_err(map_db_error)?;
+            Ok(HttpResponse::Ok().json(row))
+        }
+        "complete" => {
+            let row = web::block(move || planned_spending_match::mark_complete(planned_id))
+                .await
+                .map_err(|e| {
+                    eprintln!("Blocking error completing planned item: {:?}", e);
+                    error::ErrorInternalServerError("Failed to complete planned item")
+                })?
+                .map_err(map_db_error)?;
+            Ok(HttpResponse::Ok().json(row))
+        }
+        "unlink" => {
+            let transaction_id = data.transaction_id.ok_or_else(|| {
+                error::ErrorBadRequest("transaction_id is required for unlink")
+            })?;
+            web::block(move || {
+                planned_spending_match::unlink_transaction(planned_id, transaction_id)
+            })
+            .await
+            .map_err(|e| {
+                eprintln!("Blocking error unlinking planned transaction: {:?}", e);
+                error::ErrorInternalServerError("Failed to unlink planned transaction")
+            })?
+            .map_err(map_db_error)?;
+            Ok(HttpResponse::NoContent().finish())
+        }
+        "dismiss" => {
+            let transaction_id = data.transaction_id.ok_or_else(|| {
+                error::ErrorBadRequest("transaction_id is required for dismiss")
+            })?;
+            web::block(move || {
+                planned_spending_match::dismiss_match(planned_id, transaction_id)
+            })
+            .await
+            .map_err(|e| {
+                eprintln!("Blocking error dismissing planned match: {:?}", e);
+                error::ErrorInternalServerError("Failed to dismiss planned match")
+            })?
+            .map_err(map_db_error)?;
+            Ok(HttpResponse::NoContent().finish())
+        }
+        _ => Err(error::ErrorBadRequest(
+            "action must be link, confirm, dismiss, complete, or unlink",
+        )),
+    }
 }
 
 async fn create_planned_spending(
@@ -188,6 +303,27 @@ async fn update_planned_spending(
     Ok(HttpResponse::Ok().json(row))
 }
 
+async fn list_link_candidates(
+    path: web::Path<i64>,
+    query: web::Query<LinkCandidatesQuery>,
+) -> Result<impl Responder, error::Error> {
+    let planned_id = path.into_inner();
+    let search = query.search.clone();
+    let candidates = web::block(move || {
+        planned_spending_match::link_candidates(
+            planned_id,
+            search.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| {
+        eprintln!("Blocking error loading link candidates: {:?}", e);
+        error::ErrorInternalServerError("Failed to load link candidates")
+    })?
+    .map_err(map_db_error)?;
+    Ok(HttpResponse::Ok().json(candidates))
+}
+
 async fn delete_planned_spending(path: web::Path<i64>) -> Result<impl Responder, error::Error> {
     let id = path.into_inner();
     PlannedSpending::soft_delete(id).map_err(map_db_error)?;
@@ -196,8 +332,12 @@ async fn delete_planned_spending(path: web::Path<i64>) -> Result<impl Responder,
 
 pub fn planned_spending_service() -> Scope {
     web::scope("/planned-spending")
+        .route("/match-suggestions", web::get().to(list_match_suggestions))
+        .route("/match-suggestions/count", web::get().to(match_suggestion_count))
         .route("", web::get().to(list_planned_spending))
         .route("", web::post().to(create_planned_spending))
+        .route("/{id}/link-candidates", web::get().to(list_link_candidates))
+        .route("/{id}/resolve-match", web::post().to(resolve_planned_match))
         .route("/{id}", web::put().to(update_planned_spending))
         .route("/{id}", web::delete().to(delete_planned_spending))
 }

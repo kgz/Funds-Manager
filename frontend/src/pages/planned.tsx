@@ -3,10 +3,12 @@ import { DateTime } from 'luxon';
 import {
 	CalendarRange,
 	Edit2,
+	Link2,
 	Loader2,
 	Plus,
 	Trash2,
 } from 'lucide-react';
+import { ActionableBadge } from '@/components/layout/ActionableBadge';
 import { AccountFilter } from '@/components/account-filter';
 import { CategoryPill } from '@/components/CategoryPill';
 import { PlannedPeriodFilter } from '@/components/dashboard/PlannedPeriodFilter';
@@ -22,6 +24,7 @@ import { SearchInput } from '@/components/layout/SearchInput';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { StatCard } from '@/components/layout/StatCard';
 import {
+	buttonAccentClass,
 	buttonDangerClass,
 	buttonOutlineClass,
 	buttonPrimaryClass,
@@ -40,6 +43,7 @@ import {
 	type PlannedPeriod,
 } from '@/components/dashboard/period';
 import { useDebounce } from '@/hooks/useDebounce';
+import { notifyPlannedMatchesChanged } from '@/hooks/useActionableItemCount';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import {
@@ -51,10 +55,16 @@ import {
 import {
 	centsToDollars,
 	dollarsToCents,
+	fetchPlannedMatchSuggestions,
+	fetchPlannedLinkCandidates,
+	markPlannedComplete,
 	parsePlannedAmountInput,
 	plannedAmountTypeFromCents,
+	resolvePlannedMatch,
 	signedPlannedAmountCents,
 	type PlannedAmountType,
+	type PlannedMatchSuggestion,
+	type PlannedMatchTransaction,
 	type PlannedSpendingItem,
 } from '@/types/plannedSpending';
 
@@ -156,6 +166,53 @@ function matchesPlannedSearch(
 	return false;
 }
 
+function matchReasonLabel(reason: string): string {
+	switch (reason) {
+		case 'exact_amount':
+			return 'Same amount';
+		case 'amount_within_tolerance':
+			return 'Close amount';
+		case 'exact_date':
+			return 'Same date';
+		case 'date_within_tolerance':
+			return 'Close date';
+		case 'category_match':
+			return 'Category matches';
+		case 'description_match':
+			return 'Description matches';
+		case 'partial_payment':
+			return 'Partial payment';
+		default:
+			return reason.replace(/_/g, ' ');
+	}
+}
+
+function defaultLinkSearch(item: PlannedSpendingItem): string {
+	if (item.notes !== null) {
+		const firstSegment = item.notes.split(/[\s—–-]+/)[0]?.trim() ?? '';
+		if (firstSegment.length >= 3) {
+			return firstSegment;
+		}
+	}
+	const words = item.name
+		.split(/\s+/)
+		.map((word) => word.replace(/[^a-zA-Z0-9]/g, ''))
+		.filter((word) => word.length >= 4);
+	return words[0] ?? '';
+}
+
+function formatVarianceLabel(suggestion: PlannedMatchSuggestion): string {
+	const parts: string[] = [];
+	if (suggestion.amount_variance_cents > 0) {
+		parts.push(`${formatMoney(suggestion.amount_variance_cents)} off amount`);
+	}
+	if (suggestion.date_variance_days > 0) {
+		const days = suggestion.date_variance_days;
+		parts.push(`${days} day${days === 1 ? '' : 's'} off date`);
+	}
+	return parts.length > 0 ? parts.join(' · ') : 'Exact amount and date';
+}
+
 export default function PlannedSpendingPage() {
 	const dispatch = useAppDispatch();
 	const { items, totalCents, loading, error } = useAppSelector(
@@ -182,6 +239,70 @@ export default function PlannedSpendingPage() {
 	const [deleteTarget, setDeleteTarget] = useState<PlannedSpendingItem | null>(null);
 	const [searchQuery, setSearchQuery] = useState('');
 	const debouncedSearchQuery = useDebounce(searchQuery, 300);
+	const [matchSuggestions, setMatchSuggestions] = useState<PlannedMatchSuggestion[]>([]);
+	const [matchBusy, setMatchBusy] = useState(false);
+	const [linkTarget, setLinkTarget] = useState<PlannedSpendingItem | null>(null);
+	const [linkSearch, setLinkSearch] = useState('');
+	const debouncedLinkSearch = useDebounce(linkSearch, 300);
+	const [linkCandidates, setLinkCandidates] = useState<PlannedMatchTransaction[]>([]);
+	const [linkCandidatesLoading, setLinkCandidatesLoading] = useState(false);
+	const [linkCandidatesError, setLinkCandidatesError] = useState<string | null>(null);
+	const [selectedLinkTxnIds, setSelectedLinkTxnIds] = useState<number[]>([]);
+
+	const toggleLinkSelection = (transactionId: number) => {
+		setSelectedLinkTxnIds((current) =>
+			current.includes(transactionId)
+				? current.filter((id) => id !== transactionId)
+				: [...current, transactionId]
+		);
+	};
+
+	const reloadMatchSuggestions = useCallback(() => {
+		void fetchPlannedMatchSuggestions()
+			.then(setMatchSuggestions)
+			.catch(() => setMatchSuggestions([]));
+		notifyPlannedMatchesChanged();
+	}, []);
+
+	useEffect(() => {
+		reloadMatchSuggestions();
+	}, [reloadMatchSuggestions]);
+
+	useEffect(() => {
+		if (linkTarget === null) {
+			return;
+		}
+		let cancelled = false;
+		setLinkCandidatesLoading(true);
+		setLinkCandidatesError(null);
+		void fetchPlannedLinkCandidates(linkTarget.id, debouncedLinkSearch)
+			.then((rows) => {
+				if (cancelled) {
+					return;
+				}
+				setLinkCandidates(rows);
+				setSelectedLinkTxnIds((current) =>
+					current.filter((id) => rows.some((row) => row.id === id))
+				);
+			})
+			.catch((err: unknown) => {
+				if (cancelled) {
+					return;
+				}
+				setLinkCandidates([]);
+				setLinkCandidatesError(
+					err instanceof Error ? err.message : 'Failed to load transactions'
+				);
+			})
+			.finally(() => {
+				if (!cancelled) {
+					setLinkCandidatesLoading(false);
+				}
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [linkTarget, debouncedLinkSearch]);
 
 	const activeCategories = useMemo(
 		() => categories.filter((cat) => !cat.deleted_at),
@@ -267,6 +388,93 @@ export default function PlannedSpendingPage() {
 	);
 
 	const searchActive = debouncedSearchQuery.trim().length > 0;
+
+	const suggestionByPlannedId = useMemo(() => {
+		const map = new Map<string, PlannedMatchSuggestion>();
+		for (const suggestion of matchSuggestions) {
+			map.set(suggestion.planned.id, suggestion);
+		}
+		return map;
+	}, [matchSuggestions]);
+
+	const handleLinkMatch = async (suggestion: PlannedMatchSuggestion) => {
+		setMatchBusy(true);
+		try {
+			await resolvePlannedMatch(
+				suggestion.planned.id,
+				suggestion.transaction.id,
+				'link'
+			);
+			reload();
+			reloadMatchSuggestions();
+		} finally {
+			setMatchBusy(false);
+		}
+	};
+
+	const handleDismissMatch = async (suggestion: PlannedMatchSuggestion) => {
+		setMatchBusy(true);
+		try {
+			await resolvePlannedMatch(
+				suggestion.planned.id,
+				suggestion.transaction.id,
+				'dismiss'
+			);
+			reloadMatchSuggestions();
+		} finally {
+			setMatchBusy(false);
+		}
+	};
+
+	const openLinkModal = (item: PlannedSpendingItem) => {
+		setLinkTarget(item);
+		setLinkSearch(defaultLinkSearch(item));
+		setSelectedLinkTxnIds([]);
+		setLinkCandidatesError(null);
+	};
+
+	const resetLinkModal = () => {
+		setLinkTarget(null);
+		setLinkSearch('');
+		setLinkCandidates([]);
+		setSelectedLinkTxnIds([]);
+		setLinkCandidatesError(null);
+	};
+
+	const closeLinkModal = () => {
+		if (matchBusy) {
+			return;
+		}
+		resetLinkModal();
+	};
+
+	const handleConfirmManualLink = async () => {
+		if (linkTarget === null || selectedLinkTxnIds.length === 0) {
+			return;
+		}
+		setMatchBusy(true);
+		try {
+			for (const transactionId of selectedLinkTxnIds) {
+				await resolvePlannedMatch(linkTarget.id, transactionId, 'link');
+			}
+			resetLinkModal();
+			reload();
+			reloadMatchSuggestions();
+		} finally {
+			setMatchBusy(false);
+		}
+	};
+
+	const handleMarkComplete = async (item: PlannedSpendingItem) => {
+		setMatchBusy(true);
+		try {
+			await markPlannedComplete(item.id);
+			reload();
+			reloadMatchSuggestions();
+		} finally {
+			setMatchBusy(false);
+		}
+	};
 
 	const openAddModal = () => {
 		setModalMode('add');
@@ -566,6 +774,122 @@ export default function PlannedSpendingPage() {
 			</div>
 
 			<div className="min-h-0 flex-grow overflow-auto p-4">
+			{matchSuggestions.length > 0 ? (
+				<div className="mb-4 space-y-3 rounded-lg border border-amber-500/25 bg-amber-950/20 p-4">
+					<div className="flex flex-wrap items-start justify-between gap-3">
+						<div>
+							<p className="flex items-center gap-2 text-sm font-medium text-amber-100">
+								<ActionableBadge />
+								<span>
+									{matchSuggestions.length} planned item
+									{matchSuggestions.length === 1 ? '' : 's'} may match imported
+									transactions
+								</span>
+							</p>
+							<p className="mt-1 text-xs text-amber-100/70">
+								Review each pair and link manually — nothing is applied until you
+								confirm.
+							</p>
+						</div>
+					</div>
+					<div className="space-y-3">
+						{matchSuggestions.map((suggestion) => {
+							const plannedCat = categoryById(
+								activeCategories,
+								suggestion.planned.category_id
+							);
+							const txnCat =
+								suggestion.transaction.category_id === null
+									? null
+									: categoryById(
+											activeCategories,
+											String(suggestion.transaction.category_id)
+										);
+							return (
+								<div
+									key={`${suggestion.planned.id}-${suggestion.transaction.id}`}
+									className="rounded border border-white/10 bg-black/20 p-3"
+								>
+									<div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
+										<div className="min-w-0">
+											<p className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
+												Planned
+											</p>
+											<p className="font-medium text-white">
+												{suggestion.planned.name}
+											</p>
+											<p className="mt-1 text-xs text-white/60">
+												{formatMoney(suggestion.planned.amount_cents)} ·{' '}
+												{formatPlannedDate(suggestion.planned.start_date)}
+												{plannedCat
+													? ` · ${categoryLabel(plannedCat, activeCategories)}`
+													: ''}
+											</p>
+											{suggestion.planned.notes ? (
+												<p className="mt-1 truncate text-xs text-white/45">
+													{suggestion.planned.notes}
+												</p>
+											) : null}
+										</div>
+										<div className="hidden justify-center text-white/30 lg:flex">
+											<Link2 size="1.1rem" aria-hidden />
+										</div>
+										<div className="min-w-0">
+											<p className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
+												Bank transaction
+											</p>
+											<p className="truncate font-medium text-white">
+												{suggestion.transaction.description}
+											</p>
+											<p className="mt-1 text-xs text-white/60">
+												{formatMoney(suggestion.transaction.amount)} ·{' '}
+												{formatPlannedDate(suggestion.transaction.transaction_date)}{' '}
+												· {suggestion.transaction.account_label}
+												{txnCat
+													? ` · ${categoryLabel(txnCat, activeCategories)}`
+													: ''}
+											</p>
+										</div>
+									</div>
+									<div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+										<div className="flex flex-wrap gap-1.5">
+											<span className="rounded bg-white/10 px-2 py-0.5 text-[10px] text-white/70">
+												{formatVarianceLabel(suggestion)}
+											</span>
+											{suggestion.reasons.slice(0, 3).map((reason) => (
+												<span
+													key={reason}
+													className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-white/50"
+												>
+													{matchReasonLabel(reason)}
+												</span>
+											))}
+										</div>
+										<div className="flex flex-wrap gap-2">
+											<button
+												type="button"
+												className={buttonAccentClass}
+												disabled={matchBusy}
+												onClick={() => void handleLinkMatch(suggestion)}
+											>
+												Add payment link
+											</button>
+											<button
+												type="button"
+												className={buttonOutlineClass}
+												disabled={matchBusy}
+												onClick={() => void handleDismissMatch(suggestion)}
+											>
+												Not a match
+											</button>
+										</div>
+									</div>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			) : null}
 			{showEmpty ? (
 				<EmptyState
 					icon={CalendarRange}
@@ -608,12 +932,30 @@ export default function PlannedSpendingPage() {
 						<tbody>
 							{filteredItems.map((item) => {
 								const cat = categoryById(activeCategories, item.category_id);
+								const hasLinks = item.linked_transactions.length > 0;
 								return (
 									<tr
 										key={item.id}
 										className="border-b border-white/5 text-white/90"
 									>
-										<td className="px-4 py-3 font-medium">{item.name}</td>
+										<td className="px-4 py-3 font-medium">
+											<span className="inline-flex items-center gap-2">
+												<span>{item.name}</span>
+												{suggestionByPlannedId.has(item.id) ? (
+													<span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200">
+														Match found
+													</span>
+												) : null}
+											</span>
+											{hasLinks ? (
+												<p className="mt-1 text-xs text-amber-200/80">
+													{formatMoney(item.linked_total_cents)} of{' '}
+													{formatMoney(item.amount_cents)} linked (
+													{item.linked_transactions.length} payment
+													{item.linked_transactions.length === 1 ? '' : 's'})
+												</p>
+											) : null}
+										</td>
 										<td
 											className={cn(
 												'px-4 py-3 text-right font-mono tabular-nums',
@@ -641,6 +983,24 @@ export default function PlannedSpendingPage() {
 											{item.notes ?? '—'}
 										</td>
 										<td className="px-4 py-3 text-right whitespace-nowrap">
+											{hasLinks ? (
+												<button
+													type="button"
+													className={cn(buttonAccentClass, 'mr-2')}
+													disabled={matchBusy}
+													onClick={() => void handleMarkComplete(item)}
+												>
+													Mark complete
+												</button>
+											) : null}
+											<button
+												type="button"
+												className={cn(buttonOutlineClass, 'mr-2')}
+												onClick={() => openLinkModal(item)}
+											>
+												<Link2 size="1rem" className="inline-block mr-1" />
+												{hasLinks ? 'Add link' : 'Link'}
+											</button>
 											<button
 												type="button"
 												className={cn(buttonOutlineClass, 'mr-2')}
@@ -848,6 +1208,146 @@ export default function PlannedSpendingPage() {
 						</div>
 					</div>
 				</form>
+			</Modal>
+
+			<Modal
+				open={linkTarget !== null}
+				onClose={closeLinkModal}
+				closeDisabled={matchBusy}
+				title="Link transactions"
+				description={
+					linkTarget !== null
+						? `Select one or more bank transactions for “${linkTarget.name}”. Same spend/income sign, within ±30 days of ${formatPlannedDate(linkTarget.start_date)}.`
+						: undefined
+				}
+				size="xl"
+				fillViewport
+				footer={
+					<div className="flex justify-end gap-2">
+						<button
+							type="button"
+							className={buttonOutlineClass}
+							onClick={closeLinkModal}
+							disabled={matchBusy}
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							className={buttonAccentClass}
+							onClick={() => void handleConfirmManualLink()}
+							disabled={matchBusy || selectedLinkTxnIds.length === 0}
+						>
+							{matchBusy ? (
+								<Loader2 className="inline-block h-4 w-4 animate-spin" />
+							) : selectedLinkTxnIds.length > 1 ? (
+								`Link ${selectedLinkTxnIds.length} transactions`
+							) : (
+								'Link selected'
+							)}
+						</button>
+					</div>
+				}
+			>
+				{linkTarget !== null ? (
+					<div className="flex min-h-0 flex-1 flex-col gap-4">
+						<SearchInput
+							value={linkSearch}
+							onChange={setLinkSearch}
+							placeholder="Search transaction description…"
+							className="w-full shrink-0"
+						/>
+						{linkCandidatesError !== null ? (
+							<InlineAlert variant="error" className="shrink-0">
+								{linkCandidatesError}
+							</InlineAlert>
+						) : null}
+						{linkCandidatesLoading ? (
+							<div className="flex flex-1 items-center justify-center text-white/60">
+								<Loader2 className="h-5 w-5 animate-spin" />
+							</div>
+						) : linkCandidates.length === 0 ? (
+							<div className="flex flex-1 items-center justify-center">
+								<p className="text-center text-sm text-white/50">
+									No transactions found nearby. Try a different search term.
+								</p>
+							</div>
+						) : (
+							<div className="min-h-0 flex-1 overflow-auto rounded-lg border border-white/10">
+								<table className="w-full min-w-[40rem] text-sm">
+									<thead className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm">
+										<tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-white/45">
+											<th className="w-10 px-3 py-2.5 font-medium" />
+											<th className="whitespace-nowrap px-3 py-2.5 font-medium">
+												Date
+											</th>
+											<th className="min-w-[12rem] px-3 py-2.5 font-medium">
+												Description
+											</th>
+											<th className="whitespace-nowrap px-3 py-2.5 font-medium">
+												Account
+											</th>
+											<th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">
+												Amount
+											</th>
+										</tr>
+									</thead>
+									<tbody>
+										{linkCandidates.map((candidate) => {
+											const selected = selectedLinkTxnIds.includes(candidate.id);
+											return (
+												<tr
+													key={candidate.id}
+													className={cn(
+														'cursor-pointer border-t border-white/5 transition-colors',
+														selected
+															? 'bg-secondary-default/15'
+															: 'hover:bg-white/5'
+													)}
+													onClick={() => toggleLinkSelection(candidate.id)}
+												>
+													<td
+														className="px-3 py-2.5 text-center align-middle"
+														onClick={(e) => e.stopPropagation()}
+													>
+														<input
+															type="checkbox"
+															checked={selected}
+															onChange={() =>
+																toggleLinkSelection(candidate.id)
+															}
+															className="form-checkbox h-4 w-4 rounded text-secondary-default"
+															aria-label={`Select transaction ${candidate.id}`}
+														/>
+													</td>
+													<td className="whitespace-nowrap px-3 py-2.5 align-middle text-white/70">
+														{formatPlannedDate(candidate.transaction_date)}
+													</td>
+													<td className="px-3 py-2.5 align-middle text-white/90">
+														{candidate.description}
+													</td>
+													<td className="whitespace-nowrap px-3 py-2.5 align-middle text-white/60">
+														{candidate.account_label}
+													</td>
+													<td
+														className={cn(
+															'whitespace-nowrap px-3 py-2.5 text-right align-middle font-mono tabular-nums',
+															candidate.amount >= 0
+																? 'text-green-400'
+																: 'text-red-400'
+														)}
+													>
+														{formatMoney(candidate.amount)}
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+							</div>
+						)}
+					</div>
+				) : null}
 			</Modal>
 
 			<Modal

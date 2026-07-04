@@ -27,6 +27,21 @@ pub struct PlannedSpending {
     pub notes: Option<String>,
     pub created_at: NaiveDateTime,
     pub deleted_at: Option<NaiveDateTime>,
+    pub resolved_at: Option<NaiveDateTime>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlannedSpendingListItem {
+    #[serde(flatten)]
+    pub item: PlannedSpending,
+    pub linked_transactions: Vec<crate::models::planned_spending_match::PlannedMatchTransaction>,
+    pub linked_total_cents: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlannedSpendingListResponse {
+    pub items: Vec<PlannedSpendingListItem>,
+    pub total_cents: i64,
 }
 
 #[derive(Insertable, Debug)]
@@ -50,12 +65,6 @@ pub struct PlannedSpendingChanges<'a> {
     pub end_date: Option<Option<NaiveDate>>,
     pub category_id: Option<Option<i64>>,
     pub notes: Option<Option<&'a str>>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct PlannedSpendingListResponse {
-    pub items: Vec<PlannedSpending>,
-    pub total_cents: i64,
 }
 
 pub fn spans_overlap(
@@ -87,11 +96,22 @@ fn overlap_filter(
     )
 }
 
+fn active_unresolved_filter(
+    query: planned_spending::BoxedQuery<'_, diesel::pg::Pg>,
+    include_resolved: bool,
+) -> planned_spending::BoxedQuery<'_, diesel::pg::Pg> {
+    let query = query.filter(planned_spending::deleted_at.is_null());
+    if include_resolved {
+        query
+    } else {
+        query.filter(planned_spending::resolved_at.is_null())
+    }
+}
+
 impl PlannedSpending {
-    pub fn list_active() -> Result<Vec<Self>, diesel::result::Error> {
+    pub fn list_active(include_resolved: bool) -> Result<Vec<Self>, diesel::result::Error> {
         let conn = &mut get_dbo();
-        planned_spending::table
-            .filter(planned_spending::deleted_at.is_null())
+        active_unresolved_filter(planned_spending::table.into_boxed(), include_resolved)
             .order((
                 planned_spending::start_date.asc(),
                 planned_spending::name.asc(),
@@ -104,11 +124,10 @@ impl PlannedSpending {
     pub fn list_overlapping(
         range_start: NaiveDate,
         range_end: NaiveDate,
+        include_resolved: bool,
     ) -> Result<Vec<Self>, diesel::result::Error> {
         let conn = &mut get_dbo();
-        let query = planned_spending::table
-            .filter(planned_spending::deleted_at.is_null())
-            .into_boxed();
+        let query = active_unresolved_filter(planned_spending::table.into_boxed(), include_resolved);
         overlap_filter(query, range_start, range_end)
             .order((
                 planned_spending::start_date.asc(),
@@ -119,10 +138,12 @@ impl PlannedSpending {
             .load(conn)
     }
 
-    pub fn list_on_or_after(from: NaiveDate) -> Result<Vec<Self>, diesel::result::Error> {
+    pub fn list_on_or_after(
+        from: NaiveDate,
+        include_resolved: bool,
+    ) -> Result<Vec<Self>, diesel::result::Error> {
         let conn = &mut get_dbo();
-        planned_spending::table
-            .filter(planned_spending::deleted_at.is_null())
+        active_unresolved_filter(planned_spending::table.into_boxed(), include_resolved)
             .filter(planned_spending::start_date.ge(from))
             .order((
                 planned_spending::start_date.asc(),
@@ -136,19 +157,22 @@ impl PlannedSpending {
     pub fn list_with_total(
         range_start: Option<NaiveDate>,
         range_end: Option<NaiveDate>,
+        include_resolved: bool,
     ) -> Result<PlannedSpendingListResponse, diesel::result::Error> {
         let items = match (range_start, range_end) {
-            (Some(start), Some(end)) => Self::list_overlapping(start, end)?,
-            (Some(start), None) => Self::list_on_or_after(start)?,
-            (None, None) => Self::list_active()?,
-            (None, Some(_)) => Self::list_active()?,
+            (Some(start), Some(end)) => Self::list_overlapping(start, end, include_resolved)?,
+            (Some(start), None) => Self::list_on_or_after(start, include_resolved)?,
+            (None, None) => Self::list_active(include_resolved)?,
+            (None, Some(_)) => Self::list_active(include_resolved)?,
         };
-        let total_cents = items
+        let enriched =
+            crate::models::planned_spending_match::enrich_list_items(items)?;
+        let total_cents = enriched
             .iter()
-            .map(|item| i64::from(item.amount_cents))
+            .map(|item| i64::from(item.item.amount_cents))
             .sum();
         Ok(PlannedSpendingListResponse {
-            items,
+            items: enriched,
             total_cents,
         })
     }
