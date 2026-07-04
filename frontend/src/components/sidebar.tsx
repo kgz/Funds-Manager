@@ -16,6 +16,7 @@ import {
 	LucideIcon,
 	Receipt,
 	Repeat,
+	Scale,
 	WalletMinimal,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
@@ -52,6 +53,7 @@ const navSections: NavSection[] = [
 			{ to: '/transactions', label: 'Transactions', icon: CopyCheck },
 			{ to: '/income', label: 'Income', icon: Banknote },
 			{ to: '/lender-expenses', label: 'Living expenses', icon: ListChecks },
+			{ to: '/serviceability', label: 'Serviceability', icon: Scale },
 			{ to: '/recurring', label: 'Repeat payments', icon: Repeat },
 			{ to: '/planned', label: 'Planned spending', icon: CalendarRange },
 		],
