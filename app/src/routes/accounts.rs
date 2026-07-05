@@ -1,6 +1,6 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use database::models::financial_account::{
-    FinancialAccount, FinancialAccountWithStats,
+    FinancialAccount,
 };
 use diesel::result::Error as DbError;
 use serde::Deserialize;

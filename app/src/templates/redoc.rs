@@ -1,15 +1,12 @@
 use actix_web::Result;
 use maud::PreEscaped;
 use maud::{html, Markup};
+use utoipa::OpenApi;
 use utoipa_redoc::Redoc;
 
-use crate::resources::environment::Environments;
-use crate::resources::environment::APP_ENV;
 use crate::routes::api::swagger::ApiDoc;
-use utoipa::OpenApi;
 
 pub async fn redoc() -> Result<Markup> {
-    let is_debug = APP_ENV.env == Environments::DEV;
     let rr = Redoc::new(ApiDoc::openapi());
     // let redoc_handler = move || {
         

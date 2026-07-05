@@ -105,32 +105,6 @@ fn month_bounds(year: i32, month: u32) -> (NaiveDate, NaiveDate) {
     (start, end)
 }
 
-fn months_in_range(from: NaiveDate, to: NaiveDate) -> Vec<(i32, u32)> {
-    let mut months = Vec::new();
-    let mut year = from.year();
-    let mut month = from.month();
-    let end_year = to.year();
-    let end_month = to.month();
-    loop {
-        months.push((year, month));
-        if year == end_year && month == end_month {
-            break;
-        }
-        if month == 12 {
-            year += 1;
-            month = 1;
-        } else {
-            month += 1;
-        }
-    }
-    months
-}
-
-fn format_month_label(year: i32, month: u32) -> String {
-    let (start, _) = month_bounds(year, month);
-    start.format("%b %Y").to_string()
-}
-
 fn count_interval_occurrences(
     start_date: NaiveDate,
     end_date: Option<NaiveDate>,

@@ -1,10 +1,8 @@
-#![allow(warnings)]
 use std::collections::HashSet;
 use std::env;
 use std::path::PathBuf;
 use std::process::exit;
-use std::time::Duration;
-
+use std::str::FromStr;
 
 use crate::server::scopes::api::api;
 use crate::server::static_embed::serve_embedded;
@@ -15,21 +13,8 @@ use crate::{
 };
 
 use actix_cors::Cors;
-use actix_web::web::Data;
-use actix_web::{http, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web::{http, web, App, HttpServer};
 use database::modules::database::migrate_on_startup;
-use chrono::{DateTime, Local, Utc};
-use cron::Schedule;
-use moka::future::Cache;
-use moka::Expiry;
-use openssl::rand;
-use rusqlite::Connection;
-use std::str::FromStr;
-use std::thread::{self, Builder, Thread};
-use std::time::Instant;
-use tokio::sync::mpsc::{self, Receiver, Sender};
-use tokio::task;
-use tokio_util::sync::CancellationToken;
 
 fn make_cors(listen_port: u16) -> Cors {
     let lp = listen_port;
@@ -121,7 +106,6 @@ pub async fn server() {
         }
         Environments::PROD => server.bind(listen_addr.as_str()).unwrap(),
         Environments::TEST => todo!(),
-        _ => panic!("Could not start server"),
     };
 
     let scheme = match APP_ENV.env {

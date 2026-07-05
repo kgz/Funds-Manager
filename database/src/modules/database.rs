@@ -1,7 +1,6 @@
 use diesel::migration::{Migration, MigrationSource};
 use diesel::pg::{Pg, PgConnection};
-use diesel::prelude::*;
-use diesel::r2d2::{self, ConnectionManager, Pool, PooledConnection};
+use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -21,17 +20,33 @@ pub type DbConn = PooledConnection<ConnectionManager<PgConnection>>;
 fn load_dotenv_override() {
     LOAD_DOTENV.call_once(|| {
         for path in [".env", "app/.env", "database/.env"] {
-            if let Ok(iter) = dotenv::from_filename_iter(path) {
-                for entry in iter.flatten() {
-                    if env::var_os(&entry.0).is_none() {
-                        env::set_var(entry.0, entry.1);
-                    }
-                }
+            if load_dotenv_file_if_unset(path) {
                 return;
             }
         }
         dotenv::dotenv().ok();
     });
+}
+
+fn load_dotenv_file_if_unset(path: &str) -> bool {
+    let Ok(contents) = std::fs::read_to_string(path) else {
+        return false;
+    };
+    for line in contents.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if env::var_os(key).is_none() {
+            let value = value.trim().trim_matches('"');
+            env::set_var(key, value);
+        }
+    }
+    true
 }
 
 fn db_pool() -> &'static DbPool {
