@@ -24,4 +24,4 @@ Funds Manager is **self-hosted personal finance software**:
 
 ## Git history
 
-Older commits included **local mkcert dev certificates** (`frontend/localhost+2*.pem`). They were removed in June 2026. These are localhost-only dev keys, not production secrets. If you forked before that cleanup, delete any copied cert files and regenerate with `mkcert` via `./bin/dev-setup.sh`.
+Local mkcert dev certificates were removed from the tree in June 2026 and **purged from git history** in July 2026. Regenerate dev certs with `./bin/dev-setup.sh` after cloning.

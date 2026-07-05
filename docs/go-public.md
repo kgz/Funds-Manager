@@ -12,13 +12,14 @@ Run through this before changing repository visibility to **public**.
 
 ## Git history audit
 
-Historical commits (before `72cb313`) contained **mkcert localhost dev certs** in `frontend/`. They are not in the current tree. Low risk (local dev only). Optional: rewrite history with `git filter-repo` if you want a clean public history.
+~~Historical commits (before `72cb313`) contained **mkcert localhost dev certs** in `frontend/`.~~ **Scrubbed** (Jul 2026) with `git filter-repo` — removed:
 
-```bash
-# Optional — only if you want to purge paths from all history (force-push required)
-# pip install git-filter-repo
-# git filter-repo --path frontend/localhost+2.pem --path frontend/localhost+2-key.pem --invert-paths
-```
+- `frontend/localhost+2.pem`, `frontend/localhost+2-key.pem`
+- `localhost.pem`, `localhost-key.pem` (repo root)
+
+Verify: `git rev-list --all --objects | rg '\.(pem|key)$'` should return nothing.
+
+If you cloned before the scrub, re-clone or `git fetch origin && git reset --hard origin/main`.
 
 ## GitHub settings (manual)
 
