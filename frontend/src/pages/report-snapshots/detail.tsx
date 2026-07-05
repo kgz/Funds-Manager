@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Camera, FileText } from 'lucide-react';
+import { ArrowLeft, Camera, Printer } from 'lucide-react';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
@@ -226,13 +226,13 @@ export function ReportSnapshotDetailPage() {
 							to={`/report-snapshots/${detail.id}/report`}
 							className="inline-flex items-center gap-2 rounded bg-secondary-default px-4 py-2 text-sm font-medium text-black"
 						>
-							<FileText size="1rem" aria-hidden />
-							Open broker report
+							<Printer size="1rem" aria-hidden />
+							Print summary
 						</Link>
 					}
 				/>
 			) : (
-				<PageHeader title="Report snapshot" subtitle="Frozen broker figures" />
+				<PageHeader title="Report snapshot" subtitle="Frozen figures from a point in time" />
 			)}
 
 			{loading ? <PageLoadingState label="Loading snapshot…" /> : null}

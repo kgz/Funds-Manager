@@ -160,7 +160,7 @@ export function ReportSnapshotsPage() {
 		<PageShell>
 			<PageHeader
 				title="Report snapshots"
-				subtitle="Freeze broker figures at a point in time. Saved snapshots stay unchanged even when live data moves."
+				subtitle="Freeze your figures at a point in time. Saved snapshots stay unchanged when live data moves."
 			/>
 
 			<form
@@ -214,7 +214,7 @@ export function ReportSnapshotsPage() {
 				<EmptyState
 					icon={Camera}
 					title="No snapshots yet"
-					description="Save a snapshot to capture income, expenses, serviceability, and net worth for a broker report."
+					description="Save a snapshot to capture income, expenses, repayments, and net worth for a printable summary."
 				/>
 			) : null}
 
