@@ -1,6 +1,6 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use chrono::{NaiveDate, Utc};
-use database::models::report_snapshot::{self, CaptureInput, ReportSnapshot};
+use database::models::report_snapshot::{CaptureInput, ReportSnapshot};
 use database::models::serviceability::DEFAULT_RATE_BUFFER_BPS;
 use diesel::result::Error as DbError;
 use serde::Deserialize;

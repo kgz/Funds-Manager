@@ -4,13 +4,13 @@ use crate::models::category::Category; // Assuming you might need this for assoc
 use crate::schema::{category_mappings, sql_types};
 use chrono::NaiveDateTime;
 use diesel::{
-    deserialize::{self, FromSql, FromSqlRow}, // Import FromSqlRow here
+    backend::Backend,
+    deserialize::{self, FromSql},
     dsl::count_star,
-    expression::{AsExpression, Expression}, // Import Expression
+    expression::AsExpression, // Import Expression
     pg::Pg,
     prelude::*,
-    serialize::{self, IsNull, Output, ToSql}, // Import ToSql and related items
-    sql_types::{self as other_sql_types, Text}, // Import Text SQL type for string mapping
+    serialize::{self, IsNull, Output, ToSql}, // Import Text SQL type for string mapping
 };
 use serde::{Deserialize, Serialize};
 
@@ -97,7 +97,7 @@ impl<'expr> AsExpression<sql_types::CategoryMappingsMatchTypeEnum>
 
 // 2. FromSql: Handles reading the ENUM value from the database
 impl FromSql<sql_types::CategoryMappingsMatchTypeEnum, Pg> for CategoryMappingsMatch {
-    fn from_sql(bytes: diesel::backend::RawValue<'_, Pg>) -> deserialize::Result<Self> {
+    fn from_sql(bytes: <Pg as Backend>::RawValue<'_>) -> deserialize::Result<Self> {
         match std::str::from_utf8(bytes.as_bytes())? {
             "exact" => Ok(CategoryMappingsMatch::Exact),
             "regex" => Ok(CategoryMappingsMatch::Regex),
@@ -133,7 +133,6 @@ where
 // --- Implementation Block for CategoryMapping ---
 
 use crate::modules::database::get_dbo; // Assuming get_dbo provides the connection
-use chrono::Utc;
 
 impl CategoryMapping {
     /// Retrieves all category mappings, ordered by priority (descending) then ID.
