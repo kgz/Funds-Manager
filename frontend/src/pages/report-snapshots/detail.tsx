@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Camera } from 'lucide-react';
+import { ArrowLeft, Camera, FileText } from 'lucide-react';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
@@ -221,6 +221,15 @@ export function ReportSnapshotDetailPage() {
 				<PageHeader
 					title={detail.name}
 					subtitle={`As at ${detail.asAt} · analysis period ${detail.startDate} → ${detail.endDate}`}
+					actions={
+						<Link
+							to={`/report-snapshots/${detail.id}/report`}
+							className="inline-flex items-center gap-2 rounded bg-secondary-default px-4 py-2 text-sm font-medium text-black"
+						>
+							<FileText size="1rem" aria-hidden />
+							Open broker report
+						</Link>
+					}
 				/>
 			) : (
 				<PageHeader title="Report snapshot" subtitle="Frozen broker figures" />

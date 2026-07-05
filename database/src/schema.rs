@@ -128,6 +128,29 @@ diesel::table! {
 }
 
 diesel::table! {
+    broker_report_annotations (id) {
+        id -> Bigint,
+        snapshot_id -> Bigint,
+        transaction_id -> Bigint,
+        note -> Text,
+        exclude_from_analysis -> Bool,
+        created_at -> Timestamp,
+        deleted_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
+    broker_report_shares (id) {
+        id -> Bigint,
+        snapshot_id -> Bigint,
+        token -> Text,
+        redaction -> Text,
+        created_at -> Timestamp,
+        revoked_at -> Nullable<Timestamp>,
+    }
+}
+
+diesel::table! {
     broker_report_snapshots (id) {
         id -> Bigint,
         #[max_length = 200]
@@ -317,6 +340,9 @@ diesel::joinable!(category_lender_mappings -> categories (category_id));
 diesel::joinable!(category_lender_mappings -> lender_expense_buckets (bucket_key));
 diesel::joinable!(assets -> liabilities (liability_id));
 diesel::joinable!(asset_valuations -> assets (asset_id));
+diesel::joinable!(broker_report_annotations -> broker_report_snapshots (snapshot_id));
+diesel::joinable!(broker_report_annotations -> transaction_data (transaction_id));
+diesel::joinable!(broker_report_shares -> broker_report_snapshots (snapshot_id));
 diesel::joinable!(broker_report_snapshots -> financial_accounts (account_id));
 diesel::joinable!(liabilities -> financial_accounts (financial_account_id));
 diesel::joinable!(liability_balances -> liabilities (liability_id));
@@ -336,6 +362,8 @@ diesel::allow_tables_to_appear_in_same_query!(
     account_transfer_pairs,
     assets,
     asset_valuations,
+    broker_report_annotations,
+    broker_report_shares,
     broker_report_snapshots,
     categories,
     category_lender_exclusions,

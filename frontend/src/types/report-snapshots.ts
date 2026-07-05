@@ -4,6 +4,14 @@ import {
 	type ReportCoverageSummaryResponse,
 } from '@/types/report-coverage';
 import {
+	normalizeIncomeSummary,
+	type IncomeSummaryResponse,
+} from '@/types/income';
+import {
+	normalizeLenderExpenseSummary,
+	type LenderExpenseSummaryResponse,
+} from '@/types/lender-expenses';
+import {
 	normalizeServiceabilitySummary,
 	type ServiceabilitySummaryResponse,
 } from '@/types/serviceability';
@@ -43,13 +51,8 @@ export type ReportSnapshotPayload = {
 		bankName: string;
 		displayName: string;
 	}>;
-	income: {
-		totalMonthlyDollars: number;
-		streams: unknown[];
-	};
-	lenderExpenses: {
-		totalMonthlyDollars: number;
-	};
+	income: IncomeSummaryResponse;
+	lenderExpenses: LenderExpenseSummaryResponse;
 	serviceability: ServiceabilitySummaryResponse;
 	assets: {
 		totalValueCents: number;
@@ -159,6 +162,10 @@ function normalizeListItem(raw: unknown): ReportSnapshotListItem | null {
 	};
 }
 
+export function normalizePayloadFromDetail(raw: unknown): ReportSnapshotPayload | null {
+	return normalizePayload(raw);
+}
+
 function normalizePayload(raw: unknown): ReportSnapshotPayload | null {
 	if (!raw || typeof raw !== 'object') {
 		return null;
@@ -168,6 +175,8 @@ function normalizePayload(raw: unknown): ReportSnapshotPayload | null {
 	const serviceability = normalizeServiceabilitySummary(serviceabilityRaw);
 	const incomeRaw = readOptionalField(raw, 'income', 'income');
 	const lenderExpensesRaw = readOptionalField(raw, 'lenderExpenses', 'lender_expenses');
+	const income = normalizeIncomeSummary(incomeRaw);
+	const lenderExpenses = normalizeLenderExpenseSummary(lenderExpensesRaw);
 	const assetsRaw = readOptionalField(raw, 'assets', 'assets');
 	const liabilitiesRaw = readOptionalField(raw, 'liabilities', 'liabilities');
 	const netWorthRaw = readOptionalField(raw, 'netWorth', 'net_worth');
@@ -175,10 +184,8 @@ function normalizePayload(raw: unknown): ReportSnapshotPayload | null {
 	if (
 		version === null ||
 		serviceability === null ||
-		!incomeRaw ||
-		typeof incomeRaw !== 'object' ||
-		!lenderExpensesRaw ||
-		typeof lenderExpensesRaw !== 'object' ||
+		income === null ||
+		lenderExpenses === null ||
 		!assetsRaw ||
 		typeof assetsRaw !== 'object' ||
 		!liabilitiesRaw ||
@@ -189,16 +196,6 @@ function normalizePayload(raw: unknown): ReportSnapshotPayload | null {
 	) {
 		return null;
 	}
-	const incomeTotal = readFiniteNumber(
-		readOptionalField(incomeRaw, 'totalMonthlyDollars', 'total_monthly_dollars')
-	);
-	const lenderTotal = readFiniteNumber(
-		readOptionalField(
-			lenderExpensesRaw,
-			'totalMonthlyDollars',
-			'total_monthly_dollars'
-		)
-	);
 	const assetsTotal = readFiniteNumber(
 		readOptionalField(assetsRaw, 'totalValueCents', 'total_value_cents')
 	);
@@ -208,8 +205,6 @@ function normalizePayload(raw: unknown): ReportSnapshotPayload | null {
 	const pointsRaw = readOptionalField(netWorthRaw, 'points', 'points');
 	const latestRaw = readOptionalField(netWorthRaw, 'latest', 'latest');
 	if (
-		incomeTotal === null ||
-		lenderTotal === null ||
 		assetsTotal === null ||
 		liabilitiesTotal === null ||
 		!Array.isArray(pointsRaw)
@@ -244,7 +239,6 @@ function normalizePayload(raw: unknown): ReportSnapshotPayload | null {
 			displayName,
 		});
 	}
-	const incomeStreamsRaw = readOptionalField(incomeRaw, 'streams', 'streams');
 	const assetItemsRaw = readOptionalField(assetsRaw, 'items', 'items');
 	const liabilityItemsRaw = readOptionalField(liabilitiesRaw, 'items', 'items');
 	const coverageRaw = readOptionalField(raw, 'coverage', 'coverage');
@@ -255,11 +249,8 @@ function normalizePayload(raw: unknown): ReportSnapshotPayload | null {
 	return {
 		version: Math.trunc(version),
 		accounts,
-		income: {
-			totalMonthlyDollars: incomeTotal,
-			streams: Array.isArray(incomeStreamsRaw) ? incomeStreamsRaw : [],
-		},
-		lenderExpenses: { totalMonthlyDollars: lenderTotal },
+		income,
+		lenderExpenses,
 		serviceability,
 		assets: {
 			totalValueCents: Math.trunc(assetsTotal),
