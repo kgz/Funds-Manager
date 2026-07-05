@@ -24,15 +24,6 @@ impl TransferStatus {
             Self::Dismissed => "dismissed",
         }
     }
-
-    fn from_db(value: &str) -> Option<Self> {
-        match value {
-            "suggested" => Some(Self::Suggested),
-            "confirmed" => Some(Self::Confirmed),
-            "dismissed" => Some(Self::Dismissed),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Queryable, Selectable, Debug, Clone, Serialize)]

@@ -1084,18 +1084,6 @@ fn apply_category_drilldown_filter<'a>(
     }
 }
 
-fn matching_category_ids(
-    group_key: &str,
-    group_by_parent: bool,
-    categories: &[Category],
-) -> Option<Vec<i32>> {
-    match category_drilldown_filter(group_key, group_by_parent, categories) {
-        CategoryDrilldownFilter::UncategorizedOnly => None,
-        CategoryDrilldownFilter::CategoryIds(ids) => Some(ids),
-        CategoryDrilldownFilter::UncategorizedOrCategoryIds(ids) => Some(ids),
-    }
-}
-
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SpendingNameRow {

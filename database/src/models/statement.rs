@@ -7,7 +7,7 @@ use diesel::dsl::count_star;
 use diesel::pg::Pg;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 fn sort_descending(sort_dir: Option<&str>) -> bool {
     !matches!(sort_dir, Some(direction) if direction.eq_ignore_ascii_case("asc"))
@@ -562,6 +562,7 @@ fn missing_periods_window_end(as_of: NaiveDate) -> NaiveDate {
     end_of_month(prior_month)
 }
 
+#[cfg(test)]
 fn missing_month_labels_for_ranges(
     ranges: &[(NaiveDate, NaiveDate)],
     as_of: NaiveDate,

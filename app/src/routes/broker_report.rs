@@ -1,6 +1,6 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use database::models::broker_report::{
-    BrokerReportAnnotation, BrokerReportShare, PublicBrokerReportResponse, ReportRedaction,
+    BrokerReportAnnotation, BrokerReportShare, ReportRedaction,
 };
 use diesel::result::Error as DbError;
 use serde::Deserialize;
