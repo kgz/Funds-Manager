@@ -1,6 +1,6 @@
 use std::ffi::OsString;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use actix_multipart::Multipart;
 use actix_web::{web, HttpResponse, Result};

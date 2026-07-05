@@ -2,7 +2,6 @@ use crate::models::transaction::Transaction;
 use crate::modules::database::get_dbo;
 use crate::schema::{categories, category_mappings, transaction_categories, transaction_data};
 use chrono::{NaiveDateTime, Utc};
-use diesel::pg::Pg;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -43,9 +42,6 @@ pub struct NewCategory<'a> {
     pub sort_order: i32,
     pub created_at: NaiveDateTime,
 }
-
-// Helper type alias remains useful for clarity in some places
-type BoxedCategoriesQuery<'a> = categories::BoxedQuery<'a, Pg>;
 
 impl Category {
     /// Retrieves categories from the database, optionally including deleted ones.
