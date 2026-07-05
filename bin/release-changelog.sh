@@ -74,7 +74,13 @@ if not issues:
     sys.exit(0)
 
 def label_names(issue):
-    return [label["name"] for label in issue.get("labels", [])]
+    names = []
+    for label in issue.get("labels", []):
+        if isinstance(label, str):
+            names.append(label)
+        elif isinstance(label, dict) and "name" in label:
+            names.append(label["name"])
+    return names
 
 def bucket(labels):
     names = {label.lower() for label in labels}
