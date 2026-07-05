@@ -82,7 +82,7 @@ export function AnnotationPanel({ snapshotId, onChanged }: AnnotationPanelProps)
 		<div className={`${glassCardClass} broker-report-no-print space-y-4 p-4`}>
 			<h2 className="text-sm font-semibold text-white">Annotations</h2>
 			<p className="text-sm text-white/60">
-				Explain one-off transactions for your broker (e.g. non-recurring repair).
+				Flag one-off transactions so they are not mistaken for regular spending.
 			</p>
 			{error !== null ? <InlineAlert variant="error">{error}</InlineAlert> : null}
 			<form className="space-y-3" onSubmit={(event) => void handleCreate(event)}>

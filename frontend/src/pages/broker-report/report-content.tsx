@@ -28,6 +28,37 @@ function readTermMonths(item: object): number | null {
 	return null;
 }
 
+function readValuedAt(item: object): string | null {
+	const raw = Reflect.get(item, 'valuedAt') ?? Reflect.get(item, 'valued_at');
+	if (typeof raw === 'string' && raw.length >= 10) {
+		return raw;
+	}
+	return null;
+}
+
+function formatValuedAt(valuedAt: string | null): string {
+	if (valuedAt === null) {
+		return '—';
+	}
+	const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(valuedAt);
+	if (match === null) {
+		return '—';
+	}
+	const year = match[1];
+	const month = Number.parseInt(match[2], 10);
+	const day = Number.parseInt(match[3], 10);
+	if (!Number.isFinite(month) || !Number.isFinite(day) || month < 1 || month > 12) {
+		return '—';
+	}
+	const date = new Date(Date.UTC(Number.parseInt(year, 10), month - 1, day));
+	return date.toLocaleDateString('en-AU', {
+		day: 'numeric',
+		month: 'short',
+		year: 'numeric',
+		timeZone: 'UTC',
+	});
+}
+
 function formatTermRemaining(months: number | null): string {
 	if (months === null) {
 		return '—';
@@ -206,8 +237,8 @@ function HandoffSummary({ payload }: { payload: ReportSnapshotPayload }) {
 			<div>
 				<h2 className="text-base font-semibold text-gray-900">At a glance</h2>
 				<p className="mt-1 text-sm text-gray-600">
-					The three figures brokers usually ask for — living expenses are broken down in the
-					HEM table below.
+					Key monthly figures to have handy before a meeting — living expenses are broken down
+					in the spending table below.
 				</p>
 			</div>
 			<div className="grid gap-4 sm:grid-cols-3">
@@ -244,7 +275,7 @@ function HandoffSummary({ payload }: { payload: ReportSnapshotPayload }) {
 				</div>
 			</div>
 			<p className="text-sm text-gray-700">
-				<span className="font-medium">Surplus (for lender assessment):</span>{' '}
+				<span className="font-medium">Left over each month:</span>{' '}
 				{formatMoney(svc.surplusMonthlyDollars)}/mo — gross income minus repayments minus
 				living. Take-home in your account is lower than gross income.
 			</p>
@@ -252,7 +283,7 @@ function HandoffSummary({ payload }: { payload: ReportSnapshotPayload }) {
 	);
 }
 
-function ServiceabilityBlock({
+function MonthlyBreakdownBlock({
 	summary,
 	liabilityTerms,
 }: {
@@ -269,7 +300,6 @@ function ServiceabilityBlock({
 		line.included ? line.rateType ?? '—' : 'No repayment set',
 		formatTermRemaining(liabilityTerms.get(line.id) ?? null),
 		line.included ? formatMoney(line.baselineRepaymentMonthlyDollars) : '—',
-		line.included ? formatMoney(line.stressedRepaymentMonthlyDollars) : '—',
 	]);
 	const committedRows = summary.livingSplit.committedBuckets.map((bucket) => [
 		bucket.label,
@@ -283,10 +313,9 @@ function ServiceabilityBlock({
 	return (
 		<section className="broker-report-section space-y-4">
 			<div>
-				<h2 className="text-base font-semibold text-gray-900">Lender assessment (surplus)</h2>
+				<h2 className="text-base font-semibold text-gray-900">Monthly breakdown</h2>
 				<p className="mt-1 text-sm text-gray-600">
-					How a broker checks whether income covers repayments and living costs, including a
-					stress test on variable-rate debt.
+					How income, loan repayments, and living costs add up for this snapshot.
 				</p>
 			</div>
 			{summary.incomeUsesUnconfirmed ? (
@@ -294,38 +323,31 @@ function ServiceabilityBlock({
 					No confirmed income streams — totals include all detected income.
 				</InlineAlert>
 			) : null}
-			<div className="grid gap-3 sm:grid-cols-2">
-				<Stat
-					label="Monthly surplus"
-					value={formatMoney(summary.surplusMonthlyDollars)}
-					valueClassName={surplusTone(summary.surplusMonthlyDollars)}
-				/>
-				<Stat
-					label={`Stressed surplus (+${(summary.rateBufferBps / 100).toFixed(1)}% buffer)`}
-					value={formatMoney(summary.stressedSurplusMonthlyDollars)}
-					valueClassName={surplusTone(summary.stressedSurplusMonthlyDollars)}
-				/>
-			</div>
+			<Stat
+				label="Left over (monthly)"
+				value={formatMoney(summary.surplusMonthlyDollars)}
+				valueClassName={surplusTone(summary.surplusMonthlyDollars)}
+			/>
 			<ReportTable
-				title="Income used in assessment"
+				title="Income"
 				headers={['Source', 'Confirmed', 'Monthly']}
 				rows={incomeRows}
 				columnAligns={['left', 'left', 'right']}
 			/>
 			<ReportTable
-				title="Loan repayments in assessment"
-				headers={['Name', 'Rate type', 'Term left', 'Repayment', 'Stressed']}
+				title="Loan repayments"
+				headers={['Name', 'Rate type', 'Term left', 'Repayment']}
 				rows={liabilityRows}
-				columnAligns={['left', 'left', 'left', 'right', 'right']}
+				columnAligns={['left', 'left', 'left', 'right']}
 			/>
 			<ReportTable
-				title="Essential living (in HEM total)"
-				headers={['Bucket', 'Monthly avg']}
+				title="Essential spending"
+				headers={['Category', 'Monthly avg']}
 				rows={committedRows}
 			/>
 			<ReportTable
-				title="Other living (in HEM total)"
-				headers={['Bucket', 'Monthly avg']}
+				title="Other spending"
+				headers={['Category', 'Monthly avg']}
 				rows={discretionaryRows}
 				footerRow={[
 					'Total living expenses',
@@ -365,7 +387,7 @@ function assetRows(payload: ReportSnapshotPayload): string[][] {
 			typeof Reflect.get(item, 'kind') === 'string' ? Reflect.get(item, 'kind') : '—';
 		const valueCents = Reflect.get(item, 'valueCents') ?? Reflect.get(item, 'value_cents');
 		const cents = typeof valueCents === 'number' && Number.isFinite(valueCents) ? valueCents : 0;
-		rows.push([name, kind, formatCents(cents)]);
+		rows.push([name, kind, formatCents(cents), formatValuedAt(readValuedAt(item))]);
 	}
 	return rows;
 }
@@ -447,7 +469,7 @@ export function BrokerReportContent({
 	return (
 		<article className="broker-report-document mx-auto max-w-5xl space-y-8 rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
 			<header className="broker-report-section space-y-2 border-b border-gray-200 pb-6">
-				<p className="text-xs uppercase tracking-[0.2em] text-gray-500">Broker report</p>
+				<p className="text-xs uppercase tracking-[0.2em] text-gray-500">Finance summary</p>
 				<h1 className="text-2xl font-bold text-gray-900">{title}</h1>
 				<p className="text-sm text-gray-600">
 					As at {asAt} · analysis period {startDate} → {endDate}
@@ -485,8 +507,8 @@ export function BrokerReportContent({
 					/>
 				</div>
 				<p className="text-xs text-gray-500">
-					Detected income includes all streams from statements. Gross income for broker
-					assessment is in &ldquo;At a glance&rdquo; above.
+					Detected income includes all streams from statements. Confirmed gross income is in
+					&ldquo;At a glance&rdquo; above.
 				</p>
 				{chartData.length > 0 ? (
 					<div className="h-64 w-full rounded border border-gray-200 bg-white p-2">
@@ -511,10 +533,10 @@ export function BrokerReportContent({
 
 			<section className="broker-report-section space-y-3">
 				<div>
-					<h2 className="text-base font-semibold text-gray-900">Living expenses (HEM breakdown)</h2>
+					<h2 className="text-base font-semibold text-gray-900">Living expenses</h2>
 					<p className="mt-1 text-sm text-gray-600">
-						Average monthly spending from your statements, grouped into lender-style
-						categories. Loan repayments are not included here.
+						Average monthly spending from your statements, grouped by category. Loan
+						repayments are not included here.
 					</p>
 				</div>
 				<ReportTable
@@ -538,17 +560,17 @@ export function BrokerReportContent({
 				/>
 			</section>
 
-			<ServiceabilityBlock
+			<MonthlyBreakdownBlock
 				summary={payload.serviceability}
 				liabilityTerms={liabilityTerms}
 			/>
 
 			<ReportTable
 				title="Assets"
-				headers={['Name', 'Kind', 'Value']}
+				headers={['Name', 'Kind', 'Value', 'Last estimated']}
 				rows={assetRows(payload)}
-				columnAligns={['left', 'left', 'right']}
-				footerRow={['Total assets', '', formatCents(payload.assets.totalValueCents)]}
+				columnAligns={['left', 'left', 'right', 'left']}
+				footerRow={['Total assets', '', formatCents(payload.assets.totalValueCents), '']}
 			/>
 			<ReportTable
 				title="Liabilities"
