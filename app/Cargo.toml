@@ -53,7 +53,7 @@ tokio-util = "*"
 database = { version = "0.2.0", path = "../database" }
 utoipa = { version = "5.2.0", features = ["actix_extras", "chrono", "macros", "time"] }
 utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
-utoipauto = "0.1.14"
+utoipauto = "0.2.0"
 serde_qs = "0.13.0"
 serde_urlencoded = "0.7.1"
 serde_html_form = "0.2.7"
