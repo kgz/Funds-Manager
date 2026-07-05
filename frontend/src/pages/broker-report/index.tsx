@@ -16,7 +16,7 @@ import {
 import { fetchReportSnapshot, type ReportSnapshotDetail } from '@/types/report-snapshots';
 
 const DISCLAIMER =
-	'Supporting summary only. Not financial advice. Verify figures against your own records and official documents.';
+	'Personal reference only — not financial advice. Verify figures against your own records before any meeting.';
 
 export function BrokerReportPage() {
 	const params = useParams();
@@ -81,11 +81,11 @@ export function BrokerReportPage() {
 
 			{detail !== null ? (
 				<PageHeader
-					title={`Report: ${detail.name}`}
-					subtitle="Print-ready broker summary from frozen snapshot"
+					title={detail.name}
+					subtitle="Print or save as PDF — your cheat sheet before a broker meeting"
 				/>
 			) : (
-				<PageHeader title="Broker report" />
+				<PageHeader title="Finance summary" />
 			)}
 
 			{loading ? <PageLoadingState label="Loading report…" /> : null}
@@ -93,10 +93,15 @@ export function BrokerReportPage() {
 
 			{detail !== null && !loading ? (
 				<div className="space-y-6">
-					<div className="broker-report-no-print grid gap-4 lg:grid-cols-2">
-						<SharePanel snapshotId={detail.id} />
-						<AnnotationPanel snapshotId={detail.id} onChanged={() => void load()} />
-					</div>
+					<details className="broker-report-no-print rounded-lg border border-white/10 bg-black/20">
+						<summary className="cursor-pointer px-4 py-3 text-sm font-medium text-white/80 hover:text-white">
+							Share link &amp; notes (optional)
+						</summary>
+						<div className="grid gap-4 border-t border-white/10 p-4 lg:grid-cols-2">
+							<SharePanel snapshotId={detail.id} />
+							<AnnotationPanel snapshotId={detail.id} onChanged={() => void load()} />
+						</div>
+					</details>
 					<div className="broker-report-print-root py-4">
 						<BrokerReportContent
 							title={detail.name}
