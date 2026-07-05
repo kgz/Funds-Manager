@@ -129,6 +129,8 @@ pub fn report_snapshots_service() -> Scope {
     web::scope("/report-snapshots")
         .route("", web::get().to(list_report_snapshots))
         .route("", web::post().to(create_report_snapshot))
+        .service(crate::routes::broker_report::snapshot_shares_scope())
+        .service(crate::routes::broker_report::snapshot_annotations_scope())
         .route("/{id}", web::get().to(get_report_snapshot))
         .route("/{id}", web::delete().to(delete_report_snapshot))
 }
