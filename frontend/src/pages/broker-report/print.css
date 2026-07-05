@@ -1,0 +1,37 @@
+.broker-report-document {
+	background: #fff;
+	color: #111827;
+}
+
+@media print {
+	body * {
+		visibility: hidden;
+	}
+
+	.broker-report-print-root,
+	.broker-report-print-root * {
+		visibility: visible;
+	}
+
+	.broker-report-print-root {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+	}
+
+	.broker-report-no-print {
+		display: none !important;
+	}
+
+	.broker-report-document {
+		background: #fff !important;
+		color: #000 !important;
+		box-shadow: none !important;
+	}
+
+	.broker-report-section {
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
+}
