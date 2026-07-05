@@ -86,10 +86,10 @@ export function SharePanel({ snapshotId }: SharePanelProps) {
 		<div className={`${glassCardClass} broker-report-no-print space-y-4 p-4`}>
 			<div className="flex items-center gap-2">
 				<Link2 size="1rem" aria-hidden />
-				<h2 className="text-sm font-semibold text-white">Share link</h2>
+				<h2 className="text-sm font-semibold text-white">Share link (optional)</h2>
 			</div>
 			<p className="text-sm text-white/60">
-				Anyone with the link can view this report. Treat it like a password — revoke when done.
+				Send a read-only copy if needed. Revoke the link when you are done.
 			</p>
 			{error !== null ? <InlineAlert variant="error">{error}</InlineAlert> : null}
 			<label className="flex items-center gap-2 text-sm text-white/80">
