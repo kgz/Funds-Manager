@@ -1,6 +1,7 @@
 pub mod account_transfer;
 pub mod analytics;
 pub mod assets;
+pub mod broker_report;
 pub mod category;
 pub mod financial_account;
 pub mod income_stream;

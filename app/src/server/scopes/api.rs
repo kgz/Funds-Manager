@@ -19,6 +19,7 @@ use crate::routes::{
     lender_expenses::lender_expenses_service,
     report_coverage::report_coverage_service,
     report_snapshots::report_snapshots_service,
+    broker_report::public_broker_reports_service,
     serviceability::serviceability_service,
     liabilities::liabilities_service,
     planned_spending::planned_spending_service,
@@ -54,6 +55,7 @@ pub fn api() -> Scope {
         .service(serviceability_service())
         .service(report_coverage_service())
         .service(report_snapshots_service())
+        .service(public_broker_reports_service())
         .service(analytics_service())
         .service(transactions_service())
         .service(transfers_service())
