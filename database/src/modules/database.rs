@@ -1,19 +1,25 @@
 use diesel::migration::{Migration, MigrationSource};
 use diesel::pg::{Pg, PgConnection};
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
+use diesel::Connection;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::env;
 use std::process::Command;
 use std::sync::Once;
-use std::sync::OnceLock;
+use std::sync::RwLock;
 use std::time::Duration;
 
 const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 static LOAD_DOTENV: Once = Once::new();
-static DB_POOL: OnceLock<DbPool> = OnceLock::new();
+static DB_STATE: RwLock<Option<DbPoolState>> = RwLock::new(None);
+
+struct DbPoolState {
+    pool: DbPool,
+    database_url: String,
+}
 
 pub type DbPool = Pool<ConnectionManager<PgConnection>>;
 pub type DbConn = PooledConnection<ConnectionManager<PgConnection>>;
@@ -50,25 +56,108 @@ fn load_dotenv_file_if_unset(path: &str) -> bool {
     true
 }
 
-fn db_pool() -> &'static DbPool {
-    DB_POOL.get_or_init(|| {
-        load_dotenv_override();
-        let database_url = crate::modules::app_config::resolve_database_url()
-            .unwrap_or_else(|error| panic!("{error}"));
-        let manager = ConnectionManager::<PgConnection>::new(database_url);
-        Pool::builder()
-            .max_size(16)
-            .connection_timeout(Duration::from_secs(30))
-            .build(manager)
-            .unwrap_or_else(|e| panic!("Failed to create DB pool: {e}"))
+fn build_pool(database_url: &str) -> Result<DbPool, String> {
+    let manager = ConnectionManager::<PgConnection>::new(database_url);
+    Pool::builder()
+        .max_size(16)
+        .connection_timeout(Duration::from_secs(30))
+        .build(manager)
+        .map_err(|error| format!("Failed to create DB pool: {error}"))
+}
+
+fn init_pool_from_config() -> Result<DbPoolState, String> {
+    load_dotenv_override();
+    let database_url = crate::modules::app_config::resolve_database_url()?;
+    let pool = build_pool(&database_url)?;
+    pool.get()
+        .map_err(|error| format!("Error connecting to {database_url}: {error}"))?;
+    Ok(DbPoolState {
+        pool,
+        database_url,
     })
 }
 
+fn pool_state() -> Result<DbPoolState, String> {
+    {
+        let read = DB_STATE
+            .read()
+            .map_err(|_| "database pool lock poisoned".to_string())?;
+        if let Some(state) = read.as_ref() {
+            return Ok(DbPoolState {
+                pool: state.pool.clone(),
+                database_url: state.database_url.clone(),
+            });
+        }
+    }
+
+    let mut write = DB_STATE
+        .write()
+        .map_err(|_| "database pool lock poisoned".to_string())?;
+    if let Some(state) = write.as_ref() {
+        return Ok(DbPoolState {
+            pool: state.pool.clone(),
+            database_url: state.database_url.clone(),
+        });
+    }
+
+    let state = init_pool_from_config()?;
+    *write = Some(DbPoolState {
+        pool: state.pool.clone(),
+        database_url: state.database_url.clone(),
+    });
+    Ok(state)
+}
+
+pub fn active_database_url() -> Result<String, String> {
+    Ok(pool_state()?.database_url)
+}
+
+pub fn pending_migration_count_for_url(database_url: &str) -> Result<usize, String> {
+    let url = database_url.trim();
+    if url.is_empty() {
+        return Err("Database URL is empty".to_string());
+    }
+    let mut conn =
+        PgConnection::establish(url).map_err(|error| format!("failed to connect: {error}"))?;
+    let pending = conn
+        .pending_migrations(MIGRATIONS)
+        .map_err(|error| format!("failed to list pending migrations: {error}"))?;
+    Ok(pending.len())
+}
+
+pub fn swap_postgres_pool(database_url: &str) -> Result<(), String> {
+    let url = database_url.trim();
+    if url.is_empty() {
+        return Err("Database URL is empty".to_string());
+    }
+
+    crate::modules::app_config::test_postgres_connection(url)?;
+
+    let pending = pending_migration_count_for_url(url)?;
+    if pending > 0 {
+        return Err(format!(
+            "{pending} migration(s) pending on the target database — run migrations first."
+        ));
+    }
+
+    let pool = build_pool(url)?;
+    pool.get()
+        .map_err(|error| format!("Error connecting to {url}: {error}"))?;
+
+    let mut write = DB_STATE
+        .write()
+        .map_err(|_| "database pool lock poisoned".to_string())?;
+    *write = Some(DbPoolState {
+        pool,
+        database_url: url.to_string(),
+    });
+    Ok(())
+}
+
 pub fn get_dbo() -> DbConn {
-    load_dotenv_override();
-    db_pool().get().unwrap_or_else(|e| {
-        let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "<unset>".to_string());
-        panic!("Error connecting to {database_url}: {e}")
+    let state = pool_state().unwrap_or_else(|error| panic!("{error}"));
+    state.pool.get().unwrap_or_else(|error| {
+        panic!("Error connecting to {}: {error}", state.database_url)
     })
 }
 

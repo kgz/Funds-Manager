@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { Database, HardDrive, Settings as SettingsIcon } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
@@ -11,12 +12,14 @@ import {
 	inputDarkClass,
 } from '@/components/layout/tokens';
 import {
+	connectStorage,
 	fetchMigrationsStatus,
 	fetchStorageSettings,
 	runMigrations,
 	testStorageConnection,
 	updateStorageSettings,
 	type MigrationStatusItem,
+	type PostgresConnectionInput,
 	type StorageMode,
 	type StorageSettings,
 } from '@/types/settings';
@@ -26,11 +29,16 @@ export function Settings() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [storageMode, setStorageMode] = useState<StorageMode>('postgres');
-	const [databaseUrl, setDatabaseUrl] = useState('');
-	const [databaseUrlPlaceholder, setDatabaseUrlPlaceholder] = useState('');
+	const [pgHost, setPgHost] = useState('');
+	const [pgPort, setPgPort] = useState('');
+	const [pgDatabase, setPgDatabase] = useState('');
+	const [pgUser, setPgUser] = useState('');
+	const [pgPassword, setPgPassword] = useState('');
+	const [hasSavedPassword, setHasSavedPassword] = useState(false);
 	const [sqlitePath, setSqlitePath] = useState('');
 	const [saving, setSaving] = useState(false);
 	const [testing, setTesting] = useState(false);
+	const [connecting, setConnecting] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [testMessage, setTestMessage] = useState<string | null>(null);
 	const [testOk, setTestOk] = useState<boolean | null>(null);
@@ -67,8 +75,12 @@ export function Settings() {
 			const data = await fetchStorageSettings();
 			setSettings(data);
 			setStorageMode(data.configured_storage_mode);
-			setDatabaseUrl('');
-			setDatabaseUrlPlaceholder(data.database_url ?? '');
+			setPgHost(data.pg_host ?? '');
+			setPgPort(data.pg_port !== null ? String(data.pg_port) : '');
+			setPgDatabase(data.pg_database ?? '');
+			setPgUser(data.pg_user ?? '');
+			setPgPassword('');
+			setHasSavedPassword(data.pg_has_password);
 			setSqlitePath(data.sqlite_path);
 		} catch (err: unknown) {
 			setError(err instanceof Error ? err.message : 'Failed to load settings');
@@ -102,6 +114,14 @@ export function Settings() {
 		}
 	};
 
+	const postgresInput = (): PostgresConnectionInput => ({
+		host: pgHost.trim(),
+		port: pgPort.trim(),
+		database: pgDatabase.trim(),
+		user: pgUser.trim(),
+		password: pgPassword,
+	});
+
 	const handleSave = async (event: FormEvent) => {
 		event.preventDefault();
 		setSaving(true);
@@ -111,16 +131,8 @@ export function Settings() {
 		try {
 			const payload =
 				storageMode === 'postgres'
-					? {
-							storage_mode: storageMode,
-							...(databaseUrl.trim().length > 0
-								? { database_url: databaseUrl.trim() }
-								: {}),
-						}
-					: {
-							storage_mode: storageMode,
-							sqlite_path: sqlitePath.trim(),
-						};
+					? { storage_mode: storageMode, postgres: postgresInput() }
+					: { storage_mode: storageMode, sqlite_path: sqlitePath.trim() };
 			const result = await updateStorageSettings(payload);
 			setStatusMessage(result.message);
 			await load();
@@ -136,11 +148,9 @@ export function Settings() {
 		setTestMessage(null);
 		setTestOk(null);
 		try {
-			const url =
-				storageMode === 'postgres' && databaseUrl.trim().length > 0
-					? databaseUrl.trim()
-					: undefined;
-			const result = await testStorageConnection(url);
+			const result = await testStorageConnection(
+				storageMode === 'postgres' ? postgresInput() : undefined
+			);
 			setTestOk(result.ok);
 			setTestMessage(result.message);
 		} catch (err: unknown) {
@@ -148,6 +158,27 @@ export function Settings() {
 			setTestMessage(err instanceof Error ? err.message : 'Connection test failed');
 		} finally {
 			setTesting(false);
+		}
+	};
+
+	const handleConnect = async () => {
+		setConnecting(true);
+		setStatusMessage(null);
+		setTestMessage(null);
+		setTestOk(null);
+		try {
+			const result = await connectStorage(
+				storageMode === 'postgres' ? postgresInput() : undefined
+			);
+			setStatusMessage(result.message);
+			if (result.ok) {
+				await load();
+				await loadMigrations();
+			}
+		} catch (err: unknown) {
+			setStatusMessage(err instanceof Error ? err.message : 'Failed to connect');
+		} finally {
+			setConnecting(false);
 		}
 	};
 
@@ -220,29 +251,92 @@ export function Settings() {
 						</fieldset>
 
 						{storageMode === 'postgres' ? (
-							<label className="block space-y-1 text-sm text-white/80">
-								<span>Database URL</span>
-								<input
-									className={inputDarkClass}
-									value={databaseUrl}
-									onChange={(event) => setDatabaseUrl(event.target.value)}
-									placeholder={
-										databaseUrlPlaceholder.length > 0
-											? databaseUrlPlaceholder
-											: 'postgres://user:password@127.0.0.1:5434/funds'
-									}
-									spellCheck={false}
-								/>
-								<span className="block text-xs text-white/50">
-									Active source: {settings.database_url_source}. Leave blank to keep
-									the current URL; enter a new URL to replace it.
-								</span>
-							</label>
+							<div className="space-y-4">
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+									<label className="flex flex-col gap-1 text-sm text-white/80 sm:col-span-2">
+										<span>Host</span>
+										<input
+											className={cn(inputDarkClass, 'w-full px-3 py-2')}
+											value={pgHost}
+											onChange={(event) => setPgHost(event.target.value)}
+											placeholder="127.0.0.1"
+											spellCheck={false}
+											autoComplete="off"
+										/>
+									</label>
+									<label className="flex flex-col gap-1 text-sm text-white/80">
+										<span>Port</span>
+										<input
+											className={cn(inputDarkClass, 'w-full px-3 py-2')}
+											value={pgPort}
+											onChange={(event) => setPgPort(event.target.value)}
+											placeholder="5432"
+											inputMode="numeric"
+											spellCheck={false}
+											autoComplete="off"
+										/>
+									</label>
+								</div>
+
+								<label className="flex flex-col gap-1 text-sm text-white/80">
+									<span>Database name</span>
+									<input
+										className={cn(inputDarkClass, 'w-full px-3 py-2')}
+										value={pgDatabase}
+										onChange={(event) => setPgDatabase(event.target.value)}
+										placeholder="funds"
+										spellCheck={false}
+										autoComplete="off"
+									/>
+								</label>
+
+								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+									<label className="flex flex-col gap-1 text-sm text-white/80">
+										<span>Username</span>
+										<input
+											className={cn(inputDarkClass, 'w-full px-3 py-2')}
+											value={pgUser}
+											onChange={(event) => setPgUser(event.target.value)}
+											placeholder="funds"
+											spellCheck={false}
+											autoComplete="off"
+										/>
+									</label>
+									<label className="flex flex-col gap-1 text-sm text-white/80">
+										<span>Password</span>
+										<input
+											className={cn(inputDarkClass, 'w-full px-3 py-2')}
+											type="password"
+											value={pgPassword}
+											onChange={(event) => setPgPassword(event.target.value)}
+											placeholder={
+												hasSavedPassword ? '•••••••• (unchanged)' : 'Password'
+											}
+											spellCheck={false}
+											autoComplete="off"
+										/>
+									</label>
+								</div>
+
+								<div className="space-y-1">
+									<span className="block text-xs text-white/50">
+										Active source: {settings.database_url_source}.
+										{hasSavedPassword
+											? ' Leave the password blank to keep the saved one.'
+											: ''}
+									</span>
+									{settings.runtime_database_url !== null ? (
+										<span className="block text-xs text-white/50">
+											Currently connected: {settings.runtime_database_url}
+										</span>
+									) : null}
+								</div>
+							</div>
 						) : (
-							<label className="block space-y-1 text-sm text-white/80">
+							<label className="flex flex-col gap-1 text-sm text-white/80">
 								<span>Local database file</span>
 								<input
-									className={inputDarkClass}
+									className={cn(inputDarkClass, 'w-full px-3 py-2')}
 									value={sqlitePath}
 									onChange={(event) => setSqlitePath(event.target.value)}
 									spellCheck={false}
@@ -265,14 +359,24 @@ export function Settings() {
 								{saving ? 'Saving…' : 'Save storage settings'}
 							</button>
 							{storageMode === 'postgres' ? (
-								<button
-									type="button"
-									className={buttonOutlineClass}
-									disabled={testing}
-									onClick={() => void handleTest()}
-								>
-									{testing ? 'Testing…' : 'Test connection'}
-								</button>
+								<>
+									<button
+										type="button"
+										className={buttonOutlineClass}
+										disabled={testing}
+										onClick={() => void handleTest()}
+									>
+										{testing ? 'Testing…' : 'Test connection'}
+									</button>
+									<button
+										type="button"
+										className={buttonOutlineClass}
+										disabled={connecting}
+										onClick={() => void handleConnect()}
+									>
+										{connecting ? 'Connecting…' : 'Connect'}
+									</button>
+								</>
 							) : null}
 						</div>
 

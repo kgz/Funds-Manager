@@ -1,10 +1,13 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use database::modules::app_config::{
-    active_database_url_source, config_file_path, local_storage_backend_available,
-    mask_database_url, runtime_storage_mode, test_postgres_connection, AppConfig, DatabaseUrlSource,
-    StorageMode,
+    active_database_url_source, build_postgres_url_from_fields, config_file_path,
+    current_postgres_parts, local_storage_backend_available, mask_database_url,
+    runtime_storage_mode, test_postgres_connection, AppConfig, DatabaseUrlSource, StorageMode,
 };
-use database::modules::database::{list_migration_status, run_pending_migrations_now, MigrationStatusItem};
+use database::modules::database::{
+    active_database_url, list_migration_status, run_pending_migrations_now, swap_postgres_pool,
+    MigrationStatusItem,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
@@ -13,11 +16,47 @@ struct StorageSettingsResponse {
     configured_storage_mode: &'static str,
     runtime_storage_mode: &'static str,
     database_url: Option<String>,
+    runtime_database_url: Option<String>,
     database_url_source: &'static str,
+    pg_host: Option<String>,
+    pg_port: Option<u16>,
+    pg_database: Option<String>,
+    pg_user: Option<String>,
+    pg_has_password: bool,
     sqlite_path: String,
     config_file_path: String,
     local_storage_available: bool,
     requires_restart: bool,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct PostgresFields {
+    pg_host: Option<String>,
+    pg_port: Option<String>,
+    pg_database: Option<String>,
+    pg_user: Option<String>,
+    pg_password: Option<String>,
+}
+
+impl PostgresFields {
+    fn is_empty(&self) -> bool {
+        self.pg_host.is_none()
+            && self.pg_port.is_none()
+            && self.pg_database.is_none()
+            && self.pg_user.is_none()
+            && self.pg_password.is_none()
+    }
+
+    fn build_url(&self) -> Result<String, String> {
+        build_postgres_url_from_fields(
+            self.pg_host.as_deref(),
+            self.pg_port.as_deref(),
+            self.pg_database.as_deref(),
+            self.pg_user.as_deref(),
+            self.pg_password.as_deref(),
+        )
+    }
 }
 
 #[derive(Deserialize)]
@@ -25,6 +64,8 @@ struct StorageSettingsResponse {
 struct StorageUpdatePayload {
     storage_mode: Option<String>,
     database_url: Option<String>,
+    #[serde(flatten)]
+    postgres: PostgresFields,
     sqlite_path: Option<String>,
 }
 
@@ -32,6 +73,16 @@ struct StorageUpdatePayload {
 #[serde(rename_all = "camelCase")]
 struct StorageTestPayload {
     database_url: Option<String>,
+    #[serde(flatten)]
+    postgres: PostgresFields,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StorageConnectPayload {
+    database_url: Option<String>,
+    #[serde(flatten)]
+    postgres: PostgresFields,
 }
 
 #[derive(Serialize)]
@@ -45,6 +96,13 @@ struct StorageUpdateResponse {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct StorageTestResponse {
+    ok: bool,
+    message: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StorageConnectResponse {
     ok: bool,
     message: String,
 }
@@ -69,12 +127,25 @@ fn resolve_display_database_url(config: &AppConfig) -> Option<String> {
 async fn get_storage_settings() -> impl Responder {
     let config = AppConfig::load();
     let database_url = resolve_display_database_url(&config);
+    let runtime_database_url = active_database_url()
+        .ok()
+        .map(|url| mask_database_url(&url));
+    let parts = current_postgres_parts();
 
     HttpResponse::Ok().json(StorageSettingsResponse {
         configured_storage_mode: config.storage_mode.as_str(),
         runtime_storage_mode: runtime_storage_mode().as_str(),
         database_url,
+        runtime_database_url,
         database_url_source: source_label(active_database_url_source()),
+        pg_host: parts.as_ref().map(|parts| parts.host.clone()),
+        pg_port: parts.as_ref().and_then(|parts| parts.port),
+        pg_database: parts.as_ref().map(|parts| parts.database.clone()),
+        pg_user: parts.as_ref().map(|parts| parts.user.clone()),
+        pg_has_password: parts
+            .as_ref()
+            .map(|parts| parts.password.as_deref().is_some_and(|value| !value.is_empty()))
+            .unwrap_or(false),
         sqlite_path: config.local.sqlite_path.display().to_string(),
         config_file_path: config_file_path().display().to_string(),
         local_storage_available: local_storage_backend_available(),
@@ -96,6 +167,7 @@ async fn update_storage_settings(payload: web::Json<StorageUpdatePayload>) -> Re
         }
     }
 
+    let mut postgres_changed = false;
     if let Some(url) = &payload.database_url {
         let trimmed = url.trim();
         if trimmed.is_empty() {
@@ -103,8 +175,16 @@ async fn update_storage_settings(payload: web::Json<StorageUpdatePayload>) -> Re
         } else {
             config.postgres.url = Some(trimmed.to_string());
             config.storage_mode = StorageMode::Postgres;
-            requires_restart = true;
+            postgres_changed = true;
         }
+    } else if !payload.postgres.is_empty() {
+        let url = payload
+            .postgres
+            .build_url()
+            .map_err(error::ErrorBadRequest)?;
+        config.postgres.url = Some(url);
+        config.storage_mode = StorageMode::Postgres;
+        postgres_changed = true;
     }
 
     if let Some(path) = &payload.sqlite_path {
@@ -120,7 +200,10 @@ async fn update_storage_settings(payload: web::Json<StorageUpdatePayload>) -> Re
     config.save().map_err(|message| error::ErrorInternalServerError(message))?;
 
     let message = if requires_restart {
-        "Settings saved. Restart the app to apply database connection changes.".to_string()
+        "Settings saved. Restart the app to apply this change.".to_string()
+    } else if postgres_changed {
+        "Settings saved. Test the connection, then use Connect to switch without restarting."
+            .to_string()
     } else {
         "Settings saved.".to_string()
     };
@@ -140,6 +223,11 @@ async fn test_storage_connection(payload: web::Json<StorageTestPayload>) -> Resu
         .filter(|value| !value.is_empty())
     {
         url
+    } else if !payload.postgres.is_empty() {
+        payload
+            .postgres
+            .build_url()
+            .map_err(error::ErrorBadRequest)?
     } else {
         let config = AppConfig::load();
         config
@@ -158,6 +246,53 @@ async fn test_storage_connection(payload: web::Json<StorageTestPayload>) -> Resu
             message,
         })),
         Err(_) => Err(error::ErrorInternalServerError("Connection test failed")),
+    }
+}
+
+async fn connect_storage(payload: web::Json<StorageConnectPayload>) -> Result<impl Responder> {
+    let mut config = AppConfig::load();
+    let provided_url = if let Some(url) = payload
+        .database_url
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
+        Some(url)
+    } else if !payload.postgres.is_empty() {
+        Some(
+            payload
+                .postgres
+                .build_url()
+                .map_err(error::ErrorBadRequest)?,
+        )
+    } else {
+        None
+    };
+
+    let url = if let Some(url) = provided_url {
+        config.postgres.url = Some(url.clone());
+        config.storage_mode = StorageMode::Postgres;
+        config
+            .save()
+            .map_err(|message| error::ErrorInternalServerError(message))?;
+        url
+    } else {
+        config
+            .configured_postgres_url()
+            .or_else(|| std::env::var("DATABASE_URL").ok())
+            .ok_or_else(|| error::ErrorBadRequest("No database URL to connect"))?
+    };
+
+    match web::block(move || swap_postgres_pool(&url)).await {
+        Ok(Ok(())) => Ok(HttpResponse::Ok().json(StorageConnectResponse {
+            ok: true,
+            message: "Connected. The app is now using this database.".to_string(),
+        })),
+        Ok(Err(message)) => Ok(HttpResponse::Ok().json(StorageConnectResponse {
+            ok: false,
+            message,
+        })),
+        Err(_) => Err(error::ErrorInternalServerError("Failed to connect database")),
     }
 }
 
@@ -218,6 +353,7 @@ pub fn settings_service() -> Scope {
         .route("/storage", web::get().to(get_storage_settings))
         .route("/storage", web::put().to(update_storage_settings))
         .route("/storage/test", web::post().to(test_storage_connection))
+        .route("/storage/connect", web::post().to(connect_storage))
         .route("/migrations", web::get().to(get_migrations_status))
         .route("/migrations/run", web::post().to(run_migrations))
 }

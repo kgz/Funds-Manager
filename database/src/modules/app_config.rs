@@ -199,6 +199,154 @@ pub fn active_database_url_source() -> DatabaseUrlSource {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct PostgresParts {
+    pub host: String,
+    pub port: Option<u16>,
+    pub database: String,
+    pub user: String,
+    pub password: Option<String>,
+    pub options: Option<String>,
+}
+
+pub fn parse_postgres_url(url: &str) -> Option<PostgresParts> {
+    let rest = url
+        .strip_prefix("postgres://")
+        .or_else(|| url.strip_prefix("postgresql://"))?;
+
+    // credentials are split from the location at the last '@'
+    let at_idx = rest.rfind('@')?;
+    let creds = &rest[..at_idx];
+    let mut location = &rest[at_idx + 1..];
+
+    let options = location.find('?').map(|idx| {
+        let query = location[idx + 1..].to_string();
+        location = &location[..idx];
+        query
+    });
+
+    let (host_port, database) = match location.find('/') {
+        Some(idx) => (&location[..idx], location[idx + 1..].to_string()),
+        None => (location, String::new()),
+    };
+
+    let (host, port) = match host_port.rfind(':') {
+        Some(idx) => {
+            let host = host_port[..idx].to_string();
+            let port = host_port[idx + 1..].parse::<u16>().ok();
+            (host, port)
+        }
+        None => (host_port.to_string(), None),
+    };
+
+    let (user, password) = match creds.find(':') {
+        Some(idx) => (
+            creds[..idx].to_string(),
+            Some(creds[idx + 1..].to_string()),
+        ),
+        None => (creds.to_string(), None),
+    };
+
+    Some(PostgresParts {
+        host,
+        port,
+        database,
+        user,
+        password,
+        options,
+    })
+}
+
+pub fn build_postgres_url(parts: &PostgresParts) -> String {
+    let mut url = String::from("postgres://");
+    url.push_str(&parts.user);
+    if let Some(password) = &parts.password {
+        url.push(':');
+        url.push_str(password);
+    }
+    url.push('@');
+    url.push_str(&parts.host);
+    if let Some(port) = parts.port {
+        url.push(':');
+        url.push_str(&port.to_string());
+    }
+    url.push('/');
+    url.push_str(&parts.database);
+    if let Some(options) = &parts.options {
+        if !options.is_empty() {
+            url.push('?');
+            url.push_str(options);
+        }
+    }
+    url
+}
+
+pub fn current_postgres_parts() -> Option<PostgresParts> {
+    let config = AppConfig::load();
+    let url = config
+        .configured_postgres_url()
+        .or_else(|| env::var("DATABASE_URL").ok().filter(|url| !url.trim().is_empty()))?;
+    parse_postgres_url(&url)
+}
+
+pub fn build_postgres_url_from_fields(
+    host: Option<&str>,
+    port: Option<&str>,
+    database: Option<&str>,
+    user: Option<&str>,
+    password: Option<&str>,
+) -> Result<String, String> {
+    let mut parts = current_postgres_parts().unwrap_or_default();
+
+    if let Some(host) = host {
+        let host = host.trim();
+        if !host.is_empty() {
+            parts.host = host.to_string();
+        }
+    }
+    if let Some(port) = port {
+        let port = port.trim();
+        if port.is_empty() {
+            parts.port = None;
+        } else {
+            parts.port = Some(
+                port.parse::<u16>()
+                    .map_err(|_| "Port must be a number between 1 and 65535.".to_string())?,
+            );
+        }
+    }
+    if let Some(database) = database {
+        let database = database.trim();
+        if !database.is_empty() {
+            parts.database = database.to_string();
+        }
+    }
+    if let Some(user) = user {
+        let user = user.trim();
+        if !user.is_empty() {
+            parts.user = user.to_string();
+        }
+    }
+    // blank password keeps the previously saved one
+    if let Some(password) = password {
+        if !password.is_empty() {
+            parts.password = Some(password.to_string());
+        }
+    }
+
+    if parts.host.is_empty() {
+        return Err("Host is required.".to_string());
+    }
+    if parts.database.is_empty() {
+        return Err("Database name is required.".to_string());
+    }
+    if parts.user.is_empty() {
+        return Err("Username is required.".to_string());
+    }
+
+    Ok(build_postgres_url(&parts))
+}
+
 pub fn mask_database_url(url: &str) -> String {
     let Some(rest) = url.strip_prefix("postgres://") else {
         return url.to_string();
@@ -240,6 +388,26 @@ mod tests {
     fn mask_database_url_hides_password() {
         let masked = mask_database_url("postgres://funds:secret@127.0.0.1:5434/funds");
         assert_eq!(masked, "postgres://funds:***@127.0.0.1:5434/funds");
+    }
+
+    #[test]
+    fn parse_postgres_url_extracts_parts() {
+        let parts =
+            parse_postgres_url("postgres://funds:secret@127.0.0.1:5434/funds?sslmode=disable")
+                .expect("parse");
+        assert_eq!(parts.user, "funds");
+        assert_eq!(parts.password.as_deref(), Some("secret"));
+        assert_eq!(parts.host, "127.0.0.1");
+        assert_eq!(parts.port, Some(5434));
+        assert_eq!(parts.database, "funds");
+        assert_eq!(parts.options.as_deref(), Some("sslmode=disable"));
+    }
+
+    #[test]
+    fn build_postgres_url_round_trips() {
+        let url = "postgres://funds:secret@127.0.0.1:5434/funds?sslmode=disable";
+        let parts = parse_postgres_url(url).expect("parse");
+        assert_eq!(build_postgres_url(&parts), url);
     }
 
     #[test]
