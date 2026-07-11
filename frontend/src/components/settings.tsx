@@ -11,9 +11,12 @@ import {
 	inputDarkClass,
 } from '@/components/layout/tokens';
 import {
+	fetchMigrationsStatus,
 	fetchStorageSettings,
+	runMigrations,
 	testStorageConnection,
 	updateStorageSettings,
+	type MigrationStatusItem,
 	type StorageMode,
 	type StorageSettings,
 } from '@/types/settings';
@@ -31,6 +34,31 @@ export function Settings() {
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [testMessage, setTestMessage] = useState<string | null>(null);
 	const [testOk, setTestOk] = useState<boolean | null>(null);
+	const [migrations, setMigrations] = useState<MigrationStatusItem[]>([]);
+	const [pendingMigrationCount, setPendingMigrationCount] = useState(0);
+	const [migrationsLoading, setMigrationsLoading] = useState(true);
+	const [migrationsError, setMigrationsError] = useState<string | null>(null);
+	const [runningMigrations, setRunningMigrations] = useState(false);
+	const [migrationMessage, setMigrationMessage] = useState<string | null>(null);
+	const [migrationOk, setMigrationOk] = useState<boolean | null>(null);
+
+	const loadMigrations = useCallback(async () => {
+		setMigrationsLoading(true);
+		setMigrationsError(null);
+		try {
+			const data = await fetchMigrationsStatus();
+			setMigrations(data.items);
+			setPendingMigrationCount(data.pending_count);
+		} catch (err: unknown) {
+			setMigrationsError(
+				err instanceof Error ? err.message : 'Failed to load migrations'
+			);
+			setMigrations([]);
+			setPendingMigrationCount(0);
+		} finally {
+			setMigrationsLoading(false);
+		}
+	}, []);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -52,7 +80,27 @@ export function Settings() {
 
 	useEffect(() => {
 		void load();
-	}, [load]);
+		void loadMigrations();
+	}, [load, loadMigrations]);
+
+	const handleRunMigrations = async () => {
+		setRunningMigrations(true);
+		setMigrationMessage(null);
+		setMigrationOk(null);
+		try {
+			const result = await runMigrations();
+			setMigrationOk(result.ok);
+			setMigrationMessage(result.message);
+			await loadMigrations();
+		} catch (err: unknown) {
+			setMigrationOk(false);
+			setMigrationMessage(
+				err instanceof Error ? err.message : 'Failed to run migrations'
+			);
+		} finally {
+			setRunningMigrations(false);
+		}
+	};
 
 	const handleSave = async (event: FormEvent) => {
 		event.preventDefault();
@@ -237,6 +285,72 @@ export function Settings() {
 							</InlineAlert>
 						) : null}
 					</form>
+
+					<div className={`${glassCardClass} space-y-4 p-6`}>
+						<div>
+							<h2 className="text-sm font-semibold text-white">Database migrations</h2>
+							<p className="mt-1 text-sm text-white/60">
+								Apply schema updates to the active database without using the CLI.
+							</p>
+						</div>
+
+						{migrationsLoading ? (
+							<p className="text-sm text-white/60">Loading migrations…</p>
+						) : null}
+						{migrationsError !== null ? (
+							<InlineAlert variant="error">{migrationsError}</InlineAlert>
+						) : null}
+
+						{!migrationsLoading && migrationsError === null ? (
+							<>
+								<p className="text-sm text-white/70">
+									{pendingMigrationCount === 0
+										? 'All migrations are applied.'
+										: `${pendingMigrationCount} migration(s) pending.`}
+								</p>
+								<ul className="max-h-64 space-y-2 overflow-y-auto text-sm">
+									{migrations.map((migration) => (
+										<li
+											key={migration.name}
+											className="flex items-start justify-between gap-3 rounded border border-white/10 bg-black/20 px-3 py-2"
+										>
+											<span>
+												<span className="block font-medium text-white">
+													{migration.description || migration.name}
+												</span>
+												<span className="block text-xs text-white/50">
+													{migration.name}
+												</span>
+											</span>
+											<span
+												className={
+													migration.applied
+														? 'shrink-0 text-xs text-emerald-300'
+														: 'shrink-0 text-xs text-amber-300'
+												}
+											>
+												{migration.applied ? 'Applied' : 'Pending'}
+											</span>
+										</li>
+									))}
+								</ul>
+								<button
+									type="button"
+									className={buttonPrimaryClass}
+									disabled={runningMigrations || pendingMigrationCount === 0}
+									onClick={() => void handleRunMigrations()}
+								>
+									{runningMigrations ? 'Running…' : 'Run pending migrations'}
+								</button>
+							</>
+						) : null}
+
+						{migrationMessage !== null ? (
+							<InlineAlert variant={migrationOk ? 'info' : 'error'}>
+								{migrationMessage}
+							</InlineAlert>
+						) : null}
+					</div>
 
 					<div className={`${glassCardClass} space-y-2 p-6 text-sm text-white/70`}>
 						<p>

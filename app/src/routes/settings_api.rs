@@ -4,6 +4,7 @@ use database::modules::app_config::{
     mask_database_url, runtime_storage_mode, test_postgres_connection, AppConfig, DatabaseUrlSource,
     StorageMode,
 };
+use database::modules::database::{list_migration_status, run_pending_migrations_now, MigrationStatusItem};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
@@ -160,9 +161,63 @@ async fn test_storage_connection(payload: web::Json<StorageTestPayload>) -> Resu
     }
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MigrationsStatusResponse {
+    items: Vec<MigrationStatusItem>,
+    pending_count: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MigrationsRunResponse {
+    ok: bool,
+    applied_count: usize,
+    message: String,
+}
+
+async fn get_migrations_status() -> Result<impl Responder> {
+    match web::block(list_migration_status).await {
+        Ok(Ok(items)) => {
+            let pending_count = items.iter().filter(|item| !item.applied).count();
+            Ok(HttpResponse::Ok().json(MigrationsStatusResponse {
+                items,
+                pending_count,
+            }))
+        }
+        Ok(Err(message)) => Err(error::ErrorInternalServerError(message)),
+        Err(_) => Err(error::ErrorInternalServerError("Failed to load migrations")),
+    }
+}
+
+async fn run_migrations() -> Result<impl Responder> {
+    match web::block(run_pending_migrations_now).await {
+        Ok(Ok(applied_count)) => {
+            let message = if applied_count == 0 {
+                "Database migrations are already up to date.".to_string()
+            } else {
+                format!("Applied {applied_count} migration(s).")
+            };
+            Ok(HttpResponse::Ok().json(MigrationsRunResponse {
+                ok: true,
+                applied_count,
+                message,
+            }))
+        }
+        Ok(Err(message)) => Ok(HttpResponse::Ok().json(MigrationsRunResponse {
+            ok: false,
+            applied_count: 0,
+            message,
+        })),
+        Err(_) => Err(error::ErrorInternalServerError("Failed to run migrations")),
+    }
+}
+
 pub fn settings_service() -> Scope {
     web::scope("/settings")
         .route("/storage", web::get().to(get_storage_settings))
         .route("/storage", web::put().to(update_storage_settings))
         .route("/storage/test", web::post().to(test_storage_connection))
+        .route("/migrations", web::get().to(get_migrations_status))
+        .route("/migrations/run", web::post().to(run_migrations))
 }

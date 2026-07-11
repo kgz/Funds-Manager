@@ -32,6 +32,23 @@ export type StorageTestResult = {
 	message: string;
 };
 
+export type MigrationStatusItem = {
+	name: string;
+	description: string;
+	applied: boolean;
+};
+
+export type MigrationsStatus = {
+	items: MigrationStatusItem[];
+	pending_count: number;
+};
+
+export type MigrationsRunResult = {
+	ok: boolean;
+	applied_count: number;
+	message: string;
+};
+
 function readString(value: unknown): string | null {
 	return typeof value === 'string' ? value : null;
 }
@@ -136,6 +153,65 @@ function normalizeStorageTestResult(raw: unknown): StorageTestResult | null {
 	return { ok, message };
 }
 
+function normalizeMigrationItem(raw: unknown): MigrationStatusItem | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const name = readString(Reflect.get(raw, 'name'));
+	const description = readString(Reflect.get(raw, 'description'));
+	const applied = readBoolean(Reflect.get(raw, 'applied'));
+	if (name === null || description === null || applied === null) {
+		return null;
+	}
+	return { name, description, applied };
+}
+
+function normalizeMigrationsStatus(raw: unknown): MigrationsStatus | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const itemsRaw = Reflect.get(raw, 'items');
+	const pendingCount = readPendingCount(raw);
+	if (!Array.isArray(itemsRaw) || pendingCount === null) {
+		return null;
+	}
+	const items: MigrationStatusItem[] = [];
+	for (const item of itemsRaw) {
+		const normalized = normalizeMigrationItem(item);
+		if (normalized === null) {
+			return null;
+		}
+		items.push(normalized);
+	}
+	return { items, pending_count: pendingCount };
+}
+
+function readPendingCount(raw: unknown): number | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const value = Reflect.get(raw, 'pendingCount') ?? Reflect.get(raw, 'pending_count');
+	return typeof value === 'number' && Number.isInteger(value) ? value : null;
+}
+
+function normalizeMigrationsRunResult(raw: unknown): MigrationsRunResult | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const ok = readBoolean(Reflect.get(raw, 'ok'));
+	const message = readString(Reflect.get(raw, 'message'));
+	const appliedCountRaw =
+		Reflect.get(raw, 'appliedCount') ?? Reflect.get(raw, 'applied_count');
+	const appliedCount =
+		typeof appliedCountRaw === 'number' && Number.isInteger(appliedCountRaw)
+			? appliedCountRaw
+			: null;
+	if (ok === null || message === null || appliedCount === null) {
+		return null;
+	}
+	return { ok, applied_count: appliedCount, message };
+}
+
 export async function fetchStorageSettings(): Promise<StorageSettings> {
 	const response = await axios.get('/api/settings/storage');
 	const settings = normalizeStorageSettings(response.data);
@@ -165,6 +241,24 @@ export async function testStorageConnection(
 	const result = normalizeStorageTestResult(response.data);
 	if (result === null) {
 		throw new Error('Invalid storage test response');
+	}
+	return result;
+}
+
+export async function fetchMigrationsStatus(): Promise<MigrationsStatus> {
+	const response = await axios.get('/api/settings/migrations');
+	const status = normalizeMigrationsStatus(response.data);
+	if (status === null) {
+		throw new Error('Invalid migrations status response');
+	}
+	return status;
+}
+
+export async function runMigrations(): Promise<MigrationsRunResult> {
+	const response = await axios.post('/api/settings/migrations/run');
+	const result = normalizeMigrationsRunResult(response.data);
+	if (result === null) {
+		throw new Error('Invalid migrations run response');
 	}
 	return result;
 }

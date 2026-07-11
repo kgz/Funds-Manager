@@ -3,6 +3,7 @@ use diesel::pg::{Pg, PgConnection};
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::env;
 use std::process::Command;
 use std::sync::Once;
@@ -129,6 +130,63 @@ pub fn get_migrations(conn: &mut impl MigrationHarness<Pg>) -> Vec<Migrations> {
     }
 
     migrations
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MigrationStatusItem {
+    pub name: String,
+    pub description: String,
+    pub applied: bool,
+}
+
+fn migration_version_key(name: &str) -> Option<String> {
+    let segment = name.split('_').next()?;
+    Some(segment.replace('-', ""))
+}
+
+fn migration_description(name: &str) -> String {
+    name.split('_')
+        .nth(1)
+        .unwrap_or("")
+        .replace('_', " ")
+}
+
+pub fn list_migration_status() -> Result<Vec<MigrationStatusItem>, String> {
+    let mut conn = get_dbo();
+    let applied = conn
+        .applied_migrations()
+        .map_err(|error| format!("failed to list applied migrations: {error}"))?;
+    let applied_keys: HashSet<String> = applied.iter().map(|value| value.to_string()).collect();
+
+    let mut items = Vec::new();
+    for migration in MigrationSource::<Pg>::migrations(&MIGRATIONS)
+        .map_err(|error| format!("failed to list migrations: {error}"))?
+        .into_iter()
+    {
+        let name = migration.name().to_string();
+        let version_key = migration_version_key(&name)
+            .ok_or_else(|| format!("invalid migration name: {name}"))?;
+        items.push(MigrationStatusItem {
+            description: migration_description(&name),
+            applied: applied_keys.contains(&version_key),
+            name,
+        });
+    }
+    Ok(items)
+}
+
+pub fn run_pending_migrations_now() -> Result<usize, String> {
+    let mut conn = get_dbo();
+    let pending = conn
+        .pending_migrations(MIGRATIONS)
+        .map_err(|error| format!("failed to list pending migrations: {error}"))?;
+    let count = pending.len();
+    if count == 0 {
+        return Ok(0);
+    }
+    run_pending_migrations(&mut conn).map_err(|error| format!("migration failed: {error}"))?;
+    Ok(count)
 }
 
 fn get_file_creator(file_name: String) -> Vec<u8> {
