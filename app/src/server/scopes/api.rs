@@ -17,6 +17,7 @@ use crate::routes::{
     report_snapshots::report_snapshots_service,
     broker_report::public_broker_reports_service,
     serviceability::serviceability_service,
+    settings_api::settings_service,
     liabilities::liabilities_service,
     planned_spending::planned_spending_service,
     predictions_api::{
@@ -34,6 +35,7 @@ use super::api_users::api_users;
 pub fn api() -> Scope {
     web::scope("/api")
         .route("/version", web::get().to(get_version))
+        .service(settings_service())
         .route("/ai", web::get().to(get_api_catalog))
         .route("/mcp", web::get().to(get_api_catalog))
         .route("openapi.json", web::get().to(openapi))

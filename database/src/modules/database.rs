@@ -52,7 +52,8 @@ fn load_dotenv_file_if_unset(path: &str) -> bool {
 fn db_pool() -> &'static DbPool {
     DB_POOL.get_or_init(|| {
         load_dotenv_override();
-        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+        let database_url = crate::modules::app_config::resolve_database_url()
+            .unwrap_or_else(|error| panic!("{error}"));
         let manager = ConnectionManager::<PgConnection>::new(database_url);
         Pool::builder()
             .max_size(16)
