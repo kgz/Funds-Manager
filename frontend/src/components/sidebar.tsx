@@ -18,6 +18,7 @@ import {
 	Receipt,
 	Repeat,
 	Scale,
+	Settings,
 	WalletMinimal,
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
@@ -73,6 +74,7 @@ const navSections: NavSection[] = [
 		items: [
 			{ to: '/statements', label: 'Statements', icon: FileArchive },
 			{ to: '/categories', label: 'Categories', icon: Receipt },
+			{ to: '/settings', label: 'Settings', icon: Settings },
 		],
 	},
 ];
