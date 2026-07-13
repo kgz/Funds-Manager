@@ -167,15 +167,15 @@ export function Sidebar(_props: SidebarProps) {
 	}));
 
 	return (
-		<div className="fixed left-0 top-0 h-full w-16 border-r border-white/10 bg-gray-950/80 text-white/90 backdrop-blur-md transition-all duration-500 lg:w-64">
-			<div className="flex h-16 items-center justify-between px-4">
+		<div className="fixed left-0 top-0 flex h-full w-16 flex-col border-r border-white/10 bg-gray-950/80 text-white/90 backdrop-blur-md transition-all duration-500 lg:w-64">
+			<div className="flex h-16 shrink-0 items-center justify-between px-4">
 				<div className="flex items-center gap-2">
 					<WalletMinimal aria-hidden />
 					<h1 className="hidden text-xl font-bold lg:block">FUNDS</h1>
 				</div>
 			</div>
 
-			<nav className="mt-4 overflow-y-auto pb-6 lg:mt-6" aria-label="Main">
+			<nav className="mt-4 min-h-0 flex-1 overflow-y-auto pb-6 lg:mt-6" aria-label="Main">
 				{sections.map((section, index) => (
 					<NavSectionBlock key={section.title} {...section} isFirst={index === 0} />
 				))}
