@@ -27,15 +27,62 @@ docker compose --profile bundled-db up -d
 
 Uses an internal `postgres` service and a `postgres_data` volume — separate from any existing dev data.
 
-## Pull published image
+## Pull published image (no clone needed)
 
-When releases are published to GHCR:
+Grab the compose file straight from the repo:
 
 ```bash
 curl -O https://raw.githubusercontent.com/kgz/Funds-Manager/main/docker-compose.yml
-docker compose pull
+docker compose --profile bundled-db up -d   # bundled Postgres
+# or, against your own Postgres on host port 5434:
 docker compose up -d
 ```
+
+Or paste this `docker-compose.yml` yourself and run `docker compose --profile bundled-db up -d`:
+
+```yaml
+services:
+  postgres:
+    profiles: ["bundled-db"]
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: funds
+      POSTGRES_PASSWORD: funds
+      POSTGRES_DB: funds
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U funds -d funds"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ghcr.io/kgz/funds-manager:latest
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${SERVER_PORT:-2020}:2020"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://funds:funds@host.docker.internal:5434/funds?sslmode=disable}
+      SERVER_PORT: "2020"
+      PDFIUM_LIBRARY_PATH: /app/lib/libpdfium.so
+      RUST_LOG: info
+
+volumes:
+  postgres_data:
+```
+
+To point the app at the bundled `postgres` service instead of host Postgres, set `DATABASE_URL`:
+
+```bash
+DATABASE_URL=postgres://funds:funds@postgres:5432/funds?sslmode=disable \
+  docker compose --profile bundled-db up -d
+```
+
+Open **http://localhost:2020**.
 
 Image: `ghcr.io/kgz/funds-manager:latest` (also tagged `X.Y.Z` per release).
 
