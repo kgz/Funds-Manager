@@ -1,54 +1,56 @@
 # Funds Manager
 
-Self-hosted personal finance app: import bank statement PDFs, categorise transactions, and view spending, income, and balance trends on a dashboard.
+Self-hosted personal finance app. Import bank statements, categorise transactions, track net worth, and understand cash flow — all on your own hardware.
 
-> **Personal use.** No login or authentication — your data stays on your Postgres instance. Not financial advice. Do not expose to the internet without your own security measures.
+> **Personal use.** No login or authentication — your data stays on your Postgres database. Not financial advice. Do not expose to the internet without your own security measures.
+
+## What it does
+
+Upload PDF bank statements, assign categories, and build a picture of spending, income, assets, and liabilities over time. Designed for one household running locally or on a home server — not multi-tenant SaaS.
 
 ## Features
 
-- PDF statement import (BankSA, People's Choice, and more)
-- Multi-account tracking and filtering
-- Dashboard KPIs, category breakdowns, balance charts
-- Transactions, categories, recurring payment detection
-- Auto-migrations on server startup
+### Overview
 
-## Quick start (local dev)
+- **Dashboard** — balance, spending, income, and net for a chosen period; monthly profit/loss chart
+- **Breakdown** — drill into categories and time ranges
+- **Future predictions** — model scenarios against your categories and goals
 
-**Prerequisites:** Rust, pnpm, Docker, [mkcert](https://github.com/FiloSottile/mkcert)
+### Cash flow
 
-```bash
-git clone https://github.com/kgz/Funds-Manager.git
-cd Funds-Manager
-./bin/dev-setup.sh
+- **Transactions** — search, filter, sort, bulk categorise; transfer detection between accounts
+- **Income** — income streams and verification
+- **Living expenses** — lender-style expense buckets for serviceability prep
+- **Serviceability** — stressed repayment and surplus estimates
+- **Report snapshots** — frozen point-in-time figures for broker or adviser meetings; shareable prep sheets
+- **Repeat payments** — recurring transaction detection
+- **Planned spending** — budget items with transaction matching
 
-# Terminal 1
-cd app && cargo run
+### Net worth
 
-# Terminal 2
-cd frontend && pnpm dev
-```
+- **Accounts** — multiple bank accounts with per-account filters across the app
+- **Assets** — property, vehicles, super, and other balances with valuation history
+- **Liabilities** — loans and debts with balance tracking
 
-Open **http://localhost:3000**
+### Data & setup
 
-Full guide: [docs/local-development.md](docs/local-development.md)
+- **Statements** — PDF import with parsers for BankSA, People's Choice, and a generic fallback layout; duplicate-period warnings
+- **Categories** — hierarchy, colours, rules, and learned suggestions from your edits
+- **Settings** — choose PostgreSQL storage, test and switch databases without restart, run schema migrations from the UI
 
-## Docker
+## Get started
 
-```bash
-docker compose up -d
-```
+| I want to… | Go to |
+|------------|--------|
+| Run with Docker | [Wiki → Installation](https://github.com/kgz/Funds-Manager/wiki/Installation) |
+| Develop locally | [Wiki → Development](https://github.com/kgz/Funds-Manager/wiki/Development) |
+| Build from source or cut a release | [docs/building.md](docs/building.md) · [docs/releasing.md](docs/releasing.md) |
 
-Open **http://localhost:2020**. See [docs/docker.md](docs/docker.md).
-
-Published image: `ghcr.io/kgz/funds-manager` (on release tags).
-
-## Build from source
-
-See [docs/building.md](docs/building.md). Versioning and releases: [docs/releasing.md](docs/releasing.md).
+Published Docker image: `ghcr.io/kgz/funds-manager` (tagged per release).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Spec-driven changes use [OpenSpec](docs/openspec.md) under `openspec/`.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Larger changes use [OpenSpec](docs/openspec.md) under `openspec/`.
 
 ## License
 

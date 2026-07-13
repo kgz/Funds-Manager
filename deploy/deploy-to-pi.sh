@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PI="${PI:-mat@media}"
-REMOTE_FUNDS_MEDIA_ROOT="${REMOTE_FUNDS_MEDIA_ROOT:-/home/mat/srv/myfunds}"
+PI="${PI:-user@pi-host}"
+REMOTE_FUNDS_MEDIA_ROOT="${REMOTE_FUNDS_MEDIA_ROOT:-/srv/funds}"
 
 echo "==> Building frontend (VITE_BASE=/media) -> app/static"
 cd "$ROOT/frontend"
