@@ -52,7 +52,7 @@ bcrypt = "*"
 tokio-util = "*"
 database = { version = "0.2.0", path = "../database" }
 utoipa = { version = "5.2.0", features = ["actix_extras", "chrono", "macros", "time"] }
-utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }
 utoipauto = "0.1.14"
 serde_qs = "1.1.2"
 serde_urlencoded = "0.7.1"
@@ -65,4 +65,4 @@ statement-parser = { version = "0.2.0", path = "../crates/statement-parser" }
 rust-embed = "8"
 
 [dev-dependencies]
-utoipa-swagger-ui = { version = "7.1.0", features = ["actix-web"] }
+utoipa-swagger-ui = { version = "9.0.2", features = ["actix-web"] }

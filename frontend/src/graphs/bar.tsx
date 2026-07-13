@@ -8,7 +8,7 @@ import {
     CartesianGrid,
     ResponsiveContainer,
 } from "recharts";
-import type { TooltipProps } from "recharts";
+import type { TooltipContentProps } from "recharts";
 import { chartTheme, chartTooltipClass } from "@/graphs/theme";
 
 type MonthlySummary = {
@@ -43,7 +43,7 @@ function isMonthlySummary(value: unknown): value is MonthlySummary {
     );
 }
 
-const renderCustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+const renderCustomTooltip = ({ active, payload, label }: TooltipContentProps) => {
     if (!active || payload === undefined || payload.length === 0) {
         return null;
     }
