@@ -1,5 +1,5 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import type { TooltipProps } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 import { useMemo, useState } from 'react';
 import { chartTheme, chartTooltipClass } from '@/graphs/theme';
 
@@ -48,7 +48,7 @@ function datumFromLegendItem(legendItem: unknown, series: PieChartDataItem[]): P
 	return undefined;
 }
 
-const renderCustomTooltip = ({ active, payload }: TooltipProps<number, string>) => {
+const renderCustomTooltip = ({ active, payload }: TooltipContentProps) => {
 	if (!active || payload === undefined || payload.length === 0) return null;
 	const nested = payload[0]?.payload;
 	if (!isPieChartDataItem(nested)) return null;
@@ -194,7 +194,7 @@ export const CategoryPieChart = ({
 						labelLine={false}
 						style={{ cursor: sliceCursor }}
 						onMouseEnter={(entry) => {
-							setHoveredSliceName(entry.name);
+							setHoveredSliceName(entry.name ?? null);
 						}}
 						onMouseLeave={() => {
 							setHoveredSliceName(null);
@@ -249,7 +249,7 @@ export const CategoryPieChart = ({
 							verticalAlign="middle"
 							iconSize={10}
 							wrapperStyle={{ ...chartTheme.legend.wrapperStyle, cursor: legendCursor }}
-							onMouseEnter={(e) => setHoveredSliceName(e.value)}
+							onMouseEnter={(e) => setHoveredSliceName(e.value ?? null)}
 							onMouseLeave={() => setHoveredSliceName(null)}
 							onClick={(legendItem) => {
 								const item = datumFromLegendItem(legendItem, chartData);

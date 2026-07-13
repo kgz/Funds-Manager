@@ -188,7 +188,6 @@ export function renderPlannedSpendingMarkers(
 						}
 					/>
 				)}
-				isFront
 			/>
 		);
 	});

@@ -19,7 +19,7 @@ import {
 	XAxis,
 	YAxis,
 } from 'recharts';
-import type { TooltipProps } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 import { AccountFilter } from '@/components/account-filter';
 import { CategoryPicker } from '@/components/transactions/CategoryPicker';
 import { PredictionHorizonFilter } from '@/components/dashboard/PredictionHorizonFilter';
@@ -156,7 +156,7 @@ function predictionChartDomain(values: number[]): [number, number] | undefined {
 	return [min - pad, max + pad];
 }
 
-function BalanceTooltip({ active, payload }: TooltipProps<number, string>) {
+function BalanceTooltip({ active, payload }: TooltipContentProps) {
 	if (!active || !payload || payload.length === 0) {
 		return null;
 	}
@@ -173,11 +173,19 @@ function BalanceTooltip({ active, payload }: TooltipProps<number, string>) {
 			<p className="mb-1 font-medium text-white">
 				{formatChartTooltipDate(dateIso)}
 			</p>
-			{payload.map((entry) => (
-				<p key={entry.dataKey} style={{ color: entry.color }}>
-					{entry.name}: {formatMoneyFromCents(Math.round((entry.value ?? 0) * 100))}
+			{payload.map((entry, index) => {
+				const key =
+					typeof entry.dataKey === 'string' || typeof entry.dataKey === 'number'
+						? entry.dataKey
+						: index;
+				const value = entry.value;
+				const numericValue = typeof value === 'number' ? value : 0;
+				return (
+				<p key={key} style={{ color: entry.color }}>
+					{entry.name}: {formatMoneyFromCents(Math.round(numericValue * 100))}
 				</p>
-			))}
+			);
+			})}
 		</div>
 	);
 }
@@ -740,7 +748,7 @@ export default function PredictionsPage() {
 									}
 								/>
 								<Tooltip
-									content={<BalanceTooltip />}
+									content={BalanceTooltip}
 									wrapperStyle={
 										plannedMarkerState.suppressChartTooltip ||
 										savingsGoalMarkerState.suppressChartTooltip

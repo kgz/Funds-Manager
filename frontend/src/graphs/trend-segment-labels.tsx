@@ -41,7 +41,6 @@ export function renderTrendSegmentLabels(labels: TrendSegmentLabel[]) {
 			shape={(props) => (
 				<SegmentLabelShape cx={props.cx} cy={props.cy} label={label} />
 			)}
-			isFront
 		/>
 	));
 }

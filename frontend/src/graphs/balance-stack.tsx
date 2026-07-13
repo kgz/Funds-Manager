@@ -279,6 +279,7 @@ export function BalanceStackGraph({
 							const value = entry.value;
 							if (
 								entry.dataKey === undefined ||
+								typeof entry.dataKey === 'function' ||
 								(typeof value !== 'number' && typeof value !== 'string')
 							) {
 								return [];

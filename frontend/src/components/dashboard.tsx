@@ -35,8 +35,7 @@ import {
 } from '@/components/dashboard/period';
 import type { KpiComparison, DashboardKpiMetrics } from '@/components/dashboard/KpiCards';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { TooltipProps } from 'recharts';
-import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
+import type { TooltipContentProps } from 'recharts';
 import { Drawer } from '@/components/layout/Drawer';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
@@ -103,7 +102,7 @@ function balanceChartDomain(values: number[]): [number, number] | undefined {
 	return [min - pad, max + pad];
 }
 
-function balanceTooltip({ active, payload, label }: TooltipProps<ValueType, NameType>) {
+function balanceTooltip({ active, payload, label }: TooltipContentProps) {
 	if (!active || payload === undefined || payload.length === 0) {
 		return null;
 	}
@@ -112,13 +111,18 @@ function balanceTooltip({ active, payload, label }: TooltipProps<ValueType, Name
 	return (
 		<div className={chartTooltipClass}>
 			<p className="font-semibold">{heading}</p>
-			{payload.map((entry) => {
+			{payload.map((entry, index) => {
 				const value = entry.value;
 				if (typeof value !== 'number') {
 					return null;
 				}
+				const key =
+					typeof entry.dataKey === 'string' || typeof entry.dataKey === 'number'
+						? entry.dataKey
+						: index;
+				const name = typeof entry.name === 'string' || typeof entry.name === 'number' ? entry.name : key;
 				return (
-					<p key={entry.name ?? entry.dataKey}>{entry.name}: {formatCurrencyWithCommas(value)}</p>
+					<p key={key}>{name}: {formatCurrencyWithCommas(value)}</p>
 				);
 			})}
 		</div>

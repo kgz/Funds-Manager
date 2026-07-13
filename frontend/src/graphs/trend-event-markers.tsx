@@ -163,7 +163,6 @@ export function renderTrendEventMarkers(
 						onToggle={() => setPinnedKey((current) => (current === key ? null : key))}
 					/>
 				)}
-				isFront
 			/>
 		);
 	});

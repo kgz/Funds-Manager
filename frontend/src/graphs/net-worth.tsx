@@ -3,6 +3,7 @@ import {
 	Area,
 	CartesianGrid,
 	ComposedChart,
+	DefaultLegendContent,
 	Legend,
 	Line,
 	ResponsiveContainer,
@@ -10,11 +11,7 @@ import {
 	XAxis,
 	YAxis,
 } from 'recharts';
-import type { TooltipProps } from 'recharts';
-import type {
-	NameType,
-	ValueType,
-} from 'recharts/types/component/DefaultTooltipContent';
+import type { TooltipContentProps } from 'recharts';
 import { ChartCard } from '@/components/ChartCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { chartTheme, chartTooltipClass } from '@/graphs/theme';
@@ -121,7 +118,7 @@ function readNumber(value: unknown): number {
 	return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-function NetWorthTooltip({ active, payload }: TooltipProps<ValueType, NameType>) {
+function NetWorthTooltip({ active, payload }: TooltipContentProps) {
 	if (!active || !payload || payload.length === 0) {
 		return null;
 	}
@@ -295,10 +292,14 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 							<Tooltip content={(props) => NetWorthTooltip(props)} />
 							{!accountScoped && legendItems.length > 0 ? (
 								<Legend
-									iconType="circle"
-									iconSize={8}
 									wrapperStyle={chartTheme.legend.wrapperStyle}
-									payload={legendItems}
+									content={
+										<DefaultLegendContent
+											payload={legendItems}
+											iconType="circle"
+											iconSize={8}
+										/>
+									}
 								/>
 							) : null}
 							{accountScoped ? (
