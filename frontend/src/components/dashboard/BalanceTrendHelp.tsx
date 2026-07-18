@@ -1,6 +1,6 @@
 import { HelpCircle } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { chartTooltipClass } from '@/graphs/theme';
+import { chartColors, chartTooltipClass } from '@/graphs/theme';
 import type { PortfolioBalanceChangeDetail } from '@/lib/utils/linearTrend';
 
 function formatPercent(value: number): string {
@@ -32,7 +32,10 @@ export function BalanceTrendHelp({ detail }: BalanceTrendHelpProps) {
 
 	return (
 		<div ref={rootRef} className="relative inline-flex items-center gap-1.5">
-			<p className="text-sm font-medium tabular-nums text-[#fbbf24]">
+			<p
+				className="text-sm font-medium tabular-nums"
+				style={{ color: chartColors.trend }}
+			>
 				{formatPercent(detail.percentChange)}
 			</p>
 			<button
@@ -62,13 +65,19 @@ export function BalanceTrendHelp({ detail }: BalanceTrendHelpProps) {
 									{formatPercent(segment.percentChange)} over {segment.days} days (
 									{segment.weightPercent.toFixed(0)}% of chart)
 								</p>
-								<p className="tabular-nums text-[#fbbf24]">
+								<p
+									className="tabular-nums"
+									style={{ color: chartColors.trend }}
+								>
 									→ {formatPercent(segment.contribution)} toward total
 								</p>
 							</li>
 						))}
 					</ul>
-					<p className="border-t border-paper-border pt-2 tabular-nums text-[#fbbf24]">
+					<p
+						className="border-t border-paper-border pt-2 tabular-nums"
+						style={{ color: chartColors.trend }}
+					>
 						Total: {formatPercent(detail.percentChange)}
 					</p>
 					<p className="text-paper-muted">

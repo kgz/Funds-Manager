@@ -1,7 +1,8 @@
 import { ReferenceDot } from 'recharts';
+import { chartColors } from '@/graphs/theme';
 import type { TrendSegmentLabel } from '@/lib/utils/balanceTrendSegments';
 
-const TREND_COLOR = '#fbbf24';
+const TREND_COLOR = chartColors.trend;
 
 function formatSegmentPercent(value: number): string {
 	const rounded = value.toFixed(1);

@@ -15,7 +15,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CategoryPieChart, type PieChartDataItem } from '@/graphs/pie';
 import { MonthlyBarGraph } from "@/graphs/bar";
 import { BalanceStackGraph, balanceStackAccountColorMap } from '@/graphs/balance-stack';
-import { chartTheme, chartTooltipClass } from '@/graphs/theme';
+import {
+	chartColors,
+	chartSeriesColorForKey,
+	chartTheme,
+	chartTooltipClass,
+} from '@/graphs/theme';
 import { ChartCard } from '@/components/ChartCard';
 import { NetWorthChart } from '@/graphs/net-worth';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
@@ -129,14 +134,11 @@ function balanceTooltip({ active, payload, label }: TooltipContentProps) {
 	);
 }
 
-function toPieItems(
-	rows: DashboardAnalytics['spendingByCategory'],
-	fallbackColor: string
-): PieChartDataItem[] {
+function toPieItems(rows: DashboardAnalytics['spendingByCategory']): PieChartDataItem[] {
 	return rows.map((row) => ({
 		name: row.name,
 		value: row.value,
-		color: row.colour ?? fallbackColor,
+		color: chartSeriesColorForKey(row.groupKey),
 		percent: row.percent,
 		categoryId: row.categoryId,
 		groupKey: row.groupKey,
@@ -341,11 +343,11 @@ export const Dashboard = () => {
 	}, [activeBreakdown, breakdownGroupByName, drilldownPage, dateRange]);
 
 	const spendingByCategory = useMemo(
-		() => toPieItems(analytics?.spendingByCategory ?? [], '#8884d8'),
+		() => toPieItems(analytics?.spendingByCategory ?? []),
 		[analytics]
 	);
 	const incomeByCategory = useMemo(
-		() => toPieItems(analytics?.incomeByCategory ?? [], '#82ca9d'),
+		() => toPieItems(analytics?.incomeByCategory ?? []),
 		[analytics]
 	);
 	const monthlySummary = useMemo(
@@ -814,7 +816,7 @@ export const Dashboard = () => {
 												type="monotone"
 												dataKey="val"
 												name="Balance"
-												stroke="#6ee7b7"
+												stroke={chartColors.assets}
 												strokeWidth={2}
 												dot={false}
 												isAnimationActive={!isRefreshing}
@@ -824,7 +826,7 @@ export const Dashboard = () => {
 												type="linear"
 												dataKey="trend"
 												name="Trend"
-												stroke="#fbbf24"
+												stroke={chartColors.trend}
 												strokeWidth={2}
 												strokeDasharray="8 4"
 												dot={false}

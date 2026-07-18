@@ -14,7 +14,7 @@ import {
 import type { TooltipContentProps } from 'recharts';
 import { ChartCard } from '@/components/ChartCard';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { chartTheme, chartTooltipClass } from '@/graphs/theme';
+import { chartColors, chartTheme, chartTooltipClass } from '@/graphs/theme';
 import { formatChartAxisDate, chartDateSpanDays } from '@/lib/utils/dates';
 import { DateTime } from 'luxon';
 import {
@@ -66,15 +66,15 @@ function chartLegendItems(accountScoped: boolean, hasDebts: boolean): ChartLegen
 		return [];
 	}
 	const items: ChartLegendItem[] = [
-		{ value: 'Total assets', type: 'line', color: '#a7f3d0' },
+		{ value: 'Total assets', type: 'line', color: chartColors.assets },
 	];
 	if (hasDebts) {
-		items.push({ value: 'Debts', type: 'line', color: '#f87171' });
+		items.push({ value: 'Debts', type: 'line', color: chartColors.debts });
 	}
 	items.push({
 		value: 'Net worth',
 		type: 'line',
-		color: '#ecfdf5',
+		color: chartColors.netWorth,
 		strokeDasharray: '4 4',
 	});
 	return items;
@@ -257,16 +257,16 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 						>
 							<defs>
 								<linearGradient id="netWorthBandFill" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stopColor="#6ee7b7" stopOpacity={0.45} />
-									<stop offset="100%" stopColor="#6ee7b7" stopOpacity={0.12} />
+									<stop offset="0%" stopColor={chartColors.assets} stopOpacity={0.35} />
+									<stop offset="100%" stopColor={chartColors.assets} stopOpacity={0.08} />
 								</linearGradient>
 								<linearGradient id="netWorthDebtsFill" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stopColor="#f87171" stopOpacity={0.2} />
-									<stop offset="100%" stopColor="#f87171" stopOpacity={0.05} />
+									<stop offset="0%" stopColor={chartColors.debts} stopOpacity={0.18} />
+									<stop offset="100%" stopColor={chartColors.debts} stopOpacity={0.04} />
 								</linearGradient>
 								<linearGradient id="netWorthCashFill" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stopColor="#60a5fa" stopOpacity={0.45} />
-									<stop offset="100%" stopColor="#60a5fa" stopOpacity={0.08} />
+									<stop offset="0%" stopColor={chartColors.netWorth} stopOpacity={0.35} />
+									<stop offset="100%" stopColor={chartColors.netWorth} stopOpacity={0.06} />
 								</linearGradient>
 							</defs>
 							<CartesianGrid
@@ -307,7 +307,7 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 									type="linear"
 									dataKey="availableCash"
 									name="Cash"
-									stroke="#60a5fa"
+									stroke={chartColors.netWorth}
 									strokeWidth={2}
 									fill="url(#netWorthCashFill)"
 									baseValue={0}
@@ -344,7 +344,7 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 								<Line
 									type="linear"
 									dataKey="totalAssets"
-									stroke="#a7f3d0"
+									stroke={chartColors.assets}
 									strokeWidth={2}
 									dot={false}
 									isAnimationActive={false}
@@ -355,7 +355,7 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 								<Line
 									type="linear"
 									dataKey="totalDebts"
-									stroke="#f87171"
+									stroke={chartColors.debts}
 									strokeWidth={2}
 									dot={false}
 									isAnimationActive={false}
@@ -366,7 +366,7 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 								<Line
 									type="linear"
 									dataKey="netWorth"
-									stroke="#ecfdf5"
+									stroke={chartColors.netWorth}
 									strokeWidth={1.5}
 									strokeDasharray="5 4"
 									dot={false}

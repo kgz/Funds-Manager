@@ -1,5 +1,9 @@
 import { ReferenceDot } from 'recharts';
-import { chartTooltipClass } from '@/graphs/theme';
+import {
+	chartColors,
+	chartSeriesColorForKey,
+	chartTooltipClass,
+} from '@/graphs/theme';
 import { formatChartTooltipDate } from '@/lib/utils/dates';
 import { formatMoneyFromCents } from '@/types/predictions';
 import type { PredictionGoal } from '@/types/predictions';
@@ -8,21 +12,8 @@ import {
 	type TrendEventMarkerState,
 } from '@/graphs/trend-event-markers';
 
-const GOAL_COLORS = [
-	'#e879f9',
-	'#a78bfa',
-	'#c084fc',
-	'#f472b6',
-	'#818cf8',
-	'#d946ef',
-];
-
 export function goalChartColor(id: string): string {
-	let hash = 0;
-	for (let index = 0; index < id.length; index += 1) {
-		hash = (hash * 31 + id.charCodeAt(index)) | 0;
-	}
-	return GOAL_COLORS[Math.abs(hash) % GOAL_COLORS.length];
+	return chartSeriesColorForKey(id);
 }
 
 export type SavingsGoalChartItem = {
@@ -107,7 +98,7 @@ function GoalMarkerShape({
 			<polygon
 				points={`${cx},${cy - size} ${cx + size},${cy} ${cx},${cy + size} ${cx - size},${cy}`}
 				fill={color}
-				stroke="#fff"
+				stroke={chartColors.surface}
 				strokeWidth={2}
 				pointerEvents="none"
 			/>

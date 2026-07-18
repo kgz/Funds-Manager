@@ -9,7 +9,12 @@ import {
 	YAxis,
 } from 'recharts';
 import { useMemo } from 'react';
-import { chartTheme, chartTooltipClass } from '@/graphs/theme';
+import {
+	chartColors,
+	chartSeriesColor,
+	chartTheme,
+	chartTooltipClass,
+} from '@/graphs/theme';
 import { formatChartAxisDate, formatChartTooltipDate } from '@/lib/utils/dates';
 import {
 	applyPortfolioTrendToRows,
@@ -43,9 +48,6 @@ export type BalanceStackChartData = {
 	rows: BalanceStackRow[];
 };
 
-const STACK_COLORS = ['#6ee7b7', '#60a5fa', '#c084fc', '#fb923c', '#f472b6', '#facc15'];
-const TREND_COLOR = '#fbbf24';
-
 const formatCurrencyWithCommas = (value: number): string => {
 	const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
 	return `$${value.toLocaleString('en-US', {
@@ -55,7 +57,7 @@ const formatCurrencyWithCommas = (value: number): string => {
 };
 
 function accountColor(index: number): string {
-	return STACK_COLORS[index % STACK_COLORS.length];
+	return chartSeriesColor(index);
 }
 
 type ChartRow = {
@@ -175,13 +177,19 @@ function BalanceStackTooltip({
 					</tr>
 					{typeof trendValue === 'number' ? (
 						<tr>
-							<td className="py-0.5 text-[#fbbf24]">
+							<td className="py-0.5" style={{ color: chartColors.trend }}>
 								<span className="flex items-center gap-2">
-									<span className="h-2 w-2 shrink-0 rounded-full bg-[#fbbf24]" />
+									<span
+										className="h-2 w-2 shrink-0 rounded-full"
+										style={{ backgroundColor: chartColors.trend }}
+									/>
 									Trend
 								</span>
 							</td>
-							<td className="py-0.5 text-right tabular-nums text-[#fbbf24]">
+							<td
+								className="py-0.5 text-right tabular-nums"
+								style={{ color: chartColors.trend }}
+							>
 								{formatCurrencyWithCommas(trendValue)}
 							</td>
 						</tr>
@@ -332,12 +340,12 @@ export function BalanceStackGraph({
 					type="linear"
 					dataKey="trend"
 					name="Trend"
-					stroke={TREND_COLOR}
+							stroke={chartColors.trend}
 					strokeWidth={2.5}
 					strokeDasharray="8 4"
 					fill="none"
 					dot={false}
-					activeDot={{ r: 4, fill: TREND_COLOR, stroke: '#fff', strokeWidth: 1 }}
+					activeDot={{ r: 4, fill: chartColors.trend, stroke: chartColors.surface, strokeWidth: 1 }}
 					legendType="line"
 					isAnimationActive={!isRefreshing}
 					animationDuration={400}

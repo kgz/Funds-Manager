@@ -1,10 +1,10 @@
 import { ReferenceDot } from 'recharts';
 import { useState } from 'react';
-import { chartTooltipClass } from '@/graphs/theme';
+import { chartColors, chartTooltipClass } from '@/graphs/theme';
 import { formatChartTooltipDate } from '@/lib/utils/dates';
 import type { AccountOnboardingEvent } from '@/lib/utils/balanceTrendSegments';
 
-const TREND_COLOR = '#fbbf24';
+const TREND_COLOR = chartColors.trend;
 
 const formatCurrencyWithCommas = (value: number): string => {
 	const minimumFractionDigits = value % 1 !== 0 ? 2 : 0;
@@ -62,7 +62,8 @@ function EventMarkerShape({
 				cx={cx}
 				cy={cy}
 				r={iconRadius + 2}
-				fill="rgba(251, 191, 36, 0.25)"
+				fill={TREND_COLOR}
+				fillOpacity={0.25}
 				stroke="none"
 				pointerEvents="none"
 			/>
@@ -71,11 +72,11 @@ function EventMarkerShape({
 				cy={cy}
 				r={iconRadius}
 				fill={TREND_COLOR}
-				stroke="#fff"
+				stroke={chartColors.surface}
 				strokeWidth={2}
 				pointerEvents="none"
 			/>
-			<circle cx={cx} cy={cy} r={2} fill="#fff" pointerEvents="none" />
+			<circle cx={cx} cy={cy} r={2} fill={chartColors.surface} pointerEvents="none" />
 			{active ? (
 				<foreignObject
 					x={cx + 12}

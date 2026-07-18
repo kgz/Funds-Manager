@@ -1,7 +1,7 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import type { TooltipContentProps } from 'recharts';
 import { useMemo, useState } from 'react';
-import { chartTheme, chartTooltipClass } from '@/graphs/theme';
+import { chartColors, chartTheme, chartTooltipClass } from '@/graphs/theme';
 
 const formatCurrency = (amount: number): string => {
 	const absAmount = Math.abs(amount / 100).toFixed(2);
@@ -149,7 +149,7 @@ export const CategoryPieChart = ({
 		const other: PieChartDataItem = {
 			name: 'Other',
 			value: otherValue,
-			color: '#64748b',
+			color: chartColors.other,
 			percent: otherPercent,
 			categoryId: null,
 			groupKey: rest.map((row) => row.groupKey).join(','),
@@ -213,7 +213,7 @@ export const CategoryPieChart = ({
 									key={`cell-${chartLabel.replace(/\s+/g, '-')}-${index}`}
 									fill={entry.color}
 									fillOpacity={hoveredSliceName === null || isHovered ? 1 : 0.35}
-									stroke={isHovered ? 'rgba(255,255,255,0.85)' : 'transparent'}
+									stroke={isHovered ? chartColors.surface : 'transparent'}
 									strokeWidth={isHovered ? 2 : 0}
 									style={{
 										transform: isHovered ? 'scale(1.03)' : 'scale(1)',
@@ -231,9 +231,9 @@ export const CategoryPieChart = ({
 							y="50%"
 							textAnchor="middle"
 							dominantBaseline="middle"
-							className="fill-white"
+							className="fill-paper-fg"
 						>
-							<tspan x="50%" dy="-0.4em" className="text-[11px] fill-white/50">
+							<tspan x="50%" dy="-0.4em" className="text-[11px] fill-paper-muted">
 								Total
 							</tspan>
 							<tspan x="50%" dy="1.4em" className="text-base font-semibold">

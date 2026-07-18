@@ -1,5 +1,5 @@
 import { ReferenceDot } from 'recharts';
-import { chartTooltipClass } from '@/graphs/theme';
+import { chartColors, chartTooltipClass } from '@/graphs/theme';
 import { formatChartTooltipDate } from '@/lib/utils/dates';
 import type { PlannedSpendingItem } from '@/types/plannedSpending';
 import { formatMoneyFromCents } from '@/types/predictions';
@@ -8,9 +8,9 @@ import {
 	type TrendEventMarkerState,
 } from '@/graphs/trend-event-markers';
 
-const SPENDING_COLOR = '#f87171';
-const INCOME_COLOR = '#4ade80';
-const MIXED_COLOR = '#c084fc';
+const SPENDING_COLOR = chartColors.spending;
+const INCOME_COLOR = chartColors.receiving;
+const MIXED_COLOR = chartColors.mixed;
 
 export type PlannedSpendingChartEvent = {
 	date: string;
@@ -111,11 +111,11 @@ function PlannedMarkerShape({
 				cy={cy}
 				r={iconRadius}
 				fill={color}
-				stroke="#fff"
+				stroke={chartColors.surface}
 				strokeWidth={2}
 				pointerEvents="none"
 			/>
-			<circle cx={cx} cy={cy} r={2} fill="#fff" pointerEvents="none" />
+			<circle cx={cx} cy={cy} r={2} fill={chartColors.surface} pointerEvents="none" />
 			{active ? (
 				<foreignObject
 					x={cx + 12}

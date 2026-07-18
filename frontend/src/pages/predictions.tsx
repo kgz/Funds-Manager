@@ -87,6 +87,7 @@ import {
 	updatePredictionScenario,
 } from '@/store/thunks/predictions';
 import { useAppDispatch, useAppSelector } from '@/store/store';
+import { chartSeriesColorForKey } from '@/graphs/theme';
 import {
 	centsToDollars,
 	dollarsToCents,
@@ -122,27 +123,8 @@ type ScenarioLineDraft = {
 const SCENARIO_FORM_ID = 'prediction-scenario-form';
 const GOAL_FORM_ID = 'prediction-goal-form';
 
-const SCENARIO_COLORS = [
-	'#38bdf8',
-	'#22c55e',
-	'#f97316',
-	'#a855f7',
-	'#ec4899',
-	'#eab308',
-	'#facc15',
-	'#10b981',
-	'#0ea5e9',
-	'#6366f1',
-];
-
 function scenarioColor(id: string): string {
-	let hash = 0;
-	for (let index = 0; index < id.length; index += 1) {
-		hash = (hash * 31 + id.charCodeAt(index)) | 0;
-	}
-	const positive = Math.abs(hash);
-	const paletteIndex = positive % SCENARIO_COLORS.length;
-	return SCENARIO_COLORS[paletteIndex];
+	return chartSeriesColorForKey(id);
 }
 
 function predictionChartDomain(values: number[]): [number, number] | undefined {
