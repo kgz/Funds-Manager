@@ -142,14 +142,14 @@ export function IncomePage() {
 
 			<InlineAlert variant="info" className="mb-6">
 				<p>
-					<strong className="font-medium text-white/90">Detected amounts are what hits your bank</strong>{' '}
+					<strong className="font-medium text-paper-fg">Detected amounts are what hits your bank</strong>{' '}
 					(after PAYG tax), not your gross employment package. A $125k/year salary might show as
 					~$94k/year here — that gap is normal tax withholding, not a detection error.
 				</p>
 				<p className="mt-2">
-					For your contract figure (e.g. $125k package), use <strong className="font-medium text-white/90">Edit</strong>{' '}
+					For your contract figure (e.g. $125k package), use <strong className="font-medium text-paper-fg">Edit</strong>{' '}
 					→ enter the package ex GST per week, month, or year.{' '}
-					<strong className="font-medium text-white/90">Inc GST</strong> applies to business invoices only;
+					<strong className="font-medium text-paper-fg">Inc GST</strong> applies to business invoices only;
 					wages are not GST-inclusive.
 				</p>
 			</InlineAlert>
@@ -180,10 +180,10 @@ export function IncomePage() {
 							description="Import statements with regular credits (e.g. salary) — at least 3 occurrences are needed."
 						/>
 					) : (
-						<div className="overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03]">
+						<div className="overflow-x-auto rounded-xl border border-paper-border bg-paper">
 							<table className="w-full min-w-[72rem] text-sm">
 								<thead>
-									<tr className="border-b border-white/10 text-left text-white/50">
+									<tr className="border-b border-paper-border text-left text-paper-muted">
 										<th className="px-4 py-3 font-medium">Source</th>
 										<th className="px-4 py-3 font-medium">Frequency</th>
 										<th className="px-4 py-3 font-medium text-right">Est. monthly</th>
@@ -196,18 +196,18 @@ export function IncomePage() {
 								</thead>
 								<tbody>
 									{summary.streams.map((stream) => (
-										<tr key={stream.streamKey} className="border-b border-white/5 text-white/90">
+										<tr key={stream.streamKey} className="border-b border-paper-border text-paper-fg">
 											<td className="px-4 py-3">
 												<div className="font-medium">{stream.label}</div>
 												{stream.label !== stream.sourceLabel ? (
-													<div className="text-xs text-white/45">{stream.sourceLabel}</div>
+													<div className="text-xs text-paper-muted">{stream.sourceLabel}</div>
 												) : null}
-												<div className="text-xs text-white/40">
+												<div className="text-xs text-paper-muted">
 													{formatTransactionDate(stream.firstDate)} –{' '}
 													{formatTransactionDate(stream.lastDate)}
 												</div>
 												{stream.grossYearlyExGstDollars != null ? (
-													<div className="mt-1 text-xs text-white/45">
+													<div className="mt-1 text-xs text-paper-muted">
 														Package yearly ex GST:{' '}
 														{formatMoney(stream.grossYearlyExGstDollars)}
 														{stream.grossYearlyIncGstDollars != null
@@ -299,7 +299,7 @@ export function IncomePage() {
 						<InlineAlert variant="error">{saveError}</InlineAlert>
 					) : null}
 					<div>
-						<label htmlFor="incomeLabel" className="mb-1.5 block text-sm text-white/80">
+						<label htmlFor="incomeLabel" className="mb-1.5 block text-sm text-paper-fg">
 							Display label
 						</label>
 						<input
@@ -311,7 +311,7 @@ export function IncomePage() {
 						/>
 					</div>
 					<div>
-						<label htmlFor="incomeGross" className="mb-1.5 block text-sm text-white/80">
+						<label htmlFor="incomeGross" className="mb-1.5 block text-sm text-paper-fg">
 							Package ex GST (optional)
 						</label>
 						<div className="flex gap-2">
@@ -337,25 +337,25 @@ export function IncomePage() {
 								disabled={saving}
 								aria-label="Package amount period"
 							>
-								<option value="week" className="bg-gray-950 text-white">
+								<option value="week" className="bg-paper-surface text-paper-fg">
 									Per week
 								</option>
-								<option value="month" className="bg-gray-950 text-white">
+								<option value="month" className="bg-paper-surface text-paper-fg">
 									Per month
 								</option>
-								<option value="year" className="bg-gray-950 text-white">
+								<option value="year" className="bg-paper-surface text-paper-fg">
 									Per year
 								</option>
 							</select>
 						</div>
 						{grossPreview !== null ? (
-							<p className="mt-1.5 text-xs text-white/45">
+							<p className="mt-1.5 text-xs text-paper-muted">
 								Yearly ex GST {formatMoney(grossPreview.exGst)} · inc GST{' '}
 								{formatMoney(grossPreview.incGst)}
 							</p>
 						) : null}
 					</div>
-					<label className="flex items-center gap-2 text-sm text-white/80">
+					<label className="flex items-center gap-2 text-sm text-paper-fg">
 						<input
 							type="checkbox"
 							checked={isPrimary}
@@ -364,7 +364,7 @@ export function IncomePage() {
 						/>
 						Primary income
 					</label>
-					<label className="flex items-center gap-2 text-sm text-white/80">
+					<label className="flex items-center gap-2 text-sm text-paper-fg">
 						<input
 							type="checkbox"
 							checked={isConfirmed}

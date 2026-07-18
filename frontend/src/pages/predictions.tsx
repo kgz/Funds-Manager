@@ -169,8 +169,8 @@ function BalanceTooltip({ active, payload }: TooltipContentProps) {
 			? row.date
 			: '';
 	return (
-		<div className="rounded-md border border-white/20 bg-gray-900/95 px-3 py-2 text-sm shadow-lg">
-			<p className="mb-1 font-medium text-white">
+		<div className="rounded-md border border-paper-border bg-gray-900/95 px-3 py-2 text-sm shadow-lg">
+			<p className="mb-1 font-medium text-paper-fg">
 				{formatChartTooltipDate(dateIso)}
 			</p>
 			{payload.map((entry, index) => {
@@ -612,7 +612,7 @@ export default function PredictionsPage() {
 
 	return (
 		<PageShell variant="table">
-			<div className="shrink-0 space-y-3 border-b border-white/10 p-4">
+			<div className="shrink-0 space-y-3 border-b border-paper-border p-4">
 				<PageHeader
 					title="Future predictions"
 					subtitle="See where your balance might go and plan for what-if changes."
@@ -654,7 +654,7 @@ export default function PredictionsPage() {
 									}
 									className={cn(dateInputClass, 'px-2 py-1.5')}
 								/>
-								<span className="text-sm text-white/40">–</span>
+								<span className="text-sm text-paper-muted">–</span>
 								<input
 									type="date"
 									aria-label="To date"
@@ -699,22 +699,22 @@ export default function PredictionsPage() {
 			) : null}
 
 			<div className={cn(glassCardClass, 'mb-6 p-4')}>
-				<div className="mb-3 flex items-center gap-2 text-white">
+				<div className="mb-3 flex items-center gap-2 text-paper-fg">
 					<LineChart size={18} />
 					<h2 className="text-lg font-semibold">Projected balance</h2>
 				</div>
 				{baselineSummary && (
-					<p className="mb-4 text-sm text-white/70">{baselineSummary}</p>
+					<p className="mb-4 text-sm text-paper-muted">{baselineSummary}</p>
 				)}
 				{goalChartItems.length > 0 ? (
-					<p className="mb-3 text-xs text-white/50">
+					<p className="mb-3 text-xs text-paper-muted">
 						{plannedChartEvents.length > 0
 							? 'Dots mark planned spending (red = out, green = in). '
 							: ''}
 						Dashed goal lines ramp to your target balance and bend with planned spending; diamonds mark the target date.
 					</p>
 				) : plannedChartEvents.length > 0 ? (
-					<p className="mb-3 text-xs text-white/50">
+					<p className="mb-3 text-xs text-paper-muted">
 						Dots mark planned spending (red = out, green = in).
 					</p>
 				) : null}
@@ -815,7 +815,7 @@ export default function PredictionsPage() {
 			<div className="grid grid-cols-1 gap-6 pb-4 lg:grid-cols-2">
 				<div className={cn(glassCardClass, 'p-4')}>
 					<div className="mb-4 flex items-center justify-between">
-						<h2 className="text-lg font-semibold text-white">Scenarios</h2>
+						<h2 className="text-lg font-semibold text-paper-fg">Scenarios</h2>
 						<button
 							type="button"
 							className={buttonPrimaryClass}
@@ -839,12 +839,12 @@ export default function PredictionsPage() {
 								return (
 									<li
 										key={scenario.id}
-										className="rounded-md border border-white/10 bg-white/5 p-3"
+										className="rounded-md border border-paper-border bg-paper p-3"
 									>
 										<div className="flex items-start justify-between gap-2">
 											<div>
-												<p className="font-medium text-white">{scenario.name}</p>
-												<p className="text-sm text-white/60">
+												<p className="font-medium text-paper-fg">{scenario.name}</p>
+												<p className="text-sm text-paper-muted">
 													{scenario.lines.length} adjustment
 													{scenario.lines.length === 1 ? '' : 's'}
 												</p>
@@ -885,7 +885,7 @@ export default function PredictionsPage() {
 
 				<div className={cn(glassCardClass, 'p-4')}>
 					<div className="mb-4 flex items-center justify-between">
-						<h2 className="text-lg font-semibold text-white">Savings goals</h2>
+						<h2 className="text-lg font-semibold text-paper-fg">Savings goals</h2>
 						<button
 							type="button"
 							className={buttonPrimaryClass}
@@ -917,25 +917,25 @@ export default function PredictionsPage() {
 								return (
 									<li
 										key={goal.id}
-										className="rounded-md border border-white/10 bg-white/5 p-3"
+										className="rounded-md border border-paper-border bg-paper p-3"
 									>
 										<div className="flex items-start justify-between gap-2">
 											<div>
-												<p className="font-medium text-white">{goal.name}</p>
-												<p className="text-sm text-white/60">
+												<p className="font-medium text-paper-fg">{goal.name}</p>
+												<p className="text-sm text-paper-muted">
 													Target {formatMoneyFromCents(goal.target_amount_cents)} by{' '}
 													{DateTime.fromISO(goal.target_date).toFormat('d MMM yyyy')}
 												</p>
 												{gap && (
 													<div className="mt-2 space-y-1 text-sm">
-														<p className="text-white/80">
+														<p className="text-paper-fg">
 															Projected balance:{' '}
 															{formatMoneyFromCents(gap.projected_balance_cents)}
 														</p>
 														<p
 															className={
 																gap.current_monthly_net_cents >= 0
-																	? 'text-white/80'
+																	? 'text-paper-fg'
 																	: 'text-red-300'
 															}
 														>
@@ -1032,7 +1032,7 @@ export default function PredictionsPage() {
 						<div>
 							<label
 								htmlFor="scenarioNameInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Name
 							</label>
@@ -1048,16 +1048,16 @@ export default function PredictionsPage() {
 							/>
 						</div>
 						<div className="space-y-3">
-							<p className="text-sm text-white/60">
+							<p className="text-sm text-paper-muted">
 								Baseline already includes planned spending in this period. Lines
 								here are extra changes on top.
 							</p>
-							<p className="text-sm font-medium text-white/80">Adjustment lines</p>
+							<p className="text-sm font-medium text-paper-fg">Adjustment lines</p>
 							{plannedItems.length > 0 ? (
 								<div>
 									<label
 										htmlFor="plannedItemPicker"
-										className="mb-1.5 block text-sm font-medium text-white/80"
+										className="mb-1.5 block text-sm font-medium text-paper-fg"
 									>
 										Add from planned spending
 									</label>
@@ -1083,14 +1083,14 @@ export default function PredictionsPage() {
 											event.target.value = '';
 										}}
 									>
-										<option value="" className="bg-gray-950 text-white">
+										<option value="" className="bg-paper-surface text-paper-fg">
 											Choose planned item…
 										</option>
 										{plannedItems.map((item) => (
 											<option
 												key={item.id}
 												value={item.id}
-												className="bg-gray-950 text-white"
+												className="bg-paper-surface text-paper-fg"
 											>
 												{item.name} —{' '}
 												{formatMoneyFromCents(item.amount_cents)} on{' '}
@@ -1103,10 +1103,10 @@ export default function PredictionsPage() {
 							{scenarioLines.map((line, index) => (
 								<div
 									key={line.key}
-									className="space-y-3 rounded-md border border-white/10 p-3"
+									className="space-y-3 rounded-md border border-paper-border p-3"
 								>
 									<div>
-										<label className="mb-1.5 block text-sm font-medium text-white/80">
+										<label className="mb-1.5 block text-sm font-medium text-paper-fg">
 											Line name
 										</label>
 										<input
@@ -1124,7 +1124,7 @@ export default function PredictionsPage() {
 									</div>
 									<div>
 										<div className="mb-1.5 flex flex-wrap items-center justify-between gap-3">
-											<label className="text-sm font-medium text-white/80">
+											<label className="text-sm font-medium text-paper-fg">
 												Amount ($)
 											</label>
 											<SegmentedControl
@@ -1137,7 +1137,7 @@ export default function PredictionsPage() {
 														activeClassName:
 															'bg-red-500/20 text-red-400 shadow-sm',
 														inactiveClassName:
-															'text-white/70 hover:bg-red-500/10 hover:text-red-300',
+															'text-paper-muted hover:bg-red-500/10 hover:text-red-300',
 													},
 													{
 														value: 'income',
@@ -1145,7 +1145,7 @@ export default function PredictionsPage() {
 														activeClassName:
 															'bg-green-500/20 text-green-400 shadow-sm',
 														inactiveClassName:
-															'text-white/70 hover:bg-green-500/10 hover:text-green-300',
+															'text-paper-muted hover:bg-green-500/10 hover:text-green-300',
 													},
 												]}
 												onChange={(value) => {
@@ -1199,7 +1199,7 @@ export default function PredictionsPage() {
 									</div>
 									<div className="grid gap-3 sm:grid-cols-2">
 										<div>
-											<label className="mb-1.5 block text-sm font-medium text-white/80">
+											<label className="mb-1.5 block text-sm font-medium text-paper-fg">
 												Date
 											</label>
 											<input
@@ -1218,7 +1218,7 @@ export default function PredictionsPage() {
 											/>
 										</div>
 										<div>
-											<label className="mb-1.5 block text-sm font-medium text-white/80">
+											<label className="mb-1.5 block text-sm font-medium text-paper-fg">
 												Category (optional)
 											</label>
 											<CategoryPicker
@@ -1314,7 +1314,7 @@ export default function PredictionsPage() {
 						<div>
 							<label
 								htmlFor="goalNameInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Name
 							</label>
@@ -1332,7 +1332,7 @@ export default function PredictionsPage() {
 						<div>
 							<label
 								htmlFor="goalAmountInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Target balance ($)
 							</label>
@@ -1363,7 +1363,7 @@ export default function PredictionsPage() {
 						<div>
 							<label
 								htmlFor="goalDateInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Target date
 							</label>

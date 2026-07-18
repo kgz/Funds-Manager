@@ -229,7 +229,7 @@ export const Table = <T extends BaseDataItem>(
 		<tr
 			key={getRowKey(row, rowIndex)}
 			className={cn(
-				"hover:bg-white/5 transition-colors duration-150",
+				"hover:bg-paper transition-colors duration-150",
 				getRowClassName(row, rowIndex)
 			)}
 			onClick={() => onRowClick?.(row)}
@@ -238,7 +238,7 @@ export const Table = <T extends BaseDataItem>(
 				<td
 					key={`${getRowKey(row, rowIndex)}-${String(column.key)}`}
 					className={cn(
-						"px-4 py-3 whitespace-nowrap text-sm text-white/80",
+						"px-4 py-3 whitespace-nowrap text-sm text-paper-fg",
 						column.cellClassName
 					)}
 				>
@@ -253,7 +253,7 @@ export const Table = <T extends BaseDataItem>(
 
 	return (
 		// Use primary background (or a slightly lighter gray if primary is too dark)
-		<div className="flex h-full flex-col bg-primary-default text-white/90">
+		<div className="flex h-full flex-col bg-paper-surface text-paper-fg">
 			<div ref={scrollRef} className="flex-grow overflow-auto">
 				<table className="w-full min-w-[600px]">
 					<colgroup>
@@ -262,14 +262,14 @@ export const Table = <T extends BaseDataItem>(
 						))}
 					</colgroup>
 					{/* Use a slightly lighter background for header for contrast */}
-					<thead className="border-b border-white/10 bg-gray-950/95 backdrop-blur-sm"><tr>
+					<thead className="border-b border-paper-border bg-paper-surface"><tr>
 							{columns.map((column, index) => (
 								<th
 									key={`header-${index}`}
 									className={cn(
-										"px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-white/50",
-										header?.sticky && "sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm",
-										column.sortable && onSortChange && "cursor-pointer hover:bg-white/5 hover:text-secondary-default",
+										"px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-paper-muted",
+										header?.sticky && "sticky top-0 z-10 bg-paper-surface",
+										column.sortable && onSortChange && "cursor-pointer hover:bg-paper hover:text-secondary-default",
 										column.headerClassName
 									)}
 									onClick={() => column.sortable && handleSort(column.key)}
@@ -286,19 +286,19 @@ export const Table = <T extends BaseDataItem>(
 						</tr>
 					</thead>
 					{/* Use primary background for body, slightly lighter border */}
-					<tbody className="divide-y divide-white/10 bg-primary-default">
+					<tbody className="divide-y divide-paper-border bg-paper-surface">
 						{loading && Array.from({ length: itemsPerPage ?? 10 }).map((_, rowIndex) => (
 							<tr key={`loading-${rowIndex}`} className="animate-pulse">
 								{columns.map((_, colIndex) => (
 									<td key={`loading-${rowIndex}-${colIndex}`} className="px-4 py-3 whitespace-nowrap">
-										<div className="h-4 w-3/4 rounded bg-white/10"></div>
+										<div className="h-4 w-3/4 rounded bg-paper-border"></div>
 									</td>
 								))}
 							</tr>
 						))}
 						{!loading && paginatedData.length === 0 && (
 							<tr>
-								<td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-white/50">
+								<td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-paper-muted">
 									{data.length === 0 ? emptyStateMessage : "No data for this page."}
 								</td>
 							</tr>
@@ -331,9 +331,9 @@ export const Table = <T extends BaseDataItem>(
 			{/* --- Pagination Controls --- */}
 			{paginationEnabled && (loading || totalPages > 1 || (serverPagination && totalItems > 0)) && (
 				// Use slightly lighter background for footer, matching header
-				<div className="mt-auto flex items-center justify-between border-t border-white/10 bg-gray-950/80 px-4 py-3">
-					<div className="text-sm text-white/50">
-						Page <span className="font-medium text-white/90">{validCurrentPage}</span> of <span className="font-medium text-white/90">{totalPages}</span>
+				<div className="mt-auto flex items-center justify-between border-t border-paper-border bg-paper-surface px-4 py-3">
+					<div className="text-sm text-paper-muted">
+						Page <span className="font-medium text-paper-fg">{validCurrentPage}</span> of <span className="font-medium text-paper-fg">{totalPages}</span>
 						<span className="hidden sm:inline"> ({totalItems} items)</span>
 					</div>
 					<div className="flex items-center gap-2">

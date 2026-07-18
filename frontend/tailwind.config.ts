@@ -1,4 +1,3 @@
-// Example `tailwind.config.js` file
 import colors from 'tailwindcss/colors'
 import type { Config } from 'tailwindcss'
 
@@ -7,18 +6,25 @@ module.exports = {
     colors: {
       ...colors,
 	  primary: {
-		default: '#020403',
+		default: 'var(--fg)',
 	  },
 	  secondary: {
-		default: '#a287cd',
+		default: 'var(--accent)',
 	  },
 	  accent: {
-		default: '#fbbf24',
-	  }
+		default: 'var(--accent)',
+	  },
+	  paper: {
+		DEFAULT: 'var(--bg)',
+		surface: 'var(--surface)',
+		border: 'var(--border)',
+		muted: 'var(--muted)',
+		fg: 'var(--fg)',
+	  },
     },
     fontFamily: {
-      sans: ['Graphik', 'sans-serif'],
-      serif: ['Merriweather', 'serif'],
+      sans: ['var(--font-sans)'],
+      mono: ['var(--font-mono)'],
     },
     extend: {
       spacing: {
@@ -27,6 +33,7 @@ module.exports = {
       },
       borderRadius: {
         '4xl': '2rem',
+		paper: 'var(--radius)',
       }
     }
   },

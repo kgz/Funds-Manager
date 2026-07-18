@@ -24,11 +24,11 @@ export function ChartCard({
 			<div className="mb-4 flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0">
 					<div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-						<h3 className="text-lg font-semibold text-white/90">{title}</h3>
+						<h3 className="text-lg font-semibold text-paper-fg">{title}</h3>
 						{titleExtra}
 					</div>
 					{subtitle !== undefined && subtitle.length > 0 ? (
-						<p className="mt-1 text-xs text-white/50">{subtitle}</p>
+						<p className="mt-1 text-xs text-paper-muted">{subtitle}</p>
 					) : null}
 				</div>
 				{actions}

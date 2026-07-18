@@ -46,10 +46,10 @@ function formatComparisonLine(
 
 function comparisonClass(delta: number, positiveIsGood: boolean): string {
 	if (delta === 0) {
-		return 'text-white/45';
+		return 'text-paper-muted';
 	}
 	const improved = positiveIsGood ? delta > 0 : delta < 0;
-	return improved ? 'text-emerald-400/90' : 'text-amber-400/90';
+	return improved ? 'text-emerald-700' : 'text-amber-700';
 }
 
 function KpiCard({
@@ -63,12 +63,12 @@ function KpiCard({
 	return (
 		<div
 			className={cn(
-				'rounded-xl border border-white/10 bg-white/5 px-4 py-5 transition-all duration-300 ease-out',
+				'rounded-paper border border-paper-border bg-paper-surface px-4 py-5 transition-all duration-300 ease-out',
 				isRefreshing && 'scale-[0.99]'
 			)}
 		>
-			<p className="text-xs font-medium uppercase tracking-wide text-white/50">{label}</p>
-			<p className={cn('mt-2 text-2xl font-semibold tabular-nums text-white', valueClassName)}>
+			<p className="text-xs font-medium uppercase tracking-wide text-paper-muted">{label}</p>
+			<p className={cn('mt-2 text-2xl font-semibold tabular-nums text-paper-fg font-mono', valueClassName)}>
 				{value}
 			</p>
 			{comparison !== undefined ? (
@@ -104,10 +104,10 @@ export function KpiCards({
 }: KpiCardsProps) {
 	const netClass =
 		metrics.net > 0
-			? 'text-emerald-400'
+			? 'text-emerald-700'
 			: metrics.net < 0
-				? 'text-red-400'
-				: 'text-white';
+				? 'text-red-700'
+				: 'text-paper-fg';
 
 	const suffix = periodLabel.length > 0 ? ` · ${periodLabel}` : '';
 	const compareSuffix = comparisonLabel ?? '';
@@ -164,7 +164,7 @@ export function KpiCards({
 			<KpiCard
 				label={`Spending${suffix}`}
 				value={formatCurrency(metrics.spending)}
-				valueClassName="text-red-400"
+				valueClassName="text-red-700"
 				comparison={spendingComparison}
 				isRefreshing={isRefreshing}
 				formatCurrency={formatCurrency}
@@ -172,7 +172,7 @@ export function KpiCards({
 			<KpiCard
 				label={`Income${suffix}`}
 				value={formatCurrency(metrics.income)}
-				valueClassName="text-emerald-400"
+				valueClassName="text-emerald-700"
 				comparison={incomeComparison}
 				isRefreshing={isRefreshing}
 				formatCurrency={formatCurrency}

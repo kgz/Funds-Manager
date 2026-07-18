@@ -412,7 +412,7 @@ const BreakdownPage = () => {
 
 	return (
 		<PageShell variant="table">
-			<div className="space-y-3 border-b border-white/10 p-4">
+			<div className="space-y-3 border-b border-paper-border p-4">
 				<PageHeader
 					title="Breakdown"
 					subtitle="Spending and income by category. Expand a row to see grouped descriptions (same keys as repeat payments)."
@@ -463,7 +463,7 @@ const BreakdownPage = () => {
 									}
 									className={cn(inputDarkClass, 'px-2 py-1.5')}
 								/>
-								<span className="text-sm text-white/40">–</span>
+								<span className="text-sm text-paper-muted">–</span>
 								<input
 									type="date"
 									aria-label="To date"
@@ -507,7 +507,7 @@ const BreakdownPage = () => {
 										? 'text-green-400'
 										: netTotal < 0
 											? 'text-red-300'
-											: 'text-white/70'
+											: 'text-paper-muted'
 								}
 							/>
 						</div>
@@ -543,9 +543,9 @@ const BreakdownPage = () => {
 				) : (
 					<GlassCard className="overflow-hidden p-0">
 					<table className="w-full min-w-[720px] text-left">
-						<thead className="sticky top-0 z-10 border-b border-white/10 bg-gray-950/95 backdrop-blur-sm">
+						<thead className="sticky top-0 z-10 border-b border-paper-border bg-paper-surface backdrop-blur-sm">
 							<tr>
-								<th className="px-4 py-3 text-xs font-medium text-white/50 uppercase tracking-wider w-10" />
+								<th className="px-4 py-3 text-xs font-medium text-paper-muted uppercase tracking-wider w-10" />
 								<th className="px-4 py-3 text-xs font-medium uppercase tracking-wider">
 									<button
 										type="button"
@@ -554,7 +554,7 @@ const BreakdownPage = () => {
 											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'label'
 												? 'text-secondary-default'
-												: 'text-white/50'
+												: 'text-paper-muted'
 										)}
 									>
 										Category
@@ -573,7 +573,7 @@ const BreakdownPage = () => {
 											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'spending'
 												? 'text-secondary-default'
-												: 'text-white/50'
+												: 'text-paper-muted'
 										)}
 									>
 										Spending
@@ -592,7 +592,7 @@ const BreakdownPage = () => {
 											'text-right w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'spendShare'
 												? 'text-secondary-default'
-												: 'text-white/50'
+												: 'text-paper-muted'
 										)}
 									>
 										% of spending
@@ -611,7 +611,7 @@ const BreakdownPage = () => {
 											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'income'
 												? 'text-secondary-default'
-												: 'text-white/50'
+												: 'text-paper-muted'
 										)}
 									>
 										Income
@@ -630,7 +630,7 @@ const BreakdownPage = () => {
 											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'net'
 												? 'text-secondary-default'
-												: 'text-white/50'
+												: 'text-paper-muted'
 										)}
 									>
 										Net
@@ -649,7 +649,7 @@ const BreakdownPage = () => {
 											'text-center w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 											parentSort.key === 'txnCount'
 												? 'text-secondary-default'
-												: 'text-white/50'
+												: 'text-paper-muted'
 										)}
 									>
 										Txns
@@ -663,7 +663,7 @@ const BreakdownPage = () => {
 								<th className="px-2 py-3 w-24" aria-label="Actions" />
 							</tr>
 						</thead>
-						<tbody className="divide-y divide-white/10">
+						<tbody className="divide-y divide-paper-border">
 							{sortedParents.map((p) => {
 								const isOpen = expanded.has(p.sectionKey);
 								const subSort = subSortFor(p.sectionKey);
@@ -683,10 +683,10 @@ const BreakdownPage = () => {
 								return (
 									<Fragment key={p.sectionKey}>
 										<tr
-											className="hover:bg-white/5 cursor-pointer transition-colors"
+											className="hover:bg-paper cursor-pointer transition-colors"
 											onClick={() => toggleSection(p.sectionKey)}
 										>
-											<td className="px-4 py-3 align-middle text-white/50">
+											<td className="px-4 py-3 align-middle text-paper-muted">
 												{isOpen ? (
 													<ChevronDown className="w-4 h-4" />
 												) : (
@@ -698,11 +698,11 @@ const BreakdownPage = () => {
 													{p.categoryId !== null && p.colour ? (
 														<CategoryPill name={p.label} colour={p.colour} />
 													) : p.categoryId === null ? (
-														<span className="text-sm italic text-white/45">
+														<span className="text-sm italic text-paper-muted">
 															{p.label}
 														</span>
 													) : (
-														<span className="text-sm text-white/90">
+														<span className="text-sm text-paper-fg">
 															{p.label}
 														</span>
 													)}
@@ -712,7 +712,7 @@ const BreakdownPage = () => {
 												{p.spending > 0 ? formatMoney(p.spending) : '—'}
 											</td>
 											<td
-												className="px-4 py-3 font-mono text-sm text-white/75 text-right tabular-nums"
+												className="px-4 py-3 font-mono text-sm text-paper-muted text-right tabular-nums"
 												title={
 													totals.spending > 0
 														? `Share of period spending (${formatMoney(totals.spending)})`
@@ -731,7 +731,7 @@ const BreakdownPage = () => {
 														? 'text-green-400/95'
 														: catNet < 0
 															? 'text-red-300/95'
-															: 'text-white/45'
+															: 'text-paper-muted'
 												)}
 												title="Income minus spending for this category"
 											>
@@ -749,7 +749,7 @@ const BreakdownPage = () => {
 										{isOpen ? (
 											<>
 												<tr
-													className="bg-gray-950/95 border-y border-white/5"
+													className="bg-paper-surface border-y border-paper-border"
 													onClick={(e) => e.stopPropagation()}
 												>
 													<td className="px-4 py-2" />
@@ -763,7 +763,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 																subSort.key === 'label'
 																	? 'text-secondary-default'
-																	: 'text-white/45'
+																	: 'text-paper-muted'
 															)}
 														>
 															Description
@@ -784,7 +784,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 																subSort.key === 'spending'
 																	? 'text-secondary-default'
-																	: 'text-white/45'
+																	: 'text-paper-muted'
 															)}
 														>
 															Spending
@@ -805,7 +805,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default text-right w-full',
 																subSort.key === 'spendShare'
 																	? 'text-secondary-default'
-																	: 'text-white/45'
+																	: 'text-paper-muted'
 															)}
 														>
 															% of spending
@@ -826,7 +826,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
 																subSort.key === 'income'
 																	? 'text-secondary-default'
-																	: 'text-white/45'
+																	: 'text-paper-muted'
 															)}
 														>
 															Income
@@ -848,7 +848,7 @@ const BreakdownPage = () => {
 																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default w-full text-center',
 																subSort.key === 'count'
 																	? 'text-secondary-default'
-																	: 'text-white/45'
+																	: 'text-paper-muted'
 															)}
 														>
 															Txns
@@ -859,7 +859,7 @@ const BreakdownPage = () => {
 																: ''}
 														</button>
 													</td>
-													<td className="px-2 py-2 text-[10px] font-medium uppercase tracking-wider text-white/45">
+													<td className="px-2 py-2 text-[10px] font-medium uppercase tracking-wider text-paper-muted">
 														Move
 													</td>
 												</tr>
@@ -893,19 +893,19 @@ const BreakdownPage = () => {
 													return (
 														<tr
 															key={`${p.sectionKey}:${s.key}`}
-															className="bg-gray-950/60 hover:bg-gray-900/50"
+															className="bg-paper-surface/60 hover:bg-gray-900/50"
 															onClick={(e) => e.stopPropagation()}
 														>
 															<td className="px-4 py-2" />
 															<td className="px-4 py-2 pl-10">
 																<p
-																	className="text-sm text-white/85 truncate max-w-xl"
+																	className="text-sm text-paper-fg truncate max-w-xl"
 																	title={s.labelSample}
 																>
 																	{s.labelSample}
 																</p>
 																<p
-																	className="text-[10px] text-white/45 truncate max-w-xl mt-0.5"
+																	className="text-[10px] text-paper-muted truncate max-w-xl mt-0.5"
 																	title={s.key}
 																>
 																	{s.key}
@@ -920,14 +920,14 @@ const BreakdownPage = () => {
 																	</span>
 																	{showChipUnderSpending ? (
 																		<span
-																			className="text-[11px] font-mono tabular-nums text-white/45 border border-white/15 rounded px-1.5 py-0"
+																			className="text-[11px] font-mono tabular-nums text-paper-muted border border-paper-border rounded px-1.5 py-0"
 																			title={chipTitle(spendAvg)}
 																		>
 																			×{s.count}
 																			{spendAvg !== null ? (
 																				<>
 																					{' '}
-																					<span className="text-white/35">
+																					<span className="text-paper-muted">
 																						@
 																					</span>{' '}
 																					{formatMoney(spendAvg)}
@@ -938,7 +938,7 @@ const BreakdownPage = () => {
 																</div>
 															</td>
 															<td
-																className="px-4 py-2 font-mono text-xs text-white/70 text-right tabular-nums"
+																className="px-4 py-2 font-mono text-xs text-paper-muted text-right tabular-nums"
 																title={
 																	p.spending > 0
 																		? `Share of category spending (${formatMoney(p.spending)})`
@@ -956,14 +956,14 @@ const BreakdownPage = () => {
 																	</span>
 																	{showChipUnderIncome ? (
 																		<span
-																			className="text-[11px] font-mono tabular-nums text-white/45 border border-white/15 rounded px-1.5 py-0"
+																			className="text-[11px] font-mono tabular-nums text-paper-muted border border-paper-border rounded px-1.5 py-0"
 																			title={chipTitle(incomeAvg)}
 																		>
 																			×{s.count}
 																			{incomeAvg !== null ? (
 																				<>
 																					{' '}
-																					<span className="text-white/35">
+																					<span className="text-paper-muted">
 																						@
 																					</span>{' '}
 																					{formatMoney(incomeAvg)}

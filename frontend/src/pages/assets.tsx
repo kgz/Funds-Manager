@@ -343,7 +343,7 @@ export default function AssetsPage() {
 
 	return (
 		<PageShell variant="table">
-			<div className="space-y-3 border-b border-white/10 p-4">
+			<div className="space-y-3 border-b border-paper-border p-4">
 				<PageHeader
 					title="Assets"
 					subtitle="What you own — property, vehicles, super, and balances held outside the app."
@@ -399,7 +399,7 @@ export default function AssetsPage() {
 				<div className={glassCardClass}>
 					<table className="w-full text-sm">
 						<thead>
-							<tr className="border-b border-white/10 text-left text-white/50">
+							<tr className="border-b border-paper-border text-left text-paper-muted">
 								<th className="px-4 py-3 font-medium">Name</th>
 								<th className="px-4 py-3 font-medium">Type</th>
 								<th className="px-4 py-3 font-medium text-right">Value</th>
@@ -412,17 +412,17 @@ export default function AssetsPage() {
 							{items.map((item) => {
 								const stale = isValuationStale(item.valued_at);
 								return (
-									<tr key={item.id} className="border-b border-white/5 text-white/90">
+									<tr key={item.id} className="border-b border-paper-border text-paper-fg">
 										<td className="px-4 py-3 font-medium">{item.name}</td>
 										<td className="px-4 py-3">
-											<span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-xs text-white/70">
+											<span className="rounded-full border border-paper-border bg-paper px-2 py-0.5 text-xs text-paper-muted">
 												{assetKindLabel(item.kind)}
 											</span>
 										</td>
 										<td className="px-4 py-3 text-right font-mono tabular-nums text-green-300">
 											{formatMoney(item.value_cents)}
 										</td>
-										<td className="px-4 py-3 text-white/70">
+										<td className="px-4 py-3 text-paper-muted">
 											<span className="inline-flex items-center gap-1.5">
 												{formatValuedAt(item.valued_at)}
 												{stale ? (
@@ -436,7 +436,7 @@ export default function AssetsPage() {
 												) : null}
 											</span>
 										</td>
-										<td className="max-w-[14rem] truncate px-4 py-3 text-white/60">
+										<td className="max-w-[14rem] truncate px-4 py-3 text-paper-muted">
 											{item.value_source ?? '—'}
 										</td>
 										<td className="px-4 py-3 text-right whitespace-nowrap">
@@ -511,7 +511,7 @@ export default function AssetsPage() {
 							<div>
 								<label
 									htmlFor="assetNameInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Name
 								</label>
@@ -531,7 +531,7 @@ export default function AssetsPage() {
 							<div>
 								<label
 									htmlFor="assetKindInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Type
 								</label>
@@ -555,7 +555,7 @@ export default function AssetsPage() {
 									<div>
 										<label
 											htmlFor="assetValueInput"
-											className="mb-1.5 block text-sm font-medium text-white/80"
+											className="mb-1.5 block text-sm font-medium text-paper-fg"
 										>
 											Current value ($)
 										</label>
@@ -575,7 +575,7 @@ export default function AssetsPage() {
 									<div>
 										<label
 											htmlFor="assetValuedAtInput"
-											className="mb-1.5 block text-sm font-medium text-white/80"
+											className="mb-1.5 block text-sm font-medium text-paper-fg"
 										>
 											Valued as at (optional)
 										</label>
@@ -592,7 +592,7 @@ export default function AssetsPage() {
 									<div className="sm:col-span-2">
 										<label
 											htmlFor="assetSourceInput"
-											className="mb-1.5 block text-sm font-medium text-white/80"
+											className="mb-1.5 block text-sm font-medium text-paper-fg"
 										>
 											Valuation source (optional)
 										</label>
@@ -610,7 +610,7 @@ export default function AssetsPage() {
 									<div>
 										<label
 											htmlFor="assetPurchasePriceInput"
-											className="mb-1.5 block text-sm font-medium text-white/80"
+											className="mb-1.5 block text-sm font-medium text-paper-fg"
 										>
 											Bought at ($, optional)
 										</label>
@@ -629,7 +629,7 @@ export default function AssetsPage() {
 									<div>
 										<label
 											htmlFor="assetPurchaseDateInput"
-											className="mb-1.5 block text-sm font-medium text-white/80"
+											className="mb-1.5 block text-sm font-medium text-paper-fg"
 										>
 											Purchase date
 										</label>
@@ -649,7 +649,7 @@ export default function AssetsPage() {
 								<div className="sm:col-span-2">
 									<label
 										htmlFor="assetLiabilityInput"
-										className="mb-1.5 block text-sm font-medium text-white/80"
+										className="mb-1.5 block text-sm font-medium text-paper-fg"
 									>
 										Linked loan (optional)
 									</label>
@@ -674,7 +674,7 @@ export default function AssetsPage() {
 						<div>
 							<label
 								htmlFor="assetNotesInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Notes (optional)
 							</label>
@@ -693,9 +693,9 @@ export default function AssetsPage() {
 						</div>
 
 						{modalMode === 'edit' ? (
-							<div className="rounded-lg border border-white/10 bg-white/5 p-3">
+							<div className="rounded-lg border border-paper-border bg-paper p-3">
 								<div className="mb-2 flex items-center justify-between">
-									<span className="text-sm font-medium text-white/80">
+									<span className="text-sm font-medium text-paper-fg">
 										Valuation history
 									</span>
 									{valuationsLoading ? (
@@ -704,7 +704,7 @@ export default function AssetsPage() {
 								</div>
 
 								{!valuationsLoading && valuations.length === 0 ? (
-									<p className="text-xs text-white/50">No valuations recorded yet.</p>
+									<p className="text-xs text-paper-muted">No valuations recorded yet.</p>
 								) : null}
 
 								{valuations.length > 0 ? (
@@ -712,20 +712,20 @@ export default function AssetsPage() {
 										{valuations.map((entry) => (
 											<li
 												key={entry.id}
-												className="flex items-center justify-between gap-2 rounded-md bg-white/5 px-2.5 py-1.5 text-sm"
+												className="flex items-center justify-between gap-2 rounded-md bg-paper px-2.5 py-1.5 text-sm"
 											>
-												<span className="text-white/70">
+												<span className="text-paper-muted">
 													{formatValuedAt(entry.valued_at)}
 												</span>
 												<span className="font-mono tabular-nums text-green-300">
 													{formatMoney(entry.value_cents)}
 												</span>
-												<span className="flex-1 truncate text-xs text-white/40">
+												<span className="flex-1 truncate text-xs text-paper-muted">
 													{entry.source ?? ''}
 												</span>
 												<button
 													type="button"
-													className="text-white/40 transition hover:text-red-300"
+													className="text-paper-muted transition hover:text-red-300"
 													onClick={() => void onRemoveValuation(entry.id)}
 													disabled={valSubmitting}
 													aria-label="Remove valuation"
@@ -741,7 +741,7 @@ export default function AssetsPage() {
 									<div>
 										<label
 											htmlFor="valDateInput"
-											className="mb-1 block text-xs text-white/60"
+											className="mb-1 block text-xs text-paper-muted"
 										>
 											Date
 										</label>
@@ -757,7 +757,7 @@ export default function AssetsPage() {
 									<div>
 										<label
 											htmlFor="valAmountInput"
-											className="mb-1 block text-xs text-white/60"
+											className="mb-1 block text-xs text-paper-muted"
 										>
 											Value ($)
 										</label>
@@ -775,7 +775,7 @@ export default function AssetsPage() {
 									<div>
 										<label
 											htmlFor="valSourceInput"
-											className="mb-1 block text-xs text-white/60"
+											className="mb-1 block text-xs text-paper-muted"
 										>
 											Source (optional)
 										</label>

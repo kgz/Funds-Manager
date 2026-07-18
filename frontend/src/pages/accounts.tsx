@@ -114,7 +114,7 @@ export function AccountsPage() {
 				<div className={glassCardClass}>
 					<table className="w-full text-sm">
 						<thead>
-							<tr className="border-b border-white/10 text-left text-white/50">
+							<tr className="border-b border-paper-border text-left text-paper-muted">
 								<th className="px-4 py-3 font-medium">Display name</th>
 								<th className="px-4 py-3 font-medium">Bank</th>
 								<th className="px-4 py-3 font-medium">Account number</th>
@@ -128,11 +128,11 @@ export function AccountsPage() {
 							{accounts.map((account) => (
 								<tr
 									key={account.id}
-									className="border-b border-white/5 text-white/90"
+									className="border-b border-paper-border text-paper-fg"
 								>
 									<td className="px-4 py-3">{account.display_name}</td>
 									<td className="px-4 py-3">{account.bank_name}</td>
-									<td className="px-4 py-3 font-mono text-white/70">
+									<td className="px-4 py-3 font-mono text-paper-muted">
 										{account.account_number}
 									</td>
 									<td className="px-4 py-3 tabular-nums">
@@ -150,16 +150,16 @@ export function AccountsPage() {
 												{formatCurrency(account.lastKnownBalance)}
 											</span>
 										) : (
-											<span className="text-white/40" title="No transactions yet">
+											<span className="text-paper-muted" title="No transactions yet">
 												—
 											</span>
 										)}
 									</td>
-									<td className="px-4 py-3 text-white/70">
+									<td className="px-4 py-3 text-paper-muted">
 										{account.lastKnownBalanceDate != null ? (
 											formatTransactionDate(account.lastKnownBalanceDate)
 										) : (
-											<span className="text-white/40" title="No transactions yet">
+											<span className="text-paper-muted" title="No transactions yet">
 												—
 											</span>
 										)}
@@ -214,11 +214,11 @@ export function AccountsPage() {
 			>
 				<form id={EDIT_ACCOUNT_FORM_ID} onSubmit={onSubmit}>
 					{editing !== null ? (
-						<dl className="mb-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-3 text-sm">
-							<dt className="text-white/50">Account number</dt>
-							<dd className="font-mono text-white/90">{editing.account_number}</dd>
-							<dt className="text-white/50">Parser</dt>
-							<dd className="text-white/90">{editing.parser_name}</dd>
+						<dl className="mb-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-lg border border-paper-border bg-paper px-3 py-3 text-sm">
+							<dt className="text-paper-muted">Account number</dt>
+							<dd className="font-mono text-paper-fg">{editing.account_number}</dd>
+							<dt className="text-paper-muted">Parser</dt>
+							<dd className="text-paper-fg">{editing.parser_name}</dd>
 						</dl>
 					) : null}
 
@@ -232,7 +232,7 @@ export function AccountsPage() {
 						<div>
 							<label
 								htmlFor="accountBankNameInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Bank
 							</label>
@@ -252,7 +252,7 @@ export function AccountsPage() {
 						<div>
 							<label
 								htmlFor="accountDisplayNameInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Display name
 							</label>
@@ -266,7 +266,7 @@ export function AccountsPage() {
 								disabled={submitting}
 								required
 							/>
-							<p className="mt-1.5 text-xs text-white/45">
+							<p className="mt-1.5 text-xs text-paper-muted">
 								Shown in the account filter and missing-statement warnings.
 							</p>
 						</div>

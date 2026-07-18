@@ -151,7 +151,7 @@ function BalanceStackTooltip({
 				<tbody>
 					{rows.map((row) => (
 						<tr key={row.account.accountKey}>
-							<td className="py-0.5 pr-4 text-white/85">
+							<td className="py-0.5 pr-4 text-paper-fg">
 								<span className="flex items-center gap-2">
 									<span
 										className="h-2 w-2 shrink-0 rounded-full"
@@ -160,14 +160,14 @@ function BalanceStackTooltip({
 									{row.account.label}
 								</span>
 							</td>
-							<td className="py-0.5 text-right tabular-nums text-white/85">
+							<td className="py-0.5 text-right tabular-nums text-paper-fg">
 								{formatCurrencyWithCommas(row.value)}
 							</td>
 						</tr>
 					))}
 				</tbody>
 				<tfoot>
-					<tr className="border-t border-white/10">
+					<tr className="border-t border-paper-border">
 						<td className="pt-1.5 font-medium text-emerald-300">Total</td>
 						<td className="pt-1.5 text-right tabular-nums font-medium text-emerald-300">
 							{formatCurrencyWithCommas(total)}
@@ -239,7 +239,7 @@ export function BalanceStackGraph({
 
 	if (data.accounts.length === 0 || chartRows.length === 0) {
 		return (
-			<p className="flex h-[300px] items-center justify-center text-center text-white/50">
+			<p className="flex h-[300px] items-center justify-center text-center text-paper-muted">
 				No balance history for this period.
 			</p>
 		);

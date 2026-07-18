@@ -625,7 +625,7 @@ const TransactionsPage = () => {
                     : '';
                 return labelA.localeCompare(labelB);
             },
-            cellClassName: "text-xs text-white/70 whitespace-nowrap",
+            cellClassName: "text-xs text-paper-muted whitespace-nowrap",
         },
         {
             key: "description",
@@ -730,7 +730,7 @@ const TransactionsPage = () => {
 
     return (
         <PageShell variant="table">
-            <div className="space-y-3 border-b border-white/10 p-4">
+            <div className="space-y-3 border-b border-paper-border p-4">
                 <PageHeader
                     title="Transactions"
                     className="mb-0"
@@ -743,7 +743,7 @@ const TransactionsPage = () => {
                                 />
                             ) : null}
                             {!loading && total > 0 ? (
-                                <span className="text-sm text-white/50">
+                                <span className="text-sm text-paper-muted">
                                     {total.toLocaleString()} total
                                 </span>
                             ) : null}
@@ -770,7 +770,7 @@ const TransactionsPage = () => {
                                 { value: 'uncategorized', label: 'Uncategorized' },
                             ]}
                         />
-                        <label className="flex cursor-pointer items-center gap-2 text-sm text-white/70">
+                        <label className="flex cursor-pointer items-center gap-2 text-sm text-paper-muted">
                             <input
                                 type="checkbox"
                                 checked={hideTransfers}
@@ -840,7 +840,7 @@ const TransactionsPage = () => {
                                         setNewCategoryName('');
                                         setCreateCategoryInlineError(null);
                                     }}
-                                    className="cursor-pointer px-2 py-1.5 text-sm text-white/50 hover:text-white"
+                                    className="cursor-pointer px-2 py-1.5 text-sm text-paper-muted hover:text-paper-fg"
                                 >
                                     Cancel
                                 </button>
@@ -856,7 +856,7 @@ const TransactionsPage = () => {
             </div>
 
             {transferSuggestions.length > 0 ? (
-                <div className="space-y-3 border-b border-white/10 bg-sky-950/30 px-4 py-3">
+                <div className="space-y-3 border-b border-paper-border bg-sky-950/30 px-4 py-3">
                     <p className="flex items-center gap-2 text-sm text-sky-200">
                         <ActionableBadge />
                         <span>
@@ -864,10 +864,10 @@ const TransactionsPage = () => {
                             {transferSuggestions.length === 1 ? '' : 's'} detected
                         </span>
                     </p>
-                    <div className="overflow-x-auto rounded border border-white/10 bg-black/20">
+                    <div className="overflow-x-auto rounded border border-paper-border bg-black/20">
                         <table className="w-full min-w-[40rem] text-sm">
                             <thead>
-                                <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-white/45">
+                                <tr className="border-b border-paper-border text-left text-xs uppercase tracking-wide text-paper-muted">
                                     <th className="px-3 py-2 font-medium">Leg</th>
                                     <th className="px-3 py-2 font-medium">Account</th>
                                     <th className="px-3 py-2 font-medium">Date</th>
@@ -883,18 +883,18 @@ const TransactionsPage = () => {
                                     >
                                         <tr
                                             key={`${suggestion.outTransaction.id}-out`}
-                                            className="border-t border-white/10"
+                                            className="border-t border-paper-border"
                                         >
-                                            <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-white/50">
+                                            <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-paper-muted">
                                                 Out
                                             </td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-white/90">
+                                            <td className="px-3 py-2 whitespace-nowrap text-paper-fg">
                                                 {suggestion.outTransaction.accountLabel}
                                             </td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-white/60">
+                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-paper-muted">
                                                 {formatTransferDate(suggestion.outTransaction.transactionDate)}
                                             </td>
-                                            <td className="max-w-xs truncate px-3 py-2 text-white/80">
+                                            <td className="max-w-xs truncate px-3 py-2 text-paper-fg">
                                                 {suggestion.outTransaction.description}
                                             </td>
                                             <td className="px-3 py-2 text-right">
@@ -902,7 +902,7 @@ const TransactionsPage = () => {
                                             </td>
                                             <td
                                                 rowSpan={2}
-                                                className="border-l border-white/10 px-3 py-2 align-middle text-right"
+                                                className="border-l border-paper-border px-3 py-2 align-middle text-right"
                                             >
                                                 <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                                                     <button
@@ -925,16 +925,16 @@ const TransactionsPage = () => {
                                             </td>
                                         </tr>
                                         <tr key={`${suggestion.inTransaction.id}-in`}>
-                                            <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-white/50">
+                                            <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-paper-muted">
                                                 In
                                             </td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-white/90">
+                                            <td className="px-3 py-2 whitespace-nowrap text-paper-fg">
                                                 {suggestion.inTransaction.accountLabel}
                                             </td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-white/60">
+                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-paper-muted">
                                                 {formatTransferDate(suggestion.inTransaction.transactionDate)}
                                             </td>
-                                            <td className="max-w-xs truncate px-3 py-2 text-white/80">
+                                            <td className="max-w-xs truncate px-3 py-2 text-paper-fg">
                                                 {suggestion.inTransaction.description}
                                             </td>
                                             <td className="px-3 py-2 text-right">
@@ -950,8 +950,8 @@ const TransactionsPage = () => {
             ) : null}
 
             {selectedIds.size > 0 ? (
-                <div className="flex flex-wrap items-center gap-3 border-b border-white/10 bg-white/5 px-4 py-3">
-                    <span className="text-sm text-white/80">
+                <div className="flex flex-wrap items-center gap-3 border-b border-paper-border bg-paper px-4 py-3">
+                    <span className="text-sm text-paper-fg">
                         {selectedIds.size} selected
                     </span>
                     <CategoryPicker
@@ -1002,7 +1002,7 @@ const TransactionsPage = () => {
                         type="button"
                         disabled={bulkBusy}
                         onClick={() => setSelectedIds(new Set())}
-                        className="ml-auto cursor-pointer px-2 py-1.5 text-sm text-white/50 hover:text-white"
+                        className="ml-auto cursor-pointer px-2 py-1.5 text-sm text-paper-muted hover:text-paper-fg"
                     >
                         Clear
                     </button>

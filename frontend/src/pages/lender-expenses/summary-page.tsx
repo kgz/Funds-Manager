@@ -84,7 +84,7 @@ function BucketBreakdownRows({
 	if (loading) {
 		return (
 			<tr className="bg-black/20">
-				<td colSpan={5} className="px-4 py-3 text-sm text-white/50">
+				<td colSpan={5} className="px-4 py-3 text-sm text-paper-muted">
 					<span className="inline-flex items-center gap-2">
 						<Loader2 className="h-4 w-4 animate-spin" />
 						Loading breakdown…
@@ -96,7 +96,7 @@ function BucketBreakdownRows({
 	if (breakdown === null || breakdown.categories.length === 0) {
 		return (
 			<tr className="bg-black/20">
-				<td colSpan={5} className="px-4 py-3 pl-12 text-sm text-white/45">
+				<td colSpan={5} className="px-4 py-3 pl-12 text-sm text-paper-muted">
 					No category detail for this bucket in the selected period.
 				</td>
 			</tr>
@@ -106,20 +106,20 @@ function BucketBreakdownRows({
 		<>
 			{breakdown.categories.map((line) => (
 				<tr key={`${line.categoryId ?? 'none'}-${line.categoryPath}`} className="bg-black/20">
-					<td className="px-4 py-2 pl-12 text-white/75">
+					<td className="px-4 py-2 pl-12 text-paper-muted">
 						{line.categoryColour ? (
 							<CategoryPill name={line.categoryPath} colour={line.categoryColour} />
 						) : (
 							<span className="text-sm">{line.categoryPath}</span>
 						)}
 					</td>
-					<td className="px-4 py-2 text-right font-mono tabular-nums text-white/70">
+					<td className="px-4 py-2 text-right font-mono tabular-nums text-paper-muted">
 						{formatMoney(line.totalDollars)}
 					</td>
 					<td className="px-4 py-2 text-right font-mono tabular-nums text-amber-200/75">
 						{formatMoney(line.monthlyAverageDollars)}
 					</td>
-					<td className="px-4 py-2 text-right tabular-nums text-white/55">
+					<td className="px-4 py-2 text-right tabular-nums text-paper-muted">
 						{line.transactionCount}
 					</td>
 					<td />
@@ -145,10 +145,10 @@ function SummaryBucketRow({
 	const expandable = rowCanExpand(row);
 	const labelClass =
 		row.tone === 'default'
-			? 'text-white/90'
+			? 'text-paper-fg'
 			: row.tone === 'muted'
-				? 'text-white/70'
-				: 'text-white/55';
+				? 'text-paper-muted'
+				: 'text-paper-muted';
 	const monthlyClass =
 		row.tone === 'default' ? 'text-amber-200/90' : 'text-amber-200/80';
 
@@ -156,9 +156,9 @@ function SummaryBucketRow({
 		<Fragment>
 			<tr
 				className={cn(
-					'border-b border-white/5',
+					'border-b border-paper-border',
 					labelClass,
-					expandable && 'cursor-pointer hover:bg-white/[0.03]'
+					expandable && 'cursor-pointer hover:bg-paper'
 				)}
 				onClick={() => {
 					if (expandable) {
@@ -170,9 +170,9 @@ function SummaryBucketRow({
 					<span className="inline-flex items-center gap-2">
 						{expandable ? (
 							isOpen ? (
-								<ChevronDown className="h-4 w-4 shrink-0 text-white/45" />
+								<ChevronDown className="h-4 w-4 shrink-0 text-paper-muted" />
 							) : (
-								<ChevronRight className="h-4 w-4 shrink-0 text-white/45" />
+								<ChevronRight className="h-4 w-4 shrink-0 text-paper-muted" />
 							)
 						) : (
 							<span className="inline-block w-4" />
@@ -187,7 +187,7 @@ function SummaryBucketRow({
 					{formatMoney(row.monthlyAverageDollars)}
 				</td>
 				<td className="px-4 py-3 text-right tabular-nums">{row.transactionCount}</td>
-				<td className="px-4 py-3 text-right text-xs text-white/40">
+				<td className="px-4 py-3 text-right text-xs text-paper-muted">
 					{expandable ? (isOpen ? 'Hide' : 'Show categories') : ''}
 				</td>
 			</tr>
@@ -316,12 +316,12 @@ export function LenderExpensesSummaryPage() {
 
 			<InlineAlert variant="info" className="mb-6">
 				Living expenses exclude salary/income and any category you mark{' '}
-				<strong className="font-medium text-white/90">Excluded</strong> on the mapping page.{' '}
+				<strong className="font-medium text-paper-fg">Excluded</strong> on the mapping page.{' '}
 				Click a bucket row to see which app categories make up that figure — same data the broker
 				report will use. Adjust mappings on the{' '}
 				<NavLink
 					to="/lender-expenses/mappings"
-					className="font-medium text-white/90 underline underline-offset-2 hover:text-white"
+					className="font-medium text-paper-fg underline underline-offset-2 hover:text-paper-fg"
 				>
 					Category mapping
 				</NavLink>{' '}
@@ -357,10 +357,10 @@ export function LenderExpensesSummaryPage() {
 							description="Try a wider range or import more statements."
 						/>
 					) : (
-						<div className="overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03]">
+						<div className="overflow-x-auto rounded-xl border border-paper-border bg-paper">
 							<table className="w-full min-w-[52rem] text-sm">
 								<thead>
-									<tr className="border-b border-white/10 text-left text-white/50">
+									<tr className="border-b border-paper-border text-left text-paper-muted">
 										<th className="px-4 py-3 font-medium">Lender bucket</th>
 										<th className="px-4 py-3 font-medium text-right">Total</th>
 										<th className="px-4 py-3 font-medium text-right">Monthly avg</th>

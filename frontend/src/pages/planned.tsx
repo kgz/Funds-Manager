@@ -654,7 +654,7 @@ export default function PlannedSpendingPage() {
 
 	return (
 		<PageShell variant="table">
-			<div className="shrink-0 space-y-3 border-b border-white/10 p-4">
+			<div className="shrink-0 space-y-3 border-b border-paper-border p-4">
 				<PageHeader
 					title="Planned spending"
 					subtitle="Upcoming expenses you expect but have not recorded yet. Items are global — the account filter does not apply here."
@@ -714,7 +714,7 @@ export default function PlannedSpendingPage() {
 									}
 									className={cn(dateInputClass, 'px-2 py-1.5')}
 								/>
-								<span className="text-sm text-white/40">–</span>
+								<span className="text-sm text-paper-muted">–</span>
 								<input
 									type="date"
 									aria-label="To date"
@@ -808,17 +808,17 @@ export default function PlannedSpendingPage() {
 							return (
 								<div
 									key={`${suggestion.planned.id}-${suggestion.transaction.id}`}
-									className="rounded border border-white/10 bg-black/20 p-3"
+									className="rounded border border-paper-border bg-black/20 p-3"
 								>
 									<div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
 										<div className="min-w-0">
-											<p className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
+											<p className="text-[10px] font-semibold uppercase tracking-wide text-paper-muted">
 												Planned
 											</p>
-											<p className="font-medium text-white">
+											<p className="font-medium text-paper-fg">
 												{suggestion.planned.name}
 											</p>
-											<p className="mt-1 text-xs text-white/60">
+											<p className="mt-1 text-xs text-paper-muted">
 												{formatMoney(suggestion.planned.amount_cents)} ·{' '}
 												{formatPlannedDate(suggestion.planned.start_date)}
 												{plannedCat
@@ -826,22 +826,22 @@ export default function PlannedSpendingPage() {
 													: ''}
 											</p>
 											{suggestion.planned.notes ? (
-												<p className="mt-1 truncate text-xs text-white/45">
+												<p className="mt-1 truncate text-xs text-paper-muted">
 													{suggestion.planned.notes}
 												</p>
 											) : null}
 										</div>
-										<div className="hidden justify-center text-white/30 lg:flex">
+										<div className="hidden justify-center text-paper-muted lg:flex">
 											<Link2 size="1.1rem" aria-hidden />
 										</div>
 										<div className="min-w-0">
-											<p className="text-[10px] font-semibold uppercase tracking-wide text-white/40">
+											<p className="text-[10px] font-semibold uppercase tracking-wide text-paper-muted">
 												Bank transaction
 											</p>
-											<p className="truncate font-medium text-white">
+											<p className="truncate font-medium text-paper-fg">
 												{suggestion.transaction.description}
 											</p>
-											<p className="mt-1 text-xs text-white/60">
+											<p className="mt-1 text-xs text-paper-muted">
 												{formatMoney(suggestion.transaction.amount)} ·{' '}
 												{formatPlannedDate(suggestion.transaction.transaction_date)}{' '}
 												· {suggestion.transaction.account_label}
@@ -851,15 +851,15 @@ export default function PlannedSpendingPage() {
 											</p>
 										</div>
 									</div>
-									<div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
+									<div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-paper-border pt-3">
 										<div className="flex flex-wrap gap-1.5">
-											<span className="rounded bg-white/10 px-2 py-0.5 text-[10px] text-white/70">
+											<span className="rounded bg-paper px-2 py-0.5 text-[10px] text-paper-muted">
 												{formatVarianceLabel(suggestion)}
 											</span>
 											{suggestion.reasons.slice(0, 3).map((reason) => (
 												<span
 													key={reason}
-													className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-white/50"
+													className="rounded bg-paper px-2 py-0.5 text-[10px] text-paper-muted"
 												>
 													{matchReasonLabel(reason)}
 												</span>
@@ -920,7 +920,7 @@ export default function PlannedSpendingPage() {
 				<div className={glassCardClass}>
 					<table className="w-full text-sm">
 						<thead>
-							<tr className="border-b border-white/10 text-left text-white/50">
+							<tr className="border-b border-paper-border text-left text-paper-muted">
 								<th className="px-4 py-3 font-medium">Name</th>
 								<th className="px-4 py-3 font-medium text-right">Amount</th>
 								<th className="px-4 py-3 font-medium">Date</th>
@@ -936,7 +936,7 @@ export default function PlannedSpendingPage() {
 								return (
 									<tr
 										key={item.id}
-										className="border-b border-white/5 text-white/90"
+										className="border-b border-paper-border text-paper-fg"
 									>
 										<td className="px-4 py-3 font-medium">
 											<span className="inline-flex items-center gap-2">
@@ -966,7 +966,7 @@ export default function PlannedSpendingPage() {
 										>
 											{formatMoney(item.amount_cents)}
 										</td>
-										<td className="px-4 py-3 text-white/70">
+										<td className="px-4 py-3 text-paper-muted">
 											{formatPlannedDate(item.start_date)}
 										</td>
 										<td className="px-4 py-3">
@@ -976,10 +976,10 @@ export default function PlannedSpendingPage() {
 													colour={cat.colour}
 												/>
 											) : (
-												<span className="text-white/40">—</span>
+												<span className="text-paper-muted">—</span>
 											)}
 										</td>
-										<td className="max-w-[14rem] truncate px-4 py-3 text-white/60">
+										<td className="max-w-[14rem] truncate px-4 py-3 text-paper-muted">
 											{item.notes ?? '—'}
 										</td>
 										<td className="px-4 py-3 text-right whitespace-nowrap">
@@ -1072,7 +1072,7 @@ export default function PlannedSpendingPage() {
 						<div>
 							<label
 								htmlFor="plannedNameInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Name
 							</label>
@@ -1093,7 +1093,7 @@ export default function PlannedSpendingPage() {
 							<div className="mb-1.5 flex flex-wrap items-center justify-between gap-3">
 								<label
 									htmlFor="plannedAmountInput"
-									className="text-sm font-medium text-white/80"
+									className="text-sm font-medium text-paper-fg"
 								>
 									Amount ($)
 								</label>
@@ -1108,7 +1108,7 @@ export default function PlannedSpendingPage() {
 											activeClassName:
 												'bg-red-500/20 text-red-400 shadow-sm',
 											inactiveClassName:
-												'text-white/70 hover:bg-red-500/10 hover:text-red-300',
+												'text-paper-muted hover:bg-red-500/10 hover:text-red-300',
 										},
 										{
 											value: 'income',
@@ -1116,7 +1116,7 @@ export default function PlannedSpendingPage() {
 											activeClassName:
 												'bg-green-500/20 text-green-400 shadow-sm',
 											inactiveClassName:
-												'text-white/70 hover:bg-green-500/10 hover:text-green-300',
+												'text-paper-muted hover:bg-green-500/10 hover:text-green-300',
 										},
 									]}
 								/>
@@ -1152,7 +1152,7 @@ export default function PlannedSpendingPage() {
 						<div>
 							<label
 								htmlFor="plannedDateInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Date
 							</label>
@@ -1170,7 +1170,7 @@ export default function PlannedSpendingPage() {
 						<div>
 							<label
 								htmlFor="plannedCategoryInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Category (optional)
 							</label>
@@ -1189,7 +1189,7 @@ export default function PlannedSpendingPage() {
 						<div>
 							<label
 								htmlFor="plannedNotesInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Notes (optional)
 							</label>
@@ -1263,20 +1263,20 @@ export default function PlannedSpendingPage() {
 							</InlineAlert>
 						) : null}
 						{linkCandidatesLoading ? (
-							<div className="flex flex-1 items-center justify-center text-white/60">
+							<div className="flex flex-1 items-center justify-center text-paper-muted">
 								<Loader2 className="h-5 w-5 animate-spin" />
 							</div>
 						) : linkCandidates.length === 0 ? (
 							<div className="flex flex-1 items-center justify-center">
-								<p className="text-center text-sm text-white/50">
+								<p className="text-center text-sm text-paper-muted">
 									No transactions found nearby. Try a different search term.
 								</p>
 							</div>
 						) : (
-							<div className="min-h-0 flex-1 overflow-auto rounded-lg border border-white/10">
+							<div className="min-h-0 flex-1 overflow-auto rounded-lg border border-paper-border">
 								<table className="w-full min-w-[40rem] text-sm">
-									<thead className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur-sm">
-										<tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-white/45">
+									<thead className="sticky top-0 z-10 bg-paper-surface backdrop-blur-sm">
+										<tr className="border-b border-paper-border text-left text-xs uppercase tracking-wide text-paper-muted">
 											<th className="w-10 px-3 py-2.5 font-medium" />
 											<th className="whitespace-nowrap px-3 py-2.5 font-medium">
 												Date
@@ -1299,10 +1299,10 @@ export default function PlannedSpendingPage() {
 												<tr
 													key={candidate.id}
 													className={cn(
-														'cursor-pointer border-t border-white/5 transition-colors',
+														'cursor-pointer border-t border-paper-border transition-colors',
 														selected
 															? 'bg-secondary-default/15'
-															: 'hover:bg-white/5'
+															: 'hover:bg-paper'
 													)}
 													onClick={() => toggleLinkSelection(candidate.id)}
 												>
@@ -1320,13 +1320,13 @@ export default function PlannedSpendingPage() {
 															aria-label={`Select transaction ${candidate.id}`}
 														/>
 													</td>
-													<td className="whitespace-nowrap px-3 py-2.5 align-middle text-white/70">
+													<td className="whitespace-nowrap px-3 py-2.5 align-middle text-paper-muted">
 														{formatPlannedDate(candidate.transaction_date)}
 													</td>
-													<td className="px-3 py-2.5 align-middle text-white/90">
+													<td className="px-3 py-2.5 align-middle text-paper-fg">
 														{candidate.description}
 													</td>
-													<td className="whitespace-nowrap px-3 py-2.5 align-middle text-white/60">
+													<td className="whitespace-nowrap px-3 py-2.5 align-middle text-paper-muted">
 														{candidate.account_label}
 													</td>
 													<td

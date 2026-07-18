@@ -60,7 +60,7 @@ const renderCustomTooltip = ({ active, payload, label }: TooltipContentProps) =>
             <p className="mb-1 font-semibold">{label}</p>
             <p style={{ color: '#4ade80' }}>{`Receiving: ${formatCurrencyWithCommas(receiving)}`}</p>
             <p style={{ color: '#f87171' }}>{`Spending: ${formatCurrencyWithCommas(spending)}`}</p>
-            <hr className="my-1 border-white/15" />
+            <hr className="my-1 border-paper-border" />
             <p className={difference >= 0 ? 'text-green-400' : 'text-red-400'}>
                 {`Difference: ${difference >= 0 ? '+' : ''}${formatCurrencyWithCommas(difference)}`}
             </p>

@@ -1,4 +1,3 @@
-import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router";
 import { Sidebar } from "./components/sidebar";
 import { Dashboard } from "./components/dashboard";
@@ -24,19 +23,10 @@ import { LenderExpensesLayout } from "./pages/lender-expenses/layout";
 import { LenderExpenseMappingsPage } from "./pages/lender-expenses/mappings-page";
 import { LenderExpensesSummaryPage } from "./pages/lender-expenses/summary-page";
 
-function AppLayout({
-	setTheme,
-	theme,
-}: {
-	setTheme: Dispatch<SetStateAction<string>>;
-	theme: string;
-}) {
+function AppLayout() {
   return (
-    <div className={`
-		min-h-screen  transition-all
-			bg-black/70
-		`}>
-      <Sidebar setTheme={setTheme} theme={theme} />
+    <div className="min-h-screen bg-paper text-paper-fg">
+      <Sidebar />
       <div className="ml-16 lg:ml-64">
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -67,22 +57,6 @@ function AppLayout({
 }
 
 const App = () => {
-  const [theme, setTheme] = useState("light");
-
-  useEffect(() => {
-    // Check for saved theme in localStorage
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
-  }, []);
-
-  useEffect(() => {
-    // Update the theme in localStorage and apply the theme class
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("theme", theme);
-  }, [theme]);
-
   return (
     <Router
       basename={
@@ -93,7 +67,7 @@ const App = () => {
     >
       <Routes>
         <Route path="/r/:token" element={<PublicBrokerReportPage />} />
-        <Route path="*" element={<AppLayout setTheme={setTheme} theme={theme} />} />
+        <Route path="*" element={<AppLayout />} />
       </Routes>
     </Router>
   );

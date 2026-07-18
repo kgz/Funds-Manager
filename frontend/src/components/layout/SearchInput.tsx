@@ -21,7 +21,7 @@ export function SearchInput({
 		<div className={cn('relative', className)}>
 			<Search
 				size={16}
-				className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
+				className="absolute left-3 top-1/2 -translate-y-1/2 text-paper-muted"
 			/>
 			<input
 				type="text"
@@ -40,7 +40,7 @@ export function SearchInput({
 				<button
 					type="button"
 					onClick={() => onChange('')}
-					className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-white/40 hover:text-white"
+					className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-paper-muted hover:text-paper-fg"
 					aria-label="Clear search"
 				>
 					<X size={16} />

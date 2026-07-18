@@ -24,7 +24,7 @@ export function PageLoadingState({
 				<GlassCard className="px-8 py-6">
 					<div className="flex items-center gap-3">
 						<Loader2 className="h-6 w-6 animate-spin text-secondary-default" />
-						<span className="text-white/70">{label}</span>
+						<span className="text-paper-muted">{label}</span>
 					</div>
 				</GlassCard>
 			</div>
@@ -35,7 +35,7 @@ export function PageLoadingState({
 		<GlassCard className={cn('p-8', className)}>
 			<div className="flex items-center justify-center gap-3">
 				<Loader2 className="h-6 w-6 animate-spin text-secondary-default" />
-				<span className="text-white/70">{label}</span>
+				<span className="text-paper-muted">{label}</span>
 			</div>
 		</GlassCard>
 	);

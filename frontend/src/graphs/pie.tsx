@@ -94,14 +94,14 @@ function RankedCategoryList({
 			{rows.map((row) => {
 				const content = (
 					<>
-						<span className="flex min-w-0 items-center gap-2 text-white/85">
+						<span className="flex min-w-0 items-center gap-2 text-paper-fg">
 							<span
 								className="h-2.5 w-2.5 shrink-0 rounded-full"
 								style={{ backgroundColor: row.color }}
 							/>
 							<span className="truncate">{row.name}</span>
 						</span>
-						<span className="shrink-0 tabular-nums text-white/60">
+						<span className="shrink-0 tabular-nums text-paper-muted">
 							{formatDollars(row.value)} · {row.percent.toFixed(1)}%
 						</span>
 					</>
@@ -111,7 +111,7 @@ function RankedCategoryList({
 						{clickable ? (
 							<button
 								type="button"
-								className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-white/5"
+								className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-paper"
 								onClick={() => onRowClick(row)}
 							>
 								{content}
@@ -168,7 +168,7 @@ export const CategoryPieChart = ({
 
 	if (data.length === 0) {
 		return (
-			<p className="flex h-[300px] items-center justify-center text-center text-white/50">
+			<p className="flex h-[300px] items-center justify-center text-center text-paper-muted">
 				No data available for {chartLabel}.
 			</p>
 		);
@@ -260,9 +260,9 @@ export const CategoryPieChart = ({
 							formatter={(value) => {
 								const cursorClass = onSliceClick !== undefined ? 'cursor-pointer' : '';
 								return hoveredSliceName === value ? (
-									<span className={`font-bold text-white ${cursorClass}`}>{value}</span>
+									<span className={`font-bold text-paper-fg ${cursorClass}`}>{value}</span>
 								) : (
-									<span className={`text-white/80 ${cursorClass}`}>{value}</span>
+									<span className={`text-paper-fg ${cursorClass}`}>{value}</span>
 								);
 							}}
 						/>

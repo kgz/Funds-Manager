@@ -33,7 +33,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
       className={cn(
         'flex items-center gap-2 text-sm',
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
-        'text-white/70 hover:text-white' // Match label style
+        'text-paper-muted hover:text-paper-fg' // Match label style
       )}
     >
       {/* The visual switch */}

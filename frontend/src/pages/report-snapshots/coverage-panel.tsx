@@ -11,7 +11,7 @@ type ReportCoveragePanelProps = {
 export function ReportCoveragePanel({ coverage, loading = false }: ReportCoveragePanelProps) {
 	if (loading) {
 		return (
-			<div className={`${glassCardClass} p-4 text-sm text-white/50`}>
+			<div className={`${glassCardClass} p-4 text-sm text-paper-muted`}>
 				Checking statement coverage…
 			</div>
 		);
@@ -23,7 +23,7 @@ export function ReportCoveragePanel({ coverage, loading = false }: ReportCoverag
 
 	return (
 		<div className={`${glassCardClass} space-y-3 p-4`}>
-			<h2 className="text-sm font-semibold text-white">Statement coverage</h2>
+			<h2 className="text-sm font-semibold text-paper-fg">Statement coverage</h2>
 			{coverage.sufficient ? (
 				<InlineAlert variant="info">{coverage.summaryStatement}</InlineAlert>
 			) : (
@@ -38,7 +38,7 @@ export function ReportCoveragePanel({ coverage, loading = false }: ReportCoverag
 			{coverage.accounts.some(
 				(account) => account.missingMonths.length > 0 || account.gapRanges.length > 0
 			) ? (
-				<ul className="space-y-2 text-sm text-white/75">
+				<ul className="space-y-2 text-sm text-paper-muted">
 					{coverage.accounts.map((account) => {
 						if (
 							account.missingMonths.length === 0 &&
@@ -54,9 +54,9 @@ export function ReportCoveragePanel({ coverage, loading = false }: ReportCoverag
 								: account.missingMonths.join(', ');
 						return (
 							<li key={`${account.accountLabel}-${account.accountId ?? 'legacy'}`}>
-								<span className="font-medium text-white">{account.accountLabel}</span>
+								<span className="font-medium text-paper-fg">{account.accountLabel}</span>
 								{account.multiMonthCadence ? (
-									<span className="text-white/50"> (half-yearly statements)</span>
+									<span className="text-paper-muted"> (half-yearly statements)</span>
 								) : null}
 								{' — '}
 								{gapText}

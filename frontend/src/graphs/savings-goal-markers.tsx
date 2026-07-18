@@ -120,8 +120,8 @@ function GoalMarkerShape({
 					style={{ overflow: 'visible', pointerEvents: 'none' }}
 				>
 					<div className={chartTooltipClass}>
-						<p className="mb-1 font-medium text-white">{goal.name}</p>
-						<p className="text-xs text-white/60">
+						<p className="mb-1 font-medium text-paper-fg">{goal.name}</p>
+						<p className="text-xs text-paper-muted">
 							{formatChartTooltipDate(goal.targetDate)}
 						</p>
 						<p className="mt-2 text-sm text-amber-200">

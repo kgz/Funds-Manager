@@ -200,8 +200,8 @@ export function Settings() {
 						className={`${glassCardClass} space-y-6 p-6`}
 					>
 						<div>
-							<h2 className="text-sm font-semibold text-white">Data storage</h2>
-							<p className="mt-1 text-sm text-white/60">
+							<h2 className="text-sm font-semibold text-paper-fg">Data storage</h2>
+							<p className="mt-1 text-sm text-paper-muted">
 								Choose where your financial data lives. PostgreSQL is used today;
 								local file storage will activate when the SQLite backend ships
 								(#165).
@@ -210,7 +210,7 @@ export function Settings() {
 
 						<fieldset className="space-y-3">
 							<legend className="sr-only">Storage mode</legend>
-							<label className="flex cursor-pointer items-start gap-3 rounded border border-white/10 bg-black/20 p-4">
+							<label className="flex cursor-pointer items-start gap-3 rounded border border-paper-border bg-black/20 p-4">
 								<input
 									type="radio"
 									name="storage_mode"
@@ -220,16 +220,16 @@ export function Settings() {
 									className="mt-1"
 								/>
 								<span>
-									<span className="flex items-center gap-2 text-sm font-medium text-white">
+									<span className="flex items-center gap-2 text-sm font-medium text-paper-fg">
 										<Database size="1rem" aria-hidden />
 										External PostgreSQL
 									</span>
-									<span className="mt-1 block text-sm text-white/60">
+									<span className="mt-1 block text-sm text-paper-muted">
 										Connect to your own Postgres server (Docker, homelab, cloud).
 									</span>
 								</span>
 							</label>
-							<label className="flex cursor-pointer items-start gap-3 rounded border border-white/10 bg-black/20 p-4">
+							<label className="flex cursor-pointer items-start gap-3 rounded border border-paper-border bg-black/20 p-4">
 								<input
 									type="radio"
 									name="storage_mode"
@@ -239,11 +239,11 @@ export function Settings() {
 									className="mt-1"
 								/>
 								<span>
-									<span className="flex items-center gap-2 text-sm font-medium text-white">
+									<span className="flex items-center gap-2 text-sm font-medium text-paper-fg">
 										<HardDrive size="1rem" aria-hidden />
 										Local on this computer
 									</span>
-									<span className="mt-1 block text-sm text-white/60">
+									<span className="mt-1 block text-sm text-paper-muted">
 										Single database file in your user folder (coming soon).
 									</span>
 								</span>
@@ -253,7 +253,7 @@ export function Settings() {
 						{storageMode === 'postgres' ? (
 							<div className="space-y-4">
 								<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-									<label className="flex flex-col gap-1 text-sm text-white/80 sm:col-span-2">
+									<label className="flex flex-col gap-1 text-sm text-paper-fg sm:col-span-2">
 										<span>Host</span>
 										<input
 											className={cn(inputDarkClass, 'w-full px-3 py-2')}
@@ -264,7 +264,7 @@ export function Settings() {
 											autoComplete="off"
 										/>
 									</label>
-									<label className="flex flex-col gap-1 text-sm text-white/80">
+									<label className="flex flex-col gap-1 text-sm text-paper-fg">
 										<span>Port</span>
 										<input
 											className={cn(inputDarkClass, 'w-full px-3 py-2')}
@@ -278,7 +278,7 @@ export function Settings() {
 									</label>
 								</div>
 
-								<label className="flex flex-col gap-1 text-sm text-white/80">
+								<label className="flex flex-col gap-1 text-sm text-paper-fg">
 									<span>Database name</span>
 									<input
 										className={cn(inputDarkClass, 'w-full px-3 py-2')}
@@ -291,7 +291,7 @@ export function Settings() {
 								</label>
 
 								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-									<label className="flex flex-col gap-1 text-sm text-white/80">
+									<label className="flex flex-col gap-1 text-sm text-paper-fg">
 										<span>Username</span>
 										<input
 											className={cn(inputDarkClass, 'w-full px-3 py-2')}
@@ -302,7 +302,7 @@ export function Settings() {
 											autoComplete="off"
 										/>
 									</label>
-									<label className="flex flex-col gap-1 text-sm text-white/80">
+									<label className="flex flex-col gap-1 text-sm text-paper-fg">
 										<span>Password</span>
 										<input
 											className={cn(inputDarkClass, 'w-full px-3 py-2')}
@@ -319,21 +319,21 @@ export function Settings() {
 								</div>
 
 								<div className="space-y-1">
-									<span className="block text-xs text-white/50">
+									<span className="block text-xs text-paper-muted">
 										Active source: {settings.database_url_source}.
 										{hasSavedPassword
 											? ' Leave the password blank to keep the saved one.'
 											: ''}
 									</span>
 									{settings.runtime_database_url !== null ? (
-										<span className="block text-xs text-white/50">
+										<span className="block text-xs text-paper-muted">
 											Currently connected: {settings.runtime_database_url}
 										</span>
 									) : null}
 								</div>
 							</div>
 						) : (
-							<label className="flex flex-col gap-1 text-sm text-white/80">
+							<label className="flex flex-col gap-1 text-sm text-paper-fg">
 								<span>Local database file</span>
 								<input
 									className={cn(inputDarkClass, 'w-full px-3 py-2')}
@@ -392,14 +392,14 @@ export function Settings() {
 
 					<div className={`${glassCardClass} space-y-4 p-6`}>
 						<div>
-							<h2 className="text-sm font-semibold text-white">Database migrations</h2>
-							<p className="mt-1 text-sm text-white/60">
+							<h2 className="text-sm font-semibold text-paper-fg">Database migrations</h2>
+							<p className="mt-1 text-sm text-paper-muted">
 								Apply schema updates to the active database without using the CLI.
 							</p>
 						</div>
 
 						{migrationsLoading ? (
-							<p className="text-sm text-white/60">Loading migrations…</p>
+							<p className="text-sm text-paper-muted">Loading migrations…</p>
 						) : null}
 						{migrationsError !== null ? (
 							<InlineAlert variant="error">{migrationsError}</InlineAlert>
@@ -407,7 +407,7 @@ export function Settings() {
 
 						{!migrationsLoading && migrationsError === null ? (
 							<>
-								<p className="text-sm text-white/70">
+								<p className="text-sm text-paper-muted">
 									{pendingMigrationCount === 0
 										? 'All migrations are applied.'
 										: `${pendingMigrationCount} migration(s) pending.`}
@@ -416,13 +416,13 @@ export function Settings() {
 									{migrations.map((migration) => (
 										<li
 											key={migration.name}
-											className="flex items-start justify-between gap-3 rounded border border-white/10 bg-black/20 px-3 py-2"
+											className="flex items-start justify-between gap-3 rounded border border-paper-border bg-black/20 px-3 py-2"
 										>
 											<span>
-												<span className="block font-medium text-white">
+												<span className="block font-medium text-paper-fg">
 													{migration.description || migration.name}
 												</span>
-												<span className="block text-xs text-white/50">
+												<span className="block text-xs text-paper-muted">
 													{migration.name}
 												</span>
 											</span>
@@ -456,17 +456,17 @@ export function Settings() {
 						) : null}
 					</div>
 
-					<div className={`${glassCardClass} space-y-2 p-6 text-sm text-white/70`}>
+					<div className={`${glassCardClass} space-y-2 p-6 text-sm text-paper-muted`}>
 						<p>
-							<span className="text-white/50">Config file:</span>{' '}
-							<code className="text-white/90">{settings.config_file_path}</code>
+							<span className="text-paper-muted">Config file:</span>{' '}
+							<code className="text-paper-fg">{settings.config_file_path}</code>
 						</p>
 						<p>
-							<span className="text-white/50">Configured mode:</span>{' '}
+							<span className="text-paper-muted">Configured mode:</span>{' '}
 							{settings.configured_storage_mode}
 						</p>
 						<p>
-							<span className="text-white/50">Runtime mode:</span>{' '}
+							<span className="text-paper-muted">Runtime mode:</span>{' '}
 							{settings.runtime_storage_mode}
 						</p>
 					</div>

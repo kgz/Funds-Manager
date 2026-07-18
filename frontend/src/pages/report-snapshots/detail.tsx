@@ -41,11 +41,11 @@ function BreakdownTable({
 	}
 	return (
 		<div className={glassCardClass}>
-			<h2 className="mb-3 text-sm font-semibold text-white">{title}</h2>
+			<h2 className="mb-3 text-sm font-semibold text-paper-fg">{title}</h2>
 			<div className="overflow-x-auto">
 				<table className="w-full min-w-[32rem] text-sm">
 					<thead>
-						<tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-white/45">
+						<tr className="border-b border-paper-border text-left text-xs uppercase tracking-wide text-paper-muted">
 							{headers.map((header) => (
 								<th key={header} className="px-3 py-2 font-medium">
 									{header}
@@ -55,7 +55,7 @@ function BreakdownTable({
 					</thead>
 					<tbody>
 						{rows.map((cells) => (
-							<tr key={cells.join('|')} className="border-t border-white/5 text-white/85">
+							<tr key={cells.join('|')} className="border-t border-paper-border text-paper-fg">
 								{cells.map((cell, index) => (
 									<td
 										key={`${cells[0]}-${String(index)}`}
@@ -210,7 +210,7 @@ export function ReportSnapshotDetailPage() {
 			<div className="mb-4">
 				<Link
 					to="/report-snapshots"
-					className="inline-flex items-center gap-1 text-sm text-white/60 hover:text-white"
+					className="inline-flex items-center gap-1 text-sm text-paper-muted hover:text-paper-fg"
 				>
 					<ArrowLeft size="0.875rem" aria-hidden />
 					All snapshots

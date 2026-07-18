@@ -1108,7 +1108,7 @@ packages:
     engines: {node: '>=0.10.0'}
 
   eve@https://codeload.github.com/adobe-webplatform/eve/tar.gz/eef80ed:
-    resolution: {tarball: https://codeload.github.com/adobe-webplatform/eve/tar.gz/eef80ed}
+    resolution: {integrity: sha512-x3wIvp31UyOeimaSCm7SfFdZhfL4xeEaGKJ9w4TG1EiYBMmwuAPaPpZxl0HppyAJBLV44vPLCDKsHvW733g2Sw==, tarball: https://codeload.github.com/adobe-webplatform/eve/tar.gz/eef80ed}
     version: 0.4.1
 
   eventemitter3@5.0.4:

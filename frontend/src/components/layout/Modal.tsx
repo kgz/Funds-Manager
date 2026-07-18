@@ -50,7 +50,7 @@ export function Modal({
 		>
 			<button
 				type="button"
-				className="absolute inset-0 cursor-pointer bg-black/70 backdrop-blur-sm"
+				className="absolute inset-0 cursor-pointer bg-paper-fg/35 backdrop-blur-sm"
 				aria-label="Close dialog"
 				onClick={closeDisabled ? undefined : onClose}
 				disabled={closeDisabled}
@@ -58,7 +58,7 @@ export function Modal({
 			<div
 				className={cn(
 					glassCardClass,
-					'relative z-10 flex w-full flex-col shadow-2xl shadow-black/40',
+					'relative z-10 flex w-full flex-col bg-paper-surface shadow-2xl shadow-paper-fg/15',
 					fillViewport ? 'max-h-[calc(100dvh-2rem)]' : 'p-5',
 					sizeClass[size]
 				)}
@@ -66,27 +66,27 @@ export function Modal({
 				<div
 					className={cn(
 						'flex shrink-0 items-start justify-between gap-3',
-						fillViewport ? 'border-b border-white/10 px-5 py-4' : 'mb-4'
+						fillViewport ? 'border-b border-paper-border px-5 py-4' : 'mb-4'
 					)}
 				>
 					<div className="min-w-0">
 						<h2
 							className={cn(
-								'text-lg font-semibold text-white',
+								'text-lg font-semibold text-paper-fg',
 								titleClassName
 							)}
 						>
 							{title}
 						</h2>
 						{description !== undefined ? (
-							<div className="mt-2 text-sm text-white/70">{description}</div>
+							<div className="mt-2 text-sm text-paper-muted">{description}</div>
 						) : null}
 					</div>
 					<button
 						type="button"
 						onClick={onClose}
 						disabled={closeDisabled}
-						className="flex-shrink-0 cursor-pointer rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-50"
+						className="flex-shrink-0 cursor-pointer rounded-md p-2 text-paper-muted hover:bg-paper hover:text-paper-fg disabled:opacity-50"
 						aria-label="Close"
 					>
 						<X className="h-5 w-5" />
@@ -104,7 +104,7 @@ export function Modal({
 						className={cn(
 							'flex shrink-0 justify-end gap-3',
 							fillViewport
-								? 'border-t border-white/10 px-5 py-4'
+								? 'border-t border-paper-border px-5 py-4'
 								: 'mt-5'
 						)}
 					>

@@ -548,11 +548,11 @@ const RecurringExpensesPage = () => {
 								{row.modeCategoryId !== null && cat && !cat.deleted_at ? (
 									<CategoryPill name={cat.name} colour={cat.colour} />
 								) : row.modeCategoryId !== null && showDeleted ? (
-									<span className="inline-block px-2 py-0.5 rounded text-xs text-white/80 bg-gray-600 shrink-0">
+									<span className="inline-block px-2 py-0.5 rounded text-xs text-paper-fg bg-gray-600 shrink-0">
 										{cat?.name ?? `ID ${row.modeCategoryId}`} (deleted)
 									</span>
 								) : row.modeCategoryId !== null && !cat ? (
-									<span className="inline-block px-2 py-0.5 rounded text-xs text-white/80 bg-gray-600 shrink-0">
+									<span className="inline-block px-2 py-0.5 rounded text-xs text-paper-fg bg-gray-600 shrink-0">
 										ID: {row.modeCategoryId}
 									</span>
 								) : (
@@ -610,12 +610,12 @@ const RecurringExpensesPage = () => {
 						>
 							{formatMoney(v)}
 						</span>
-						<span className="font-mono text-[11px] tabular-nums leading-none text-white/55">
-							<span className="text-white/35 mr-0.5" aria-hidden>
+						<span className="font-mono text-[11px] tabular-nums leading-none text-paper-muted">
+							<span className="text-paper-muted mr-0.5" aria-hidden>
 								≈
 							</span>
 							{formatMoney(row.estimatedMonthlyDollars)}
-							<span className="text-white/35 font-sans font-normal text-[10px] ml-1">
+							<span className="text-paper-muted font-sans font-normal text-[10px] ml-1">
 								/mo
 							</span>
 						</span>
@@ -699,11 +699,11 @@ const RecurringExpensesPage = () => {
 								{row.modeCategoryId !== null && cat && !cat.deleted_at ? (
 									<CategoryPill name={cat.name} colour={cat.colour} />
 								) : row.modeCategoryId !== null && showDeleted ? (
-									<span className="inline-block px-2 py-0.5 rounded text-xs text-white/80 bg-gray-600 shrink-0">
+									<span className="inline-block px-2 py-0.5 rounded text-xs text-paper-fg bg-gray-600 shrink-0">
 										{cat?.name ?? `ID ${row.modeCategoryId}`} (deleted)
 									</span>
 								) : row.modeCategoryId !== null && !cat ? (
-									<span className="inline-block px-2 py-0.5 rounded text-xs text-white/80 bg-gray-600 shrink-0">
+									<span className="inline-block px-2 py-0.5 rounded text-xs text-paper-fg bg-gray-600 shrink-0">
 										ID: {row.modeCategoryId}
 									</span>
 								) : (
@@ -712,7 +712,7 @@ const RecurringExpensesPage = () => {
 									</span>
 								)}
 							</div>
-							<p className="text-[10px] text-white/40 mt-1">
+							<p className="text-[10px] text-paper-muted mt-1">
 								{row.patternCount} pattern{row.patternCount === 1 ? '' : 's'} ·
 								click to expand
 							</p>
@@ -724,14 +724,14 @@ const RecurringExpensesPage = () => {
 				key: 'cadenceLabel',
 				label: 'Cadence',
 				sortable: false,
-				render: () => <span className="text-sm text-white/35">—</span>,
+				render: () => <span className="text-sm text-paper-muted">—</span>,
 			},
 			{
 				key: 'medianGapDays',
 				label: 'Typical spacing (days)',
 				sortable: false,
 				render: () => (
-					<span className="font-mono text-sm text-white/35">—</span>
+					<span className="font-mono text-sm text-paper-muted">—</span>
 				),
 			},
 			{
@@ -753,7 +753,7 @@ const RecurringExpensesPage = () => {
 						{row.spendingMonthly > 0 ? (
 							<span className="font-mono text-sm tabular-nums text-red-300 leading-none">
 								{formatMoney(row.spendingMonthly)}
-								<span className="text-white/35 font-sans font-normal text-[10px] ml-1">
+								<span className="text-paper-muted font-sans font-normal text-[10px] ml-1">
 									spend/mo
 								</span>
 							</span>
@@ -761,13 +761,13 @@ const RecurringExpensesPage = () => {
 						{row.incomeMonthly > 0 ? (
 							<span className="font-mono text-sm tabular-nums text-green-400 leading-none">
 								{formatMoney(row.incomeMonthly)}
-								<span className="text-white/35 font-sans font-normal text-[10px] ml-1">
+								<span className="text-paper-muted font-sans font-normal text-[10px] ml-1">
 									income/mo
 								</span>
 							</span>
 						) : null}
 						{row.spendingMonthly === 0 && row.incomeMonthly === 0 ? (
-							<span className="text-white/35 text-sm">—</span>
+							<span className="text-paper-muted text-sm">—</span>
 						) : null}
 					</div>
 				),
@@ -777,7 +777,7 @@ const RecurringExpensesPage = () => {
 				label: 'Min / max',
 				sortable: false,
 				render: () => (
-					<span className="font-mono text-sm text-white/35">—</span>
+					<span className="font-mono text-sm text-paper-muted">—</span>
 				),
 			},
 			{
@@ -874,7 +874,7 @@ const RecurringExpensesPage = () => {
 			/>
 
 			{groupByCategory ? (
-				<p className="mb-3 text-sm text-white/50">
+				<p className="mb-3 text-sm text-paper-muted">
 					Grouped by category — click a row to see the individual payments behind
 					it.
 				</p>
@@ -893,7 +893,7 @@ const RecurringExpensesPage = () => {
 						]}
 					/>
 				</div>
-				<label className="flex items-center gap-2 text-sm text-white/80">
+				<label className="flex items-center gap-2 text-sm text-paper-fg">
 					<span>Minimum occurrences</span>
 					<select
 						value={minOccurrences}
@@ -917,7 +917,7 @@ const RecurringExpensesPage = () => {
 							<table className="w-full min-w-[960px]">
 								<thead
 									className={cn(
-										'border-b border-white/10 bg-gray-950/95 backdrop-blur-sm',
+										'border-b border-paper-border bg-paper-surface backdrop-blur-sm',
 										'sticky top-0 z-10'
 									)}
 								>
@@ -969,7 +969,7 @@ const RecurringExpensesPage = () => {
 										})}
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-white/10">
+								<tbody className="divide-y divide-paper-border">
 									{loading && sortedSections.length === 0
 										? Array.from({ length: 8 }).map((_, rowIndex) => (
 												<tr key={`skel-${String(rowIndex)}`} className="animate-pulse">
@@ -1012,10 +1012,10 @@ const RecurringExpensesPage = () => {
 										return (
 											<Fragment key={section.sectionKey}>
 												<tr
-													className="hover:bg-white/5 cursor-pointer transition-colors"
+													className="hover:bg-paper cursor-pointer transition-colors"
 													onClick={() => toggleSection(section.sectionKey)}
 												>
-													<td className="px-4 py-3 align-middle text-white/50">
+													<td className="px-4 py-3 align-middle text-paper-muted">
 														{isOpen ? (
 															<ChevronDown className="w-4 h-4" />
 														) : (
@@ -1037,7 +1037,7 @@ const RecurringExpensesPage = () => {
 												{isOpen ? (
 													<>
 														<tr
-															className="bg-gray-950/95 border-y border-white/5"
+															className="bg-paper-surface border-y border-paper-border"
 															onClick={(e) => e.stopPropagation()}
 														>
 															<td className="px-4 py-2" />
@@ -1096,7 +1096,7 @@ const RecurringExpensesPage = () => {
 														{sortedPatterns.map((pattern) => (
 															<tr
 																key={pattern.rowId}
-																className="bg-gray-950/60 hover:bg-gray-900/50"
+																className="bg-paper-surface/60 hover:bg-gray-900/50"
 																onClick={(e) => e.stopPropagation()}
 															>
 																<td className="px-4 py-2" />

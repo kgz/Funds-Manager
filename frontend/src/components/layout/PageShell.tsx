@@ -16,8 +16,8 @@ export function PageShell({
 		<div
 			className={cn(
 				variant === 'table'
-					? 'flex h-screen w-full flex-col text-white/90'
-					: 'p-4 md:p-6 text-white/90',
+					? 'flex h-screen w-full flex-col text-paper-fg'
+					: 'p-4 text-paper-fg md:p-6',
 				className
 			)}
 		>

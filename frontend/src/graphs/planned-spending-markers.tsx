@@ -125,13 +125,13 @@ function PlannedMarkerShape({
 					style={{ overflow: 'visible', pointerEvents: 'none' }}
 				>
 					<div className={chartTooltipClass}>
-						<p className="mb-2 text-xs text-white/60">
+						<p className="mb-2 text-xs text-paper-muted">
 							{formatChartTooltipDate(event.date)}
 						</p>
 						{event.items.map((item) => (
 							<p
 								key={item.id}
-								className="leading-snug text-white/90"
+								className="leading-snug text-paper-fg"
 							>
 								<span className="font-medium">{item.name}</span>
 								{' — '}

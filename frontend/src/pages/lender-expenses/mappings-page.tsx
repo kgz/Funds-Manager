@@ -121,7 +121,7 @@ export function LenderExpenseMappingsPage() {
 		<>
 			<InlineAlert variant="info" className="mb-6">
 				Map each app category to a lender living-expense bucket, or choose{' '}
-				<strong className="font-medium text-white/90">Excluded</strong> for debt repayments and
+				<strong className="font-medium text-paper-fg">Excluded</strong> for debt repayments and
 				other non-living spend. Salary/income and loan categories (e.g. home loan, car loan) are
 				excluded by default.
 			</InlineAlert>
@@ -158,7 +158,7 @@ export function LenderExpenseMappingsPage() {
 					<div className="overflow-x-auto">
 						<table className="w-full min-w-[56rem] text-sm">
 							<thead>
-								<tr className="border-b border-white/10 bg-white/[0.02] text-left text-xs font-medium uppercase tracking-wider text-white/50">
+								<tr className="border-b border-paper-border bg-paper text-left text-xs font-medium uppercase tracking-wider text-paper-muted">
 									<th className="px-4 py-3">App category</th>
 									<th className="px-4 py-3">Default bucket</th>
 									<th className="px-4 py-3">Lender bucket</th>
@@ -173,7 +173,7 @@ export function LenderExpenseMappingsPage() {
 									const isSaving = savingCategoryId === row.categoryId;
 									const selectValue = row.isExcluded ? '' : (row.bucketKey ?? '');
 									return (
-										<tr key={row.categoryId} className="text-white/90">
+										<tr key={row.categoryId} className="text-paper-fg">
 											<td className="px-4 py-4 align-middle">
 												{meta?.colour ? (
 													<CategoryPill name={displayName} colour={meta.colour} />
@@ -181,7 +181,7 @@ export function LenderExpenseMappingsPage() {
 													<span className="font-medium">{displayName}</span>
 												)}
 											</td>
-											<td className="px-4 py-4 align-middle text-white/55">
+											<td className="px-4 py-4 align-middle text-paper-muted">
 												{row.defaultBucketKey === null
 													? '—'
 													: (defaultLabel ?? 'Other living expenses')}
@@ -201,21 +201,21 @@ export function LenderExpenseMappingsPage() {
 														}}
 														aria-label={`Lender bucket for ${displayName}`}
 													>
-														<option value="" className="bg-gray-950 text-white">
+														<option value="" className="bg-paper-surface text-paper-fg">
 															Excluded
 														</option>
 														{buckets.map((bucket) => (
 															<option
 																key={bucket.bucketKey}
 																value={bucket.bucketKey}
-																className="bg-gray-950 text-white"
+																className="bg-paper-surface text-paper-fg"
 															>
 																{bucket.label}
 															</option>
 														))}
 													</select>
 													{isSaving ? (
-														<Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-white/50" />
+														<Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-paper-muted" />
 													) : null}
 												</div>
 											</td>
@@ -226,7 +226,7 @@ export function LenderExpenseMappingsPage() {
 															'rounded px-2 py-0.5 text-xs',
 															row.isManualExclude
 																? 'bg-amber-500/20 text-amber-200'
-																: 'bg-white/10 text-white/55'
+																: 'bg-paper text-paper-muted'
 														)}
 													>
 														{row.isManualExclude
@@ -240,7 +240,7 @@ export function LenderExpenseMappingsPage() {
 														Override
 													</span>
 												) : (
-													<span className="rounded bg-white/5 px-2 py-0.5 text-xs text-white/45">
+													<span className="rounded bg-paper px-2 py-0.5 text-xs text-paper-muted">
 														Default
 													</span>
 												)}

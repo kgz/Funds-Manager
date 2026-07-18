@@ -23,11 +23,6 @@ import {
 } from 'lucide-react';
 import { NavLink } from 'react-router';
 
-type SidebarProps = {
-	setTheme: React.Dispatch<React.SetStateAction<string>>;
-	theme: string;
-};
-
 type NavItem = {
 	to: string;
 	label: string;
@@ -95,10 +90,10 @@ function NavItemLink({ to, label, icon: Icon, actionableCount }: NavItem) {
 				aria-label={showBadge ? `${label}, ${attentionTitle}` : label}
 				className={({ isActive }) =>
 					cn(
-						'flex items-center gap-2 overflow-hidden px-6 py-4 text-sm transition duration-200 lg:py-2',
-						!isActive && 'bg-transparent opacity-50 hover:opacity-70',
+						'flex items-center gap-2 overflow-hidden rounded-paper px-3 py-3 text-sm transition duration-200 lg:px-2.5 lg:py-1.5',
+						!isActive && 'text-paper-muted hover:bg-paper hover:text-paper-fg',
 						isActive &&
-							'border-l-2 border-secondary-default bg-white/10 pl-[1.375rem] text-secondary-default opacity-100'
+							'bg-secondary-default/10 font-medium text-secondary-default'
 					)
 				}
 			>
@@ -129,13 +124,13 @@ function NavSectionBlock({
 	return (
 		<div
 			className={cn(
-				!isFirst && 'mt-3 border-t border-white/5 pt-3 lg:mt-5 lg:border-0 lg:pt-0'
+				!isFirst && 'mt-3 border-t border-paper-border pt-3 lg:mt-4'
 			)}
 		>
-			<h2 className="mb-2 hidden px-6 text-xs font-semibold uppercase tracking-wide text-white/40 lg:block">
+			<h2 className="mb-1.5 hidden px-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-paper-muted lg:block">
 				{title}
 			</h2>
-			<ul>
+			<ul className="flex flex-col gap-0.5 px-1 lg:px-0">
 				{items.map((item) => (
 					<NavItemLink key={item.to} {...item} />
 				))}
@@ -144,7 +139,7 @@ function NavSectionBlock({
 	);
 }
 
-export function Sidebar(_props: SidebarProps) {
+export function Sidebar() {
 	const { transfers, plannedMatches } = useActionableCounts();
 
 	const sections = navSections.map((section) => ({
@@ -167,19 +162,28 @@ export function Sidebar(_props: SidebarProps) {
 	}));
 
 	return (
-		<div className="fixed left-0 top-0 flex h-full w-16 flex-col border-r border-white/10 bg-gray-950/80 text-white/90 backdrop-blur-md transition-all duration-500 lg:w-64">
-			<div className="flex h-16 shrink-0 items-center justify-between px-4">
-				<div className="flex items-center gap-2">
-					<WalletMinimal aria-hidden />
-					<h1 className="hidden text-xl font-bold lg:block">FUNDS</h1>
+		<div className="fixed left-0 top-0 flex h-full w-16 flex-col border-r border-paper-border bg-paper-surface text-paper-fg transition-all duration-500 lg:w-64">
+			<div className="flex h-16 shrink-0 items-center gap-2.5 px-3 lg:px-4">
+				<div className="grid h-7 w-7 place-items-center rounded-[7px] bg-paper-fg text-[13px] font-semibold tracking-tight text-paper-surface">
+					F
 				</div>
+				<h1 className="hidden text-[15px] font-semibold uppercase tracking-[0.08em] lg:block">
+					Funds
+				</h1>
+				<span className="sr-only">
+					<WalletMinimal aria-hidden />
+				</span>
 			</div>
 
-			<nav className="mt-4 min-h-0 flex-1 overflow-y-auto pb-6 lg:mt-6" aria-label="Main">
+			<nav className="mt-2 min-h-0 flex-1 overflow-y-auto px-1 pb-6 lg:mt-3 lg:px-3" aria-label="Main">
 				{sections.map((section, index) => (
 					<NavSectionBlock key={section.title} {...section} isFirst={index === 0} />
 				))}
 			</nav>
+
+			<div className="hidden shrink-0 border-t border-paper-border px-4 py-3 text-[11px] text-paper-muted lg:block">
+				Self-hosted · AUD
+			</div>
 		</div>
 	);
 }

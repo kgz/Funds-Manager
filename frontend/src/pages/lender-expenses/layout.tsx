@@ -7,8 +7,8 @@ function tabLinkClass(isActive: boolean): string {
 	return cn(
 		'rounded px-3 py-1.5 text-sm transition-colors',
 		isActive
-			? 'bg-secondary-default/20 text-white shadow-sm'
-			: 'text-white/70 hover:bg-white/5 hover:text-white'
+			? 'bg-secondary-default/15 text-secondary-default shadow-sm'
+			: 'text-paper-muted hover:bg-paper hover:text-paper-fg'
 	);
 }
 
@@ -21,7 +21,7 @@ export function LenderExpensesLayout() {
 			/>
 
 			<nav
-				className="mb-6 inline-flex rounded-md border border-white/20 p-0.5"
+				className="mb-6 inline-flex rounded-md border border-paper-border p-0.5"
 				aria-label="Living expenses sections"
 			>
 				<NavLink

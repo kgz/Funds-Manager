@@ -87,7 +87,7 @@ export function TransactionCategoryCell({
 			</div>
 			<div className="text-center">
 				{showSuggestion ? (
-					<span className="text-[10px] uppercase tracking-wide text-white/35">
+					<span className="text-[10px] uppercase tracking-wide text-paper-muted">
 						or
 					</span>
 				) : null}

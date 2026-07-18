@@ -35,38 +35,38 @@ export function Drawer({
 		<>
 			<button
 				type="button"
-				className="fixed inset-0 z-40 cursor-pointer bg-black/50 transition-opacity duration-200"
+				className="fixed inset-0 z-40 cursor-pointer bg-paper-fg/30 transition-opacity duration-200"
 				aria-label="Close panel"
 				onClick={onClose}
 			/>
 			<aside
 				className={cn(
 					'fixed top-0 right-0 z-50 flex h-full w-full max-w-md flex-col',
-					'border-l border-white/10 bg-gray-950 shadow-2xl',
+					'border-l border-paper-border bg-paper-surface shadow-2xl',
 					panelClassName
 				)}
 			>
 				<div
 					className={cn(
-						'flex shrink-0 flex-col gap-3 border-b border-white/10 p-4',
+						'flex shrink-0 flex-col gap-3 border-b border-paper-border p-4',
 						className
 					)}
 				>
 					<div className="flex items-start justify-between gap-3">
 						<div className="min-w-0">
 							{eyebrow !== undefined ? (
-								<p className="text-xs font-medium uppercase tracking-wide text-white/50">
+								<p className="text-xs font-medium uppercase tracking-wide text-paper-muted">
 									{eyebrow}
 								</p>
 							) : null}
-							<h2 className="text-lg font-semibold text-white">{title}</h2>
+							<h2 className="text-lg font-semibold text-paper-fg">{title}</h2>
 							{description !== undefined ? (
-								<div className="mt-1 text-sm text-white/70">{description}</div>
+								<div className="mt-1 text-sm text-paper-muted">{description}</div>
 							) : null}
 						</div>
 						<button
 							type="button"
-							className="shrink-0 cursor-pointer rounded-md p-2 text-white/70 hover:bg-white/10 hover:text-white"
+							className="shrink-0 cursor-pointer rounded-md p-2 text-paper-muted hover:bg-paper hover:text-paper-fg"
 							aria-label="Close"
 							onClick={onClose}
 						>
@@ -77,7 +77,7 @@ export function Drawer({
 				</div>
 				<div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
 				{footer !== undefined ? (
-					<div className="shrink-0 border-t border-white/10 p-4">{footer}</div>
+					<div className="shrink-0 border-t border-paper-border p-4">{footer}</div>
 				) : null}
 			</aside>
 		</>

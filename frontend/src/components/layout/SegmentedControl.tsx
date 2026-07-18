@@ -25,7 +25,7 @@ export function SegmentedControl<T extends string>({
 	return (
 		<div
 			className={cn(
-				'inline-flex shrink-0 rounded-md border border-white/20 p-0.5',
+				'inline-flex shrink-0 rounded-paper border border-paper-border p-0.5',
 				className
 			)}
 			role="group"
@@ -41,9 +41,9 @@ export function SegmentedControl<T extends string>({
 							'cursor-pointer rounded px-3 py-1.5 text-sm transition-colors',
 							active
 								? (option.activeClassName ??
-									'bg-secondary-default/20 text-white shadow-sm')
+									'bg-secondary-default/15 text-secondary-default shadow-sm')
 								: (option.inactiveClassName ??
-									'text-white/70 hover:bg-white/5 hover:text-white')
+									'text-paper-muted hover:bg-paper hover:text-paper-fg')
 						)}
 						aria-pressed={active}
 						onClick={() => onChange(option.value)}

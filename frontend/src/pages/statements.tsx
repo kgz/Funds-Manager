@@ -323,7 +323,7 @@ export const Statements = () => {
 
 	return (
 		<PageShell variant="table" className="relative">
-			<div className="border-b border-white/10 p-4">
+			<div className="border-b border-paper-border p-4">
 				<PageHeader
 					title="Statements"
 					subtitle="Upload bank statement PDFs and manage imported periods."
@@ -362,12 +362,12 @@ export const Statements = () => {
 						{replacePrompt.conflicts.map((conflict) => (
 							<li
 								key={`${conflict.account_id}-${conflict.statement_date}-${conflict.filename}`}
-								className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-white"
+								className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-paper-fg"
 							>
 								<span className="font-medium">{conflict.period_label}</span>
 								{' · '}
-								<span className="text-white/80">account {conflict.account_id}</span>
-								<span className="mt-0.5 block text-xs text-white/55">{conflict.filename}</span>
+								<span className="text-paper-fg">account {conflict.account_id}</span>
+								<span className="mt-0.5 block text-xs text-paper-muted">{conflict.filename}</span>
 							</li>
 						))}
 						</ul>
@@ -376,9 +376,9 @@ export const Statements = () => {
 			</Modal>
 
 			{isUploading && (
-				<div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm">
+				<div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-paper-fg/35 backdrop-blur-sm">
 					<Loader2 className="w-12 h-12 animate-spin text-secondary-default mb-4" />
-					<p className="text-white text-lg">Uploading statements...</p>
+					<p className="text-paper-fg text-lg">Uploading statements...</p>
 				</div>
 			)}
 
@@ -386,8 +386,8 @@ export const Statements = () => {
 				className={cn(
 					'mx-4 mb-4 p-6 transition-colors duration-200 ease-in-out',
 					glassCardClass,
-					isDraggingOver && !isUploading && 'border-secondary-default/50 border-dashed bg-white/10',
-					!isUploading ? 'cursor-pointer hover:bg-white/[0.07]' : 'pointer-events-none opacity-50',
+					isDraggingOver && !isUploading && 'border-secondary-default/50 border-dashed bg-paper',
+					!isUploading ? 'cursor-pointer hover:bg-paper' : 'pointer-events-none opacity-50',
 				)}
 				onClick={() => !isUploading && document.getElementById("file-upload")?.click()}
 				onDragOver={handleDragOver}
@@ -402,9 +402,9 @@ export const Statements = () => {
 						</>
 					) : (
 						<>
-							<p className="text-center text-white/30">Click or drop PDF statement(s) here to upload</p>
+							<p className="text-center text-paper-muted">Click or drop PDF statement(s) here to upload</p>
 							<br />
-							<FilePlusIcon className="w-8 h-8 mx-auto text-white/30 group-hover:text-secondary-default/60" />
+							<FilePlusIcon className="w-8 h-8 mx-auto text-paper-muted group-hover:text-secondary-default/60" />
 						</>
 					)}
 				</div>

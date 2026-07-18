@@ -25,7 +25,7 @@ export function RepeatPaymentsHelp() {
 		<div ref={rootRef} className="relative inline-flex items-center">
 			<button
 				type="button"
-				className="cursor-pointer text-white/40 transition-colors hover:text-white/70"
+				className="cursor-pointer text-paper-muted transition-colors hover:text-paper-muted"
 				aria-label="How repeat payments are detected"
 				aria-expanded={open}
 				onClick={() => setOpen((current) => !current)}
@@ -38,23 +38,23 @@ export function RepeatPaymentsHelp() {
 					role="dialog"
 					aria-label="Repeat payments help"
 				>
-					<p className="text-white/90">
+					<p className="text-paper-fg">
 						We look for charges or deposits that show up more than once with a
 						similar amount and timing. Each row is an estimate from your imported
 						transactions.
 					</p>
-					<p className="text-white/70">
-						<strong className="font-medium text-white/85">
+					<p className="text-paper-muted">
+						<strong className="font-medium text-paper-fg">
 							Estimated monthly totals
 						</strong>{' '}
 						add up what each pattern would cost or earn per month, based on how
 						often it usually appears.
 					</p>
-					<p className="text-white/70">
-						<strong className="font-medium text-white/85">Match score</strong>{' '}
+					<p className="text-paper-muted">
+						<strong className="font-medium text-paper-fg">Match score</strong>{' '}
 						is higher when the amount and spacing are more consistent.
 					</p>
-					<p className="text-white/50">
+					<p className="text-paper-muted">
 						Lower &ldquo;minimum occurrences&rdquo; to surface weaker patterns.
 					</p>
 				</div>

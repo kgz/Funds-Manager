@@ -25,12 +25,7 @@ export function PageHeader({
 	className,
 }: PageHeaderProps) {
 	const content = (
-		<GlassCard
-			className={cn(
-				'px-4 py-3 shadow-lg shadow-black/20',
-				sticky && 'shadow-lg shadow-black/20'
-			)}
-		>
+		<GlassCard className={cn('px-4 py-3')}>
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<div className="min-w-0">
 					<div className="flex flex-wrap items-center gap-3">
@@ -50,12 +45,12 @@ export function PageHeader({
 			</div>
 			<div
 				className={cn(
-					'mt-3 h-0.5 overflow-hidden rounded-full bg-white/10 transition-opacity duration-300',
+					'mt-3 h-0.5 overflow-hidden rounded-full bg-paper-border transition-opacity duration-300',
 					pending ? 'opacity-100' : 'opacity-0'
 				)}
 				aria-hidden={!pending}
 			>
-				<div className="h-full w-2/5 animate-pulse rounded-full bg-secondary-default/80 motion-reduce:animate-none" />
+				<div className="h-full w-2/5 animate-pulse rounded-full bg-secondary-default/70 motion-reduce:animate-none" />
 			</div>
 		</GlassCard>
 	);
@@ -67,7 +62,7 @@ export function PageHeader({
 	return (
 		<div
 			className={cn(
-				'sticky top-0 z-30 -mx-4 mb-6 border-b border-white/10 bg-gray-950/90 px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6',
+				'sticky top-0 z-30 -mx-4 mb-6 border-b border-paper-border bg-paper/95 px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6',
 				className
 			)}
 		>

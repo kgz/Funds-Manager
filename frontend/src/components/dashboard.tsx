@@ -146,11 +146,11 @@ function toPieItems(
 function DashboardSkeleton() {
 	return (
 		<div className="p-4 md:p-6 space-y-8 animate-pulse">
-			<div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-white/10 bg-gray-950/90 px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6">
+			<div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-paper-border bg-paper-surface px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6">
 				<div className={cn(glassCardClass, 'px-4 py-3')}>
 					<div className="flex flex-wrap justify-between items-center gap-4">
-						<div className="h-8 w-56 rounded-md bg-white/10" />
-						<div className="h-9 w-72 rounded-md bg-white/10" />
+						<div className="h-8 w-56 rounded-md bg-paper" />
+						<div className="h-9 w-72 rounded-md bg-paper" />
 					</div>
 				</div>
 			</div>
@@ -514,8 +514,8 @@ export const Dashboard = () => {
 						className={cn(
 							'cursor-pointer self-start rounded-md border px-3 py-1.5 text-sm',
 							breakdownGroupByName
-								? 'border-secondary-default bg-secondary-default/20 text-white'
-								: 'border-white/20 text-white/85 hover:bg-white/10'
+								? 'border-secondary-default bg-secondary-default/15 text-secondary-default'
+								: 'border-paper-border text-paper-fg hover:bg-paper'
 						)}
 						aria-pressed={breakdownGroupByName}
 						onClick={() => setBreakdownGroupByName((v) => !v)}
@@ -534,7 +534,7 @@ export const Dashboard = () => {
 							>
 								Previous
 							</button>
-							<span className="text-xs text-white/50">
+							<span className="text-xs text-paper-muted">
 								Page {drilldownPage} of {drilldownTotalPages}
 							</span>
 							<button
@@ -552,7 +552,7 @@ export const Dashboard = () => {
 				}
 			>
 				{drilldownLoading ? (
-					<div className="flex items-center justify-center gap-3 py-8 text-sm text-white/50">
+					<div className="flex items-center justify-center gap-3 py-8 text-sm text-paper-muted">
 						<Loader2 className="h-5 w-5 animate-spin text-secondary-default" />
 						Loading transactions…
 					</div>
@@ -574,9 +574,9 @@ export const Dashboard = () => {
 							{drilldownByNameRows.map((row) => (
 								<li
 									key={row.name}
-									className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+									className="rounded-md border border-paper-border bg-paper px-3 py-2 text-sm"
 								>
-									<div className="flex justify-between gap-2 text-white">
+									<div className="flex justify-between gap-2 text-paper-fg">
 										<span
 											className={cn(
 												'font-medium tabular-nums',
@@ -587,9 +587,9 @@ export const Dashboard = () => {
 												? formatCurrencyWithCommas(-row.totalDollars)
 												: formatCurrencyWithCommas(row.totalDollars)}
 										</span>
-										<span className="shrink-0 text-white/50">{row.count}×</span>
+										<span className="shrink-0 text-paper-muted">{row.count}×</span>
 									</div>
-									<p className="mt-1 break-words text-white/80">{row.name}</p>
+									<p className="mt-1 break-words text-paper-fg">{row.name}</p>
 								</li>
 							))}
 						</ul>
@@ -616,15 +616,15 @@ export const Dashboard = () => {
 							return (
 								<li
 									key={tx.id}
-									className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm"
+									className="rounded-md border border-paper-border bg-paper px-3 py-2 text-sm"
 								>
-									<div className="flex justify-between gap-2 text-white">
+									<div className="flex justify-between gap-2 text-paper-fg">
 										<span className={cn('font-medium tabular-nums', amountClass)}>
 											{formatCurrencyWithCommas(dollars)}
 										</span>
-										<span className="shrink-0 text-white/50">{when}</span>
+										<span className="shrink-0 text-paper-muted">{when}</span>
 									</div>
-									<p className="mt-1 break-words text-white/80">{tx.description}</p>
+									<p className="mt-1 break-words text-paper-fg">{tx.description}</p>
 								</li>
 							);
 						})}

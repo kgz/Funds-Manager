@@ -20,14 +20,14 @@ export function AccountFilter({ className }: AccountFilterProps) {
 			}}
 			aria-label="Filter by account"
 		>
-			<option value="" className="bg-gray-950 text-white">
+			<option value="" className="bg-paper-surface text-paper-fg">
 				All accounts
 			</option>
 			{accounts.map((account) => (
 				<option
 					key={account.id}
 					value={account.id}
-					className="bg-gray-950 text-white"
+					className="bg-paper-surface text-paper-fg"
 				>
 					{account.display_name}
 				</option>

@@ -222,7 +222,7 @@ export function CategoryPicker({
 			style={{ backgroundColor: selectedCategory.colour }}
 		/>
 	) : (
-		<span className="h-2 w-2 shrink-0 rounded-full bg-white/20" />
+		<span className="h-2 w-2 shrink-0 rounded-full bg-paper-border" />
 	);
 
 	const menuContent = (
@@ -233,13 +233,13 @@ export function CategoryPicker({
 				aria-selected={value === ''}
 				onClick={() => selectValue('')}
 				className={cn(
-					'flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-white/85 cursor-pointer',
-					'hover:bg-white/10',
-					value === '' && 'bg-secondary-default/20 text-white'
+					'flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-paper-fg cursor-pointer',
+					'hover:bg-paper',
+					value === '' && 'bg-secondary-default/15 text-secondary-default'
 				)}
 			>
-				<span className="h-2 w-2 shrink-0 rounded-full bg-white/20" />
-				<span className="text-white/70">{placeholder}</span>
+				<span className="h-2 w-2 shrink-0 rounded-full bg-paper-border" />
+				<span className="text-paper-muted">{placeholder}</span>
 			</button>
 
 			{missingActiveOption && selectedCategory ? (
@@ -249,10 +249,10 @@ export function CategoryPicker({
 					aria-selected={value === selectedCategory.id}
 					onClick={() => selectValue(selectedCategory.id)}
 					className={cn(
-						'flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-white/85 cursor-pointer',
-						'hover:bg-white/10',
+						'flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-paper-fg cursor-pointer',
+						'hover:bg-paper',
 						value === selectedCategory.id &&
-							'bg-secondary-default/20 text-white'
+							'bg-secondary-default/15 text-secondary-default'
 					)}
 				>
 					{selectedCategory.colour ? (
@@ -261,7 +261,7 @@ export function CategoryPicker({
 							style={{ backgroundColor: selectedCategory.colour }}
 						/>
 					) : (
-						<span className="h-2 w-2 shrink-0 rounded-full bg-white/20" />
+						<span className="h-2 w-2 shrink-0 rounded-full bg-paper-border" />
 					)}
 					<span className="truncate">
 						{selectedCategory.name}
@@ -271,7 +271,7 @@ export function CategoryPicker({
 			) : null}
 
 			{showEmptyResults ? (
-				<p className="px-3 py-2 text-xs text-white/45">
+				<p className="px-3 py-2 text-xs text-paper-muted">
 					No categories match your search.
 				</p>
 			) : null}
@@ -284,9 +284,9 @@ export function CategoryPicker({
 					aria-selected={value === category.id}
 					onClick={() => selectValue(category.id)}
 					className={cn(
-						'flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-white/85 cursor-pointer',
-						'hover:bg-white/10',
-						value === category.id && 'bg-secondary-default/20 text-white'
+						'flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-paper-fg cursor-pointer',
+						'hover:bg-paper',
+						value === category.id && 'bg-secondary-default/15 text-secondary-default'
 					)}
 				>
 					{category.colour ? (
@@ -295,7 +295,7 @@ export function CategoryPicker({
 							style={{ backgroundColor: category.colour }}
 						/>
 					) : (
-						<span className="h-2 w-2 shrink-0 rounded-full bg-white/20" />
+						<span className="h-2 w-2 shrink-0 rounded-full bg-paper-border" />
 					)}
 					<span className="truncate">{category.name}</span>
 				</button>
@@ -303,7 +303,7 @@ export function CategoryPicker({
 
 			{filteredGroups.map((group) => (
 				<div key={group.label}>
-					<div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-white/40">
+					<div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wide text-paper-muted">
 						{group.label}
 					</div>
 					{group.options.map((category) => {
@@ -316,11 +316,11 @@ export function CategoryPicker({
 								aria-selected={value === category.id}
 								onClick={() => selectValue(category.id)}
 								className={cn(
-									'flex w-full items-center gap-2 py-2 pr-3 text-left text-xs text-white/85 cursor-pointer',
+									'flex w-full items-center gap-2 py-2 pr-3 text-left text-xs text-paper-fg cursor-pointer',
 									depth === 0 ? 'px-3' : depth === 1 ? 'pl-6' : 'pl-9',
-									'hover:bg-white/10',
+									'hover:bg-paper',
 									value === category.id &&
-										'bg-secondary-default/20 text-white'
+										'bg-secondary-default/15 text-secondary-default'
 								)}
 							>
 								{category.colour ? (
@@ -329,7 +329,7 @@ export function CategoryPicker({
 										style={{ backgroundColor: category.colour }}
 									/>
 								) : (
-									<span className="h-2 w-2 shrink-0 rounded-full bg-white/20" />
+									<span className="h-2 w-2 shrink-0 rounded-full bg-paper-border" />
 								)}
 								<span className="truncate">
 									{optionLabelInGroup(category, categories, group.label)}
@@ -382,8 +382,8 @@ export function CategoryPicker({
 						className={cn(
 							'min-w-0 flex-1 bg-transparent p-0 text-inherit outline-none',
 							open
-								? 'cursor-text placeholder:text-white/40'
-								: 'cursor-pointer placeholder:text-white/50'
+								? 'cursor-text placeholder:text-paper-muted'
+								: 'cursor-pointer placeholder:text-paper-muted'
 						)}
 						aria-haspopup="listbox"
 						aria-expanded={open}
@@ -399,7 +399,7 @@ export function CategoryPicker({
 							}
 							openSearch();
 						}}
-						className="shrink-0 cursor-pointer text-white/50 hover:text-white/80 disabled:cursor-not-allowed"
+						className="shrink-0 cursor-pointer text-paper-muted hover:text-paper-fg disabled:cursor-not-allowed"
 						aria-label={open ? 'Close category list' : 'Open category list'}
 					>
 						<ChevronDown
@@ -428,7 +428,7 @@ export function CategoryPicker({
 					<span
 						className={cn(
 							'min-w-0 flex-1 truncate',
-							value === '' ? 'text-white/50' : 'text-white'
+							value === '' ? 'text-paper-muted' : 'text-paper-fg'
 						)}
 					>
 						{triggerLabel}
@@ -436,7 +436,7 @@ export function CategoryPicker({
 					<ChevronDown
 						size={14}
 						className={cn(
-							'shrink-0 text-white/50 transition-transform',
+							'shrink-0 text-paper-muted transition-transform',
 							open && 'rotate-180'
 						)}
 					/>
@@ -454,8 +454,8 @@ export function CategoryPicker({
 								width: menuRect.width,
 							}}
 							className={cn(
-								'z-[60] max-h-60 overflow-y-auto rounded-xl border border-white/10',
-								'bg-gray-950 text-white shadow-xl shadow-black/60'
+								'z-[60] max-h-60 overflow-y-auto rounded-xl border border-paper-border',
+								'bg-paper-surface text-paper-fg shadow-xl shadow-paper-fg/10'
 							)}
 							role="listbox"
 						>

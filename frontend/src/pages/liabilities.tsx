@@ -413,7 +413,7 @@ export default function LiabilitiesPage() {
 
 	return (
 		<PageShell variant="table">
-			<div className="space-y-3 border-b border-white/10 p-4">
+			<div className="space-y-3 border-b border-paper-border p-4">
 				<PageHeader
 					title="Liabilities"
 					subtitle="Loans and debts you owe — home loan, car loan, credit cards and more."
@@ -469,7 +469,7 @@ export default function LiabilitiesPage() {
 				<div className={glassCardClass}>
 					<table className="w-full text-sm">
 						<thead>
-							<tr className="border-b border-white/10 text-left text-white/50">
+							<tr className="border-b border-paper-border text-left text-paper-muted">
 								<th className="px-4 py-3 font-medium">Name</th>
 								<th className="px-4 py-3 font-medium">Type</th>
 								<th className="px-4 py-3 font-medium">Lender</th>
@@ -481,21 +481,21 @@ export default function LiabilitiesPage() {
 						</thead>
 						<tbody>
 							{items.map((item) => (
-								<tr key={item.id} className="border-b border-white/5 text-white/90">
+								<tr key={item.id} className="border-b border-paper-border text-paper-fg">
 									<td className="px-4 py-3 font-medium">{item.name}</td>
 									<td className="px-4 py-3">
-										<span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-xs text-white/70">
+										<span className="rounded-full border border-paper-border bg-paper px-2 py-0.5 text-xs text-paper-muted">
 											{liabilityKindLabel(item.kind)}
 										</span>
 									</td>
-									<td className="px-4 py-3 text-white/70">{item.lender ?? '—'}</td>
+									<td className="px-4 py-3 text-paper-muted">{item.lender ?? '—'}</td>
 									<td className="px-4 py-3 text-right font-mono tabular-nums text-red-300">
 										{formatMoney(item.balance_cents)}
 									</td>
-									<td className="px-4 py-3 text-right text-white/70">
+									<td className="px-4 py-3 text-right text-paper-muted">
 										{formatRate(item)}
 									</td>
-									<td className="px-4 py-3 text-right font-mono tabular-nums text-white/70">
+									<td className="px-4 py-3 text-right font-mono tabular-nums text-paper-muted">
 										{formatRepayment(item)}
 									</td>
 									<td className="px-4 py-3 text-right whitespace-nowrap">
@@ -569,7 +569,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityNameInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Name
 								</label>
@@ -589,7 +589,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityKindInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Type
 								</label>
@@ -611,7 +611,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityLenderInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Lender (optional)
 								</label>
@@ -629,7 +629,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityBalanceInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Current balance ($)
 								</label>
@@ -657,7 +657,7 @@ export default function LiabilitiesPage() {
 									<div>
 										<label
 											htmlFor="liabilityOriginalInput"
-											className="mb-1.5 block text-sm font-medium text-white/80"
+											className="mb-1.5 block text-sm font-medium text-paper-fg"
 										>
 											Original amount ($, optional)
 										</label>
@@ -676,7 +676,7 @@ export default function LiabilitiesPage() {
 									<div>
 										<label
 											htmlFor="liabilityOriginatedInput"
-											className="mb-1.5 block text-sm font-medium text-white/80"
+											className="mb-1.5 block text-sm font-medium text-paper-fg"
 										>
 											Started at (optional)
 										</label>
@@ -695,7 +695,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityLimitInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Credit limit ($, optional)
 								</label>
@@ -715,7 +715,7 @@ export default function LiabilitiesPage() {
 								<div>
 									<label
 										htmlFor="liabilityOriginalEditInput"
-										className="mb-1.5 block text-sm font-medium text-white/80"
+										className="mb-1.5 block text-sm font-medium text-paper-fg"
 									>
 										Original amount ($, optional)
 									</label>
@@ -735,7 +735,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityRateInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Interest rate (%, optional)
 								</label>
@@ -754,7 +754,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityRateTypeInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Rate type (optional)
 								</label>
@@ -774,7 +774,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityRepaymentInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Repayment ($, optional)
 								</label>
@@ -793,7 +793,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityFrequencyInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Repayment frequency (optional)
 								</label>
@@ -816,7 +816,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityTermInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Term remaining (months, optional)
 								</label>
@@ -837,7 +837,7 @@ export default function LiabilitiesPage() {
 							<div>
 								<label
 									htmlFor="liabilityAccountInput"
-									className="mb-1.5 block text-sm font-medium text-white/80"
+									className="mb-1.5 block text-sm font-medium text-paper-fg"
 								>
 									Linked account (optional)
 								</label>
@@ -863,7 +863,7 @@ export default function LiabilitiesPage() {
 						<div>
 							<label
 								htmlFor="liabilityNotesInput"
-								className="mb-1.5 block text-sm font-medium text-white/80"
+								className="mb-1.5 block text-sm font-medium text-paper-fg"
 							>
 								Notes (optional)
 							</label>
@@ -882,9 +882,9 @@ export default function LiabilitiesPage() {
 						</div>
 
 						{modalMode === 'edit' ? (
-							<div className="rounded-lg border border-white/10 bg-white/5 p-3">
+							<div className="rounded-lg border border-paper-border bg-paper p-3">
 								<div className="mb-2 flex items-center justify-between">
-									<span className="text-sm font-medium text-white/80">
+									<span className="text-sm font-medium text-paper-fg">
 										Balance history
 									</span>
 									{balancesLoading ? (
@@ -893,7 +893,7 @@ export default function LiabilitiesPage() {
 								</div>
 
 								{!balancesLoading && balances.length === 0 ? (
-									<p className="text-xs text-white/50">No balance snapshots yet.</p>
+									<p className="text-xs text-paper-muted">No balance snapshots yet.</p>
 								) : null}
 
 								{balances.length > 0 ? (
@@ -901,20 +901,20 @@ export default function LiabilitiesPage() {
 										{balances.map((entry) => (
 											<li
 												key={entry.id}
-												className="flex items-center justify-between gap-2 rounded-md bg-white/5 px-2.5 py-1.5 text-sm"
+												className="flex items-center justify-between gap-2 rounded-md bg-paper px-2.5 py-1.5 text-sm"
 											>
-												<span className="text-white/70">
+												<span className="text-paper-muted">
 													{formatBalancedAt(entry.balanced_at)}
 												</span>
 												<span className="font-mono tabular-nums text-red-300">
 													{formatMoney(entry.balance_cents)}
 												</span>
-												<span className="flex-1 truncate text-xs text-white/40">
+												<span className="flex-1 truncate text-xs text-paper-muted">
 													{entry.source ?? ''}
 												</span>
 												<button
 													type="button"
-													className="text-white/40 transition hover:text-red-300"
+													className="text-paper-muted transition hover:text-red-300"
 													onClick={() => void onRemoveBalance(entry.id)}
 													disabled={balSubmitting}
 													aria-label="Remove balance snapshot"
@@ -930,7 +930,7 @@ export default function LiabilitiesPage() {
 									<div>
 										<label
 											htmlFor="balDateInput"
-											className="mb-1 block text-xs text-white/60"
+											className="mb-1 block text-xs text-paper-muted"
 										>
 											Date
 										</label>
@@ -946,7 +946,7 @@ export default function LiabilitiesPage() {
 									<div>
 										<label
 											htmlFor="balAmountInput"
-											className="mb-1 block text-xs text-white/60"
+											className="mb-1 block text-xs text-paper-muted"
 										>
 											Balance ($)
 										</label>
@@ -964,7 +964,7 @@ export default function LiabilitiesPage() {
 									<div>
 										<label
 											htmlFor="balSourceInput"
-											className="mb-1 block text-xs text-white/60"
+											className="mb-1 block text-xs text-paper-muted"
 										>
 											Source (optional)
 										</label>

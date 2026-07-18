@@ -141,7 +141,7 @@ function NetWorthTooltip({ active, payload }: TooltipContentProps) {
 			{totalDebts > 0 ? (
 				<p className="text-red-300">Debts: {currency(totalDebts)}</p>
 			) : null}
-			<p className="mt-1 text-xs text-white/50">
+			<p className="mt-1 text-xs text-paper-muted">
 				Cash {currency(availableCash)} · Other assets {currency(assets)}
 			</p>
 		</div>

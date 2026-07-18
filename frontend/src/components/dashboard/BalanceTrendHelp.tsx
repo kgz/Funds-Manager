@@ -37,7 +37,7 @@ export function BalanceTrendHelp({ detail }: BalanceTrendHelpProps) {
 			</p>
 			<button
 				type="button"
-				className="cursor-pointer text-white/40 transition-colors hover:text-white/70"
+				className="cursor-pointer text-paper-muted transition-colors hover:text-paper-muted"
 				aria-label="How portfolio trend is calculated"
 				aria-expanded={open}
 				onClick={() => setOpen((current) => !current)}
@@ -50,15 +50,15 @@ export function BalanceTrendHelp({ detail }: BalanceTrendHelpProps) {
 					role="dialog"
 					aria-label="Portfolio trend calculation"
 				>
-					<p className="text-white/90">
+					<p className="text-paper-fg">
 						Day-weighted average of each onboarding period&apos;s balance change.
 						New account starting balances are not counted as growth.
 					</p>
 					<ul className="space-y-2.5">
 						{detail.segments.map((segment) => (
-							<li key={segment.label} className="border-t border-white/10 pt-2 first:border-0 first:pt-0">
-								<p className="font-medium text-white/90">{segment.label}</p>
-								<p className="mt-0.5 text-white/70">
+							<li key={segment.label} className="border-t border-paper-border pt-2 first:border-0 first:pt-0">
+								<p className="font-medium text-paper-fg">{segment.label}</p>
+								<p className="mt-0.5 text-paper-muted">
 									{formatPercent(segment.percentChange)} over {segment.days} days (
 									{segment.weightPercent.toFixed(0)}% of chart)
 								</p>
@@ -68,10 +68,10 @@ export function BalanceTrendHelp({ detail }: BalanceTrendHelpProps) {
 							</li>
 						))}
 					</ul>
-					<p className="border-t border-white/10 pt-2 tabular-nums text-[#fbbf24]">
+					<p className="border-t border-paper-border pt-2 tabular-nums text-[#fbbf24]">
 						Total: {formatPercent(detail.percentChange)}
 					</p>
-					<p className="text-white/50">
+					<p className="text-paper-muted">
 						(
 						{detail.segments
 							.map(

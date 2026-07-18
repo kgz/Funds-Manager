@@ -1,16 +1,20 @@
 export const chartTheme = {
 	grid: {
-		stroke: 'rgba(255, 255, 255, 0.08)',
+		stroke: 'oklch(18% 0.012 250 / 0.08)',
 		strokeDasharray: '3 3',
 	},
 	axis: {
-		stroke: 'rgba(255, 255, 255, 0.2)',
-		tick: { fill: 'rgba(255, 255, 255, 0.65)', fontSize: 12 },
+		stroke: 'oklch(18% 0.012 250 / 0.16)',
+		tick: { fill: 'oklch(54% 0.012 250)', fontSize: 12 },
 	},
 	legend: {
-		wrapperStyle: { fontSize: '12px', color: 'rgba(255, 255, 255, 0.8)', paddingTop: '12px' },
+		wrapperStyle: {
+			fontSize: '12px',
+			color: 'oklch(54% 0.012 250)',
+			paddingTop: '12px',
+		},
 	},
 } as const;
 
 export const chartTooltipClass =
-	'bg-gray-900/95 text-white p-2 rounded-md border border-white/15 text-sm shadow-lg';
+	'bg-paper-surface text-paper-fg p-2 rounded-paper border border-paper-border text-sm shadow-lg';

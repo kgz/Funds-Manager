@@ -12,9 +12,9 @@ type InlineAlertProps = {
 };
 
 const variantStyles: Record<InlineAlertVariant, string> = {
-	error: 'bg-red-900/30 border-red-600/50 text-red-300',
-	warning: 'bg-amber-900/20 border-amber-600/40 text-amber-100',
-	info: 'bg-white/5 border-white/10 text-white/80',
+	error: 'bg-red-50 border-red-200 text-red-800',
+	warning: 'bg-amber-50 border-amber-200 text-amber-900',
+	info: 'bg-paper border-paper-border text-paper-fg',
 };
 
 const variantIcons: Record<InlineAlertVariant, typeof AlertCircle> = {
@@ -34,7 +34,7 @@ export function InlineAlert({
 	return (
 		<div
 			className={cn(
-				'flex items-start gap-2 rounded-lg border p-3 text-sm',
+				'flex items-start gap-2 rounded-paper border p-3 text-sm',
 				variantStyles[variant],
 				className
 			)}

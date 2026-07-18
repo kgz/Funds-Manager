@@ -27,12 +27,12 @@ export function StatCard({
 				className
 			)}
 		>
-			<p className="text-[10px] uppercase tracking-wide text-white/50">{label}</p>
+			<p className="text-[10px] uppercase tracking-wide text-paper-muted">{label}</p>
 			<p className={cn('text-lg font-semibold font-mono', valueClassName)}>
 				{value}
 			</p>
 			{hint !== undefined ? (
-				<div className="mt-1 text-[11px] text-white/45">{hint}</div>
+				<div className="mt-1 text-[11px] text-paper-muted">{hint}</div>
 			) : null}
 		</GlassCard>
 	);

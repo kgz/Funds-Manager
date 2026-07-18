@@ -169,7 +169,7 @@ export function ReportSnapshotsPage() {
 				}}
 				className={`${glassCardClass} mb-6 space-y-4 p-4`}
 			>
-				<h2 className="text-sm font-semibold text-white">Save new snapshot</h2>
+				<h2 className="text-sm font-semibold text-paper-fg">Save new snapshot</h2>
 				<div className="flex flex-wrap items-end gap-4">
 					<PeriodFilter
 						value={period}
@@ -181,7 +181,7 @@ export function ReportSnapshotsPage() {
 					<AccountFilter />
 				</div>
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-					<label className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-white/70">
+					<label className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-paper-muted">
 						<span>Name</span>
 						<input
 							type="text"
@@ -191,7 +191,7 @@ export function ReportSnapshotsPage() {
 							}}
 							maxLength={200}
 							placeholder="e.g. Broker meeting Jul 2026"
-							className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder:text-white/30"
+							className="rounded-lg border border-paper-border bg-paper px-3 py-2 text-paper-fg placeholder:text-paper-muted"
 						/>
 					</label>
 					<button
@@ -220,11 +220,11 @@ export function ReportSnapshotsPage() {
 
 			{!loading && items.length > 0 ? (
 				<div className={glassCardClass}>
-					<h2 className="mb-3 text-sm font-semibold text-white">Saved snapshots</h2>
+					<h2 className="mb-3 text-sm font-semibold text-paper-fg">Saved snapshots</h2>
 					<div className="overflow-x-auto">
 						<table className="w-full min-w-[40rem] text-sm">
 							<thead>
-								<tr className="border-b border-white/10 text-left text-xs uppercase tracking-wide text-white/45">
+								<tr className="border-b border-paper-border text-left text-xs uppercase tracking-wide text-paper-muted">
 									<th className="px-3 py-2 font-medium">Name</th>
 									<th className="px-3 py-2 font-medium">As at</th>
 									<th className="px-3 py-2 font-medium">Period</th>
@@ -234,7 +234,7 @@ export function ReportSnapshotsPage() {
 							</thead>
 							<tbody>
 								{items.map((item) => (
-									<tr key={item.id} className="border-t border-white/5 text-white/85">
+									<tr key={item.id} className="border-t border-paper-border text-paper-fg">
 										<td className="px-3 py-2">
 											<Link
 												to={`/report-snapshots/${item.id}`}
@@ -244,10 +244,10 @@ export function ReportSnapshotsPage() {
 											</Link>
 										</td>
 										<td className="px-3 py-2 font-mono tabular-nums">{item.asAt}</td>
-										<td className="px-3 py-2 font-mono tabular-nums text-white/65">
+										<td className="px-3 py-2 font-mono tabular-nums text-paper-muted">
 											{item.startDate} → {item.endDate}
 										</td>
-										<td className="px-3 py-2 text-white/65">
+										<td className="px-3 py-2 text-paper-muted">
 											{formatCreatedAt(item.createdAt)}
 										</td>
 										<td className="px-3 py-2 text-right">
@@ -256,7 +256,7 @@ export function ReportSnapshotsPage() {
 												onClick={() => {
 													void handleDelete(item.id, item.name);
 												}}
-												className="inline-flex items-center gap-1 rounded px-2 py-1 text-red-400 hover:bg-white/5"
+												className="inline-flex items-center gap-1 rounded px-2 py-1 text-red-400 hover:bg-paper"
 												aria-label={`Delete ${item.name}`}
 											>
 												<Trash2 size="0.875rem" aria-hidden />

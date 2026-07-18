@@ -371,7 +371,7 @@ export const CategoriesPage = () => {
                     key={sub.id}
                     className={cn(
                         'group flex items-center justify-between px-3 py-1.5 transition-opacity',
-                        !isSubDeleted && 'hover:bg-white/5',
+                        !isSubDeleted && 'hover:bg-paper',
                         isSubDeleted && 'opacity-60',
                         draggingId === sub.id && 'opacity-50'
                     )}
@@ -393,7 +393,7 @@ export const CategoriesPage = () => {
                                 draggable
                                 onDragStart={(e) => onDragStart(e, sub.id)}
                                 onDragEnd={onDragEnd}
-                                className="p-1 text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing"
+                                className="p-1 text-paper-muted hover:text-paper-muted cursor-grab active:cursor-grabbing"
                                 title="Drag to reorder"
                             >
                                 <GripVertical size={14} />
@@ -408,15 +408,15 @@ export const CategoriesPage = () => {
                         )}
                         <span
                             className={cn(
-                                'text-white/80 text-sm truncate',
-                                isSubDeleted && 'line-through text-white/50'
+                                'text-paper-fg text-sm truncate',
+                                isSubDeleted && 'line-through text-paper-muted'
                             )}
                         >
                             {sub.name}
                         </span>
                         {subUsage && (
                             <span
-                                className="text-xs text-white/40 ml-2 flex-shrink-0"
+                                className="text-xs text-paper-muted ml-2 flex-shrink-0"
                                 title={subUsageHint ?? undefined}
                             >
                                 {subUsage}
@@ -434,7 +434,7 @@ export const CategoriesPage = () => {
                                 title="Restore Subcategory"
                                 onClick={() => handleRestore(sub)}
                                 disabled={isSubmitting}
-                                className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                className="p-1 rounded text-secondary-default/50 hover:bg-paper hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             >
                                 {isSubmitting ? (
                                     <Loader2 className="animate-spin h-3.5 w-3.5" />
@@ -448,7 +448,7 @@ export const CategoriesPage = () => {
                                     title="Edit Subcategory"
                                     onClick={() => openModal('editSub', sub, parent ?? mainCategory)}
                                     disabled={isSubmitting}
-                                    className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                    className="p-1 rounded text-secondary-default/50 hover:bg-paper hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     <Edit2 size={14} />
                                 </button>
@@ -456,7 +456,7 @@ export const CategoriesPage = () => {
                                     title="Merge into another category"
                                     onClick={() => openMergeModal(sub)}
                                     disabled={isSubmitting}
-                                    className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                    className="p-1 rounded text-secondary-default/50 hover:bg-paper hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     <GitMerge size={14} />
                                 </button>
@@ -464,7 +464,7 @@ export const CategoriesPage = () => {
                                     title="Delete Subcategory"
                                     onClick={() => requestDelete(sub)}
                                     disabled={isSubmitting}
-                                    className="p-1 rounded text-secondary-default/50 hover:bg-white/10 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                    className="p-1 rounded text-secondary-default/50 hover:bg-paper hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                 >
                                     <Trash2 size={14} />
                                 </button>
@@ -531,7 +531,7 @@ export const CategoriesPage = () => {
                         </span>
                         <NavLink
                             to="/transactions?uncategorized=1"
-                            className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-amber-200 hover:text-white"
+                            className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-amber-200 hover:text-paper-fg"
                         >
                             Review on Transactions
                             <ArrowRight size={14} />
@@ -616,7 +616,7 @@ export const CategoriesPage = () => {
                         >
                             <div className={cn(
                                 "group flex items-center justify-between p-3 transition-colors duration-150",
-                                !isDeleted && "hover:bg-white/5"
+                                !isDeleted && "hover:bg-paper"
                             )}
                             >
                                 <div className="flex items-center gap-2 flex-grow min-w-0">
@@ -627,7 +627,7 @@ export const CategoriesPage = () => {
                                             onDragStart={(e) => onDragStart(e, category.id)}
                                             onDragEnd={onDragEnd}
                                             onClick={(e) => e.stopPropagation()}
-                                            className="p-1 text-white/30 hover:text-white/60 cursor-grab active:cursor-grabbing"
+                                            className="p-1 text-paper-muted hover:text-paper-muted cursor-grab active:cursor-grabbing"
                                             title="Drag to reorder"
                                         >
                                             <GripVertical size={16} />
@@ -657,15 +657,15 @@ export const CategoriesPage = () => {
                                     )}
                                     {/* Category Name */}
                                     <span className={cn(
-                                        "font-medium text-white truncate",
-                                        isDeleted && "line-through text-white/50"
+                                        "font-medium text-paper-fg truncate",
+                                        isDeleted && "line-through text-paper-muted"
                                     )}>{category.name}</span>
                                     {sub_categories.length > 0 && (
-                                        <span className="text-xs text-white/50 ml-1 flex-shrink-0">({sub_categories.length} sub)</span>
+                                        <span className="text-xs text-paper-muted ml-1 flex-shrink-0">({sub_categories.length} sub)</span>
                                     )}
                                     {categoryUsage && (
                                         <span
-                                            className="text-xs text-white/40 ml-1 flex-shrink-0"
+                                            className="text-xs text-paper-muted ml-1 flex-shrink-0"
                                             title={categoryUsageHint ?? undefined}
                                         >
                                             {categoryUsage}
@@ -685,7 +685,7 @@ export const CategoriesPage = () => {
                                             title="Restore Category"
                                             onClick={() => handleRestore(category)}
                                             disabled={isSubmitting}
-                                            className="p-1.5 rounded text-secondary-default/60 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                            className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                         >
                                             {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <RotateCcw size={16} />}
                                         </button>
@@ -695,7 +695,7 @@ export const CategoriesPage = () => {
                                                 title="Add Subcategory"
                                                 onClick={() => openModal('addSub', undefined, category)}
                                                 disabled={isSubmitting}
-                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-white/10 hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             >
                                                 <Plus size={16} />
                                             </button>
@@ -703,7 +703,7 @@ export const CategoriesPage = () => {
                                                 title="Edit Category"
                                                 onClick={() => openModal('editMain', category)}
                                                 disabled={isSubmitting}
-                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-white/10 hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             >
                                                 <Edit2 size={16} />
                                             </button>
@@ -711,7 +711,7 @@ export const CategoriesPage = () => {
                                                 title="Merge into another category"
                                                 onClick={() => openMergeModal(category)}
                                                 disabled={isSubmitting}
-                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-white/10 hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             >
                                                 <GitMerge size={16} />
                                             </button>
@@ -719,7 +719,7 @@ export const CategoriesPage = () => {
                                                 title="Delete Category"
                                                 onClick={() => requestDelete(category)}
                                                 disabled={isSubmitting}
-                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-white/10 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                             >
                                                 <Trash2 size={16} />
                                             </button>
@@ -730,13 +730,13 @@ export const CategoriesPage = () => {
 
                             {/* Subcategory List */}
                             {isExpanded && !isDeleted && (
-                                <div className="border-t border-white/10 bg-black/20">
+                                <div className="border-t border-paper-border bg-black/20">
                                     {sub_categories.length > 0 ? (
                                         <ul className="py-2">
                                             {renderSubcategoryRows(category.id, 0, category)}
                                         </ul>
                                     ) : (
-                                        <p className="px-3 py-2 text-sm text-white/50 pl-14">No subcategories defined.</p>
+                                        <p className="px-3 py-2 text-sm text-paper-muted pl-14">No subcategories defined.</p>
                                     )}
                                 </div>
                             )}
@@ -767,7 +767,7 @@ export const CategoriesPage = () => {
                 ) : null}
                 <form onSubmit={handleModalSubmit}>
                     <div className="mb-4">
-                        <label htmlFor="categoryNameInput" className="mb-1 block text-sm font-medium text-white/80">
+                        <label htmlFor="categoryNameInput" className="mb-1 block text-sm font-medium text-paper-fg">
                             {modalMode === 'addSub' || modalMode === 'editSub' ? 'Subcategory Name' : 'Category Name'}
                         </label>
                         <input
@@ -782,7 +782,7 @@ export const CategoriesPage = () => {
                         />
                     </div>
                     <div className="mb-4">
-                        <label htmlFor="categoryDescriptionInput" className="mb-1 block text-sm font-medium text-white/80">
+                        <label htmlFor="categoryDescriptionInput" className="mb-1 block text-sm font-medium text-paper-fg">
                             Description (optional)
                         </label>
                         <textarea
@@ -796,7 +796,7 @@ export const CategoriesPage = () => {
                         />
                     </div>
                     <div className="mb-4">
-                        <label htmlFor="categoryColourInput" className="mb-1 block text-sm font-medium text-white/80">
+                        <label htmlFor="categoryColourInput" className="mb-1 block text-sm font-medium text-paper-fg">
                             Category Colour
                         </label>
                         <div className="flex flex-wrap items-center gap-3">
@@ -813,7 +813,7 @@ export const CategoriesPage = () => {
                                 colour={inputColour}
                             />
                         </div>
-                        <p className="mt-1.5 text-xs text-white/45">
+                        <p className="mt-1.5 text-xs text-paper-muted">
                             Defaults are dark enough for white labels. Custom colours may need
                             higher contrast.
                         </p>
@@ -871,7 +871,7 @@ export const CategoriesPage = () => {
                         {modalError}
                     </InlineAlert>
                 ) : null}
-                <label htmlFor="mergeTargetSelect" className="mb-1 block text-sm font-medium text-white/80">
+                <label htmlFor="mergeTargetSelect" className="mb-1 block text-sm font-medium text-paper-fg">
                     Merge into
                 </label>
                 <select
@@ -918,9 +918,9 @@ export const CategoriesPage = () => {
                     </>
                 }
             >
-                <p className="text-white/80">
+                <p className="text-paper-fg">
                     Are you sure you want to delete the category{' '}
-                    <strong className="text-white">&quot;{itemToDelete?.name}&quot;</strong>?
+                    <strong className="text-paper-fg">&quot;{itemToDelete?.name}&quot;</strong>?
                     {itemToDelete ? (() => {
                         const deleteWarning = categoryDeleteUsageWarning(itemToDelete);
                         return deleteWarning ? (
@@ -930,11 +930,11 @@ export const CategoriesPage = () => {
                         ) : null;
                     })() : null}
                     {isMainCategoryDelete ? (
-                        <span className="mt-2 block text-sm text-white/60">
+                        <span className="mt-2 block text-sm text-paper-muted">
                             Active subcategories will also be soft-deleted.
                         </span>
                     ) : null}
-                    <span className="mt-3 block text-sm text-white/60">
+                    <span className="mt-3 block text-sm text-paper-muted">
                         This is a soft delete. Turn on Show Deleted to restore it later.
                     </span>
                 </p>

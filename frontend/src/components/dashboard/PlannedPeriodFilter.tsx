@@ -23,7 +23,7 @@ export function PlannedPeriodFilter({
 
 	return (
 		<div
-			className="inline-flex max-w-full flex-wrap rounded-md border border-white/20 p-0.5 transition-opacity duration-300"
+			className="inline-flex max-w-full flex-wrap rounded-md border border-paper-border p-0.5 transition-opacity duration-300"
 			role="group"
 			aria-label={ariaLabel}
 			aria-busy={pending}
@@ -34,8 +34,8 @@ export function PlannedPeriodFilter({
 					type="button"
 					className={`cursor-pointer rounded px-3 py-1.5 text-sm transition-all duration-200 ease-out ${
 						value === period
-							? 'border-secondary-default bg-secondary-default/20 text-white shadow-sm'
-							: 'text-white/70 hover:bg-white/5 hover:text-white'
+							? 'border-secondary-default bg-secondary-default/15 text-secondary-default shadow-sm'
+							: 'text-paper-muted hover:bg-paper hover:text-paper-fg'
 					} ${pending && value === period ? 'opacity-80' : 'opacity-100'}`}
 					aria-pressed={value === period}
 					onClick={() => onChange(period)}
