@@ -9,7 +9,7 @@ use database::modules::database::{get_dbo, DbConn};
 use database::schema::transaction_data;
 use diesel::prelude::*;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 
 const BATCH_SIZE: usize = 500;
 
@@ -186,7 +186,7 @@ fn pick_description(rng: &mut StdRng, idx: u32, parser_name: &str) -> String {
     } else {
         &EVERYDAY_MERCHANTS[..]
     };
-    let merchant = merchants[rng.gen_range(0..merchants.len())];
+    let merchant = merchants[rng.random_range(0..merchants.len())];
     format!("{merchant} #{idx:05}")
 }
 
@@ -222,29 +222,29 @@ fn seed_statement_month(
     let mut inserted = 0_u64;
 
     for tx_idx in 0..tx_per_statement {
-        let day = u32::try_from(rng.gen_range(1..=days_in_month)).expect("day");
-        let hour = rng.gen_range(0..23);
-        let minute = rng.gen_range(0..59);
+        let day = u32::try_from(rng.random_range(1..=days_in_month)).expect("day");
+        let hour = rng.random_range(0..23);
+        let minute = rng.random_range(0..59);
         let tx_date = month
             .with_day(day)
             .unwrap_or(month)
             .and_hms_opt(hour, minute, 0)
             .unwrap_or(now);
 
-        let is_income = rng.gen_bool(account.spec.income_rate);
+        let is_income = rng.random_bool(account.spec.income_rate);
         let amount_cents: i32 = if is_income {
-            rng.gen_range(800_00..6_000_00)
+            rng.random_range(800_00..6_000_00)
         } else if account.spec.parser_name == "banksa" {
-            -rng.gen_range(500..35_000)
+            -rng.random_range(500..35_000)
         } else {
-            -rng.gen_range(50..25_000)
+            -rng.random_range(50..25_000)
         };
         account.balance_cents = account.balance_cents.saturating_add(amount_cents);
 
         let category_id = if is_income {
             category_ids.last().copied()
         } else {
-            Some(category_ids[rng.gen_range(0..category_ids.len() - 1)])
+            Some(category_ids[rng.random_range(0..category_ids.len() - 1)])
         };
 
         batch.push(NewTransaction {

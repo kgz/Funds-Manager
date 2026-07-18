@@ -21,7 +21,7 @@ import {
 	Settings,
 	WalletMinimal,
 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 
 type SidebarProps = {
 	setTheme: React.Dispatch<React.SetStateAction<string>>;

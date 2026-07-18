@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { glassCardClass } from '@/components/layout/tokens';
 import type { ReportCoverageSummaryResponse } from '@/types/report-coverage';
