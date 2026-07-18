@@ -22,7 +22,7 @@ enum-iterator = "2.1.0"
 hmac = "0.13.0"
 jwt = "0.16.0"
 moka = { version = "0.12.8", features = ["future"] }
-rand = "0.8.5"
+rand = "0.10.1"
 serde = { version = "1.0.210", features = ["derive"] }
 sha2 = "0.11.0"
 strum = "0.26.3"

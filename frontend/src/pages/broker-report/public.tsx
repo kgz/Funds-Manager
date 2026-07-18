@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { BrokerReportContent } from '@/pages/broker-report/report-content';

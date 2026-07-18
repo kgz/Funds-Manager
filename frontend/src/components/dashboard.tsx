@@ -42,7 +42,7 @@ import { ErrorState } from '@/components/layout/ErrorState';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { buttonAccentClass, buttonOutlineClass, glassCardClass } from '@/components/layout/tokens';
 import { FileArchive, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { cn } from '@/lib/utils/cn';
 import {
 	chartDateSpanDays,

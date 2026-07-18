@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ListChecks, Loader2 } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 import { AccountFilter } from '@/components/account-filter';
 import { CategoryPill } from '@/components/CategoryPill';
 import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
