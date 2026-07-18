@@ -35,6 +35,9 @@ export function chartSeriesColorForKey(key: string): string {
 	return chartSeriesColor(hash);
 }
 
+const chartFontFamily =
+	'"IBM Plex Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif';
+
 export const chartTheme = {
 	grid: {
 		stroke: 'oklch(18% 0.012 250 / 0.08)',
@@ -42,11 +45,16 @@ export const chartTheme = {
 	},
 	axis: {
 		stroke: 'oklch(18% 0.012 250 / 0.16)',
-		tick: { fill: 'oklch(54% 0.012 250)', fontSize: 12 },
+		tick: {
+			fill: 'oklch(54% 0.012 250)',
+			fontSize: 12,
+			fontFamily: chartFontFamily,
+		},
 	},
 	legend: {
 		wrapperStyle: {
 			fontSize: '12px',
+			fontFamily: chartFontFamily,
 			color: 'oklch(54% 0.012 250)',
 			paddingTop: '12px',
 		},
@@ -54,4 +62,4 @@ export const chartTheme = {
 } as const;
 
 export const chartTooltipClass =
-	'bg-paper-surface text-paper-fg p-2 rounded-paper border border-paper-border text-sm shadow-lg';
+	'bg-paper-surface font-sans text-[13px] text-paper-fg p-2 rounded-paper border border-paper-border shadow-lg';

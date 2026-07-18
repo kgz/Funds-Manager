@@ -38,12 +38,12 @@ export function SegmentedControl<T extends string>({
 						key={option.value}
 						type="button"
 						className={cn(
-							'cursor-pointer rounded px-3 py-1.5 text-sm transition-colors',
+							'cursor-pointer rounded px-2.5 py-1 text-xs font-medium tracking-[0.02em] transition-colors',
 							active
 								? (option.activeClassName ??
-									'bg-secondary-default/15 text-secondary-default shadow-sm')
+									'bg-paper-surface text-paper-fg shadow-sm')
 								: (option.inactiveClassName ??
-									'text-paper-muted hover:bg-paper hover:text-paper-fg')
+									'text-paper-muted hover:text-paper-fg')
 						)}
 						aria-pressed={active}
 						onClick={() => onChange(option.value)}

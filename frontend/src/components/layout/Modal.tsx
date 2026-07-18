@@ -72,14 +72,14 @@ export function Modal({
 					<div className="min-w-0">
 						<h2
 							className={cn(
-								'text-lg font-semibold text-paper-fg',
+								'text-lg font-semibold tracking-[-0.02em] text-paper-fg',
 								titleClassName
 							)}
 						>
 							{title}
 						</h2>
 						{description !== undefined ? (
-							<div className="mt-2 text-sm text-paper-muted">{description}</div>
+							<div className="mt-2 text-[13px] text-paper-muted">{description}</div>
 						) : null}
 					</div>
 					<button

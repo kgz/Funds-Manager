@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils/cn';
+import { eyebrowClass, moneyClass } from '@/components/layout/tokens';
 
 export type DashboardKpiMetrics = {
 	balance: number | null;
@@ -67,14 +68,12 @@ function KpiCard({
 				isRefreshing && 'scale-[0.99]'
 			)}
 		>
-			<p className="text-xs font-medium uppercase tracking-wide text-paper-muted">{label}</p>
-			<p className={cn('mt-2 text-2xl font-semibold tabular-nums text-paper-fg font-mono', valueClassName)}>
-				{value}
-			</p>
+			<p className={eyebrowClass}>{label}</p>
+			<p className={cn(moneyClass, 'mt-2', valueClassName)}>{value}</p>
 			{comparison !== undefined ? (
 				<p
 					className={cn(
-						'mt-1.5 text-xs tabular-nums',
+						'mt-1.5 font-mono text-xs tabular-nums',
 						comparisonClass(comparison.delta, comparison.positiveIsGood)
 					)}
 				>

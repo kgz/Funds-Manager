@@ -59,9 +59,9 @@ export function Drawer({
 									{eyebrow}
 								</p>
 							) : null}
-							<h2 className="text-lg font-semibold text-paper-fg">{title}</h2>
+							<h2 className="text-lg font-semibold tracking-[-0.02em] text-paper-fg">{title}</h2>
 							{description !== undefined ? (
-								<div className="mt-1 text-sm text-paper-muted">{description}</div>
+								<div className="mt-1 text-[13px] text-paper-muted">{description}</div>
 							) : null}
 						</div>
 						<button

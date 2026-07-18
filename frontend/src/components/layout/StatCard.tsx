@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils/cn';
 import type { ReactNode } from 'react';
 import { GlassCard } from './GlassCard';
+import { eyebrowClass, moneyClass } from './tokens';
 
 type StatCardProps = {
 	label: string;
@@ -22,15 +23,13 @@ export function StatCard({
 	return (
 		<GlassCard
 			className={cn(
-				'min-w-[13rem] px-4 py-2',
+				'min-w-[13rem] px-4 py-3',
 				align === 'right' ? 'text-right' : 'text-left',
 				className
 			)}
 		>
-			<p className="text-[10px] uppercase tracking-wide text-paper-muted">{label}</p>
-			<p className={cn('text-lg font-semibold font-mono', valueClassName)}>
-				{value}
-			</p>
+			<p className={eyebrowClass}>{label}</p>
+			<p className={cn(moneyClass, 'mt-2 text-lg', valueClassName)}>{value}</p>
 			{hint !== undefined ? (
 				<div className="mt-1 text-[11px] text-paper-muted">{hint}</div>
 			) : null}

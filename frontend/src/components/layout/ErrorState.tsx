@@ -26,8 +26,8 @@ export function ErrorState({
 		>
 			<div className="max-w-md rounded-paper border border-red-500/30 bg-red-50 p-8 text-center">
 				<AlertCircle className="mx-auto h-12 w-12 text-red-600" />
-				<h2 className="mt-4 text-lg font-semibold text-paper-fg">{title}</h2>
-				<p className="mt-2 text-sm text-paper-muted">{message}</p>
+				<h2 className="mt-4 text-lg font-semibold tracking-[-0.02em] text-paper-fg">{title}</h2>
+				<p className="mt-2 text-[13px] text-paper-muted">{message}</p>
 				{onRetry !== undefined ? (
 					<button
 						type="button"

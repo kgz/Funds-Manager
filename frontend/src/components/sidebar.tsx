@@ -90,8 +90,8 @@ function NavItemLink({ to, label, icon: Icon, actionableCount }: NavItem) {
 				aria-label={showBadge ? `${label}, ${attentionTitle}` : label}
 				className={({ isActive }) =>
 					cn(
-						'flex items-center gap-2 overflow-hidden rounded-paper px-3 py-3 text-sm transition duration-200 lg:px-2.5 lg:py-1.5',
-						!isActive && 'text-paper-muted hover:bg-paper hover:text-paper-fg',
+						'flex items-center gap-2 overflow-hidden rounded-paper px-3 py-3 text-[13px] tracking-[0.01em] transition duration-200 lg:px-2.5 lg:py-1.5',
+						!isActive && 'font-normal text-paper-muted hover:bg-paper hover:text-paper-fg',
 						isActive &&
 							'bg-secondary-default/10 font-medium text-secondary-default'
 					)
@@ -164,10 +164,10 @@ export function Sidebar() {
 	return (
 		<div className="fixed left-0 top-0 flex h-full w-16 flex-col border-r border-paper-border bg-paper-surface text-paper-fg transition-all duration-500 lg:w-64">
 			<div className="flex h-16 shrink-0 items-center gap-2.5 px-3 lg:px-4">
-				<div className="grid h-7 w-7 place-items-center rounded-[7px] bg-paper-fg text-[13px] font-semibold tracking-tight text-paper-surface">
+				<div className="grid h-7 w-7 place-items-center rounded-[7px] bg-paper-fg font-sans text-[13px] font-semibold tracking-[-0.02em] text-paper-surface">
 					F
 				</div>
-				<h1 className="hidden text-[15px] font-semibold uppercase tracking-[0.08em] lg:block">
+				<h1 className="hidden font-sans text-[15px] font-semibold uppercase tracking-[0.08em] lg:block">
 					Funds
 				</h1>
 				<span className="sr-only">

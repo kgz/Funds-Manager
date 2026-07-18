@@ -267,7 +267,7 @@ export const Table = <T extends BaseDataItem>(
 								<th
 									key={`header-${index}`}
 									className={cn(
-										"px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-paper-muted",
+										"px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-paper-muted",
 										header?.sticky && "sticky top-0 z-10 bg-paper-surface",
 										column.sortable && onSortChange && "cursor-pointer hover:bg-paper hover:text-secondary-default",
 										column.headerClassName

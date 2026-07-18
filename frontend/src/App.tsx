@@ -25,9 +25,9 @@ import { LenderExpensesSummaryPage } from "./pages/lender-expenses/summary-page"
 
 function AppLayout() {
   return (
-    <div className="min-h-screen bg-paper text-paper-fg">
+    <div className="min-h-screen bg-paper font-sans text-paper-fg antialiased">
       <Sidebar />
-      <div className="ml-16 lg:ml-64">
+      <div className="ml-16 min-w-0 lg:ml-64">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/settings" element={<Settings />} />

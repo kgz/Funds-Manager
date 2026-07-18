@@ -30,9 +30,9 @@ export function EmptyState({
 		>
 			<GlassCard className="max-w-md p-8 text-center">
 				<Icon className="mx-auto h-10 w-10 text-paper-muted" />
-				<h2 className="mt-4 text-lg font-semibold text-paper-fg">{title}</h2>
+				<h2 className="mt-4 text-lg font-semibold tracking-[-0.02em] text-paper-fg">{title}</h2>
 				{description !== undefined && description.length > 0 ? (
-					<p className="mt-2 text-sm text-paper-muted">{description}</p>
+					<p className="mt-2 text-[13px] text-paper-muted">{description}</p>
 				) : null}
 				{action !== undefined ? <div className="mt-6">{action}</div> : null}
 			</GlassCard>
