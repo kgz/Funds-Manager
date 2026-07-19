@@ -90,7 +90,7 @@ function RankedCategoryList({
 	const clickable = onRowClick !== undefined;
 
 	return (
-		<ul className="mt-4 space-y-1.5">
+		<ul className="mt-4 space-y-1.5 xl:mt-0">
 			{rows.map((row) => {
 				const content = (
 					<>
@@ -180,9 +180,21 @@ export const CategoryPieChart = ({
 	const outerRadius = 100;
 
 	return (
-		<div className={onSliceClick !== undefined ? '[&_.recharts-pie-sector]:cursor-pointer' : undefined}>
-			<ResponsiveContainer width="100%" height={300}>
-				<PieChart>
+		<div
+			className={[
+				onSliceClick !== undefined
+					? '[&_.recharts-pie-sector]:cursor-pointer'
+					: '',
+				showRankedList
+					? 'xl:grid xl:grid-cols-[minmax(210px,0.9fr)_minmax(220px,1.1fr)] xl:items-center xl:gap-4'
+					: '',
+			]
+				.filter(Boolean)
+				.join(' ')}
+		>
+			<div className="min-w-0">
+				<ResponsiveContainer width="100%" height={300}>
+					<PieChart>
 					<Pie
 						data={chartData}
 						dataKey={dataKey}
@@ -241,9 +253,9 @@ export const CategoryPieChart = ({
 							</tspan>
 						</text>
 					) : null}
-					<Tooltip content={renderCustomTooltip} />
-					{variant === 'pie' ? (
-						<Legend
+						<Tooltip content={renderCustomTooltip} />
+						{variant === 'pie' ? (
+							<Legend
 							layout="vertical"
 							align="right"
 							verticalAlign="middle"
@@ -265,21 +277,24 @@ export const CategoryPieChart = ({
 									<span className={`text-paper-fg ${cursorClass}`}>{value}</span>
 								);
 							}}
-						/>
-					) : null}
-				</PieChart>
-			</ResponsiveContainer>
+							/>
+						) : null}
+					</PieChart>
+				</ResponsiveContainer>
+			</div>
 			{showRankedList ? (
-				<RankedCategoryList
-					rows={otherRow !== null ? [...rankedRows, otherRow] : rankedRows}
-					onRowClick={
-						onSliceClick !== undefined
-							? (row) => {
-									onSliceClick(row);
-								}
-							: undefined
-					}
-				/>
+				<div className="min-w-0 xl:self-center">
+					<RankedCategoryList
+						rows={otherRow !== null ? [...rankedRows, otherRow] : rankedRows}
+						onRowClick={
+							onSliceClick !== undefined
+								? (row) => {
+										onSliceClick(row);
+									}
+								: undefined
+						}
+					/>
+				</div>
 			) : null}
 		</div>
 	);

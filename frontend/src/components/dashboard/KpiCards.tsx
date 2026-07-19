@@ -19,6 +19,7 @@ export type KpiComparison = {
 type KpiComparisonLine = {
 	delta: number;
 	label: string;
+	positiveIsGood: boolean;
 };
 
 type KpiCardProps = {
@@ -44,11 +45,15 @@ function formatComparisonLine(
 	return `Unchanged ${label}`;
 }
 
-function comparisonColor(delta: number): string | undefined {
+function comparisonColor(
+	delta: number,
+	positiveIsGood: boolean
+): string | undefined {
 	if (delta === 0) {
 		return undefined;
 	}
-	return delta > 0 ? chartColors.receiving : chartColors.spending;
+	const improved = positiveIsGood ? delta > 0 : delta < 0;
+	return improved ? chartColors.receiving : chartColors.spending;
 }
 
 function KpiCard({
@@ -73,7 +78,12 @@ function KpiCard({
 						'mt-1.5 font-mono text-xs tabular-nums',
 						comparison.delta === 0 && 'text-paper-muted'
 					)}
-					style={{ color: comparisonColor(comparison.delta) }}
+					style={{
+						color: comparisonColor(
+							comparison.delta,
+							comparison.positiveIsGood
+						),
+					}}
 				>
 					{formatComparisonLine(comparison.delta, comparison.label, formatCurrency)}
 				</p>
@@ -107,6 +117,7 @@ export function KpiCards({
 			? {
 					delta: metrics.spending - previousMetrics.spending,
 					label: compareSuffix,
+					positiveIsGood: false,
 				}
 			: undefined;
 
@@ -115,6 +126,7 @@ export function KpiCards({
 			? {
 					delta: metrics.income - previousMetrics.income,
 					label: compareSuffix,
+					positiveIsGood: true,
 				}
 			: undefined;
 
@@ -123,6 +135,7 @@ export function KpiCards({
 			? {
 					delta: metrics.net - previousMetrics.net,
 					label: compareSuffix,
+					positiveIsGood: true,
 				}
 			: undefined;
 
@@ -135,6 +148,7 @@ export function KpiCards({
 			? {
 					delta: metrics.balance - previousMetrics.balance,
 					label: compareSuffix,
+					positiveIsGood: true,
 				}
 			: undefined;
 
