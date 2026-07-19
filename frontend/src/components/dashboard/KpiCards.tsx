@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils/cn';
 import { eyebrowClass, moneyClass } from '@/components/layout/tokens';
+import { chartColors } from '@/graphs/theme';
 
 export type DashboardKpiMetrics = {
 	balance: number | null;
@@ -18,13 +19,11 @@ export type KpiComparison = {
 type KpiComparisonLine = {
 	delta: number;
 	label: string;
-	positiveIsGood: boolean;
 };
 
 type KpiCardProps = {
 	label: string;
 	value: string;
-	valueClassName?: string;
 	comparison?: KpiComparisonLine;
 	isRefreshing?: boolean;
 	formatCurrency: (value: number | null | undefined) => string;
@@ -45,18 +44,16 @@ function formatComparisonLine(
 	return `Unchanged ${label}`;
 }
 
-function comparisonClass(delta: number, positiveIsGood: boolean): string {
+function comparisonColor(delta: number): string | undefined {
 	if (delta === 0) {
-		return 'text-paper-muted';
+		return undefined;
 	}
-	const improved = positiveIsGood ? delta > 0 : delta < 0;
-	return improved ? 'text-emerald-700' : 'text-amber-700';
+	return delta > 0 ? chartColors.receiving : chartColors.spending;
 }
 
 function KpiCard({
 	label,
 	value,
-	valueClassName,
 	comparison,
 	isRefreshing,
 	formatCurrency,
@@ -69,13 +66,14 @@ function KpiCard({
 			)}
 		>
 			<p className={eyebrowClass}>{label}</p>
-			<p className={cn(moneyClass, 'mt-2', valueClassName)}>{value}</p>
+			<p className={cn(moneyClass, 'mt-2')}>{value}</p>
 			{comparison !== undefined ? (
 				<p
 					className={cn(
 						'mt-1.5 font-mono text-xs tabular-nums',
-						comparisonClass(comparison.delta, comparison.positiveIsGood)
+						comparison.delta === 0 && 'text-paper-muted'
 					)}
+					style={{ color: comparisonColor(comparison.delta) }}
 				>
 					{formatComparisonLine(comparison.delta, comparison.label, formatCurrency)}
 				</p>
@@ -101,13 +99,6 @@ export function KpiCards({
 	isRefreshing,
 	formatCurrency,
 }: KpiCardsProps) {
-	const netClass =
-		metrics.net > 0
-			? 'text-emerald-700'
-			: metrics.net < 0
-				? 'text-red-700'
-				: 'text-paper-fg';
-
 	const suffix = periodLabel.length > 0 ? ` · ${periodLabel}` : '';
 	const compareSuffix = comparisonLabel ?? '';
 
@@ -116,7 +107,6 @@ export function KpiCards({
 			? {
 					delta: metrics.spending - previousMetrics.spending,
 					label: compareSuffix,
-					positiveIsGood: false,
 				}
 			: undefined;
 
@@ -125,7 +115,6 @@ export function KpiCards({
 			? {
 					delta: metrics.income - previousMetrics.income,
 					label: compareSuffix,
-					positiveIsGood: true,
 				}
 			: undefined;
 
@@ -134,7 +123,6 @@ export function KpiCards({
 			? {
 					delta: metrics.net - previousMetrics.net,
 					label: compareSuffix,
-					positiveIsGood: true,
 				}
 			: undefined;
 
@@ -147,7 +135,6 @@ export function KpiCards({
 			? {
 					delta: metrics.balance - previousMetrics.balance,
 					label: compareSuffix,
-					positiveIsGood: true,
 				}
 			: undefined;
 
@@ -163,7 +150,6 @@ export function KpiCards({
 			<KpiCard
 				label={`Spending${suffix}`}
 				value={formatCurrency(metrics.spending)}
-				valueClassName="text-red-700"
 				comparison={spendingComparison}
 				isRefreshing={isRefreshing}
 				formatCurrency={formatCurrency}
@@ -171,7 +157,6 @@ export function KpiCards({
 			<KpiCard
 				label={`Income${suffix}`}
 				value={formatCurrency(metrics.income)}
-				valueClassName="text-emerald-700"
 				comparison={incomeComparison}
 				isRefreshing={isRefreshing}
 				formatCurrency={formatCurrency}
@@ -179,7 +164,6 @@ export function KpiCards({
 			<KpiCard
 				label={`Net${suffix}`}
 				value={formatCurrency(metrics.net)}
-				valueClassName={netClass}
 				comparison={netComparison}
 				isRefreshing={isRefreshing}
 				formatCurrency={formatCurrency}
