@@ -23,7 +23,7 @@ export function PredictionHorizonFilter({
 
 	return (
 		<div
-			className="inline-flex max-w-full flex-wrap rounded-md border border-paper-border p-0.5 transition-opacity duration-300"
+			className="inline-flex max-w-full flex-wrap gap-0.5 rounded-[calc(var(--radius)+2px)] border border-paper-border bg-paper p-[3px] transition-opacity duration-300"
 			role="group"
 			aria-label={ariaLabel}
 			aria-busy={pending}
@@ -32,10 +32,10 @@ export function PredictionHorizonFilter({
 				<button
 					key={horizon}
 					type="button"
-					className={`cursor-pointer rounded px-3 py-1.5 text-sm transition-all duration-200 ease-out ${
+					className={`h-[26px] cursor-pointer rounded-paper border-0 px-2.5 text-xs font-medium tracking-[0.02em] transition-colors ${
 						value === horizon
-							? 'border-secondary-default bg-secondary-default/15 text-secondary-default shadow-sm'
-							: 'text-paper-muted hover:bg-paper hover:text-paper-fg'
+							? 'bg-paper-surface text-paper-fg shadow-sm'
+							: 'bg-transparent text-paper-muted hover:text-paper-fg'
 					} ${pending && value === horizon ? 'opacity-80' : 'opacity-100'}`}
 					aria-pressed={value === horizon}
 					onClick={() => onChange(horizon)}

@@ -254,9 +254,11 @@ export const predictionsThunkActions = (
 		})
 		.addCase(getPredictionGoals.fulfilled, (state, action) => {
 			state.goals = action.payload;
+			state.enabledGoalIds = action.payload.map((goal) => goal.id);
 		})
 		.addCase(createPredictionGoal.fulfilled, (state, action) => {
 			state.goals = [...state.goals, action.payload];
+			state.enabledGoalIds = [...state.enabledGoalIds, action.payload.id];
 		})
 		.addCase(updatePredictionGoal.fulfilled, (state, action) => {
 			state.goals = state.goals.map((goal) =>
@@ -265,5 +267,8 @@ export const predictionsThunkActions = (
 		})
 		.addCase(deletePredictionGoal.fulfilled, (state, action) => {
 			state.goals = state.goals.filter((goal) => goal.id !== action.payload);
+			state.enabledGoalIds = state.enabledGoalIds.filter(
+				(id) => id !== action.payload
+			);
 		});
 };

@@ -1,19 +1,17 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { DateTime } from 'luxon';
 import {
-	Edit2,
 	LineChart,
 	Loader2,
 	Plus,
 	Target,
-	Trash2,
-	TrendingUp,
 } from 'lucide-react';
 import {
+	Area,
 	CartesianGrid,
+	ComposedChart,
 	Legend,
 	Line,
-	LineChart as RechartsLineChart,
 	ResponsiveContainer,
 	Tooltip,
 	XAxis,
@@ -39,17 +37,17 @@ import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { Modal } from '@/components/layout/Modal';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
+import { ProjectionSummary } from '@/components/predictions/ProjectionSummary';
 import {
-	buttonDangerClass,
 	buttonOutlineClass,
-	buttonPrimaryClass,
 	dateInputClass,
 	glassCardClass,
 	inputDarkClass,
+	panelHintClass,
+	panelTitleClass,
 	selectDarkClass,
 } from '@/components/layout/tokens';
 import { useAccountFilter } from '@/hooks/useAccountFilter';
@@ -73,7 +71,10 @@ import { cn } from '@/lib/utils/cn';
 import { readThunkRejectMessage } from '@/lib/utils/thunkError';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import { getPlannedSpending } from '@/store/thunks/plannedSpending';
-import { toggleScenarioOnChart } from '@/store/slices/predictionsSlice';
+import {
+	toggleGoalOnChart,
+	toggleScenarioOnChart,
+} from '@/store/slices/predictionsSlice';
 import {
 	createPredictionGoal,
 	createPredictionScenario,
@@ -87,7 +88,7 @@ import {
 	updatePredictionScenario,
 } from '@/store/thunks/predictions';
 import { useAppDispatch, useAppSelector } from '@/store/store';
-import { chartSeriesColorForKey } from '@/graphs/theme';
+import { chartColors, chartSeriesColorForKey } from '@/graphs/theme';
 import {
 	centsToDollars,
 	dollarsToCents,
@@ -122,6 +123,12 @@ type ScenarioLineDraft = {
 
 const SCENARIO_FORM_ID = 'prediction-scenario-form';
 const GOAL_FORM_ID = 'prediction-goal-form';
+const predictionPrimaryButtonClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-fg bg-paper-fg px-3 text-[13px] font-medium tracking-[0.02em] !text-white transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_88%,white)] disabled:cursor-not-allowed disabled:opacity-50';
+const predictionActionButtonClass =
+	'inline-flex h-7 cursor-pointer items-center justify-center rounded-paper border border-transparent bg-transparent px-2 text-xs font-medium text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:cursor-not-allowed disabled:opacity-50';
+const predictionDeleteButtonClass =
+	'inline-flex h-7 cursor-pointer items-center justify-center rounded-paper border border-transparent bg-transparent px-2 text-xs font-medium text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--danger)_7%,transparent)] hover:text-[color:var(--danger)] disabled:cursor-not-allowed disabled:opacity-50';
 
 function scenarioColor(id: string): string {
 	return chartSeriesColorForKey(id);
@@ -151,7 +158,7 @@ function BalanceTooltip({ active, payload }: TooltipContentProps) {
 			? row.date
 			: '';
 	return (
-		<div className="rounded-md border border-paper-border bg-gray-900/95 px-3 py-2 text-sm shadow-lg">
+		<div className="rounded-paper border border-paper-border bg-paper-surface px-3 py-2 text-[13px] shadow-lg">
 			<p className="mb-1 font-medium text-paper-fg">
 				{formatChartTooltipDate(dateIso)}
 			</p>
@@ -242,6 +249,7 @@ export default function PredictionsPage() {
 		goals,
 		scenarioProjections,
 		enabledScenarioIds,
+		enabledGoalIds,
 		error,
 	} = useAppSelector((state) => state.PredictionsReducer);
 	const { items: plannedItems } = useAppSelector((state) => state.PlannedReducer);
@@ -365,7 +373,9 @@ export default function PredictionsPage() {
 		if (!baseline) {
 			return [];
 		}
-		const goalTracks = goals.map((goal) => ({
+		const goalTracks = goals
+			.filter((goal) => enabledGoalIds.includes(goal.id))
+			.map((goal) => ({
 			lineKey: goalChartLineKey(goal.id),
 			track: buildGoalTrackByDate(
 				baseline.points,
@@ -396,7 +406,7 @@ export default function PredictionsPage() {
 			}
 			return row;
 		});
-	}, [baseline, enabledScenarioIds, goals, scenarioProjections]);
+	}, [baseline, enabledGoalIds, enabledScenarioIds, goals, scenarioProjections]);
 
 	const chartDateSpan = useMemo(() => {
 		const dates = chartData
@@ -423,8 +433,11 @@ export default function PredictionsPage() {
 		const dates = chartData
 			.map((row) => row.date)
 			.filter((value): value is string => typeof value === 'string');
-		return buildSavingsGoalChartItems(goals, dates);
-	}, [chartData, goals]);
+		const visibleGoals = goals.filter((goal) =>
+			enabledGoalIds.includes(goal.id)
+		);
+		return buildSavingsGoalChartItems(visibleGoals, dates);
+	}, [chartData, enabledGoalIds, goals]);
 
 	const chartYDomain = useMemo(() => {
 		const values: number[] = [];
@@ -440,6 +453,9 @@ export default function PredictionsPage() {
 				}
 			}
 			for (const goal of goals) {
+				if (!enabledGoalIds.includes(goal.id)) {
+					continue;
+				}
 				const value = row[goalChartLineKey(goal.id)];
 				if (typeof value === 'number') {
 					values.push(value);
@@ -447,14 +463,32 @@ export default function PredictionsPage() {
 			}
 		}
 		return predictionChartDomain(values);
-	}, [chartData, enabledScenarioIds, goals]);
+	}, [chartData, enabledGoalIds, enabledScenarioIds, goals]);
 
 	const baselineSummary = useMemo(() => {
 		if (!baseline) {
 			return null;
 		}
 		const meta = baseline.metadata;
-		return `Estimate based on your current balance (${formatMoneyFromCents(meta.starting_balance_cents)}), spread day-by-day from a typical monthly change of ${formatMoneyFromCents(meta.baseline_monthly_net_cents)} (about ${formatMoneyFromCents(meta.baseline_daily_net_cents)}/day, averaged over ${String(meta.months_averaged)} recent months), and ${String(meta.planned_item_count)} planned items in this period.`;
+		const plannedLabel =
+			meta.planned_item_count === 1 ? 'planned item' : 'planned items';
+		return `Baseline from ${String(meta.months_averaged)} recent months + ${String(meta.planned_item_count)} ${plannedLabel}`;
+	}, [baseline]);
+
+	const projectionSummary = useMemo(() => {
+		if (!baseline) {
+			return null;
+		}
+		const lastPoint = baseline.points[baseline.points.length - 1];
+		const projectedEndCents =
+			lastPoint !== undefined
+				? lastPoint.balance_cents
+				: baseline.metadata.starting_balance_cents;
+		return {
+			startingCents: baseline.metadata.starting_balance_cents,
+			projectedEndCents,
+			monthlyNetCents: baseline.metadata.baseline_monthly_net_cents,
+		};
 	}, [baseline]);
 
 	const openScenarioModal = (mode: ModalMode, scenario?: PredictionScenario) => {
@@ -594,17 +628,18 @@ export default function PredictionsPage() {
 
 	return (
 		<PageShell variant="table">
-			<div className="shrink-0 space-y-3 border-b border-paper-border p-4">
-				<PageHeader
-					title="Future predictions"
-					subtitle="See where your balance might go and plan for what-if changes."
-					icon={<TrendingUp className="h-6 w-6 text-secondary-default" />}
-					className="mb-0"
-					pending={pageBusy}
-				/>
+			<header className="shrink-0 border-b border-paper-border bg-paper-surface px-8 py-5">
+				<h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] text-paper-fg">
+					Future predictions
+				</h1>
+				<p className="mt-1 max-w-[52ch] text-[13px] text-paper-muted">
+					See where your balance might go and plan for what-if changes.
+				</p>
+			</header>
 
-				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-					<div className="flex min-h-9 flex-wrap items-center gap-3">
+			<div className="min-h-0 flex-grow space-y-6 overflow-auto px-8 py-6">
+				<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+					<div className="flex min-h-9 flex-wrap items-center gap-2.5">
 						<AccountFilter />
 						<SegmentedControl
 							ariaLabel="Forecast range mode"
@@ -636,7 +671,7 @@ export default function PredictionsPage() {
 									}
 									className={cn(dateInputClass, 'px-2 py-1.5')}
 								/>
-								<span className="text-sm text-paper-muted">–</span>
+								<span className="text-sm text-paper-muted">to</span>
 								<input
 									type="date"
 									aria-label="To date"
@@ -661,6 +696,14 @@ export default function PredictionsPage() {
 							</div>
 						)}
 					</div>
+
+					{!rangeInvalid && projectionSummary !== null ? (
+						<ProjectionSummary
+							startingCents={projectionSummary.startingCents}
+							projectedEndCents={projectionSummary.projectedEndCents}
+							monthlyNetCents={projectionSummary.monthlyNetCents}
+						/>
+					) : null}
 				</div>
 
 				{rangeInvalid ? (
@@ -668,26 +711,28 @@ export default function PredictionsPage() {
 						Choose a valid date range (from on or before to).
 					</InlineAlert>
 				) : null}
-			</div>
 
-			<div className="min-h-0 flex-grow overflow-auto p-4">
-			{(loadError ?? error) && !rangeInvalid ? (
-				<div className="mb-4">
+				{(loadError ?? error) && !rangeInvalid ? (
 					<ErrorState
 						message={loadError ?? error ?? 'Something went wrong'}
 						onRetry={() => void reloadData()}
 					/>
-				</div>
-			) : null}
+				) : null}
 
-			<div className={cn(glassCardClass, 'mb-6 p-4')}>
-				<div className="mb-3 flex items-center gap-2 text-paper-fg">
-					<LineChart size={18} />
-					<h2 className="text-lg font-semibold">Projected balance</h2>
+			<div className={cn(glassCardClass, 'overflow-hidden p-0')}>
+				<div className="border-b border-paper-border px-4 py-3.5">
+					<h2 className={panelTitleClass}>Projected balance</h2>
+					{baselineSummary ? (
+						<p className={cn(panelHintClass, 'mt-1 max-w-[72ch]')}>
+							{baselineSummary}
+						</p>
+					) : (
+						<p className={panelHintClass}>
+							Baseline from recent monthly average + planned items
+						</p>
+					)}
 				</div>
-				{baselineSummary && (
-					<p className="mb-4 text-sm text-paper-muted">{baselineSummary}</p>
-				)}
+				<div className="p-4">
 				{goalChartItems.length > 0 ? (
 					<p className="mb-3 text-xs text-paper-muted">
 						{plannedChartEvents.length > 0
@@ -708,22 +753,25 @@ export default function PredictionsPage() {
 						description="Add transactions or widen the horizon to see a projection."
 					/>
 				) : (
-					<div className="h-64 w-full sm:h-72">
+					<div className="h-72 w-full sm:h-80">
 						<ResponsiveContainer width="100%" height="100%">
-							<RechartsLineChart data={chartData}>
-								<CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+							<ComposedChart data={chartData}>
+								<CartesianGrid
+									strokeDasharray="3 3"
+									stroke="color-mix(in oklch, var(--fg) 8%, var(--border))"
+								/>
 								<XAxis
 									dataKey="date"
-									stroke="rgba(255,255,255,0.6)"
-									tick={{ fontSize: 12 }}
+									stroke="var(--muted)"
+									tick={{ fontSize: 12, fill: 'var(--muted)' }}
 									minTickGap={28}
 									tickFormatter={(value: string) =>
 										formatChartAxisDate(value, chartDateSpan)
 									}
 								/>
 								<YAxis
-									stroke="rgba(255,255,255,0.6)"
-									tick={{ fontSize: 12 }}
+									stroke="var(--muted)"
+									tick={{ fontSize: 12, fill: 'var(--muted)' }}
 									domain={chartYDomain}
 									tickFormatter={(value: number) =>
 										`$${value.toLocaleString('en-AU', { maximumFractionDigits: 0 })}`
@@ -738,13 +786,17 @@ export default function PredictionsPage() {
 											: undefined
 									}
 								/>
-								<Legend />
-								<Line
+								<Legend
+									wrapperStyle={{ fontSize: 12, color: 'var(--muted)' }}
+								/>
+								<Area
 									type="monotone"
 									dataKey="baseline"
 									name="Baseline"
-									stroke="#22d3ee"
+									stroke={chartColors.netWorth}
 									strokeWidth={2}
+									fill={chartColors.netWorth}
+									fillOpacity={0.1}
 									dot={false}
 									isAnimationActive={chartData.length < 120}
 								/>
@@ -760,12 +812,15 @@ export default function PredictionsPage() {
 											name={displayName}
 											stroke={scenarioColor(scenarioId)}
 											strokeWidth={2}
+											strokeDasharray="6 4"
 											dot={false}
 											isAnimationActive={chartData.length < 120}
 										/>
 									);
 								})}
-								{goals.map((goal) => (
+								{goals
+									.filter((goal) => enabledGoalIds.includes(goal.id))
+									.map((goal) => (
 									<Line
 										key={`goal-line-${goal.id}`}
 										type="linear"
@@ -788,105 +843,107 @@ export default function PredictionsPage() {
 									goalChartItems,
 									savingsGoalMarkerState
 								)}
-							</RechartsLineChart>
+							</ComposedChart>
 						</ResponsiveContainer>
 					</div>
 				)}
+				</div>
 			</div>
 
 			<div className="grid grid-cols-1 gap-6 pb-4 lg:grid-cols-2">
-				<div className={cn(glassCardClass, 'p-4')}>
-					<div className="mb-4 flex items-center justify-between">
-						<h2 className="text-lg font-semibold text-paper-fg">Scenarios</h2>
-						<button
-							type="button"
-							className={buttonPrimaryClass}
-							onClick={() => openScenarioModal('add')}
-						>
-							<Plus size={16} className="mr-1 inline" />
-							Add scenario
-						</button>
+				<div className={cn(glassCardClass, 'overflow-hidden p-0')}>
+					<div className="border-b border-paper-border px-4 py-3.5">
+						<h2 className={panelTitleClass}>Scenarios</h2>
+						<p className={panelHintClass}>Toggle overlays on the chart</p>
 					</div>
 					{scenarios.length === 0 ? (
-						<EmptyState
-							icon={Plus}
-							compact
-							title="No scenarios yet"
-							description="Add a what-if scenario with extra income or spending lines."
-						/>
+						<div className="p-4">
+							<EmptyState
+								icon={Plus}
+								compact
+								title="No scenarios yet"
+								description="Add a what-if scenario with extra income or spending lines."
+							/>
+						</div>
 					) : (
-						<ul className="space-y-3">
+						<ul className="divide-y divide-paper-border">
 							{scenarios.map((scenario) => {
 								const enabled = enabledScenarioIds.includes(scenario.id);
 								return (
 									<li
 										key={scenario.id}
-										className="rounded-md border border-paper-border bg-paper p-3"
+										className="grid grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_2%,var(--surface))]"
 									>
-										<div className="flex items-start justify-between gap-2">
-											<div>
-												<p className="font-medium text-paper-fg">{scenario.name}</p>
-												<p className="text-sm text-paper-muted">
-													{scenario.lines.length} adjustment
-													{scenario.lines.length === 1 ? '' : 's'}
-												</p>
-											</div>
-											<div className="flex shrink-0 gap-1">
-												<button
-													type="button"
-													className={buttonOutlineClass}
-													aria-pressed={enabled}
-													onClick={() =>
-														dispatch(toggleScenarioOnChart(scenario.id))
-													}
-												>
-													{enabled ? 'Hide' : 'Show'}
-												</button>
-												<button
-													type="button"
-													className={buttonOutlineClass}
-													onClick={() => openScenarioModal('edit', scenario)}
-												>
-													<Edit2 size={14} />
-												</button>
-												<button
-													type="button"
-													className={buttonDangerClass}
-													onClick={() => void handleDeleteScenario(scenario.id)}
-												>
-													<Trash2 size={14} />
-												</button>
-											</div>
+										<input
+											type="checkbox"
+											className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
+											checked={enabled}
+											aria-label={`${enabled ? 'Hide' : 'Show'} ${scenario.name} on chart`}
+											onChange={() =>
+												dispatch(toggleScenarioOnChart(scenario.id))
+											}
+										/>
+										<div className="min-w-0">
+											<p className="truncate text-[13px] font-medium tracking-[-0.01em] text-paper-fg">
+												{scenario.name}
+											</p>
+											<p className="text-xs text-paper-muted">
+												{scenario.lines.length} adjustment
+												{scenario.lines.length === 1 ? '' : 's'}
+											</p>
+										</div>
+										<div className="flex shrink-0 gap-1">
+											<button
+												type="button"
+												className={predictionActionButtonClass}
+												onClick={() => openScenarioModal('edit', scenario)}
+												aria-label={`Edit ${scenario.name}`}
+											>
+												Edit
+											</button>
+											<button
+												type="button"
+												className={predictionDeleteButtonClass}
+												onClick={() => void handleDeleteScenario(scenario.id)}
+												aria-label={`Delete ${scenario.name}`}
+											>
+												Delete
+											</button>
 										</div>
 									</li>
 								);
 							})}
 						</ul>
 					)}
-				</div>
-
-				<div className={cn(glassCardClass, 'p-4')}>
-					<div className="mb-4 flex items-center justify-between">
-						<h2 className="text-lg font-semibold text-paper-fg">Savings goals</h2>
+					<div className="flex justify-end border-t border-paper-border bg-[color-mix(in_oklch,var(--bg)_55%,var(--surface))] px-4 py-3">
 						<button
 							type="button"
-							className={buttonPrimaryClass}
-							onClick={() => openGoalModal('add')}
+							className={predictionPrimaryButtonClass}
+							onClick={() => openScenarioModal('add')}
 						>
-							<Target size={16} className="mr-1 inline" />
-							Add goal
+							Add scenario
 						</button>
 					</div>
+				</div>
+
+				<div className={cn(glassCardClass, 'overflow-hidden p-0')}>
+					<div className="border-b border-paper-border px-4 py-3.5">
+						<h2 className={panelTitleClass}>Savings goals</h2>
+						<p className={panelHintClass}>Toggle overlays on the chart</p>
+					</div>
 					{goals.length === 0 ? (
-						<EmptyState
-							icon={Target}
-							compact
-							title="No goals yet"
-							description="Set a target balance by a date to see your shortfall and a monthly saving hint."
-						/>
+						<div className="p-4">
+							<EmptyState
+								icon={Target}
+								compact
+								title="No goals yet"
+								description="Set a target balance by a date to see your shortfall and a monthly saving hint."
+							/>
+						</div>
 					) : (
-						<ul className="space-y-3">
+						<ul className="divide-y divide-paper-border">
 							{goals.map((goal) => {
+								const enabled = enabledGoalIds.includes(goal.id);
 								const gap = baseline
 									? computeGoalGap(
 											goal.target_amount_cents,
@@ -899,73 +956,90 @@ export default function PredictionsPage() {
 								return (
 									<li
 										key={goal.id}
-										className="rounded-md border border-paper-border bg-paper p-3"
+										className="grid grid-cols-[auto_1fr_auto] items-start gap-3 px-4 py-3 transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_2%,var(--surface))]"
 									>
-										<div className="flex items-start justify-between gap-2">
-											<div>
-												<p className="font-medium text-paper-fg">{goal.name}</p>
-												<p className="text-sm text-paper-muted">
-													Target {formatMoneyFromCents(goal.target_amount_cents)} by{' '}
-													{DateTime.fromISO(goal.target_date).toFormat('d MMM yyyy')}
+										<input
+											type="checkbox"
+											className="mt-0.5 h-4 w-4 cursor-pointer accent-[var(--accent)]"
+											checked={enabled}
+											aria-label={`${enabled ? 'Hide' : 'Show'} ${goal.name} on chart`}
+											onChange={() => dispatch(toggleGoalOnChart(goal.id))}
+										/>
+										<div className="min-w-0">
+											<div className="flex items-center gap-2">
+												<span
+													className="h-2.5 w-2.5 shrink-0 rounded-full"
+													style={{ background: goalChartColor(goal.id) }}
+													aria-hidden
+												/>
+												<p className="truncate text-[13px] font-medium tracking-[-0.01em] text-paper-fg">
+													{goal.name}
 												</p>
-												{gap && (
-													<div className="mt-2 space-y-1 text-sm">
-														<p className="text-paper-fg">
-															Projected balance:{' '}
+											</div>
+											<p className="mt-0.5 text-xs text-paper-muted">
+												Target {formatMoneyFromCents(goal.target_amount_cents)} by{' '}
+												{DateTime.fromISO(goal.target_date).toFormat('d MMM yyyy')}
+											</p>
+											{gap ? (
+												<div className="mt-2 space-y-1 text-xs">
+													<p className="text-paper-muted">
+														Projected{' '}
+														<span className="font-mono tabular-nums text-paper-fg">
 															{formatMoneyFromCents(gap.projected_balance_cents)}
-														</p>
+														</span>
+													</p>
+													{gap.gap_cents > 0 ? (
 														<p
-															className={
-																gap.current_monthly_net_cents >= 0
-																	? 'text-paper-fg'
-																	: 'text-red-300'
-															}
+															className="font-mono tabular-nums"
+															style={{ color: chartColors.spending }}
 														>
-															Current pace:{' '}
-															{formatMoneyFromCents(
-																gap.current_monthly_net_cents
-															)}
-															/month
+															Shortfall {formatMoneyFromCents(gap.gap_cents)} · save ~
+															{formatMoneyFromCents(gap.suggested_monthly_cents)}
+															/mo
 														</p>
-														{gap.gap_cents > 0 ? (
-															<>
-																<p className="text-amber-300">
-																	Shortfall: {formatMoneyFromCents(gap.gap_cents)}
-																</p>
-																<p className="text-green-300">
-																	Save about{' '}
-																	{formatMoneyFromCents(gap.suggested_monthly_cents)}
-																	/month extra
-																</p>
-															</>
-														) : (
-															<p className="text-green-300">On track for this target</p>
-														)}
-													</div>
-												)}
-											</div>
-											<div className="flex shrink-0 gap-1">
-												<button
-													type="button"
-													className={buttonOutlineClass}
-													onClick={() => openGoalModal('edit', goal.id)}
-												>
-													<Edit2 size={14} />
-												</button>
-												<button
-													type="button"
-													className={buttonDangerClass}
-													onClick={() => void handleDeleteGoal(goal.id)}
-												>
-													<Trash2 size={14} />
-												</button>
-											</div>
+													) : (
+														<p
+															className="font-mono tabular-nums"
+															style={{ color: chartColors.receiving }}
+														>
+															On track
+														</p>
+													)}
+												</div>
+											) : null}
+										</div>
+										<div className="flex shrink-0 gap-1">
+											<button
+												type="button"
+												className={predictionActionButtonClass}
+												onClick={() => openGoalModal('edit', goal.id)}
+												aria-label={`Edit ${goal.name}`}
+											>
+												Edit
+											</button>
+											<button
+												type="button"
+												className={predictionDeleteButtonClass}
+												onClick={() => void handleDeleteGoal(goal.id)}
+												aria-label={`Delete ${goal.name}`}
+											>
+												Delete
+											</button>
 										</div>
 									</li>
 								);
 							})}
 						</ul>
 					)}
+					<div className="flex justify-end border-t border-paper-border bg-[color-mix(in_oklch,var(--bg)_55%,var(--surface))] px-4 py-3">
+						<button
+							type="button"
+							className={predictionPrimaryButtonClass}
+							onClick={() => openGoalModal('add')}
+						>
+							Add goal
+						</button>
+					</div>
 				</div>
 			</div>
 			</div>
@@ -990,7 +1064,7 @@ export default function PredictionsPage() {
 						<button
 							type="submit"
 							form={SCENARIO_FORM_ID}
-							className={buttonPrimaryClass}
+							className={predictionPrimaryButtonClass}
 							disabled={saving}
 						>
 							{saving ? (
@@ -1222,7 +1296,7 @@ export default function PredictionsPage() {
 									{scenarioLines.length > 1 ? (
 										<button
 											type="button"
-											className={buttonDangerClass}
+											className={predictionDeleteButtonClass}
 											disabled={saving}
 											onClick={() =>
 												setScenarioLines(
@@ -1272,7 +1346,7 @@ export default function PredictionsPage() {
 						<button
 							type="submit"
 							form={GOAL_FORM_ID}
-							className={buttonPrimaryClass}
+							className={predictionPrimaryButtonClass}
 							disabled={saving}
 						>
 							{saving ? (

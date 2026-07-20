@@ -12,7 +12,6 @@ import {
 	periodDateRange,
 	type DashboardPeriod,
 } from '@/components/dashboard/period';
-import { CategoryPill } from '@/components/CategoryPill';
 import { CategoryPicker } from '@/components/transactions/CategoryPicker';
 import { cn } from '@/lib/utils/cn';
 import { EmptyState } from '@/components/layout/EmptyState';
@@ -24,9 +23,11 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
-import { StatCard } from '@/components/layout/StatCard';
+import { PeriodSummary } from '@/components/breakdown/PeriodSummary';
+import { SpendShareCell } from '@/components/breakdown/SpendShareCell';
 import { buttonOutlineClass, buttonPrimaryClass, inputDarkClass } from '@/components/layout/tokens';
-import { ChevronDown, ChevronRight, LayoutList, Loader2 } from 'lucide-react';
+import { chartColors } from '@/graphs/theme';
+import { ChevronDown, ChevronRight, LayoutList, Loader2, MoveRight } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllCategories } from '@/store/thunks/category.get.all';
 import { bulkPatchTransactionCategoriesByGroup } from '@/types/transaction';
@@ -84,6 +85,97 @@ type ParentSortKey =
 	| 'txnCount';
 type SubSortKey = 'label' | 'spending' | 'spendShare' | 'income' | 'count';
 type SortDir = 'asc' | 'desc';
+
+type SortIndicatorProps = {
+	active: boolean;
+	direction: SortDir;
+};
+
+function SortIndicator({ active, direction }: SortIndicatorProps) {
+	return (
+		<span
+			className={cn(
+				'inline-grid h-3 w-2.5 shrink-0 opacity-35 transition-opacity',
+				active && 'opacity-100'
+			)}
+			aria-hidden
+		>
+			<svg
+				viewBox="0 0 10 12"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="1.6"
+			>
+				<path
+					d="M2 4.2 5 1.5 8 4.2"
+					opacity={active && direction === 'desc' ? 0.28 : 1}
+				/>
+				<path
+					d="M2 7.8 5 10.5 8 7.8"
+					opacity={active && direction === 'asc' ? 0.28 : 1}
+				/>
+			</svg>
+		</span>
+	);
+}
+
+type SortHeaderProps = {
+	label: string;
+	active: boolean;
+	direction: SortDir;
+	align?: 'left' | 'right' | 'center';
+	onClick: () => void;
+};
+
+function SortHeader({
+	label,
+	active,
+	direction,
+	align = 'left',
+	onClick,
+}: SortHeaderProps) {
+	const ariaSort = active
+		? direction === 'asc'
+			? 'ascending'
+			: 'descending'
+		: 'none';
+	const numeric = align !== 'left';
+
+	return (
+		<th
+			scope="col"
+			aria-sort={ariaSort}
+			className={cn(
+				'px-3 py-2.5 text-[11px] font-medium uppercase tracking-[0.06em]',
+				align === 'right' && 'text-right',
+				align === 'center' && 'text-center'
+			)}
+		>
+			<button
+				type="button"
+				onClick={onClick}
+				className={cn(
+					'flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-paper-muted hover:text-paper-fg',
+					active && 'text-paper-fg',
+					align === 'right' && 'justify-end',
+					align === 'center' && 'justify-center'
+				)}
+			>
+				{numeric ? (
+					<>
+						<SortIndicator active={active} direction={direction} />
+						{label}
+					</>
+				) : (
+					<>
+						{label}
+						<SortIndicator active={active} direction={direction} />
+					</>
+				)}
+			</button>
+		</th>
+	);
+}
 
 function parentLabelSortKey(row: ParentBreakdownRow): string {
 	return row.categoryId === null ? `\uffff${row.label}` : row.label;
@@ -215,7 +307,7 @@ const BreakdownPage = () => {
 	const [parentSort, setParentSort] = useState<{
 		key: ParentSortKey;
 		dir: SortDir;
-	}>({ key: 'label', dir: 'asc' });
+	}>({ key: 'spending', dir: 'desc' });
 	const [subSortBySection, setSubSortBySection] = useState<
 		Record<string, { key: SubSortKey; dir: SortDir }>
 	>({});
@@ -429,8 +521,8 @@ const BreakdownPage = () => {
 					}
 				/>
 
-				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-					<div className="flex min-h-9 flex-wrap items-center gap-3">
+				<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+					<div className="flex min-h-9 flex-wrap items-center gap-2.5">
 						<AccountFilter />
 						<SegmentedControl
 							ariaLabel="Date range mode"
@@ -463,7 +555,7 @@ const BreakdownPage = () => {
 									}
 									className={cn(inputDarkClass, 'px-2 py-1.5')}
 								/>
-								<span className="text-sm text-paper-muted">–</span>
+								<span className="text-sm text-paper-muted">to</span>
 								<input
 									type="date"
 									aria-label="To date"
@@ -488,29 +580,11 @@ const BreakdownPage = () => {
 					</div>
 
 					{!rangeInvalid ? (
-						<div className="flex flex-wrap gap-3">
-							<StatCard
-								label="Period spending"
-								value={formatMoney(totals.spending)}
-								valueClassName="text-red-300"
-							/>
-							<StatCard
-								label="Period income"
-								value={formatMoney(totals.income)}
-								valueClassName="text-green-400"
-							/>
-							<StatCard
-								label="Net"
-								value={formatMoney(netTotal)}
-								valueClassName={
-									netTotal > 0
-										? 'text-green-400'
-										: netTotal < 0
-											? 'text-red-300'
-											: 'text-paper-muted'
-								}
-							/>
-						</div>
+						<PeriodSummary
+							spending={totals.spending}
+							income={totals.income}
+							net={netTotal}
+						/>
 					) : null}
 				</div>
 
@@ -542,125 +616,64 @@ const BreakdownPage = () => {
 					/>
 				) : (
 					<GlassCard className="overflow-hidden p-0">
-					<table className="w-full min-w-[720px] text-left">
-						<thead className="sticky top-0 z-10 border-b border-paper-border bg-paper-surface backdrop-blur-sm">
+					<div className="border-b border-paper-border px-4 py-3.5">
+						<h2 className="text-[13px] font-semibold tracking-[-0.01em] text-paper-fg">
+							By category
+						</h2>
+						<p className="mt-0.5 text-xs text-paper-muted">
+							Expand a row for grouped descriptions
+						</p>
+					</div>
+					<table className="w-full min-w-[720px] text-left text-[13px]">
+						<thead className="sticky top-0 z-10 border-b border-paper-border bg-paper">
 							<tr>
-								<th className="px-4 py-3 text-xs font-medium text-paper-muted uppercase tracking-wider w-10" />
-								<th className="px-4 py-3 text-xs font-medium uppercase tracking-wider">
-									<button
-										type="button"
-										onClick={() => cycleParentSort('label')}
-										className={cn(
-											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
-											parentSort.key === 'label'
-												? 'text-secondary-default'
-												: 'text-paper-muted'
-										)}
-									>
-										Category
-										{parentSort.key === 'label'
-											? parentSort.dir === 'asc'
-												? ' ▲'
-												: ' ▼'
-											: ''}
-									</button>
+								<th className="w-10 px-3 py-2.5">
+									<span className="sr-only">Expand</span>
 								</th>
-								<th className="px-4 py-3 text-xs font-medium uppercase tracking-wider">
-									<button
-										type="button"
-										onClick={() => cycleParentSort('spending')}
-										className={cn(
-											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
-											parentSort.key === 'spending'
-												? 'text-secondary-default'
-												: 'text-paper-muted'
-										)}
-									>
-										Spending
-										{parentSort.key === 'spending'
-											? parentSort.dir === 'asc'
-												? ' ▲'
-												: ' ▼'
-											: ''}
-									</button>
+								<SortHeader
+									label="Category"
+									active={parentSort.key === 'label'}
+									direction={parentSort.dir}
+									onClick={() => cycleParentSort('label')}
+								/>
+								<SortHeader
+									label="Spending"
+									active={parentSort.key === 'spending'}
+									direction={parentSort.dir}
+									align="right"
+									onClick={() => cycleParentSort('spending')}
+								/>
+								<SortHeader
+									label="% of spending"
+									active={parentSort.key === 'spendShare'}
+									direction={parentSort.dir}
+									align="center"
+									onClick={() => cycleParentSort('spendShare')}
+								/>
+								<SortHeader
+									label="Income"
+									active={parentSort.key === 'income'}
+									direction={parentSort.dir}
+									align="right"
+									onClick={() => cycleParentSort('income')}
+								/>
+								<SortHeader
+									label="Net"
+									active={parentSort.key === 'net'}
+									direction={parentSort.dir}
+									align="right"
+									onClick={() => cycleParentSort('net')}
+								/>
+								<SortHeader
+									label="Txns"
+									active={parentSort.key === 'txnCount'}
+									direction={parentSort.dir}
+									align="right"
+									onClick={() => cycleParentSort('txnCount')}
+								/>
+								<th className="w-24 px-2 py-2.5">
+									<span className="sr-only">Actions</span>
 								</th>
-								<th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-right">
-									<button
-										type="button"
-										onClick={() => cycleParentSort('spendShare')}
-										className={cn(
-											'text-right w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
-											parentSort.key === 'spendShare'
-												? 'text-secondary-default'
-												: 'text-paper-muted'
-										)}
-									>
-										% of spending
-										{parentSort.key === 'spendShare'
-											? parentSort.dir === 'asc'
-												? ' ▲'
-												: ' ▼'
-											: ''}
-									</button>
-								</th>
-								<th className="px-4 py-3 text-xs font-medium uppercase tracking-wider">
-									<button
-										type="button"
-										onClick={() => cycleParentSort('income')}
-										className={cn(
-											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
-											parentSort.key === 'income'
-												? 'text-secondary-default'
-												: 'text-paper-muted'
-										)}
-									>
-										Income
-										{parentSort.key === 'income'
-											? parentSort.dir === 'asc'
-												? ' ▲'
-												: ' ▼'
-											: ''}
-									</button>
-								</th>
-								<th className="px-4 py-3 text-xs font-medium uppercase tracking-wider">
-									<button
-										type="button"
-										onClick={() => cycleParentSort('net')}
-										className={cn(
-											'text-left w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
-											parentSort.key === 'net'
-												? 'text-secondary-default'
-												: 'text-paper-muted'
-										)}
-									>
-										Net
-										{parentSort.key === 'net'
-											? parentSort.dir === 'asc'
-												? ' ▲'
-												: ' ▼'
-											: ''}
-									</button>
-								</th>
-								<th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-center">
-									<button
-										type="button"
-										onClick={() => cycleParentSort('txnCount')}
-										className={cn(
-											'text-center w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
-											parentSort.key === 'txnCount'
-												? 'text-secondary-default'
-												: 'text-paper-muted'
-										)}
-									>
-										Txns
-										{parentSort.key === 'txnCount'
-											? parentSort.dir === 'asc'
-												? ' ▲'
-												: ' ▼'
-											: ''}
-									</button>
-								</th>
-								<th className="px-2 py-3 w-24" aria-label="Actions" />
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-paper-border">
@@ -673,12 +686,12 @@ const BreakdownPage = () => {
 									subSort.key,
 									subSort.dir
 								);
-								const spendPct =
+								const spendPctValue =
 									totals.spending > 0 && p.spending > 0
-										? `${((p.spending / totals.spending) * 100).toFixed(1)}%`
+										? (p.spending / totals.spending) * 100
 										: totals.spending > 0 && p.spending === 0
-											? '0.0%'
-											: '—';
+											? 0
+											: null;
 								const catNet = round2(p.income - p.spending);
 								return (
 									<Fragment key={p.sectionKey}>
@@ -686,53 +699,81 @@ const BreakdownPage = () => {
 											className="hover:bg-paper cursor-pointer transition-colors"
 											onClick={() => toggleSection(p.sectionKey)}
 										>
-											<td className="px-4 py-3 align-middle text-paper-muted">
+											<td className="px-3 py-2.5 align-middle text-paper-muted">
 												{isOpen ? (
 													<ChevronDown className="w-4 h-4" />
 												) : (
 													<ChevronRight className="w-4 h-4" />
 												)}
 											</td>
-											<td className="px-4 py-3">
+											<td className="px-3 py-2.5">
 												<div className="flex flex-wrap items-center gap-2">
-													{p.categoryId !== null && p.colour ? (
-														<CategoryPill name={p.label} colour={p.colour} />
-													) : p.categoryId === null ? (
-														<span className="text-sm italic text-paper-muted">
-															{p.label}
-														</span>
-													) : (
-														<span className="text-sm text-paper-fg">
-															{p.label}
-														</span>
-													)}
+													<span
+														className={cn(
+															'inline-flex h-[26px] max-w-[220px] items-center gap-[7px] rounded-full border border-paper-border bg-paper px-2.5 pl-2 text-xs font-medium text-paper-fg',
+															p.categoryId === null &&
+																'font-normal italic text-paper-muted'
+														)}
+													>
+														<span
+															className="h-2 w-2 shrink-0 rounded-full"
+															style={{
+																backgroundColor:
+																	p.colour ?? chartColors.other,
+															}}
+															aria-hidden
+														/>
+														<span className="truncate">{p.label}</span>
+													</span>
 												</div>
 											</td>
-											<td className="px-4 py-3 font-mono text-sm text-red-300/95">
+											<td
+												className="px-3 py-2.5 text-right font-mono text-[13px] tabular-nums"
+												style={
+													p.spending > 0
+														? { color: chartColors.spending }
+														: undefined
+												}
+											>
 												{p.spending > 0 ? formatMoney(p.spending) : '—'}
 											</td>
 											<td
-												className="px-4 py-3 font-mono text-sm text-paper-muted text-right tabular-nums"
+												className="px-3 py-2.5 text-right"
 												title={
 													totals.spending > 0
 														? `Share of period spending (${formatMoney(totals.spending)})`
 														: undefined
 												}
 											>
-												{spendPct}
+												<div className="w-full">
+													<SpendShareCell
+														percent={spendPctValue}
+														barColor={p.colour ?? chartColors.other}
+													/>
+												</div>
 											</td>
-											<td className="px-4 py-3 font-mono text-sm text-green-400/95">
+											<td
+												className="px-3 py-2.5 text-right font-mono text-[13px] tabular-nums"
+												style={
+													p.income > 0
+														? { color: chartColors.receiving }
+														: undefined
+												}
+											>
 												{p.income > 0 ? formatMoney(p.income) : '—'}
 											</td>
 											<td
 												className={cn(
-													'px-4 py-3 font-mono text-sm tabular-nums',
-													catNet > 0
-														? 'text-green-400/95'
-														: catNet < 0
-															? 'text-red-300/95'
-															: 'text-paper-muted'
+													'px-3 py-2.5 text-right font-mono text-[13px] tabular-nums',
+													catNet === 0 && 'text-paper-muted'
 												)}
+												style={
+													catNet > 0
+														? { color: chartColors.receiving }
+														: catNet < 0
+															? { color: chartColors.spending }
+															: undefined
+												}
 												title="Income minus spending for this category"
 											>
 												{catNet === 0 &&
@@ -741,7 +782,7 @@ const BreakdownPage = () => {
 													? '—'
 													: formatMoney(catNet)}
 											</td>
-											<td className="px-4 py-3 text-center text-sm">
+											<td className="px-3 py-2.5 text-right text-[13px]">
 												{p.txnCount}
 											</td>
 											<td className="px-2 py-3" />
@@ -749,7 +790,7 @@ const BreakdownPage = () => {
 										{isOpen ? (
 											<>
 												<tr
-													className="bg-paper-surface border-y border-paper-border"
+													className="border-y border-paper-border bg-[color-mix(in_oklch,var(--fg)_2%,var(--bg))]"
 													onClick={(e) => e.stopPropagation()}
 												>
 													<td className="px-4 py-2" />
@@ -767,96 +808,91 @@ const BreakdownPage = () => {
 															)}
 														>
 															Description
-															{subSort.key === 'label'
-																? subSort.dir === 'asc'
-																	? ' ▲'
-																	: ' ▼'
-																: ''}
-														</button>
-													</td>
-													<td className="px-4 py-2">
-														<button
-															type="button"
-															onClick={() =>
-																cycleSubSort(p.sectionKey, 'spending')
-															}
-															className={cn(
-																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
-																subSort.key === 'spending'
-																	? 'text-secondary-default'
-																	: 'text-paper-muted'
-															)}
-														>
-															Spending
-															{subSort.key === 'spending'
-																? subSort.dir === 'asc'
-																	? ' ▲'
-																	: ' ▼'
-																: ''}
+															<SortIndicator
+																active={subSort.key === 'label'}
+																direction={subSort.dir}
+															/>
 														</button>
 													</td>
 													<td className="px-4 py-2 text-right">
 														<button
 															type="button"
 															onClick={() =>
+																cycleSubSort(p.sectionKey, 'spending')
+															}
+															className={cn(
+																'inline-flex cursor-pointer flex-row-reverse items-center gap-1 border-0 bg-transparent p-0 text-[10px] font-medium uppercase tracking-wider hover:text-secondary-default',
+																subSort.key === 'spending'
+																	? 'text-secondary-default'
+																	: 'text-paper-muted'
+															)}
+														>
+															Spending
+															<SortIndicator
+																active={subSort.key === 'spending'}
+																direction={subSort.dir}
+															/>
+														</button>
+													</td>
+													<td className="px-4 py-2 text-center">
+														<button
+															type="button"
+															onClick={() =>
 																cycleSubSort(p.sectionKey, 'spendShare')
 															}
 															className={cn(
-																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default text-right w-full',
+																'inline-flex w-full cursor-pointer items-center justify-center gap-1 border-0 bg-transparent p-0 text-[10px] font-medium uppercase tracking-wider hover:text-secondary-default',
 																subSort.key === 'spendShare'
 																	? 'text-secondary-default'
 																	: 'text-paper-muted'
 															)}
 														>
 															% of spending
-															{subSort.key === 'spendShare'
-																? subSort.dir === 'asc'
-																	? ' ▲'
-																	: ' ▼'
-																: ''}
+															<SortIndicator
+																active={subSort.key === 'spendShare'}
+																direction={subSort.dir}
+															/>
 														</button>
 													</td>
-													<td className="px-4 py-2">
+													<td className="px-4 py-2 text-right">
 														<button
 															type="button"
 															onClick={() =>
 																cycleSubSort(p.sectionKey, 'income')
 															}
 															className={cn(
-																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
+																'inline-flex cursor-pointer flex-row-reverse items-center gap-1 border-0 bg-transparent p-0 text-[10px] font-medium uppercase tracking-wider hover:text-secondary-default',
 																subSort.key === 'income'
 																	? 'text-secondary-default'
 																	: 'text-paper-muted'
 															)}
 														>
 															Income
-															{subSort.key === 'income'
-																? subSort.dir === 'asc'
-																	? ' ▲'
-																	: ' ▼'
-																: ''}
+															<SortIndicator
+																active={subSort.key === 'income'}
+																direction={subSort.dir}
+															/>
 														</button>
 													</td>
 													<td className="px-4 py-2" />
-													<td className="px-4 py-2 text-center">
+													<td className="px-4 py-2 text-right">
 														<button
 															type="button"
 															onClick={() =>
 																cycleSubSort(p.sectionKey, 'count')
 															}
 															className={cn(
-																'text-[10px] font-medium uppercase tracking-wider bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default w-full text-center',
+																'inline-flex w-full cursor-pointer flex-row-reverse items-center justify-start gap-1 border-0 bg-transparent p-0 text-[10px] font-medium uppercase tracking-wider hover:text-secondary-default',
 																subSort.key === 'count'
 																	? 'text-secondary-default'
 																	: 'text-paper-muted'
 															)}
 														>
 															Txns
-															{subSort.key === 'count'
-																? subSort.dir === 'asc'
-																	? ' ▲'
-																	: ' ▼'
-																: ''}
+															<SortIndicator
+																active={subSort.key === 'count'}
+																direction={subSort.dir}
+															/>
 														</button>
 													</td>
 													<td className="px-2 py-2 text-[10px] font-medium uppercase tracking-wider text-paper-muted">
@@ -893,26 +929,20 @@ const BreakdownPage = () => {
 													return (
 														<tr
 															key={`${p.sectionKey}:${s.key}`}
-															className="bg-paper-surface/60 hover:bg-gray-900/50"
+															className="bg-[color-mix(in_oklch,var(--fg)_1%,var(--surface))] transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_2%,var(--surface))]"
 															onClick={(e) => e.stopPropagation()}
 														>
 															<td className="px-4 py-2" />
 															<td className="px-4 py-2 pl-10">
 																<p
-																	className="text-sm text-paper-fg truncate max-w-xl"
+																	className="max-w-xl truncate text-[12.5px] text-paper-fg"
 																	title={s.labelSample}
 																>
 																	{s.labelSample}
 																</p>
-																<p
-																	className="text-[10px] text-paper-muted truncate max-w-xl mt-0.5"
-																	title={s.key}
-																>
-																	{s.key}
-																</p>
 															</td>
-															<td className="px-4 py-2 font-mono text-xs text-red-300/90 align-top">
-																<div className="flex flex-col gap-1 items-start">
+															<td className="px-4 py-2 text-right align-top font-mono text-[13px] text-red-300/90">
+																<div className="flex flex-col items-end gap-1">
 																	<span>
 																		{s.spending > 0
 																			? formatMoney(s.spending)
@@ -938,7 +968,7 @@ const BreakdownPage = () => {
 																</div>
 															</td>
 															<td
-																className="px-4 py-2 font-mono text-xs text-paper-muted text-right tabular-nums"
+																className="px-4 py-2 text-right font-mono text-[13px] tabular-nums text-paper-muted"
 																title={
 																	p.spending > 0
 																		? `Share of category spending (${formatMoney(p.spending)})`
@@ -947,8 +977,8 @@ const BreakdownPage = () => {
 															>
 																{subSpendPct}
 															</td>
-															<td className="px-4 py-2 font-mono text-xs text-green-400/90 align-top">
-																<div className="flex flex-col gap-1 items-start">
+															<td className="px-4 py-2 text-right align-top font-mono text-[13px] text-green-400/90">
+																<div className="flex flex-col items-end gap-1">
 																	<span>
 																		{s.income > 0
 																			? formatMoney(s.income)
@@ -974,16 +1004,17 @@ const BreakdownPage = () => {
 																</div>
 															</td>
 															<td className="px-4 py-2" />
-															<td className="px-4 py-2 text-center text-xs">
+															<td className="px-4 py-2 text-right text-[13px]">
 																{s.count}
 															</td>
 															<td className="px-2 py-2 text-right">
 																<button
 																	type="button"
-																	className={buttonOutlineClass}
+																	className={cn(buttonOutlineClass, 'gap-1.5')}
 																	onClick={() => openMoveModal(p, s)}
 																>
 																	Move
+																	<MoveRight className="h-3 w-3" aria-hidden />
 																</button>
 															</td>
 														</tr>

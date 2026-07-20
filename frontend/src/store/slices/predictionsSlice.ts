@@ -13,6 +13,7 @@ type PredictionsState = {
 	goals: PredictionGoal[];
 	scenarioProjections: Record<string, BaselineProjection>;
 	enabledScenarioIds: string[];
+	enabledGoalIds: string[];
 	error: string | null;
 };
 
@@ -23,6 +24,7 @@ const initialState: PredictionsState = {
 	goals: [],
 	scenarioProjections: {},
 	enabledScenarioIds: [],
+	enabledGoalIds: [],
 	error: null,
 };
 
@@ -40,6 +42,16 @@ const slice = createSlice({
 				state.enabledScenarioIds = [...state.enabledScenarioIds, id];
 			}
 		},
+		toggleGoalOnChart(state, action: PayloadAction<string>) {
+			const id = action.payload;
+			if (state.enabledGoalIds.includes(id)) {
+				state.enabledGoalIds = state.enabledGoalIds.filter(
+					(entry) => entry !== id
+				);
+			} else {
+				state.enabledGoalIds = [...state.enabledGoalIds, id];
+			}
+		},
 		clearScenarioProjections(state) {
 			state.scenarioProjections = {};
 		},
@@ -49,5 +61,9 @@ const slice = createSlice({
 	},
 });
 
-export const { toggleScenarioOnChart, clearScenarioProjections } = slice.actions;
+export const {
+	toggleScenarioOnChart,
+	toggleGoalOnChart,
+	clearScenarioProjections,
+} = slice.actions;
 export const { reducer: PredictionsReducer } = slice;
