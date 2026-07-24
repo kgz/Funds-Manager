@@ -17,7 +17,7 @@ type CategoryPickerProps = {
 	className?: string;
 	placeholder?: string;
 	searchable?: boolean;
-	variant?: 'compact' | 'form';
+	variant?: 'compact' | 'form' | 'chip';
 };
 
 function categoryDisplayName(
@@ -208,7 +208,9 @@ export function CategoryPicker({
 	const triggerClass =
 		variant === 'form'
 			? 'min-h-10 px-3 py-2 text-sm'
-			: 'min-h-8 px-2 py-1.5 text-xs';
+			: variant === 'chip'
+				? 'min-h-7 border-0 bg-transparent px-0 py-0 text-xs shadow-none ring-0 focus:ring-0'
+				: 'min-h-8 px-2 py-1.5 text-xs';
 
 	const showEmptyResults =
 		searchable &&
@@ -415,11 +417,14 @@ export function CategoryPicker({
 					disabled={disabled}
 					onClick={() => setOpen((current) => !current)}
 					className={cn(
-						inputDarkClass,
+						variant !== 'chip' && inputDarkClass,
 						'flex h-full w-full items-center gap-2 text-left',
 						triggerClass,
-						'disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer',
-						open && 'border-secondary-default/50 ring-1 ring-secondary-default/40'
+						'disabled:cursor-not-allowed disabled:opacity-50',
+						variant !== 'chip' && 'cursor-pointer',
+						open &&
+							variant !== 'chip' &&
+							'border-secondary-default/50 ring-1 ring-secondary-default/40'
 					)}
 					aria-haspopup="listbox"
 					aria-expanded={open}
@@ -428,7 +433,8 @@ export function CategoryPicker({
 					<span
 						className={cn(
 							'min-w-0 flex-1 truncate',
-							value === '' ? 'text-paper-muted' : 'text-paper-fg'
+							value === '' ? 'text-paper-muted italic' : 'text-paper-fg',
+							variant === 'chip' && value === '' && 'text-[oklch(45%_0.12_75)]'
 						)}
 					>
 						{triggerLabel}

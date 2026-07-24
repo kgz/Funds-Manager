@@ -148,7 +148,7 @@ function BalanceStackTooltip({
 
 	return (
 		<div className={chartTooltipClass}>
-			<p className="mb-2 font-semibold">{heading}</p>
+			<p className="mb-2 font-semibold text-paper-fg">{heading}</p>
 			<table className="w-full border-collapse text-sm">
 				<tbody>
 					{rows.map((row) => (
@@ -170,8 +170,8 @@ function BalanceStackTooltip({
 				</tbody>
 				<tfoot>
 					<tr className="border-t border-paper-border">
-						<td className="pt-1.5 font-medium text-emerald-300">Total</td>
-						<td className="pt-1.5 text-right tabular-nums font-medium text-emerald-300">
+						<td className="pt-1.5 font-medium text-paper-fg">Total</td>
+						<td className="pt-1.5 text-right font-medium tabular-nums text-paper-fg">
 							{formatCurrencyWithCommas(total)}
 						</td>
 					</tr>

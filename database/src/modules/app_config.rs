@@ -166,6 +166,12 @@ impl AppConfig {
 }
 
 pub fn resolve_database_url() -> Result<String, String> {
+    if let Ok(url) = env::var("DATABASE_URL") {
+        if !url.trim().is_empty() {
+            return Ok(url);
+        }
+    }
+
     let config = AppConfig::load();
 
     if let Some(url) = config.configured_postgres_url() {
@@ -173,24 +179,24 @@ pub fn resolve_database_url() -> Result<String, String> {
     }
 
     if config.storage_mode == StorageMode::Local {
-        if let Ok(url) = env::var("DATABASE_URL") {
-            if !url.trim().is_empty() {
-                eprintln!(
-                    "Storage mode is local in config; using DATABASE_URL until SQLite backend is available."
-                );
-                return Ok(url);
-            }
-        }
         return Err(
             "Local storage is not available yet. Configure PostgreSQL or set DATABASE_URL."
                 .to_string(),
         );
     }
 
-    env::var("DATABASE_URL").map_err(|_| "DATABASE_URL must be set".to_string())
+    Err("DATABASE_URL must be set".to_string())
 }
 
 pub fn active_database_url_source() -> DatabaseUrlSource {
+    if env::var("DATABASE_URL")
+        .ok()
+        .filter(|url| !url.trim().is_empty())
+        .is_some()
+    {
+        return DatabaseUrlSource::Environment;
+    }
+
     let config = AppConfig::load();
     if config.configured_postgres_url().is_some() {
         DatabaseUrlSource::Config

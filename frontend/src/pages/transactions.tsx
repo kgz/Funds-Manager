@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/store';
 import {
     bulkPatchTransactionCategories,
@@ -10,17 +10,17 @@ import { cn } from "@/lib/utils/cn";
 import { DateTime } from "luxon";
 import { ErrorState } from '@/components/layout/ErrorState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { ActionableBadge } from '@/components/layout/ActionableBadge';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SearchInput } from '@/components/layout/SearchInput';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
+import { ToggleSwitch } from '@/components/layout/ToggleSwitch';
 import {
-	buttonAccentClass,
 	buttonOutlineClass,
+	glassCardClass,
 	inputDarkClass,
 } from '@/components/layout/tokens';
+import { chartColors } from '@/graphs/theme';
 import { Loader2 } from 'lucide-react';
 import { createCategory } from '@/store/thunks/category.create.single';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
@@ -31,6 +31,8 @@ import {
     TransactionCategoryCell,
     type CategorySuggestion,
 } from '@/components/transactions/TransactionCategoryCell';
+import { TransactionDescriptionCell } from '@/components/transactions/TransactionDescriptionCell';
+import { TransferSuggestionCallout } from '@/components/transactions/TransferSuggestionCallout';
 import { CategoryPicker } from '@/components/transactions/CategoryPicker';
 import { readThunkRejectMessage } from '@/lib/utils/thunkError';
 import { AccountFilter } from '@/components/account-filter';
@@ -46,28 +48,30 @@ import {
 
 const PER_PAGE = 50;
 
+const txCheckboxClass =
+	'h-4 w-4 cursor-pointer accent-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50';
+
+const txPrimaryButtonClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-fg bg-paper-fg px-3 text-[13px] font-medium tracking-[0.02em] !text-white transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_88%,white)] disabled:cursor-not-allowed disabled:opacity-50';
+
+const txGhostButtonClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center rounded-paper border border-transparent bg-transparent px-3 text-[13px] font-medium text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:cursor-not-allowed disabled:opacity-50';
+
 const formatCurrency = (amount: number): string => {
     const absAmount = Math.abs(amount / 100).toFixed(2);
     return `${amount < 0 ? '-' : ''}$${absAmount}`;
 };
 
-function ColoredAmount({ amount }: { amount: number }) {
+function AmountCell({ amount }: { amount: number }) {
     const isPositive = amount >= 0;
     return (
         <span
-            className={cn(
-                'font-mono tabular-nums',
-                isPositive ? 'text-green-400' : 'text-red-400'
-            )}
+            className="font-mono tabular-nums"
+            style={{ color: isPositive ? chartColors.receiving : chartColors.spending }}
         >
             {formatCurrency(amount)}
         </span>
     );
-}
-
-function formatTransferDate(value: string): string {
-    const parsed = DateTime.fromISO(value);
-    return parsed.isValid ? parsed.toFormat('dd LLL yyyy') : value;
 }
 
 function descriptionKey(description: string): string {
@@ -84,7 +88,7 @@ function clearSuggestionFields(item: Transaction): Transaction {
 
 const TransactionsPage = () => {
     const dispatch = useAppDispatch();
-    const { accountIdNumber } = useAccountFilter();
+    const { accountIdNumber, selectedLabel } = useAccountFilter();
 
     const [showUncategorizedOnly, setShowUncategorizedOnly] = useState<boolean>(() => {
         const params = new URLSearchParams(window.location.search);
@@ -580,7 +584,7 @@ const TransactionsPage = () => {
                         toggleSelectAllOnPage(event.target.checked);
                     }}
                     onClick={(event) => event.stopPropagation()}
-                    className="form-checkbox h-4 w-4 text-secondary-default bg-gray-800 border-gray-600 rounded focus:ring-secondary-default cursor-pointer"
+                    className={txCheckboxClass}
                     aria-label="Select all on page"
                 />
             ),
@@ -593,7 +597,7 @@ const TransactionsPage = () => {
                         toggleSelected(row.id, event.target.checked);
                     }}
                     onClick={(event) => event.stopPropagation()}
-                    className="form-checkbox h-4 w-4 text-secondary-default bg-gray-800 border-gray-600 rounded focus:ring-secondary-default"
+                    className={txCheckboxClass}
                     aria-label={`Select transaction ${row.id}`}
                 />
             ),
@@ -604,9 +608,9 @@ const TransactionsPage = () => {
             key: "transaction_date",
             label: "Date",
             sortable: true,
-            render: (v) => DateTime.fromISO(v).isValid ? DateTime.fromISO(v).toFormat("DD T") : "Invalid Date",
+            render: (v) => DateTime.fromISO(v).isValid ? DateTime.fromISO(v).toFormat("dd LLL yyyy") : "Invalid Date",
             sortFunction: (a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis(),
-            cellClassName: "text-xs text-gray-400 whitespace-nowrap",
+            cellClassName: "font-mono text-xs text-paper-muted whitespace-nowrap",
         },
         {
             key: "financial_account",
@@ -632,33 +636,16 @@ const TransactionsPage = () => {
             label: "Description",
             sortable: true,
             render: (v, row) => (
-                <span className="inline-flex items-center gap-2">
-                    <span className="truncate">{v}</span>
-                    {row.is_transfer_leg && row.transfer_pair_status === 'confirmed' ? (
-                        <span className="shrink-0 rounded bg-sky-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-300">
-                            Transfer
-                        </span>
-                    ) : null}
-                </span>
+                <TransactionDescriptionCell description={v} row={row} />
             ),
             sortFunction: (a, b) => a.localeCompare(b),
-            cellClassName: "max-w-xs truncate",
+            cellClassName: "max-w-md",
         },
         {
             key: "amount",
             label: "Amount",
             sortable: true,
-            render: (v) => {
-                const isPositive = v >= 0;
-                return (
-                    <span className={cn(
-                        "flex items-center gap-1 font-mono",
-                        isPositive ? "text-green-400" : "text-red-400"
-                    )}>
-                        {formatCurrency(v)}
-                    </span>
-                );
-            },
+            render: (v) => <AmountCell amount={v} />,
             sortFunction: (a, b) => a - b,
             cellClassName: "text-right",
             headerClassName: "text-right",
@@ -667,19 +654,14 @@ const TransactionsPage = () => {
             key: "balance",
             label: "Balance",
             sortable: true,
-            render: (v) => <span className="font-mono">{formatCurrency(v)}</span>,
+            render: (v) => (
+                <span className="font-mono tabular-nums text-paper-muted">
+                    {formatCurrency(v)}
+                </span>
+            ),
             sortFunction: (a, b) => a - b,
             cellClassName: "text-right",
             headerClassName: "text-right",
-        },
-        {
-            key: "status",
-            label: "Status",
-            sortable: true,
-            render: (v) => <span className="capitalize text-xs px-2 py-0.5 bg-gray-700 rounded">{v}</span>,
-            sortFunction: (a, b) => a.localeCompare(b),
-            cellClassName: "text-center",
-            headerClassName: "text-center",
         },
         {
             key: "category_id",
@@ -695,8 +677,8 @@ const TransactionsPage = () => {
                     onPickSuggestion={handlePickSuggestion}
                 />
             ),
-            cellClassName: "text-center",
-            headerClassName: "text-center",
+            cellClassName: "min-w-[14rem]",
+            headerClassName: "text-right",
         },
     ], [
         bulkBusy,
@@ -712,6 +694,28 @@ const TransactionsPage = () => {
         toggleSelectAllOnPage,
         toggleSelected,
     ]);
+
+    const bulkSuggestCategory = useMemo(() => {
+        if (selectedWithSuggestions.length === 0) {
+            return null;
+        }
+        const categoryIds = new Set(
+            selectedWithSuggestions
+                .map((row) => resolveSuggestion(row)?.categoryId)
+                .filter((id): id is number => id !== undefined)
+        );
+        if (categoryIds.size !== 1) {
+            return null;
+        }
+        const categoryId = [...categoryIds][0];
+        const name = categoryNameById.get(categoryId);
+        return name ? { categoryId, name } : null;
+    }, [categoryNameById, resolveSuggestion, selectedWithSuggestions]);
+
+    const selectedCountLabel =
+        selectedIds.size === 1
+            ? '1 transaction selected'
+            : `${String(selectedIds.size)} transactions selected`;
 
     const initialLoading = loading && items.length === 0 && error === null;
     if (initialLoading) {
@@ -730,62 +734,30 @@ const TransactionsPage = () => {
 
     return (
         <PageShell variant="table">
-            <div className="space-y-3 border-b border-paper-border p-4">
-                <PageHeader
-                    title="Transactions"
-                    className="mb-0"
-                    meta={
-                        <>
+            <header className="sticky top-0 z-30 shrink-0 border-b border-paper-border bg-paper-surface px-8 py-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] text-paper-fg">
+                                Transactions
+                            </h1>
                             {loading ? (
                                 <Loader2
                                     className="h-4 w-4 animate-spin text-secondary-default"
                                     aria-label="Loading"
                                 />
                             ) : null}
-                            {!loading && total > 0 ? (
-                                <span className="text-sm text-paper-muted">
-                                    {total.toLocaleString()} total
-                                </span>
-                            ) : null}
-                        </>
-                    }
-                />
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <AccountFilter />
-                        <SearchInput
-                            value={searchTerm}
-                            onChange={setSearchTerm}
-                            placeholder="Search descriptions…"
-                            className="w-full min-w-[12rem] sm:w-64"
-                        />
-                        <SegmentedControl
-                            ariaLabel="Transaction filter"
-                            value={showUncategorizedOnly ? 'uncategorized' : 'all'}
-                            onChange={(next) =>
-                                setShowUncategorizedOnly(next === 'uncategorized')
-                            }
-                            options={[
-                                { value: 'all', label: 'All' },
-                                { value: 'uncategorized', label: 'Uncategorized' },
-                            ]}
-                        />
-                        <label className="flex cursor-pointer items-center gap-2 text-sm text-paper-muted">
-                            <input
-                                type="checkbox"
-                                checked={hideTransfers}
-                                onChange={(event) => setHideTransfers(event.target.checked)}
-                                className="form-checkbox h-4 w-4 rounded border-gray-600 bg-gray-800 text-secondary-default"
-                            />
-                            Hide transfers
-                        </label>
+                        </div>
+                        <p className="mt-1 max-w-[52ch] text-[13px] text-paper-muted">
+                            Categorise imports · {selectedLabel}
+                        </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+                    <div className="flex flex-wrap items-center gap-2">
                         <button
                             type="button"
                             disabled={bulkRecategorizeRunning}
                             onClick={() => void handleRecategorizeUncategorized()}
-                            className={buttonOutlineClass}
+                            className={txGhostButtonClass}
                         >
                             {bulkRecategorizeRunning
                                 ? 'Recategorizing…'
@@ -798,7 +770,7 @@ const TransactionsPage = () => {
                                     setInlineNewCategoryOpen(true);
                                     setCreateCategoryInlineError(null);
                                 }}
-                                className={buttonOutlineClass}
+                                className={txPrimaryButtonClass}
                             >
                                 New category
                             </button>
@@ -828,7 +800,7 @@ const TransactionsPage = () => {
                                     type="button"
                                     disabled={creatingCategory}
                                     onClick={() => void handleInlineCreateCategory()}
-                                    className={buttonAccentClass}
+                                    className={txPrimaryButtonClass}
                                 >
                                     {creatingCategory ? 'Adding…' : 'Add'}
                                 </button>
@@ -840,12 +812,12 @@ const TransactionsPage = () => {
                                         setNewCategoryName('');
                                         setCreateCategoryInlineError(null);
                                     }}
-                                    className="cursor-pointer px-2 py-1.5 text-sm text-paper-muted hover:text-paper-fg"
+                                    className={txGhostButtonClass}
                                 >
                                     Cancel
                                 </button>
                                 {createCategoryInlineError ? (
-                                    <span className="w-full text-xs text-red-400 sm:w-auto">
+                                    <span className="w-full text-xs text-[color:var(--danger)] sm:w-auto">
                                         {createCategoryInlineError}
                                     </span>
                                 ) : null}
@@ -853,199 +825,165 @@ const TransactionsPage = () => {
                         )}
                     </div>
                 </div>
-            </div>
+            </header>
 
-            {transferSuggestions.length > 0 ? (
-                <div className="space-y-3 border-b border-paper-border bg-sky-950/30 px-4 py-3">
-                    <p className="flex items-center gap-2 text-sm text-sky-200">
-                        <ActionableBadge />
-                        <span>
-                            {transferSuggestions.length} possible inter-account transfer
-                            {transferSuggestions.length === 1 ? '' : 's'} detected
-                        </span>
-                    </p>
-                    <div className="overflow-x-auto rounded border border-paper-border bg-black/20">
-                        <table className="w-full min-w-[40rem] text-sm">
-                            <thead>
-                                <tr className="border-b border-paper-border text-left text-xs uppercase tracking-wide text-paper-muted">
-                                    <th className="px-3 py-2 font-medium">Leg</th>
-                                    <th className="px-3 py-2 font-medium">Account</th>
-                                    <th className="px-3 py-2 font-medium">Date</th>
-                                    <th className="px-3 py-2 font-medium">Description</th>
-                                    <th className="px-3 py-2 text-right font-medium">Amount</th>
-                                    <th className="px-3 py-2 text-right font-medium">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {transferSuggestions.slice(0, 5).map((suggestion) => (
-                                    <Fragment
-                                        key={`${suggestion.outTransaction.id}-${suggestion.inTransaction.id}`}
+            <div className="min-h-0 flex-grow overflow-auto px-8 py-6">
+                <div className={cn(glassCardClass, 'flex min-h-0 flex-col overflow-hidden')}>
+                    <div className="flex flex-wrap items-center gap-3 border-b border-paper-border px-4 py-3">
+                        <AccountFilter />
+                        <SearchInput
+                            value={searchTerm}
+                            onChange={setSearchTerm}
+                            placeholder="Search descriptions…"
+                            className="w-full min-w-[12rem] flex-1 sm:max-w-[280px]"
+                        />
+                        <SegmentedControl
+                            ariaLabel="Transaction filter"
+                            value={showUncategorizedOnly ? 'uncategorized' : 'all'}
+                            onChange={(next) =>
+                                setShowUncategorizedOnly(next === 'uncategorized')
+                            }
+                            options={[
+                                { value: 'all', label: 'All' },
+                                { value: 'uncategorized', label: 'Uncategorized' },
+                            ]}
+                        />
+                        <label className="ml-auto flex cursor-pointer items-center gap-2 text-[13px] text-paper-muted">
+                            <ToggleSwitch
+                                checked={hideTransfers}
+                                onChange={setHideTransfers}
+                                ariaLabel="Hide transfers"
+                            />
+                            Hide transfers
+                        </label>
+                    </div>
+
+                    {selectedIds.size > 0 ? (
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[color-mix(in_oklch,var(--accent)_18%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_5%,var(--surface))] px-4 py-2.5">
+                            <span className="text-[13px] font-medium text-paper-fg">
+                                {selectedCountLabel}
+                            </span>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="inline-flex max-w-[12rem] items-center rounded-paper border border-paper-border bg-paper-surface px-1.5">
+                                    <CategoryPicker
+                                        value={bulkCategoryId}
+                                        categories={categoryList}
+                                        disabled={bulkBusy}
+                                        onChange={setBulkCategoryId}
+                                        placeholder="Choose category…"
+                                        variant="chip"
+                                        className="w-full"
+                                    />
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={bulkBusy || bulkCategoryId === ''}
+                                    onClick={() => void handleBulkApplyCategory()}
+                                    className={txPrimaryButtonClass}
+                                >
+                                    Apply
+                                </button>
+                                {bulkSuggestCategory ? (
+                                    <button
+                                        type="button"
+                                        disabled={bulkBusy}
+                                        onClick={() => void handleBulkAcceptSuggestions()}
+                                        className={buttonOutlineClass}
                                     >
-                                        <tr
-                                            key={`${suggestion.outTransaction.id}-out`}
-                                            className="border-t border-paper-border"
-                                        >
-                                            <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-paper-muted">
-                                                Out
-                                            </td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-paper-fg">
-                                                {suggestion.outTransaction.accountLabel}
-                                            </td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-paper-muted">
-                                                {formatTransferDate(suggestion.outTransaction.transactionDate)}
-                                            </td>
-                                            <td className="max-w-xs truncate px-3 py-2 text-paper-fg">
-                                                {suggestion.outTransaction.description}
-                                            </td>
-                                            <td className="px-3 py-2 text-right">
-                                                <ColoredAmount amount={suggestion.outTransaction.amount} />
-                                            </td>
-                                            <td
-                                                rowSpan={2}
-                                                className="border-l border-paper-border px-3 py-2 align-middle text-right"
-                                            >
-                                                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                                                    <button
-                                                        type="button"
-                                                        disabled={transferBusy}
-                                                        onClick={() => void handleConfirmSuggestion(suggestion)}
-                                                        className={buttonAccentClass}
-                                                    >
-                                                        Confirm
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        disabled={transferBusy}
-                                                        onClick={() => void handleDismissSuggestion(suggestion)}
-                                                        className={buttonOutlineClass}
-                                                    >
-                                                        Dismiss
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr key={`${suggestion.inTransaction.id}-in`}>
-                                            <td className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-paper-muted">
-                                                In
-                                            </td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-paper-fg">
-                                                {suggestion.inTransaction.accountLabel}
-                                            </td>
-                                            <td className="px-3 py-2 whitespace-nowrap text-xs text-paper-muted">
-                                                {formatTransferDate(suggestion.inTransaction.transactionDate)}
-                                            </td>
-                                            <td className="max-w-xs truncate px-3 py-2 text-paper-fg">
-                                                {suggestion.inTransaction.description}
-                                            </td>
-                                            <td className="px-3 py-2 text-right">
-                                                <ColoredAmount amount={suggestion.inTransaction.amount} />
-                                            </td>
-                                        </tr>
-                                    </Fragment>
-                                ))}
-                            </tbody>
-                        </table>
+                                        Apply {bulkSuggestCategory.name}
+                                    </button>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    disabled={transferBusy || selectedTransferPair === null}
+                                    onClick={() => void handleMarkSelectedAsTransfer()}
+                                    className={buttonOutlineClass}
+                                >
+                                    Mark as transfer
+                                </button>
+                                {selectedOnPage.length === 1 &&
+                                selectedOnPage[0].category_id !== null &&
+                                selectedOnPage[0].category_id !== undefined ? (
+                                    <button
+                                        type="button"
+                                        disabled={bulkBusy}
+                                        onClick={() => void handleApplyToMatchingDescriptions()}
+                                        className={buttonOutlineClass}
+                                    >
+                                        Apply to matching on page
+                                    </button>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    disabled={bulkBusy}
+                                    onClick={() => setSelectedIds(new Set())}
+                                    className={txGhostButtonClass}
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {transferSuggestions.length > 0
+                        ? transferSuggestions
+                                .slice(0, 5)
+                                .map((suggestion) => (
+                                    <TransferSuggestionCallout
+                                        key={`${suggestion.outTransaction.id}-${suggestion.inTransaction.id}`}
+                                        suggestion={suggestion}
+                                        busy={transferBusy}
+                                        onConfirm={() => void handleConfirmSuggestion(suggestion)}
+                                        onDismiss={() => void handleDismissSuggestion(suggestion)}
+                                    />
+                                ))
+                        : null}
+
+                    {error ? (
+                        <div className="px-4 py-2">
+                            <InlineAlert variant="error">{error}</InlineAlert>
+                        </div>
+                    ) : null}
+
+                    <div className="min-h-[20rem] flex-grow overflow-hidden">
+                        <Table<Transaction>
+                            columns={columns}
+                            data={items}
+                            header={{ sticky: true }}
+                            loading={loading}
+                            sortState={sortState}
+                            onSortChange={(key, direction) => {
+                                if (key === null) {
+                                    return;
+                                }
+                                setSortState({ key, direction });
+                            }}
+                            itemsPerPage={PER_PAGE}
+                            serverPagination={{
+                                page,
+                                totalPages: Math.max(totalPages, 1),
+                                totalItems: total,
+                                canPrevious: page > 1,
+                                canNext: page < totalPages,
+                                onPrevious: () => setPage((p) => Math.max(1, p - 1)),
+                                onNext: () => setPage((p) => p + 1),
+                            }}
+                            serverPaginationLabel="range"
+                            rowClassName={(row) =>
+                                selectedIds.has(row.id)
+                                    ? 'bg-[color-mix(in_oklch,var(--accent)_5%,var(--surface))]'
+                                    : ''
+                            }
+                            emptyStateMessage={
+                                loading
+                                    ? "Loading..."
+                                    : debouncedSearchTerm || showUncategorizedOnly
+                                        ? "No matching transactions found."
+                                        : "No transactions found."
+                            }
+                        />
                     </div>
                 </div>
-            ) : null}
-
-            {selectedIds.size > 0 ? (
-                <div className="flex flex-wrap items-center gap-3 border-b border-paper-border bg-paper px-4 py-3">
-                    <span className="text-sm text-paper-fg">
-                        {selectedIds.size} selected
-                    </span>
-                    <CategoryPicker
-                        value={bulkCategoryId}
-                        categories={categoryList}
-                        disabled={bulkBusy}
-                        onChange={setBulkCategoryId}
-                        placeholder="Choose category…"
-                        className="max-w-[12rem]"
-                    />
-                    <button
-                        type="button"
-                        disabled={bulkBusy}
-                        onClick={() => void handleBulkApplyCategory()}
-                        className={buttonOutlineClass}
-                    >
-                        {bulkCategoryId === '' ? 'Clear category' : 'Apply category'}
-                    </button>
-                    <button
-                        type="button"
-                        disabled={bulkBusy || selectedWithSuggestions.length === 0}
-                        onClick={() => void handleBulkAcceptSuggestions()}
-                        className={buttonAccentClass}
-                    >
-                        Accept suggestions ({selectedWithSuggestions.length})
-                    </button>
-                    <button
-                        type="button"
-                        disabled={transferBusy || selectedTransferPair === null}
-                        onClick={() => void handleMarkSelectedAsTransfer()}
-                        className={buttonOutlineClass}
-                    >
-                        Mark as transfer
-                    </button>
-                    {selectedOnPage.length === 1 &&
-                    selectedOnPage[0].category_id !== null &&
-                    selectedOnPage[0].category_id !== undefined ? (
-                        <button
-                            type="button"
-                            disabled={bulkBusy}
-                            onClick={() => void handleApplyToMatchingDescriptions()}
-                            className={buttonOutlineClass}
-                        >
-                            Apply to matching on page
-                        </button>
-                    ) : null}
-                    <button
-                        type="button"
-                        disabled={bulkBusy}
-                        onClick={() => setSelectedIds(new Set())}
-                        className="ml-auto cursor-pointer px-2 py-1.5 text-sm text-paper-muted hover:text-paper-fg"
-                    >
-                        Clear
-                    </button>
-                </div>
-            ) : null}
-
-            {error ? (
-                <div className="px-4 py-2">
-                    <InlineAlert variant="error">{error}</InlineAlert>
-                </div>
-            ) : null}
-
-            <div className="flex-grow overflow-hidden">
-                <Table<Transaction>
-                    columns={columns}
-                    data={items}
-                    header={{ sticky: true }}
-                    loading={loading}
-                    sortState={sortState}
-                    onSortChange={(key, direction) => {
-                        if (key === null) {
-                            return;
-                        }
-                        setSortState({ key, direction });
-                    }}
-                    itemsPerPage={PER_PAGE}
-                    serverPagination={{
-                        page,
-                        totalPages: Math.max(totalPages, 1),
-                        totalItems: total,
-                        canPrevious: page > 1,
-                        canNext: page < totalPages,
-                        onPrevious: () => setPage((p) => Math.max(1, p - 1)),
-                        onNext: () => setPage((p) => p + 1),
-                    }}
-                    emptyStateMessage={
-                        loading
-                            ? "Loading..."
-                            : debouncedSearchTerm || showUncategorizedOnly
-                                ? "No matching transactions found."
-                                : "No transactions found."
-                    }
-                />
             </div>
         </PageShell>
     );

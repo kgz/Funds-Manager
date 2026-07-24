@@ -135,11 +135,15 @@ function NetWorthTooltip({ active, payload }: TooltipContentProps) {
 
 	return (
 		<div className={chartTooltipClass}>
-			<p className="mb-1 font-medium">{date}</p>
-			<p className="text-emerald-200">Net worth: {currency(netWorth)}</p>
-			<p className="text-sky-300">Total assets: {currency(totalAssets)}</p>
+			<p className="mb-1 font-medium text-paper-fg">{date}</p>
+			<p style={{ color: chartColors.netWorth }}>
+				Net worth: {currency(netWorth)}
+			</p>
+			<p style={{ color: chartColors.assets }}>
+				Total assets: {currency(totalAssets)}
+			</p>
 			{totalDebts > 0 ? (
-				<p className="text-red-300">Debts: {currency(totalDebts)}</p>
+				<p style={{ color: chartColors.debts }}>Debts: {currency(totalDebts)}</p>
 			) : null}
 			<p className="mt-1 text-xs text-paper-muted">
 				Cash {currency(availableCash)} · Other assets {currency(assets)}
@@ -235,7 +239,7 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 			}
 		>
 			{error !== null && points.length === 0 ? (
-				<div className="flex h-[300px] items-center justify-center text-sm text-red-300">
+				<div className="flex h-[300px] items-center justify-center text-sm text-[color:var(--danger)]">
 					{error}
 				</div>
 			) : loading && chartPoints.length === 0 ? (
@@ -257,12 +261,12 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 						>
 							<defs>
 								<linearGradient id="netWorthBandFill" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stopColor={chartColors.assets} stopOpacity={0.35} />
-									<stop offset="100%" stopColor={chartColors.assets} stopOpacity={0.08} />
+									<stop offset="0%" stopColor={chartColors.netWorth} stopOpacity={0.22} />
+									<stop offset="100%" stopColor={chartColors.netWorth} stopOpacity={0.04} />
 								</linearGradient>
 								<linearGradient id="netWorthDebtsFill" x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stopColor={chartColors.debts} stopOpacity={0.18} />
-									<stop offset="100%" stopColor={chartColors.debts} stopOpacity={0.04} />
+									<stop offset="0%" stopColor={chartColors.debts} stopOpacity={0.16} />
+									<stop offset="100%" stopColor={chartColors.debts} stopOpacity={0.03} />
 								</linearGradient>
 								<linearGradient id="netWorthCashFill" x1="0" y1="0" x2="0" y2="1">
 									<stop offset="0%" stopColor={chartColors.netWorth} stopOpacity={0.35} />

@@ -80,6 +80,20 @@ Run migrations manually (optional — backend does this on start):
 cd database && cargo run --bin migrate
 ```
 
+## Demo database
+
+Isolated DB with realistic data across all features (transactions, assets, liabilities, predictions, planned spending). Never touches `funds`:
+
+```bash
+./bin/setup-demo-db.sh
+cp app/.env.demo app/.env   # point backend at funds_demo
+cd app && cargo run
+```
+
+Reseed from scratch: `./bin/setup-demo-db.sh --reset`
+
+Defaults: 36 months × 120 transactions × 3 accounts (~13k transactions). Tune with `--statements` and `--tx-per-statement`.
+
 ## Benchmark database
 
 Isolated DB for performance testing — never touches `funds`:

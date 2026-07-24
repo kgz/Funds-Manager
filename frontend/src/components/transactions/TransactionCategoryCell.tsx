@@ -1,10 +1,7 @@
-import { Check } from 'lucide-react';
 import type { Transaction } from '@/types/transaction';
 import type { Category } from '@/store/thunks/category.get.all';
 import { CategoryPicker } from './CategoryPicker';
-import { buttonAccentClass } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
-
 export type CategorySuggestion = {
 	categoryId: number;
 	categoryName: string;
@@ -19,11 +16,6 @@ type TransactionCategoryCellProps = {
 	onCategoryChange: (transactionId: number, categoryId: string) => void;
 	onPickSuggestion: (transactionId: number, categoryId: number) => void;
 };
-
-const CATEGORY_ROW_GRID =
-	'mx-auto grid w-[22.5rem] max-w-full grid-cols-[10.5rem_1.25rem_10.5rem] items-center gap-x-1';
-
-const PICKER_CLASS = 'h-8 w-full';
 
 export function TransactionCategoryCell({
 	row,
@@ -40,59 +32,45 @@ export function TransactionCategoryCell({
 
 	const isUncategorized = current === '';
 	const showSuggestion = isUncategorized && suggestion !== null;
-	const suggestedCategory = suggestion
-		? categories.find((cat) => cat.id === String(suggestion.categoryId))
-		: undefined;
-
-	const picker = (
-		<CategoryPicker
-			value={current}
-			categories={categories}
-			disabled={busy}
-			onChange={(categoryId) => onCategoryChange(row.id, categoryId)}
-			className={PICKER_CLASS}
-		/>
-	);
-
-	const applySuggestionButton = suggestion ? (
-		<button
-			type="button"
-			disabled={busy}
-			onClick={() => onPickSuggestion(row.id, suggestion.categoryId)}
-			className={cn(
-				buttonAccentClass,
-				'flex h-8 w-full items-center gap-1.5 rounded-lg px-2 text-xs',
-				'active:scale-[0.98] transition-transform'
-			)}
-			title={suggestion.hint ?? `Apply suggested category: ${suggestion.categoryName}`}
-		>
-			<Check size={13} className="shrink-0" aria-hidden />
-			<span className="shrink-0 font-semibold">Apply</span>
-			{suggestedCategory?.colour ? (
-				<span
-					className="h-2 w-2 shrink-0 rounded-full"
-					style={{ backgroundColor: suggestedCategory.colour }}
-				/>
-			) : null}
-			<span className="min-w-0 flex-1 truncate text-left font-medium">
-				{suggestion.categoryName}
-			</span>
-		</button>
-	) : null;
 
 	return (
-		<div className={CATEGORY_ROW_GRID}>
-			<div className="min-w-0">
-				{showSuggestion ? applySuggestionButton : null}
+		<div className="flex flex-wrap items-center justify-end gap-1.5">
+			<div
+				className={cn(
+					'inline-flex max-w-[11rem] items-center rounded-paper border border-paper-border bg-paper-surface px-1.5',
+					isUncategorized &&
+						'border-[color-mix(in_oklch,var(--warn)_38%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_6%,var(--surface))]'
+				)}
+			>
+				<CategoryPicker
+					value={current}
+					categories={categories}
+					disabled={busy}
+					variant="chip"
+					onChange={(categoryId) => onCategoryChange(row.id, categoryId)}
+					className="w-[10rem] max-w-full"
+				/>
 			</div>
-			<div className="text-center">
-				{showSuggestion ? (
-					<span className="text-[10px] uppercase tracking-wide text-paper-muted">
-						or
-					</span>
-				) : null}
-			</div>
-			<div className="min-w-0">{picker}</div>
+			{showSuggestion && suggestion ? (
+				<button
+					type="button"
+					disabled={busy}
+					onClick={() => onPickSuggestion(row.id, suggestion.categoryId)}
+					title={suggestion.hint ?? `Apply suggested category: ${suggestion.categoryName}`}
+					className={cn(
+						'inline-flex h-6 max-w-full items-center gap-1 rounded-paper border border-dashed',
+						'border-[color-mix(in_oklch,var(--accent)_35%,var(--border))]',
+						'bg-[color-mix(in_oklch,var(--accent)_4%,var(--surface))] px-2',
+						'text-[11px] font-medium text-secondary-default',
+						'transition-colors hover:border-[color-mix(in_oklch,var(--accent)_50%,var(--border))]',
+						'hover:bg-[color-mix(in_oklch,var(--accent)_10%,var(--surface))]',
+						'disabled:cursor-not-allowed disabled:opacity-50'
+					)}
+				>
+					<span className="font-normal text-paper-muted">Apply</span>
+					<span className="truncate">{suggestion.categoryName}</span>
+				</button>
+			) : null}
 		</div>
 	);
 }

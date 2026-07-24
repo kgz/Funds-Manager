@@ -113,9 +113,20 @@ function balanceTooltip({ active, payload, label }: TooltipContentProps) {
 	}
 	const heading =
 		typeof label === 'string' ? formatChartTooltipDate(label) : label;
+
+	function seriesColor(dataKey: string | number | undefined): string | undefined {
+		if (dataKey === 'val') {
+			return chartColors.netWorth;
+		}
+		if (dataKey === 'trend') {
+			return chartColors.trend;
+		}
+		return undefined;
+	}
+
 	return (
 		<div className={chartTooltipClass}>
-			<p className="font-semibold">{heading}</p>
+			<p className="mb-1 font-semibold text-paper-fg">{heading}</p>
 			{payload.map((entry, index) => {
 				const value = entry.value;
 				if (typeof value !== 'number') {
@@ -125,9 +136,23 @@ function balanceTooltip({ active, payload, label }: TooltipContentProps) {
 					typeof entry.dataKey === 'string' || typeof entry.dataKey === 'number'
 						? entry.dataKey
 						: index;
-				const name = typeof entry.name === 'string' || typeof entry.name === 'number' ? entry.name : key;
+				const name =
+					typeof entry.name === 'string' || typeof entry.name === 'number'
+						? entry.name
+						: key;
+				const dataKey = entry.dataKey;
+				const color =
+					typeof dataKey === 'string' || typeof dataKey === 'number'
+						? seriesColor(dataKey)
+						: undefined;
 				return (
-					<p key={key}>{name}: {formatCurrencyWithCommas(value)}</p>
+					<p
+						key={key}
+						style={color !== undefined ? { color } : undefined}
+						className={color === undefined ? 'text-paper-fg' : undefined}
+					>
+						{name}: {formatCurrencyWithCommas(value)}
+					</p>
 				);
 			})}
 		</div>
@@ -816,7 +841,7 @@ export const Dashboard = () => {
 												type="monotone"
 												dataKey="val"
 												name="Balance"
-												stroke={chartColors.assets}
+												stroke={chartColors.netWorth}
 												strokeWidth={2}
 												dot={false}
 												isAnimationActive={!isRefreshing}

@@ -8,6 +8,10 @@ name = "benchmark_seed"
 path = "src/bin/benchmark_seed.rs"
 
 [[bin]]
+name = "demo_seed"
+path = "src/bin/demo_seed.rs"
+
+[[bin]]
 name = "migrate"
 path = "src/bin/migrate.rs"
 

@@ -101,14 +101,14 @@ function NavItemLink({ to, label, icon: Icon, actionableCount }: NavItem) {
 					<Icon size="1rem" className="inline-block" aria-hidden />
 					{showBadge ? (
 						<span className="absolute -right-1.5 -top-1.5 lg:hidden">
-							<ActionableBadge />
+							<ActionableBadge count={actionableCount} compact />
 						</span>
 					) : null}
 				</span>
 				<span className="hidden min-w-0 flex-1 truncate lg:inline">{label}</span>
 				{showBadge ? (
-					<span className="hidden shrink-0 lg:inline">
-						<ActionableBadge />
+					<span className="ml-auto hidden shrink-0 lg:inline">
+						<ActionableBadge count={actionableCount} />
 					</span>
 				) : null}
 			</NavLink>

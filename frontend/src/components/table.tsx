@@ -96,6 +96,7 @@ type TableProps<T extends BaseDataItem> = {
 	// --- Pagination Config ---
 	itemsPerPage?: number; // How many items to show per page
 	serverPagination?: ServerPagination;
+	serverPaginationLabel?: 'pages' | 'range';
 	// --- Sorting Props (Parent Controlled) ---
 	sortState?: SortState<T>;
 	onSortChange?: (sortKey: keyof T | null, direction: SortDirection) => void;
@@ -114,6 +115,7 @@ export const Table = <T extends BaseDataItem>(
 		loading,
 		itemsPerPage, // Use this directly
 		serverPagination,
+		serverPaginationLabel = 'pages',
 		sortState,
 		onSortChange,
 		rowKey = 'id', // Default to 'id' for row keys
@@ -330,11 +332,37 @@ export const Table = <T extends BaseDataItem>(
 
 			{/* --- Pagination Controls --- */}
 			{paginationEnabled && (loading || totalPages > 1 || (serverPagination && totalItems > 0)) && (
-				// Use slightly lighter background for footer, matching header
-				<div className="mt-auto flex items-center justify-between border-t border-paper-border bg-paper-surface px-4 py-3">
-					<div className="text-sm text-paper-muted">
-						Page <span className="font-medium text-paper-fg">{validCurrentPage}</span> of <span className="font-medium text-paper-fg">{totalPages}</span>
-						<span className="hidden sm:inline"> ({totalItems} items)</span>
+				<div className="mt-auto flex items-center justify-between border-t border-paper-border bg-[color-mix(in_oklch,var(--bg)_55%,var(--surface))] px-4 py-3">
+					<div className="text-[13px] text-paper-muted">
+						{serverPaginationLabel === 'range' &&
+						typeof itemsPerPage === 'number' &&
+						itemsPerPage > 0 ? (
+							<>
+								Showing{' '}
+								<span className="font-medium text-paper-fg">
+									{totalItems === 0
+										? '0'
+										: `${(validCurrentPage - 1) * itemsPerPage + 1}–${Math.min(
+												validCurrentPage * itemsPerPage,
+												totalItems
+											)}`}
+								</span>{' '}
+								of{' '}
+								<span className="font-medium text-paper-fg">
+									{totalItems.toLocaleString()}
+								</span>
+							</>
+						) : (
+							<>
+								Page{' '}
+								<span className="font-medium text-paper-fg">{validCurrentPage}</span> of{' '}
+								<span className="font-medium text-paper-fg">{totalPages}</span>
+								<span className="hidden sm:inline">
+									{' '}
+									({totalItems.toLocaleString()} items)
+								</span>
+							</>
+						)}
 					</div>
 					<div className="flex items-center gap-2">
 						<button
