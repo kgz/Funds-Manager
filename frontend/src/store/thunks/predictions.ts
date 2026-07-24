@@ -1,5 +1,12 @@
 import { createAsyncThunk, type ActionReducerMapBuilder } from '@reduxjs/toolkit';
 import axios from 'axios';
+import {
+	mergeEnabledGoalIds,
+	mergeEnabledScenarioIds,
+	PREDICTION_ENABLED_GOALS_KEY,
+	PREDICTION_ENABLED_SCENARIOS_KEY,
+	writeStoredEnabledIds,
+} from '@/components/dashboard/period';
 import type { PredictionsReducer } from '../slices/predictionsSlice';
 import { readAxiosRejectPayload } from '@/lib/utils/thunkError';
 import {
@@ -232,11 +239,28 @@ export const predictionsThunkActions = (
 		})
 		.addCase(getPredictionScenarios.fulfilled, (state, action) => {
 			state.scenarios = action.payload;
-			state.enabledScenarioIds = action.payload.map((scenario) => scenario.id);
+			const allIds = action.payload.map((scenario) => scenario.id);
+			state.enabledScenarioIds = mergeEnabledScenarioIds(
+				state.enabledScenarioIds,
+				allIds
+			);
+			writeStoredEnabledIds(
+				PREDICTION_ENABLED_SCENARIOS_KEY,
+				state.enabledScenarioIds
+			);
 		})
 		.addCase(createPredictionScenario.fulfilled, (state, action) => {
 			state.scenarios = [...state.scenarios, action.payload];
-			state.enabledScenarioIds = [...state.enabledScenarioIds, action.payload.id];
+			if (!state.enabledScenarioIds.includes(action.payload.id)) {
+				state.enabledScenarioIds = [
+					...state.enabledScenarioIds,
+					action.payload.id,
+				];
+			}
+			writeStoredEnabledIds(
+				PREDICTION_ENABLED_SCENARIOS_KEY,
+				state.enabledScenarioIds
+			);
 		})
 		.addCase(updatePredictionScenario.fulfilled, (state, action) => {
 			state.scenarios = state.scenarios.map((scenario) =>
@@ -250,15 +274,24 @@ export const predictionsThunkActions = (
 			state.enabledScenarioIds = state.enabledScenarioIds.filter(
 				(id) => id !== action.payload
 			);
+			writeStoredEnabledIds(
+				PREDICTION_ENABLED_SCENARIOS_KEY,
+				state.enabledScenarioIds
+			);
 			delete state.scenarioProjections[action.payload];
 		})
 		.addCase(getPredictionGoals.fulfilled, (state, action) => {
 			state.goals = action.payload;
-			state.enabledGoalIds = action.payload.map((goal) => goal.id);
+			const allIds = action.payload.map((goal) => goal.id);
+			state.enabledGoalIds = mergeEnabledGoalIds(state.enabledGoalIds, allIds);
+			writeStoredEnabledIds(PREDICTION_ENABLED_GOALS_KEY, state.enabledGoalIds);
 		})
 		.addCase(createPredictionGoal.fulfilled, (state, action) => {
 			state.goals = [...state.goals, action.payload];
-			state.enabledGoalIds = [...state.enabledGoalIds, action.payload.id];
+			if (!state.enabledGoalIds.includes(action.payload.id)) {
+				state.enabledGoalIds = [...state.enabledGoalIds, action.payload.id];
+			}
+			writeStoredEnabledIds(PREDICTION_ENABLED_GOALS_KEY, state.enabledGoalIds);
 		})
 		.addCase(updatePredictionGoal.fulfilled, (state, action) => {
 			state.goals = state.goals.map((goal) =>
@@ -270,5 +303,6 @@ export const predictionsThunkActions = (
 			state.enabledGoalIds = state.enabledGoalIds.filter(
 				(id) => id !== action.payload
 			);
+			writeStoredEnabledIds(PREDICTION_ENABLED_GOALS_KEY, state.enabledGoalIds);
 		});
 };

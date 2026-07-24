@@ -209,6 +209,61 @@ export type PredictionHorizon = '3-months' | '6-months' | '12-months' | 'custom'
 export const PREDICTION_HORIZON_STORAGE_KEY = 'predictionHorizon';
 export const PREDICTION_RANGE_MODE_STORAGE_KEY = 'predictionRangeMode';
 export const PREDICTION_CUSTOM_RANGE_STORAGE_KEY = 'predictionCustomRange';
+export const PREDICTION_ENABLED_SCENARIOS_KEY = 'predictionEnabledScenarios';
+export const PREDICTION_ENABLED_GOALS_KEY = 'predictionEnabledGoals';
+
+export function readStoredEnabledIds(key: string): string[] | null {
+	try {
+		const raw = localStorage.getItem(key);
+		if (raw === null) {
+			return null;
+		}
+		const parsed: unknown = JSON.parse(raw);
+		if (!Array.isArray(parsed)) {
+			return null;
+		}
+		const ids: string[] = [];
+		for (const entry of parsed) {
+			if (typeof entry === 'string') {
+				ids.push(entry);
+			}
+		}
+		return ids;
+	} catch {
+		return null;
+	}
+}
+
+export function writeStoredEnabledIds(key: string, ids: string[]): void {
+	localStorage.setItem(key, JSON.stringify(ids));
+}
+
+function mergeEnabledIds(
+	current: string[],
+	allIds: string[],
+	storageKey: string
+): string[] {
+	const valid = new Set(allIds);
+	const stored = readStoredEnabledIds(storageKey);
+	if (stored !== null) {
+		return stored.filter((id) => valid.has(id));
+	}
+	if (current.length > 0) {
+		return current.filter((id) => valid.has(id));
+	}
+	return allIds;
+}
+
+export function mergeEnabledScenarioIds(
+	current: string[],
+	allIds: string[]
+): string[] {
+	return mergeEnabledIds(current, allIds, PREDICTION_ENABLED_SCENARIOS_KEY);
+}
+
+export function mergeEnabledGoalIds(current: string[], allIds: string[]): string[] {
+	return mergeEnabledIds(current, allIds, PREDICTION_ENABLED_GOALS_KEY);
+}
 
 export type PredictionRangeMode = 'preset' | 'custom';
 

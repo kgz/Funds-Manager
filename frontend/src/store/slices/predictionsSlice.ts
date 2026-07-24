@@ -1,4 +1,9 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import {
+	PREDICTION_ENABLED_GOALS_KEY,
+	PREDICTION_ENABLED_SCENARIOS_KEY,
+	writeStoredEnabledIds,
+} from '@/components/dashboard/period';
 import type {
 	BaselineProjection,
 	PredictionGoal,
@@ -41,6 +46,10 @@ const slice = createSlice({
 			} else {
 				state.enabledScenarioIds = [...state.enabledScenarioIds, id];
 			}
+			writeStoredEnabledIds(
+				PREDICTION_ENABLED_SCENARIOS_KEY,
+				state.enabledScenarioIds
+			);
 		},
 		toggleGoalOnChart(state, action: PayloadAction<string>) {
 			const id = action.payload;
@@ -51,6 +60,7 @@ const slice = createSlice({
 			} else {
 				state.enabledGoalIds = [...state.enabledGoalIds, id];
 			}
+			writeStoredEnabledIds(PREDICTION_ENABLED_GOALS_KEY, state.enabledGoalIds);
 		},
 		clearScenarioProjections(state) {
 			state.scenarioProjections = {};
