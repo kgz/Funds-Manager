@@ -17,6 +17,8 @@ Follow this loop for every delivery. Do not skip steps unless the user explicitl
 ```
 
 - When closing: `./bin/board-status.sh done <issue-numbers...>`
+- **Keep board in sync with code:** update `bin/od-redesign-tracker.tsv` when delivery status changes, then run `./bin/board-audit.sh --apply` (or `./bin/board-audit.sh` to check drift only).
+- Board lifecycle: **Ready** → **In progress** (start work) → **In review** (code complete on branch / PR open) → **Done** (merged + issue closed).
 - PR must reference them with `Closes #N`.
 
 ## 2. New branch (from `main`)
@@ -35,6 +37,20 @@ git checkout -b feature/<issue>-<short-slug>
 
 - Optional: `/opsx:explore`
 - **`/opsx:apply`** on `feature/<n>-<slug>` only — implement `tasks.md`, check off `- [x]` as you go.
+
+## Open Design runs (must show in OD UI)
+
+Never start OD runs with raw `curl` and a `project` field — they will **not** appear in the project chat.
+
+Use:
+
+```bash
+./bin/od-design-run.sh --issue <n> "Design prompt…"
+# or per-issue thread:
+./bin/od-design-run.sh --issue 225 --new-conversation "#225 Report snapshots" "Design …"
+```
+
+Requires OD dev server (`pnpm exec tools-dev run web --web-port 29013 --daemon-port 28585`). Watch URL is printed after start.
 
 ## 5. Test & quality
 
@@ -89,4 +105,4 @@ gh pr create --base main --head feature/<n>-<slug> \
 | Area | Status |
 |------|--------|
 | OpenSpec | Initialized |
-| Project board | [Funds Manager #5](https://github.com/users/kgz/projects/5/views/1) — sync open issues with `./bin/setup-github-board.sh` |
+| Project board | [Funds Manager #5](https://github.com/users/kgz/projects/5/views/1) — tracker: `bin/od-redesign-tracker.tsv`, sync: `./bin/board-audit.sh --apply` |

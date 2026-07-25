@@ -1,0 +1,22 @@
+# issue	expected_board	notes
+# expected_board: backlog | ready | in-progress | in-review | done
+# Update this when code status changes; run ./bin/board-audit.sh --apply to sync the GitHub board.
+214	in-progress	epic: warm-paper theme on branch; not all pages ported
+215	ready	sidebar + command palette — not started
+216	in-review	breakdown OD port on feature/219-transactions-od-design
+217	in-review	predictions OD port on feature/219-transactions-od-design
+218	done	dashboard OD port (closed)
+219	in-review	transactions OD port on feature/219-transactions-od-design
+220	backlog	statements — OD HTML only
+221	backlog	categories — OD HTML only
+222	backlog	serviceability — OD HTML only
+223	in-review	income OD port on feature/219-transactions-od-design
+224	done	living expenses OD port on feature/219-transactions-od-design
+225	ready	report snapshots — OD HTML only, React not started
+226	backlog	repeat payments — no OD HTML
+227	backlog	planned spending — no OD HTML
+228	backlog	accounts — no OD HTML
+229	backlog	assets — no OD HTML
+230	backlog	liabilities — no OD HTML
+231	backlog	settings — no OD HTML
+232	backlog	login — OD HTML only
