@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ListChecks, Loader2 } from 'lucide-react';
 import { CategoryPill } from '@/components/CategoryPill';
-import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { EmptyState } from '@/components/layout/EmptyState';
-import { GlassCard } from '@/components/layout/GlassCard';
+import { ErrorState } from '@/components/layout/ErrorState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { SearchInput } from '@/components/layout/SearchInput';
-import { selectDarkClass } from '@/components/layout/tokens';
+import { glassCardClass, selectDarkClass } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
 import { categoryLabel } from '@/lib/utils/categoryGroups';
 import { useAppDispatch, useAppSelector } from '@/store/store';
-import { getAllCategories } from '@/store/thunks/category.get.all';
+import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import {
 	fetchCategoryLenderMappings,
 	fetchLenderExpenseBuckets,
@@ -19,8 +18,19 @@ import {
 	type CategoryLenderMappingRow,
 	type LenderExpenseBucket,
 } from '@/types/lender-expenses';
+import {
+	leSegmentButtonActiveClass,
+	leSegmentButtonClass,
+	leSegmentedClass,
+	LivingExpensesCallout,
+	MappingStatusPill,
+	SortDir,
+	SortHeader,
+	tableTdClass,
+} from './shared';
 
 type MappingFilter = 'all' | 'overrides' | 'excluded';
+type MappingSortKey = 'name' | 'default' | 'lender' | 'status';
 
 function bucketLabelForKey(buckets: LenderExpenseBucket[], key: string | null): string | null {
 	if (key === null) {
@@ -28,6 +38,56 @@ function bucketLabelForKey(buckets: LenderExpenseBucket[], key: string | null): 
 	}
 	const bucket = buckets.find((item) => item.bucketKey === key);
 	return bucket?.label ?? key.replace(/_/g, ' ');
+}
+
+function mappingStatus(row: CategoryLenderMappingRow): 'default' | 'override' | 'excluded' {
+	if (row.isExcluded) {
+		return 'excluded';
+	}
+	if (row.isOverride) {
+		return 'override';
+	}
+	return 'default';
+}
+
+function categoryIsChild(categoryId: number, categories: Category[]): boolean {
+	const category = categories.find((item) => Number(item.id) === categoryId);
+	return category?.parent_category_id != null && category.parent_category_id.length > 0;
+}
+
+function compareValues(a: string | number, b: string | number, dir: SortDir): number {
+	if (typeof a === 'string' && typeof b === 'string') {
+		return a.localeCompare(b) * (dir === 'asc' ? 1 : -1);
+	}
+	if (a === b) {
+		return 0;
+	}
+	return (a < b ? -1 : 1) * (dir === 'asc' ? 1 : -1);
+}
+
+function mappingSortValue(
+	row: CategoryLenderMappingRow,
+	displayName: string,
+	defaultLabel: string | null,
+	key: MappingSortKey
+): string | number {
+	if (key === 'name') {
+		return displayName.toLowerCase();
+	}
+	if (key === 'default') {
+		return (defaultLabel ?? '').toLowerCase();
+	}
+	if (key === 'lender') {
+		return (row.bucketLabel ?? '').toLowerCase();
+	}
+	const status = mappingStatus(row);
+	if (status === 'override') {
+		return 1;
+	}
+	if (status === 'excluded') {
+		return 2;
+	}
+	return 0;
 }
 
 export function LenderExpenseMappingsPage() {
@@ -40,6 +100,8 @@ export function LenderExpenseMappingsPage() {
 	const [searchQuery, setSearchQuery] = useState('');
 	const [filter, setFilter] = useState<MappingFilter>('all');
 	const [savingCategoryId, setSavingCategoryId] = useState<number | null>(null);
+	const [sortKey, setSortKey] = useState<MappingSortKey>('name');
+	const [sortDir, setSortDir] = useState<SortDir>('asc');
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -113,83 +175,179 @@ export function LenderExpenseMappingsPage() {
 		});
 	}, [categoryMeta, filter, mappings, searchQuery]);
 
+	const sortedMappings = useMemo(() => {
+		return [...filteredMappings].sort((left, right) => {
+			const leftMeta = categoryMeta.get(String(left.categoryId));
+			const rightMeta = categoryMeta.get(String(right.categoryId));
+			const leftName = leftMeta?.displayName ?? left.categoryName;
+			const rightName = rightMeta?.displayName ?? right.categoryName;
+			const leftDefault = bucketLabelForKey(buckets, left.defaultBucketKey);
+			const rightDefault = bucketLabelForKey(buckets, right.defaultBucketKey);
+			const cmp = compareValues(
+				mappingSortValue(left, leftName, leftDefault, sortKey),
+				mappingSortValue(right, rightName, rightDefault, sortKey),
+				sortDir
+			);
+			if (cmp !== 0) {
+				return cmp;
+			}
+			return leftName.localeCompare(rightName);
+		});
+	}, [buckets, categoryMeta, filteredMappings, sortDir, sortKey]);
+
+	const onSort = (key: MappingSortKey) => {
+		if (sortKey === key) {
+			setSortDir((current) => (current === 'asc' ? 'desc' : 'asc'));
+			return;
+		}
+		setSortKey(key);
+		setSortDir(key === 'status' ? 'desc' : 'asc');
+	};
+
 	if (loading) {
 		return <PageLoadingState label="Loading category mappings…" />;
 	}
 
+	if (error !== null && mappings.length === 0) {
+		return (
+			<ErrorState
+				title="Error loading mappings"
+				message={error}
+				onRetry={() => void load()}
+			/>
+		);
+	}
+
 	return (
-		<>
-			<InlineAlert variant="info" className="mb-6">
-				Map each app category to a lender living-expense bucket, or choose{' '}
-				<strong className="font-medium text-paper-fg">Excluded</strong> for debt repayments and
-				other non-living spend. Salary/income and loan categories (e.g. home loan, car loan) are
-				excluded by default.
-			</InlineAlert>
+		<div className="flex flex-col gap-6">
+			<LivingExpensesCallout>
+				<p className="m-0">
+					Map app categories to lender buckets or Excluded. Salary/income and loan categories
+					are excluded by default.
+				</p>
+			</LivingExpensesCallout>
 
 			{error !== null ? <InlineAlert variant="error">{error}</InlineAlert> : null}
 
-			<div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-				<SearchInput
-					value={searchQuery}
-					onChange={setSearchQuery}
-					placeholder="Search categories…"
-					className="w-full lg:max-w-sm"
-				/>
-				<SegmentedControl
-					value={filter}
-					onChange={setFilter}
-					ariaLabel="Mapping filter"
-					options={[
-						{ value: 'all', label: 'All' },
-						{ value: 'overrides', label: 'Overrides' },
-						{ value: 'excluded', label: 'Excluded' },
-					]}
-				/>
-			</div>
+			<section className={cn(glassCardClass, 'overflow-hidden p-0')}>
+				<div className="flex flex-wrap items-center gap-2.5 border-b border-paper-border px-4 py-3">
+					<SearchInput
+						value={searchQuery}
+						onChange={setSearchQuery}
+						placeholder="Search categories…"
+						className="w-full min-w-[12rem] max-w-[260px]"
+					/>
+					<div className={leSegmentedClass} role="group" aria-label="Mapping status">
+						{(
+							[
+								{ value: 'all', label: 'All' },
+								{ value: 'overrides', label: 'Overrides' },
+								{ value: 'excluded', label: 'Excluded' },
+							] as const
+						).map((option) => (
+							<button
+								key={option.value}
+								type="button"
+								className={cn(
+									leSegmentButtonClass,
+									filter === option.value && leSegmentButtonActiveClass
+								)}
+								aria-pressed={filter === option.value}
+								onClick={() => setFilter(option.value)}
+							>
+								{option.label}
+							</button>
+						))}
+					</div>
+				</div>
 
-			{filteredMappings.length === 0 ? (
-				<EmptyState
-					icon={ListChecks}
-					title="No categories match"
-					description="Try clearing the search or changing the filter."
-				/>
-			) : (
-				<GlassCard className="overflow-hidden p-0">
+				{sortedMappings.length === 0 ? (
+					<div className="px-4 py-6">
+						<EmptyState
+							icon={ListChecks}
+							compact
+							title="No categories match"
+							description="Try clearing the search or changing the filter."
+						/>
+					</div>
+				) : (
 					<div className="overflow-x-auto">
-						<table className="w-full min-w-[56rem] text-sm">
+						<table className="w-full min-w-[56rem] border-collapse text-[13px]">
 							<thead>
-								<tr className="border-b border-paper-border bg-paper text-left text-xs font-medium uppercase tracking-wider text-paper-muted">
-									<th className="px-4 py-3">App category</th>
-									<th className="px-4 py-3">Default bucket</th>
-									<th className="px-4 py-3">Lender bucket</th>
-									<th className="px-4 py-3">Status</th>
+								<tr>
+									<SortHeader
+										label="App category"
+										active={sortKey === 'name'}
+										direction={sortDir}
+										onClick={() => onSort('name')}
+										className="min-w-[200px]"
+									/>
+									<SortHeader
+										label="Default bucket"
+										active={sortKey === 'default'}
+										direction={sortDir}
+										onClick={() => onSort('default')}
+										className="min-w-[160px]"
+									/>
+									<SortHeader
+										label="Lender bucket"
+										active={sortKey === 'lender'}
+										direction={sortDir}
+										onClick={() => onSort('lender')}
+										className="min-w-[200px]"
+									/>
+									<SortHeader
+										label="Status"
+										active={sortKey === 'status'}
+										direction={sortDir}
+										onClick={() => onSort('status')}
+										className="w-[110px]"
+									/>
 								</tr>
 							</thead>
-							<tbody className="divide-y divide-white/5">
-								{filteredMappings.map((row) => {
+							<tbody>
+								{sortedMappings.map((row) => {
 									const meta = categoryMeta.get(String(row.categoryId));
 									const displayName = meta?.displayName ?? row.categoryName;
 									const defaultLabel = bucketLabelForKey(buckets, row.defaultBucketKey);
 									const isSaving = savingCategoryId === row.categoryId;
 									const selectValue = row.isExcluded ? '' : (row.bucketKey ?? '');
+									const status = mappingStatus(row);
+									const isChild = categoryIsChild(row.categoryId, categories);
+
 									return (
-										<tr key={row.categoryId} className="text-paper-fg">
-											<td className="px-4 py-4 align-middle">
-												{meta?.colour ? (
-													<CategoryPill name={displayName} colour={meta.colour} />
-												) : (
-													<span className="font-medium">{displayName}</span>
-												)}
+										<tr
+											key={row.categoryId}
+											className="transition-colors hover:[&>td]:bg-[color-mix(in_oklch,var(--fg)_2%,var(--surface))]"
+										>
+											<td className={tableTdClass}>
+												<div className="flex min-w-0 items-center gap-2">
+													{isChild ? (
+														<span className="inline-block w-4 shrink-0" aria-hidden />
+													) : null}
+													<CategoryPill
+														name={displayName}
+														colour={meta?.colour}
+														variant="outline"
+													/>
+												</div>
 											</td>
-											<td className="px-4 py-4 align-middle text-paper-muted">
+											<td className={cn(tableTdClass, 'text-[12px] text-paper-muted')}>
 												{row.defaultBucketKey === null
 													? '—'
 													: (defaultLabel ?? 'Other living expenses')}
 											</td>
-											<td className="px-4 py-4 align-middle">
+											<td className={tableTdClass}>
 												<div className="relative max-w-md">
 													<select
-														className={cn(selectDarkClass, 'w-full min-w-[14rem] px-3 py-2')}
+														className={cn(
+															selectDarkClass,
+															'h-7 min-w-[11rem] max-w-full px-2 text-[12px]',
+															status === 'override' &&
+																'border-[color-mix(in_oklch,var(--accent)_40%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_4%,var(--surface))]',
+															status === 'excluded' &&
+																'border-[color-mix(in_oklch,var(--muted)_40%,var(--border))] text-paper-muted'
+														)}
 														value={selectValue}
 														disabled={isSaving}
 														onChange={(event) => {
@@ -215,35 +373,12 @@ export function LenderExpenseMappingsPage() {
 														))}
 													</select>
 													{isSaving ? (
-														<Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-paper-muted" />
+														<Loader2 className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-paper-muted" />
 													) : null}
 												</div>
 											</td>
-											<td className="px-4 py-4 align-middle">
-												{row.isExcluded ? (
-													<span
-														className={cn(
-															'rounded px-2 py-0.5 text-xs',
-															row.isManualExclude
-																? 'bg-amber-500/20 text-amber-200'
-																: 'bg-paper text-paper-muted'
-														)}
-													>
-														{row.isManualExclude
-															? 'Excluded'
-															: row.autoExcludeReason === 'debt'
-																? 'Debt default'
-																: 'Income default'}
-													</span>
-												) : row.isOverride ? (
-													<span className="rounded bg-sky-500/20 px-2 py-0.5 text-xs text-sky-300">
-														Override
-													</span>
-												) : (
-													<span className="rounded bg-paper px-2 py-0.5 text-xs text-paper-muted">
-														Default
-													</span>
-												)}
+											<td className={tableTdClass}>
+												<MappingStatusPill status={status} />
 											</td>
 										</tr>
 									);
@@ -251,8 +386,8 @@ export function LenderExpenseMappingsPage() {
 							</tbody>
 						</table>
 					</div>
-				</GlassCard>
-			)}
-		</>
+				)}
+			</section>
+		</div>
 	);
 }
