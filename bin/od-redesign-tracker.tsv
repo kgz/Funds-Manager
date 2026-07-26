@@ -9,10 +9,10 @@
 219	done	transactions OD port — merged to main
 220	backlog	statements — OD HTML only
 221	backlog	categories — OD HTML only
-222	backlog	serviceability — OD HTML only
+222	in-review	serviceability OD port — on branch with #225
 223	done	income OD port — merged to main
 224	done	living expenses OD port — merged to main
-225	in-progress	report snapshots — OD HTML exists, React port in progress
+225	in-review	report snapshots OD port — PR open
 226	backlog	repeat payments — no OD HTML
 227	backlog	planned spending — no OD HTML
 228	backlog	accounts — no OD HTML
