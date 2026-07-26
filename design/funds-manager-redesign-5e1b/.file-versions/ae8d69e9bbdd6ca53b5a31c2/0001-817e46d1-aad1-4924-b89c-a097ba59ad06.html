@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Breakdown</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/walkthrough.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Breakdown</h1>
+        <p class="page-sub">Spend composition · stub for walkthrough step 6</p>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="grid-2 equal" data-tour="breakdown-recurring" data-od-id="breakdown-tour-target">
+        <section class="panel" data-od-id="breakdown-composition">
+          <div class="panel-head">
+            <h2 class="panel-title">Spend composition</h2>
+            <p class="panel-hint">Sample · by parent category</p>
+          </div>
+          <div class="panel-body">
+            <ul class="legend" style="display:grid;gap:10px">
+              <li><span class="dot" style="background:#8b6b4a"></span><span class="name">Housing</span><span class="val mono">39%</span></li>
+              <li><span class="dot" style="background:#3d8b6e"></span><span class="name">Groceries</span><span class="val mono">14%</span></li>
+              <li><span class="dot" style="background:#4a6fa5"></span><span class="name">Transport</span><span class="val mono">10%</span></li>
+              <li><span class="dot" style="background:#c47a4a"></span><span class="name">Dining out</span><span class="val mono">9%</span></li>
+              <li><span class="dot" style="background:#6b7a8b"></span><span class="name">Utilities</span><span class="val mono">7%</span></li>
+              <li><span class="dot" style="background:#b8b8b8"></span><span class="name">Other</span><span class="val mono">21%</span></li>
+            </ul>
+            <p class="panel-hint" style="margin-top:14px">Full treemap / stacked views ship in product — this stub keeps IA complete for the tour.</p>
+          </div>
+        </section>
+
+        <section class="panel" data-od-id="breakdown-recurring-panel">
+          <div class="panel-head">
+            <h2 class="panel-title">Recurring</h2>
+            <p class="panel-hint">Detected repeats · sample</p>
+          </div>
+          <div class="panel-body">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th>Merchant</th>
+                  <th>Cadence</th>
+                  <th style="text-align:right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Rent payment</td>
+                  <td>Monthly</td>
+                  <td class="amount neg mono">−$1,850.00</td>
+                </tr>
+                <tr>
+                  <td>Netflix</td>
+                  <td>Monthly</td>
+                  <td class="amount neg mono">−$22.99</td>
+                </tr>
+                <tr>
+                  <td>Spotify</td>
+                  <td>Monthly</td>
+                  <td class="amount neg mono">−$12.99</td>
+                </tr>
+                <tr>
+                  <td>Salary Acme</td>
+                  <td>Fortnightly</td>
+                  <td class="amount pos mono">+$4,320.00</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="panel-hint" style="margin-top:12px">
+              <a href="funds-dashboard.html" data-od-id="breakdown-learn-more">Learn more on the dashboard</a>
+              · Repeat payments nav item covers the full editor.
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script src="js/walkthrough.js"></script>
+  <script>
+    FUNDS.renderSidebar('breakdown');
+  </script>
+</body>
+</html>

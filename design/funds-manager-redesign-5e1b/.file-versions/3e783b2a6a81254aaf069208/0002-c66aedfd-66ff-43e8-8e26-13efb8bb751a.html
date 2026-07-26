@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Spending & Income Overview</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/walkthrough.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Spending & Income Overview</h1>
+        <p class="page-sub">People's Choice 9120 · last 6 months of activity</p>
+      </div>
+      <div class="page-actions" data-od-id="dashboard-filters">
+        <label class="sr" for="acct">Account</label>
+        <select class="select" id="acct" data-od-id="filter-account" aria-label="Account filter">
+          <option value="all">All accounts</option>
+          <option value="pc-9120" selected>People's Choice 9120</option>
+          <option value="pc-savings">People's Choice Savings</option>
+          <option value="cba-offset">CBA Offset 4412</option>
+        </select>
+        <div class="segmented" role="group" aria-label="Period" data-od-id="filter-period" id="period">
+          <button type="button" data-value="1m">This month</button>
+          <button type="button" data-value="3m">3 months</button>
+          <button type="button" data-value="6m" class="is-on" aria-pressed="true">6 months</button>
+          <button type="button" data-value="1y">1 year</button>
+          <button type="button" data-value="all">All time</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="page-body" data-tour="dashboard-overview">
+      <section class="kpi-grid" data-od-id="kpi-row" aria-label="Key figures">
+        <article class="kpi" data-od-id="kpi-balance">
+          <p class="kpi-label">Current Balance</p>
+          <p class="kpi-value money">$15,284.62</p>
+          <p class="kpi-delta up">▲ $1,240.18 vs prior</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-spending">
+          <p class="kpi-label">Spending</p>
+          <p class="kpi-value money">$43,186.40</p>
+          <p class="kpi-delta down">▼ $2,104.00 vs prior</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-income">
+          <p class="kpi-label">Income</p>
+          <p class="kpi-value money">$52,410.00</p>
+          <p class="kpi-delta up">▲ $890.00 vs prior</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-net">
+          <p class="kpi-label">Net</p>
+          <p class="kpi-value money">$9,223.60</p>
+          <p class="kpi-delta up">▲ $2,994.18 vs prior</p>
+        </article>
+      </section>
+
+      <section class="panel" data-od-id="chart-cashflow">
+        <div class="panel-head">
+          <h2 class="panel-title">Receiving vs Spending</h2>
+          <p class="panel-hint">Monthly totals · AUD</p>
+        </div>
+        <div class="panel-body">
+          <div class="chart-area">
+            <canvas id="cashflowChart" aria-label="Monthly receiving versus spending bar chart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid-2 equal">
+        <section class="panel" data-od-id="chart-spend-cats">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Spending by Category</h2>
+              <p class="panel-hint">Click a slice to see transactions</p>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="donut-wrap">
+              <canvas id="spendDonut" width="160" height="160" style="width:160px;height:160px" data-od-id="donut-spend"></canvas>
+              <ul class="legend" id="spendLegend"></ul>
+            </div>
+            <p class="panel-hint" id="spendHint" style="margin-top:12px" hidden></p>
+          </div>
+        </section>
+
+        <section class="panel" data-od-id="chart-income-cats">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Income by Category</h2>
+              <p class="panel-hint">Click a slice to see transactions</p>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="donut-wrap">
+              <canvas id="incomeDonut" width="160" height="160" style="width:160px;height:160px" data-od-id="donut-income"></canvas>
+              <ul class="legend" id="incomeLegend"></ul>
+            </div>
+            <p class="panel-hint" id="incomeHint" style="margin-top:12px" hidden></p>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid-2">
+        <section class="panel" data-od-id="chart-balance-time">
+          <div class="panel-head">
+            <h2 class="panel-title">Balance over time</h2>
+            <p class="panel-hint">People's Choice 9120</p>
+          </div>
+          <div class="panel-body">
+            <div class="chart-area sm">
+              <canvas id="balanceChart" aria-label="Account balance over time"></canvas>
+            </div>
+          </div>
+        </section>
+        <section class="panel" data-od-id="chart-networth">
+          <div class="panel-head">
+            <h2 class="panel-title">Net worth</h2>
+            <p class="panel-hint">Assets − liabilities</p>
+          </div>
+          <div class="panel-body">
+            <div class="chart-area sm">
+              <canvas id="networthChart" aria-label="Net worth over time"></canvas>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  </style>
+
+  <script src="js/shared.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/walkthrough.js"></script>
+  <script>
+    FUNDS.renderSidebar('dashboard');
+    FUNDS.wireSegmented('#period');
+
+    const cashflow = {
+      labels: ['Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+      receiving: [8600, 8750, 8600, 9100, 8600, 8760],
+      spending: [7100, 6820, 7450, 6980, 8020, 6816],
+    };
+
+    const spendSlices = [
+      { name: 'Housing', value: 16800, color: '#8b6b4a' },
+      { name: 'Groceries', value: 6240, color: '#3d8b6e' },
+      { name: 'Transport', value: 4120, color: '#4a6fa5' },
+      { name: 'Dining out', value: 3850, color: '#c47a4a' },
+      { name: 'Utilities', value: 2910, color: '#6b7a8b' },
+      { name: 'Other', value: 9266, color: '#b8b8b8' },
+    ];
+
+    const incomeSlices = [
+      { name: 'Salary', value: 48600, color: '#2f7d5a' },
+      { name: 'Interest', value: 1840, color: '#4a6fa5' },
+      { name: 'Refunds', value: 970, color: '#8b6b4a' },
+      { name: 'Other', value: 1000, color: '#b8b8b8' },
+    ];
+
+    const balancePts = [
+      { l: 'Feb', v: 11240 }, { l: 'Mar', v: 12180 }, { l: 'Apr', v: 11890 },
+      { l: 'May', v: 13210 }, { l: 'Jun', v: 14040 }, { l: 'Jul', v: 15285 },
+    ];
+    const nwPts = [
+      { l: 'Feb', v: 186400 }, { l: 'Mar', v: 188920 }, { l: 'Apr', v: 187100 },
+      { l: 'May', v: 191450 }, { l: 'Jun', v: 193800 }, { l: 'Jul', v: 196240 },
+    ];
+
+    let spendActive = null;
+    let incomeActive = null;
+
+    function paintLegend(el, slices, active) {
+      el.innerHTML = slices.map((s, i) => `
+        <li style="opacity:${active === null || active === i ? 1 : 0.4}">
+          <span class="dot" style="background:${s.color}"></span>
+          <span class="name">${s.name}</span>
+          <span class="val">${FUNDS.money(s.value)}</span>
+        </li>`).join('');
+    }
+
+    function paint() {
+      FUNDS.charts.drawBarChart(document.getElementById('cashflowChart'), cashflow);
+      FUNDS.charts.drawDonut(document.getElementById('spendDonut'), spendSlices, spendActive);
+      FUNDS.charts.drawDonut(document.getElementById('incomeDonut'), incomeSlices, incomeActive);
+      FUNDS.charts.drawLineChart(document.getElementById('balanceChart'), balancePts, {
+        stroke: 'oklch(18% 0.012 250)',
+        fill: 'oklch(18% 0.012 250 / 0.05)',
+      });
+      FUNDS.charts.drawLineChart(document.getElementById('networthChart'), nwPts, {
+        stroke: 'oklch(42% 0.02 250)',
+        fill: 'oklch(42% 0.02 250 / 0.07)',
+      });
+      paintLegend(document.getElementById('spendLegend'), spendSlices, spendActive);
+      paintLegend(document.getElementById('incomeLegend'), incomeSlices, incomeActive);
+    }
+
+    function bindDonut(canvasId, slices, getActive, setActive, hintId) {
+      const canvas = document.getElementById(canvasId);
+      const hint = document.getElementById(hintId);
+      canvas.style.cursor = 'pointer';
+      canvas.addEventListener('click', (e) => {
+        const hit = FUNDS.charts.hitDonutSlice(canvas, slices, e.clientX, e.clientY);
+        if (hit === null) {
+          setActive(null);
+          hint.hidden = true;
+        } else {
+          setActive(hit);
+          hint.hidden = false;
+          hint.textContent = 'Would open Transactions filtered to “' + slices[hit].name + '” · sample: ' + FUNDS.money(slices[hit].value);
+        }
+        paint();
+      });
+    }
+
+    bindDonut('spendDonut', spendSlices, () => spendActive, (v) => { spendActive = v; }, 'spendHint');
+    bindDonut('incomeDonut', incomeSlices, () => incomeActive, (v) => { incomeActive = v; }, 'incomeHint');
+
+    paint();
+    window.addEventListener('resize', paint);
+  </script>
+</body>
+</html>

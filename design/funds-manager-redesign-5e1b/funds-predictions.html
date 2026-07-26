@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Future predictions</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/predictions.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Future predictions</h1>
+        <p class="page-sub">See where your balance might go and plan for what-if changes.</p>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="filters-row" data-od-id="predictions-toolbar">
+        <label class="sr" for="pred-account">Account</label>
+        <select class="select" id="pred-account" data-od-id="filter-account" aria-label="Account">
+          <option value="pc-9120" selected>People's Choice 9120</option>
+          <option value="pc-savings">People's Choice Savings</option>
+          <option value="cba-offset">CBA Offset 4412</option>
+          <option value="all">All accounts</option>
+        </select>
+
+        <div class="segmented" role="group" aria-label="Horizon mode" data-od-id="filter-mode" id="date-mode">
+          <button type="button" data-value="presets" class="is-on" aria-pressed="true">Presets</button>
+          <button type="button" data-value="custom" aria-pressed="false">Custom</button>
+        </div>
+
+        <div class="segmented" role="group" aria-label="Horizon" data-od-id="filter-horizon" id="horizon">
+          <button type="button" data-value="3m" aria-pressed="false">3 months</button>
+          <button type="button" data-value="6m" class="is-on" aria-pressed="true">6 months</button>
+          <button type="button" data-value="1y" aria-pressed="false">1 year</button>
+          <button type="button" data-value="2y" aria-pressed="false">2 years</button>
+        </div>
+
+        <div class="custom-dates" id="custom-dates" data-od-id="filter-custom-dates">
+          <label class="sr" for="date-from">From</label>
+          <input class="input date" type="date" id="date-from" value="2026-07-19" aria-label="From date" />
+          <span class="date-sep">to</span>
+          <label class="sr" for="date-to">To</label>
+          <input class="input date" type="date" id="date-to" value="2027-01-19" aria-label="To date" />
+        </div>
+
+        <div class="pred-summary" data-od-id="predictions-summary" aria-label="Projection summary">
+          <div class="pred-summary-primary">
+            <span class="summary-kicker">Projected end balance</span>
+            <strong class="pred-summary-end money" id="sum-end">$24,506.62</strong>
+          </div>
+          <div class="pred-summary-detail">
+            <span>Starting <strong class="money" id="sum-start">$15,284.62</strong></span>
+            <span class="is-net">Monthly net <strong class="money" id="sum-net">+$1,537.00</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <section class="panel" data-od-id="chart-projected-balance">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title" data-od-id="chart-title">Projected balance</h2>
+            <p class="panel-hint" id="chart-hint">Baseline from recent monthly average + planned items · People's Choice 9120</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="chart-area pred">
+            <canvas id="projChart" aria-label="Projected balance over horizon with scenario overlay"></canvas>
+          </div>
+          <ul class="chart-legend" data-od-id="chart-legend">
+            <li><span class="swatch" aria-hidden="true"></span>Baseline</li>
+            <li id="legend-scenario"><span class="swatch is-scenario" aria-hidden="true"></span><span id="legend-scenario-label">Scenario · New car</span></li>
+            <li><span class="swatch is-goal" aria-hidden="true"></span>Savings goal</li>
+            <li><span class="swatch is-event" aria-hidden="true"></span>Planned spending</li>
+          </ul>
+        </div>
+      </section>
+
+      <div class="grid-2 equal" data-od-id="predictions-side-panels">
+        <section class="panel" data-od-id="panel-scenarios">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Scenarios</h2>
+              <p class="panel-hint">Toggle overlays on the chart</p>
+            </div>
+          </div>
+          <div class="list-panel-body">
+            <ul class="entity-list" id="scenario-list" data-od-id="scenario-list"></ul>
+          </div>
+          <div class="panel-foot">
+            <button type="button" class="btn btn-primary" id="btn-add-scenario" data-od-id="btn-add-scenario">Add scenario</button>
+          </div>
+        </section>
+
+        <section class="panel" data-od-id="panel-goals">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Savings goals</h2>
+              <p class="panel-hint">Targets vs projected path</p>
+            </div>
+          </div>
+          <div class="list-panel-body">
+            <ul class="entity-list" id="goal-list" data-od-id="goal-list"></ul>
+          </div>
+          <div class="panel-foot">
+            <button type="button" class="btn btn-primary" id="btn-add-goal" data-od-id="btn-add-goal">Add goal</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scenario modal -->
+  <dialog class="pred-dialog" id="scenario-dialog" data-od-id="scenario-dialog" aria-labelledby="scenario-dialog-title">
+    <form method="dialog" class="pred-dialog-shell" id="scenario-form">
+      <div class="pred-dialog-head">
+        <div>
+          <span class="eyebrow">What-if</span>
+          <h2 id="scenario-dialog-title">Add scenario</h2>
+        </div>
+        <button class="dialog-close" type="button" id="scenario-close" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="pred-dialog-body">
+        <label class="field">
+          <span>Name</span>
+          <input class="input" type="text" id="sc-name" name="name" value="New car" required data-od-id="scenario-name" />
+        </label>
+        <div id="sc-lines" data-od-id="scenario-lines"></div>
+        <button type="button" class="btn" id="sc-add-line" data-od-id="scenario-add-line">Add line</button>
+      </div>
+      <div class="pred-dialog-actions">
+        <button type="button" class="btn" id="scenario-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="scenario-save" data-od-id="scenario-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Goal modal -->
+  <dialog class="pred-dialog" id="goal-dialog" data-od-id="goal-dialog" aria-labelledby="goal-dialog-title">
+    <form method="dialog" class="pred-dialog-shell" id="goal-form">
+      <div class="pred-dialog-head">
+        <div>
+          <span class="eyebrow">Target</span>
+          <h2 id="goal-dialog-title">Add goal</h2>
+        </div>
+        <button class="dialog-close" type="button" id="goal-close" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="pred-dialog-body">
+        <label class="field">
+          <span>Name</span>
+          <input class="input" type="text" id="goal-name" name="name" value="Emergency fund" required data-od-id="goal-name" />
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span>Target amount</span>
+            <input class="input" type="number" id="goal-amount" name="amount" value="20000" min="0" step="100" required data-od-id="goal-amount" />
+          </label>
+          <label class="field">
+            <span>Target date</span>
+            <input class="input date" type="date" id="goal-date" name="date" value="2026-12-31" required data-od-id="goal-date" />
+          </label>
+        </div>
+      </div>
+      <div class="pred-dialog-actions">
+        <button type="button" class="btn" id="goal-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="goal-save" data-od-id="goal-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <style>
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  </style>
+
+  <script src="js/shared.js"></script>
+  <script src="js/charts.js"></script>
+  <script>
+    FUNDS.renderSidebar('future');
+
+    const START = 15284.62;
+    const MONTHLY_NET = 1537;
+
+    const HORIZON_MONTHS = { '3m': 3, '6m': 6, '1y': 12, '2y': 24 };
+
+    let mode = 'presets';
+    let horizonKey = '6m';
+    let editingScenarioId = null;
+    let editingGoalId = null;
+
+    const scenarios = [
+      {
+        id: 'sc-car',
+        name: 'New car',
+        enabled: true,
+        lines: [
+          { desc: 'Car purchase', type: 'spend', amount: 22000, date: '2026-10-15', category: 'transport' },
+        ],
+      },
+      {
+        id: 'sc-dining',
+        name: 'Skip dining out 3 months',
+        enabled: false,
+        lines: [
+          { desc: 'Dining retained', type: 'income', amount: 320, date: '2026-08-01', category: 'dining' },
+          { desc: 'Dining retained', type: 'income', amount: 320, date: '2026-09-01', category: 'dining' },
+          { desc: 'Dining retained', type: 'income', amount: 320, date: '2026-10-01', category: 'dining' },
+        ],
+      },
+    ];
+
+    const goals = [
+      {
+        id: 'goal-ef',
+        name: 'Emergency fund',
+        amount: 20000,
+        date: '2026-12-31',
+        color: 'oklch(52% 0.14 150)',
+      },
+    ];
+
+    const plannedEvents = [
+      { monthOffset: 2, label: 'Insurance', color: 'oklch(55% 0.18 25)' },
+      { monthOffset: 5, label: 'Holiday', color: 'oklch(55% 0.18 25)' },
+    ];
+
+    function monthLabels(count) {
+      const start = new Date(2026, 6, 1);
+      const out = [];
+      for (let i = 0; i <= count; i++) {
+        const d = new Date(start.getFullYear(), start.getMonth() + i, 1);
+        out.push(d.toLocaleString('en-AU', { month: 'short' }));
+      }
+      return out;
+    }
+
+    function monthsBetween(fromIso, toIso) {
+      const a = new Date(fromIso + 'T00:00:00');
+      const b = new Date(toIso + 'T00:00:00');
+      return Math.max(1, (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()));
+    }
+
+    function horizonCount() {
+      if (mode === 'custom') {
+        return monthsBetween(
+          document.getElementById('date-from').value,
+          document.getElementById('date-to').value
+        );
+      }
+      return HORIZON_MONTHS[horizonKey] || 6;
+    }
+
+    function buildBaseline(n) {
+      const pts = [];
+      for (let i = 0; i <= n; i++) pts.push(START + MONTHLY_NET * i);
+      return pts;
+    }
+
+    function applyScenario(baseline, scenario) {
+      const pts = baseline.slice();
+      const origin = new Date(2026, 6, 1);
+      scenario.lines.forEach((line) => {
+        const d = new Date(line.date + 'T00:00:00');
+        const idx = (d.getFullYear() - origin.getFullYear()) * 12 + (d.getMonth() - origin.getMonth());
+        if (idx < 0 || idx >= pts.length) return;
+        const delta = line.type === 'spend' ? -line.amount : line.amount;
+        for (let i = idx; i < pts.length; i++) pts[i] += delta;
+      });
+      return pts;
+    }
+
+    function activeScenario() {
+      return scenarios.find((s) => s.enabled) || null;
+    }
+
+    function projectedSeries() {
+      const n = horizonCount();
+      const baseline = buildBaseline(n);
+      const sc = activeScenario();
+      const scenario = sc ? applyScenario(baseline, sc) : null;
+      const endSeries = scenario || baseline;
+      return { n, labels: monthLabels(n), baseline, scenario, end: endSeries[endSeries.length - 1] };
+    }
+
+    function gapVsProjected(goal, endBalance) {
+      const gap = goal.amount - endBalance;
+      if (gap <= 0) return { text: 'On track', cls: 'on-track' };
+      return { text: FUNDS.money(gap) + ' short', cls: 'short' };
+    }
+
+    function paintSummary(proj) {
+      document.getElementById('sum-start').textContent = FUNDS.money(START);
+      document.getElementById('sum-end').textContent = FUNDS.money(proj.end);
+      document.getElementById('sum-net').textContent = FUNDS.money(MONTHLY_NET, { signed: true });
+      const acct = document.getElementById('pred-account');
+      const acctLabel = acct.options[acct.selectedIndex].text;
+      let horizonLabel;
+      if (mode === 'custom') {
+        horizonLabel = document.getElementById('date-from').value + ' → ' + document.getElementById('date-to').value;
+      } else {
+        const map = { '3m': '3 months', '6m': '6 months', '1y': '1 year', '2y': '2 years' };
+        horizonLabel = map[horizonKey];
+      }
+      document.getElementById('chart-hint').textContent =
+        'Baseline from recent monthly average + planned items · ' + acctLabel + ' · ' + horizonLabel;
+    }
+
+    function paintChart() {
+      const proj = projectedSeries();
+      paintSummary(proj);
+      const sc = activeScenario();
+      const legendSc = document.getElementById('legend-scenario');
+      if (sc) {
+        legendSc.hidden = false;
+        document.getElementById('legend-scenario-label').textContent = 'Scenario · ' + sc.name;
+      } else {
+        legendSc.hidden = true;
+      }
+
+      const goalMarks = goals.map((g) => ({
+        value: g.amount,
+        label: g.name,
+        color: g.color,
+      }));
+
+      const events = plannedEvents
+        .filter((e) => e.monthOffset <= proj.n)
+        .map((e) => ({
+          index: e.monthOffset,
+          label: e.label,
+          color: e.color,
+        }));
+
+      FUNDS.charts.drawProjectionChart(document.getElementById('projChart'), {
+        labels: proj.labels,
+        baseline: proj.baseline,
+        scenario: proj.scenario,
+        goals: goalMarks,
+        events,
+        baselineStroke: 'oklch(58% 0.18 255)',
+        baselineFill: 'oklch(58% 0.18 255 / 0.07)',
+        scenarioStroke: 'oklch(45% 0.08 45)',
+      });
+    }
+
+    function paintScenarios() {
+      const el = document.getElementById('scenario-list');
+      el.innerHTML = scenarios.map((s) => {
+        const lineWord = s.lines.length === 1 ? '1 line' : s.lines.length + ' lines';
+        return `
+          <li class="entity-row" data-od-id="scenario-${s.id}">
+            <input class="entity-check" type="checkbox" ${s.enabled ? 'checked' : ''} data-id="${s.id}" aria-label="Show ${s.name} on chart" />
+            <div class="entity-main">
+              <p class="entity-name">${s.name}</p>
+              <p class="entity-meta">${lineWord}</p>
+            </div>
+            <div class="entity-actions">
+              <button type="button" class="btn btn-ghost" data-edit="${s.id}" data-od-id="scenario-edit-${s.id}">Edit</button>
+              <button type="button" class="btn btn-ghost" data-del="${s.id}" data-od-id="scenario-delete-${s.id}">Delete</button>
+            </div>
+          </li>`;
+      }).join('') || '<li class="entity-row"><p class="entity-meta">No scenarios yet</p></li>';
+    }
+
+    function paintGoals() {
+      const el = document.getElementById('goal-list');
+      const proj = projectedSeries();
+      el.innerHTML = goals.map((g) => {
+        const gap = gapVsProjected(g, proj.end);
+        const dateLabel = new Date(g.date + 'T00:00:00').toLocaleDateString('en-AU', {
+          month: 'short',
+          year: 'numeric',
+        });
+        return `
+          <li class="entity-row" data-od-id="goal-${g.id}">
+            <span class="goal-swatch" style="background:${g.color}" aria-hidden="true"></span>
+            <div class="entity-main">
+              <div class="goal-head">
+                <p class="entity-name">${g.name}</p>
+              </div>
+              <p class="entity-meta">
+                <span class="money">${FUNDS.money(g.amount)}</span> by ${dateLabel}
+                · <span class="entity-gap ${gap.cls}">${gap.text}</span>
+              </p>
+            </div>
+            <div class="entity-actions">
+              <button type="button" class="btn btn-ghost" data-edit-goal="${g.id}" data-od-id="goal-edit-${g.id}">Edit</button>
+              <button type="button" class="btn btn-ghost" data-del-goal="${g.id}" data-od-id="goal-delete-${g.id}">Delete</button>
+            </div>
+          </li>`;
+      }).join('') || '<li class="entity-row"><p class="entity-meta">No goals yet</p></li>';
+    }
+
+    function paint() {
+      paintScenarios();
+      paintGoals();
+      paintChart();
+    }
+
+    /* ── Scenario dialog ── */
+    const scenarioDialog = document.getElementById('scenario-dialog');
+    const goalDialog = document.getElementById('goal-dialog');
+
+    function lineRowHtml(line, idx) {
+      const cats = FUNDS.categories.filter((c) => !c.parent);
+      const opts = cats.map((c) =>
+        `<option value="${c.id}" ${c.id === line.category ? 'selected' : ''}>${c.name}</option>`
+      ).join('');
+      return `
+        <div class="line-block" data-line="${idx}">
+          <div class="line-block-head">
+            <strong>Line ${idx + 1}</strong>
+            <button type="button" class="btn btn-ghost" data-remove-line="${idx}">Remove</button>
+          </div>
+          <div class="line-grid">
+            <label class="field">
+              <span>Description</span>
+              <input class="input" type="text" data-f="desc" value="${line.desc}" />
+            </label>
+            <label class="field">
+              <span>Type</span>
+              <select class="select" data-f="type">
+                <option value="spend" ${line.type === 'spend' ? 'selected' : ''}>Spend</option>
+                <option value="income" ${line.type === 'income' ? 'selected' : ''}>Income</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Amount</span>
+              <input class="input" type="number" data-f="amount" value="${line.amount}" min="0" step="1" />
+            </label>
+            <label class="field">
+              <span>Date</span>
+              <input class="input date" type="date" data-f="date" value="${line.date}" />
+            </label>
+            <label class="field">
+              <span>Category</span>
+              <select class="select" data-f="category">${opts}</select>
+            </label>
+          </div>
+        </div>`;
+    }
+
+    let draftLines = [];
+
+    function paintLineEditor() {
+      const wrap = document.getElementById('sc-lines');
+      wrap.innerHTML = draftLines.map((l, i) => lineRowHtml(l, i)).join('');
+    }
+
+    function readDraftLines() {
+      const blocks = document.querySelectorAll('#sc-lines .line-block');
+      const next = [];
+      blocks.forEach((block) => {
+        next.push({
+          desc: block.querySelector('[data-f="desc"]').value.trim() || 'Untitled',
+          type: block.querySelector('[data-f="type"]').value,
+          amount: Number(block.querySelector('[data-f="amount"]').value) || 0,
+          date: block.querySelector('[data-f="date"]').value,
+          category: block.querySelector('[data-f="category"]').value,
+        });
+      });
+      draftLines = next;
+    }
+
+    function openScenarioDialog(id) {
+      editingScenarioId = id;
+      const title = document.getElementById('scenario-dialog-title');
+      if (id) {
+        const s = scenarios.find((x) => x.id === id);
+        title.textContent = 'Edit scenario';
+        document.getElementById('sc-name').value = s.name;
+        draftLines = s.lines.map((l) => Object.assign({}, l));
+      } else {
+        title.textContent = 'Add scenario';
+        document.getElementById('sc-name').value = '';
+        draftLines = [
+          { desc: '', type: 'spend', amount: 0, date: '2026-09-01', category: 'dining' },
+        ];
+      }
+      paintLineEditor();
+      scenarioDialog.showModal();
+    }
+
+    function openGoalDialog(id) {
+      editingGoalId = id;
+      const title = document.getElementById('goal-dialog-title');
+      if (id) {
+        const g = goals.find((x) => x.id === id);
+        title.textContent = 'Edit goal';
+        document.getElementById('goal-name').value = g.name;
+        document.getElementById('goal-amount').value = String(g.amount);
+        document.getElementById('goal-date').value = g.date;
+      } else {
+        title.textContent = 'Add goal';
+        document.getElementById('goal-name').value = '';
+        document.getElementById('goal-amount').value = '5000';
+        document.getElementById('goal-date').value = '2027-06-30';
+      }
+      goalDialog.showModal();
+    }
+
+    document.getElementById('scenario-list').addEventListener('change', (e) => {
+      const cb = e.target.closest('.entity-check');
+      if (!cb) return;
+      const id = cb.getAttribute('data-id');
+      scenarios.forEach((s) => {
+        if (s.id === id) s.enabled = cb.checked;
+        else if (cb.checked) s.enabled = false;
+      });
+      paint();
+    });
+
+    document.getElementById('scenario-list').addEventListener('click', (e) => {
+      const edit = e.target.closest('[data-edit]');
+      const del = e.target.closest('[data-del]');
+      if (edit) openScenarioDialog(edit.getAttribute('data-edit'));
+      if (del) {
+        const id = del.getAttribute('data-del');
+        const idx = scenarios.findIndex((s) => s.id === id);
+        if (idx >= 0) scenarios.splice(idx, 1);
+        paint();
+      }
+    });
+
+    document.getElementById('goal-list').addEventListener('click', (e) => {
+      const edit = e.target.closest('[data-edit-goal]');
+      const del = e.target.closest('[data-del-goal]');
+      if (edit) openGoalDialog(edit.getAttribute('data-edit-goal'));
+      if (del) {
+        const id = del.getAttribute('data-del-goal');
+        const idx = goals.findIndex((g) => g.id === id);
+        if (idx >= 0) goals.splice(idx, 1);
+        paint();
+      }
+    });
+
+    document.getElementById('btn-add-scenario').addEventListener('click', () => openScenarioDialog(null));
+    document.getElementById('btn-add-goal').addEventListener('click', () => openGoalDialog(null));
+
+    document.getElementById('sc-add-line').addEventListener('click', () => {
+      readDraftLines();
+      draftLines.push({
+        desc: '',
+        type: 'spend',
+        amount: 0,
+        date: '2026-09-01',
+        category: 'dining',
+      });
+      paintLineEditor();
+    });
+
+    document.getElementById('sc-lines').addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-remove-line]');
+      if (!rm) return;
+      readDraftLines();
+      const i = Number(rm.getAttribute('data-remove-line'));
+      draftLines.splice(i, 1);
+      if (draftLines.length === 0) {
+        draftLines.push({ desc: '', type: 'spend', amount: 0, date: '2026-09-01', category: 'dining' });
+      }
+      paintLineEditor();
+    });
+
+    function closeScenario() { scenarioDialog.close(); }
+    function closeGoal() { goalDialog.close(); }
+
+    document.getElementById('scenario-close').addEventListener('click', closeScenario);
+    document.getElementById('scenario-cancel').addEventListener('click', closeScenario);
+    document.getElementById('goal-close').addEventListener('click', closeGoal);
+    document.getElementById('goal-cancel').addEventListener('click', closeGoal);
+
+    document.getElementById('scenario-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      readDraftLines();
+      const name = document.getElementById('sc-name').value.trim() || 'Untitled scenario';
+      if (editingScenarioId) {
+        const s = scenarios.find((x) => x.id === editingScenarioId);
+        s.name = name;
+        s.lines = draftLines.map((l) => Object.assign({}, l));
+      } else {
+        scenarios.push({
+          id: 'sc-' + Date.now(),
+          name,
+          enabled: false,
+          lines: draftLines.map((l) => Object.assign({}, l)),
+        });
+      }
+      scenarioDialog.close();
+      paint();
+    });
+
+    document.getElementById('goal-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('goal-name').value.trim() || 'Untitled goal';
+      const amount = Number(document.getElementById('goal-amount').value) || 0;
+      const date = document.getElementById('goal-date').value;
+      if (editingGoalId) {
+        const g = goals.find((x) => x.id === editingGoalId);
+        g.name = name;
+        g.amount = amount;
+        g.date = date;
+      } else {
+        goals.push({
+          id: 'goal-' + Date.now(),
+          name,
+          amount,
+          date,
+          color: 'oklch(42% 0.08 250)',
+        });
+      }
+      goalDialog.close();
+      paint();
+    });
+
+    FUNDS.wireSegmented('#date-mode', (val) => {
+      mode = val;
+      const presets = document.getElementById('horizon');
+      const custom = document.getElementById('custom-dates');
+      if (val === 'custom') {
+        presets.hidden = true;
+        custom.classList.add('is-on');
+      } else {
+        presets.hidden = false;
+        custom.classList.remove('is-on');
+      }
+      paint();
+    });
+
+    FUNDS.wireSegmented('#horizon', (val) => {
+      horizonKey = val;
+      paint();
+    });
+
+    document.getElementById('pred-account').addEventListener('change', paint);
+    document.getElementById('date-from').addEventListener('change', () => { if (mode === 'custom') paint(); });
+    document.getElementById('date-to').addEventListener('change', () => { if (mode === 'custom') paint(); });
+
+    paint();
+    window.addEventListener('resize', paintChart);
+  </script>
+</body>
+</html>

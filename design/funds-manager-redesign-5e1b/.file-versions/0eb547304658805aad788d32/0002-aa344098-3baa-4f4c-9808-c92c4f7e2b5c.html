@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Redesign prototypes</title>
+  <link rel="stylesheet" href="css/shared.css" />
+</head>
+<body style="display:block">
+  <div class="entry" data-od-id="entry">
+    <p style="font-size:11px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin:0 0 12px">FUNDS Manager · visual redesign</p>
+    <h1 data-od-id="entry-title">Calm fintech workspace</h1>
+    <p class="lede">
+      Interactive HTML prototypes for the self-hosted AU personal-finance app.
+      Same product behaviour and navigation IA — new visual system only.
+      Desktop-first (~1280–1440), usable at ~1024.
+    </p>
+
+    <ul class="screen-list" data-od-id="screen-links">
+      <li>
+        <a href="funds-login.html" data-od-id="link-login">
+          <span>Login</span>
+          <span class="meta">Auth screen · no sidebar · prototype only</span>
+        </a>
+      </li>
+      <li>
+        <a href="funds-dashboard.html" data-od-id="link-dashboard">
+          <span>Dashboard</span>
+          <span class="meta">KPIs · charts · period filter</span>
+        </a>
+      </li>
+      <li>
+        <a href="funds-transactions.html" data-od-id="link-transactions">
+          <span>Transactions</span>
+          <span class="meta">Dense table · filters · category pickers</span>
+        </a>
+      </li>
+      <li>
+        <a href="funds-statements.html" data-od-id="link-statements">
+          <span>Statements</span>
+          <span class="meta">PDF dropzone · missing periods</span>
+        </a>
+      </li>
+      <li>
+        <a href="funds-categories.html" data-od-id="link-categories">
+          <span>Categories</span>
+          <span class="meta">Parent/sub tree · colours · merge</span>
+        </a>
+      </li>
+      <li>
+        <a href="funds-serviceability.html" data-od-id="link-serviceability">
+          <span>Serviceability</span>
+          <span class="meta">Income · repayments · living · stress</span>
+        </a>
+      </li>
+    </ul>
+
+    <div class="notes" data-od-id="redesign-notes">
+      <h2>What stayed the same (behaviour)</h2>
+      <ul>
+        <li>No login / auth — local self-hosted SPA assumption</li>
+        <li>Sidebar brand <strong>FUNDS</strong> and exact nav labels + grouping (Overview / Cash flow / Net worth / Data &amp; setup)</li>
+        <li>Attention badges on Transactions and Planned spending</li>
+        <li>Dashboard title “Spending &amp; Income Overview”, account + period filters, four KPIs with vs-prior deltas, cash-flow bars, category donuts (slice → transactions), balance / net-worth charts</li>
+        <li>Transactions filters, recategorize / new category, table columns, pagination</li>
+        <li>Statements PDF upload, list, missing-period alerts</li>
+        <li>Categories tree with colour, merge, reorder affordances</li>
+        <li>Serviceability income / repayments / living / surplus + stress scenario</li>
+      </ul>
+
+      <h2>What changed (visual)</h2>
+      <ul>
+        <li>Removed dark glassmorphism and purple (#a287cd) active-nav glow</li>
+        <li>Bound <em>modern-minimal</em> light paper tokens (oklch neutrals + single blue accent)</li>
+        <li>IBM Plex Sans + IBM Plex Mono (tabular money) — not Inter / system-only UI</li>
+        <li>Hairline borders, flat surfaces, KPI strips without card stack noise</li>
+        <li>Accent reserved for active nav + sparse chart secondary series</li>
+        <li>Shared chrome in <code>css/shared.css</code> + <code>js/shared.js</code> for React+Tailwind porting</li>
+      </ul>
+
+      <h2>File map</h2>
+      <ul>
+        <li><code>css/shared.css</code> — tokens, sidebar, controls, tables</li>
+        <li><code>js/shared.js</code> — nav IA, money format, control wiring</li>
+        <li><code>js/charts.js</code> — canvas bar / line / donut helpers</li>
+        <li>Priority screens: <code>funds-*.html</code> as linked above</li>
+        <li>Non-priority nav items are present as stubs (href <code>#</code>) so IA matches production</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,251 @@
+/* Income — detected salary streams */
+
+.income-panel .income-callout {
+  margin: 0 16px 12px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in oklch, var(--accent) 28%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--accent) 6%, var(--surface));
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.income-callout-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.income-callout-icon {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklch, var(--accent) 12%, var(--surface));
+  color: var(--accent);
+  border: 1px solid color-mix(in oklch, var(--accent) 24%, var(--border));
+}
+
+.income-callout-text strong {
+  display: block;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 2px;
+}
+
+.income-callout-text p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Streams table */
+.income-panel table.data .col-source { min-width: 160px; }
+.income-panel table.data .col-freq { width: 100px; }
+.income-panel table.data .col-months { width: 72px; text-align: right; }
+.income-panel table.data .col-status { min-width: 140px; }
+.income-panel table.data .col-actions { width: 72px; text-align: right; }
+
+.source-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.source-cell .source-name {
+  font-weight: 500;
+  color: var(--fg);
+}
+
+.source-cell .source-detected {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pill.primary {
+  color: var(--accent);
+  border-color: color-mix(in oklch, var(--accent) 30%, var(--border));
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+}
+
+.pill.variable {
+  color: oklch(45% 0.12 75);
+  border-color: color-mix(in oklch, var(--warn) 35%, var(--border));
+  background: color-mix(in oklch, var(--warn) 10%, var(--surface));
+}
+
+.btn-edit {
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.btn-edit:hover { color: var(--fg); }
+
+/* Edit dialog */
+.income-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(640px, calc(100vh - 48px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 16px 48px color-mix(in oklch, var(--fg) 12%, transparent);
+}
+
+.income-dialog::backdrop {
+  background: color-mix(in oklch, var(--fg) 32%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.income-dialog[open] {
+  animation: income-dialog-in 180ms var(--ease);
+}
+
+@keyframes income-dialog-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.income-dialog-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.income-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 0;
+}
+
+.income-dialog-head .eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.income-dialog-head h2 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+
+.income-dialog-body {
+  padding: 18px 22px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.income-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+}
+
+.income-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.income-field > span {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.income-field .input,
+.income-field .select {
+  width: 100%;
+}
+
+.package-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.package-row .input {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.checkbox-field input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--fg);
+  cursor: pointer;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.dialog-close {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+
+.dialog-close:hover {
+  background: color-mix(in oklch, var(--fg) 4%, transparent);
+  color: var(--fg);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+@media (max-width: 760px) {
+  .package-row {
+    grid-template-columns: 1fr;
+  }
+}

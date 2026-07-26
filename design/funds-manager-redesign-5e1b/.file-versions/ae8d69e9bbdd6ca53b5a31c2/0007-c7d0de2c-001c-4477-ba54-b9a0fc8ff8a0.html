@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Breakdown</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/breakdown-summary.css" />
+  <link rel="stylesheet" href="css/walkthrough.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Breakdown</h1>
+        <p class="page-sub">Spending and income by category · expand rows for grouped descriptions (same keys as repeat payments)</p>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="filters-row" data-od-id="breakdown-filters">
+        <label class="sr" for="bd-account">Account</label>
+        <select class="select" id="bd-account" data-od-id="filter-account" aria-label="Account filter">
+          <option value="all">All accounts</option>
+          <option value="pc-9120" selected>People's Choice 9120</option>
+          <option value="pc-savings">People's Choice Savings</option>
+          <option value="cba-offset">CBA Offset 4412</option>
+        </select>
+
+        <div class="segmented" role="group" aria-label="Date mode" data-od-id="filter-mode" id="date-mode">
+          <button type="button" data-value="presets" class="is-on" aria-pressed="true">Presets</button>
+          <button type="button" data-value="custom" aria-pressed="false">Custom</button>
+        </div>
+
+        <div class="segmented" role="group" aria-label="Period" data-od-id="filter-period" id="period">
+          <button type="button" data-value="1m" class="is-on" aria-pressed="true">This month</button>
+          <button type="button" data-value="3m" aria-pressed="false">3 months</button>
+          <button type="button" data-value="6m" aria-pressed="false">6 months</button>
+          <button type="button" data-value="1y" aria-pressed="false">1 year</button>
+          <button type="button" data-value="all" aria-pressed="false">All time</button>
+        </div>
+
+        <div class="custom-dates" id="custom-dates" data-od-id="filter-custom-dates">
+          <label class="sr" for="date-from">From</label>
+          <input class="input date" type="date" id="date-from" value="2026-01-01" aria-label="From date" />
+          <span class="date-sep">to</span>
+          <label class="sr" for="date-to">To</label>
+          <input class="input date" type="date" id="date-to" value="2026-07-19" aria-label="To date" />
+        </div>
+
+        <div class="summary-variants" data-od-id="period-totals">
+          <div class="summary-variant-tabs" role="group" aria-label="Summary style">
+            <span>Summary</span>
+            <button type="button" class="is-on" data-summary-variant="net" aria-pressed="true">Net focus</button>
+            <button type="button" data-summary-variant="equation" aria-pressed="false">Equation</button>
+            <button type="button" data-summary-variant="compact" aria-pressed="false">Compact</button>
+          </div>
+
+          <div class="period-summary is-on summary-net" data-summary-panel="net" aria-label="Period totals, net focused">
+            <div class="summary-net-primary">
+              <span class="summary-kicker">Net this period</span>
+              <strong class="summary-net-value pos" data-summary-value="net">+$1,943.60</strong>
+            </div>
+            <div class="summary-net-detail">
+              <span class="is-income"><i class="summary-dot is-income" aria-hidden="true"></i>Income <strong data-summary-value="income">+$8,760.00</strong></span>
+              <span class="is-spend"><i class="summary-dot is-spending" aria-hidden="true"></i>Spending <strong data-summary-value="spend">−$6,816.40</strong></span>
+            </div>
+          </div>
+
+          <div class="period-summary summary-equation" data-summary-panel="equation" aria-label="Period totals as an equation" hidden>
+            <div class="equation-part">
+              <span>Income</span>
+              <strong data-summary-value="income">+$8,760.00</strong>
+            </div>
+            <span class="equation-symbol" aria-hidden="true">−</span>
+            <div class="equation-part">
+              <span>Spending</span>
+              <strong data-summary-value="spend-plain">$6,816.40</strong>
+            </div>
+            <span class="equation-symbol" aria-hidden="true">=</span>
+            <div class="equation-part is-result">
+              <span>Net</span>
+              <strong class="pos" data-summary-value="net">+$1,943.60</strong>
+            </div>
+          </div>
+
+          <div class="period-summary summary-compact" data-summary-panel="compact" aria-label="Compact period totals" hidden>
+            <div class="compact-total">
+              <span><i class="summary-dot is-spending"></i>Spent</span>
+              <strong data-summary-value="spend">−$6,816.40</strong>
+            </div>
+            <div class="compact-total">
+              <span><i class="summary-dot is-income"></i>Received</span>
+              <strong data-summary-value="income">+$8,760.00</strong>
+            </div>
+            <div class="compact-total is-net">
+              <span>Net movement</span>
+              <strong class="pos" data-summary-value="net">+$1,943.60</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section class="panel" data-tour="breakdown-recurring" data-od-id="breakdown-tour-target">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title" data-od-id="breakdown-table-title">By category</h2>
+            <p class="panel-hint" id="table-hint">People's Choice 9120 · this month</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data" data-od-id="breakdown-table">
+            <thead>
+              <tr id="bd-head">
+                <th class="col-expand" scope="col"><span class="sr">Expand</span></th>
+                <th scope="col" data-sort="name" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-name">Category<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="is-numeric" scope="col" data-sort="spend" aria-sort="descending">
+                  <button type="button" class="th-sort" data-od-id="sort-spend">Spending<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-pct is-numeric" scope="col" data-sort="pct" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-pct">% of spending<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="is-numeric" scope="col" data-sort="income" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-income">Income<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="is-numeric" scope="col" data-sort="net" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-net">Net<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-txns is-numeric" scope="col" data-sort="txns" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-txns">Txns<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-actions" scope="col"><span class="sr">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="bd-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <dialog class="move-dialog" id="move-dialog" data-od-id="move-dialog" aria-labelledby="move-title">
+    <form method="dialog" class="move-shell">
+      <div class="move-head">
+        <div>
+          <span class="move-eyebrow">Move description group</span>
+          <h2 id="move-title">Choose a category</h2>
+          <p id="move-description">Select where this description should appear.</p>
+        </div>
+        <button class="move-close" type="button" id="move-close" aria-label="Close move dialog">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="move-source" data-od-id="move-source">
+        <span class="move-source-label">Moving</span>
+        <strong id="move-source-name"></strong>
+        <span class="move-source-meta" id="move-source-meta"></span>
+      </div>
+
+      <label class="move-search">
+        <span class="sr">Search categories</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input type="search" id="move-search" placeholder="Search categories" autocomplete="off" />
+      </label>
+
+      <fieldset class="move-options" id="move-options">
+        <legend class="sr">Destination category</legend>
+      </fieldset>
+
+      <div class="move-empty" id="move-empty" hidden>No categories match your search.</div>
+
+      <div class="move-actions">
+        <button type="button" class="btn" id="move-cancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="move-confirm" disabled>
+          Move group
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+        </button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="move-toast" id="move-toast" role="status" aria-live="polite" data-od-id="move-toast">
+    <span class="move-toast-icon" aria-hidden="true">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+        <path d="m5 12 4 4L19 6"/>
+      </svg>
+    </span>
+    <span id="move-toast-text"></span>
+  </div>
+
+  <style>
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+    .move-trigger {
+      gap: 5px;
+      color: var(--fg);
+      border-color: var(--border);
+      background: var(--surface);
+    }
+
+    .move-trigger svg {
+      color: var(--muted);
+      transition: transform 140ms var(--ease);
+    }
+
+    .move-trigger:hover svg { transform: translateX(2px); }
+
+    .move-dialog {
+      width: min(440px, calc(100vw - 32px));
+      max-height: min(680px, calc(100vh - 48px));
+      padding: 0;
+      border: 1px solid color-mix(in oklch, var(--fg) 14%, var(--border));
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--fg);
+      box-shadow: 0 24px 70px color-mix(in oklch, var(--fg) 18%, transparent);
+    }
+
+    .move-dialog::backdrop {
+      background: color-mix(in oklch, var(--fg) 32%, transparent);
+      backdrop-filter: blur(2px);
+    }
+
+    .move-dialog[open] {
+      animation: move-dialog-in 180ms var(--ease);
+    }
+
+    @keyframes move-dialog-in {
+      from { opacity: 0; transform: translateY(8px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .move-shell { display: flex; flex-direction: column; min-height: 0; }
+
+    .move-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 22px 22px 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .move-eyebrow {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .move-head h2 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+
+    .move-head p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12.5px;
+    }
+
+    .move-close {
+      display: grid;
+      flex: 0 0 auto;
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      place-items: center;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .move-close:hover {
+      border-color: var(--border);
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    .move-source {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2px 12px;
+      margin: 16px 22px 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg);
+    }
+
+    .move-source-label {
+      grid-column: 1 / -1;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .move-source strong {
+      overflow: hidden;
+      font-size: 13px;
+      font-weight: 500;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .move-source-meta {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      white-space: nowrap;
+    }
+
+    .move-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 36px;
+      margin: 0 22px 10px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--muted);
+      transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+    }
+
+    .move-search:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 12%, transparent);
+    }
+
+    .move-search input {
+      min-width: 0;
+      flex: 1;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font-size: 13px;
+    }
+
+    .move-options {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      max-height: 248px;
+      margin: 0;
+      padding: 0 14px 12px;
+      overflow-y: auto;
+      border: 0;
+    }
+
+    .move-option {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      padding: 7px 9px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+    }
+
+    .move-option:hover { background: var(--bg); }
+
+    .move-option:has(input:checked) {
+      border-color: color-mix(in oklch, var(--accent) 42%, var(--border));
+      background: color-mix(in oklch, var(--accent) 7%, var(--surface));
+    }
+
+    .move-option input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .move-option-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .move-option-dot {
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+    }
+
+    .move-option-meta {
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+    }
+
+    .move-empty {
+      padding: 22px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .move-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 14px 22px;
+      border-top: 1px solid var(--border);
+      background: color-mix(in oklch, var(--fg) 1.5%, var(--surface));
+    }
+
+    .move-toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 120;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 42px;
+      padding: 9px 14px 9px 10px;
+      border: 1px solid color-mix(in oklch, var(--success) 35%, var(--border));
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 12px 38px color-mix(in oklch, var(--fg) 12%, transparent);
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 180ms var(--ease), transform 180ms var(--ease);
+    }
+
+    .move-toast.is-on {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .move-toast-icon {
+      display: grid;
+      width: 23px;
+      height: 23px;
+      place-items: center;
+      border-radius: 50%;
+      background: color-mix(in oklch, var(--success) 12%, var(--surface));
+      color: var(--success);
+    }
+
+    @media (max-width: 600px) {
+      .move-dialog {
+        width: calc(100vw - 20px);
+        max-height: calc(100vh - 20px);
+      }
+
+      .move-head { padding: 18px; }
+      .move-source { margin-right: 18px; margin-left: 18px; }
+      .move-search { margin-right: 18px; margin-left: 18px; }
+      .move-actions { padding: 12px 18px; }
+      .move-toast { right: 10px; bottom: 10px; left: 10px; }
+    }
+  </style>
+
+  <script src="js/shared.js"></script>
+  <script src="js/walkthrough.js"></script>
+  <script>
+    FUNDS.renderSidebar('breakdown');
+
+    const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+
+    const PERIODS = {
+      '1m': {
+        label: 'this month',
+        spend: 6816.40,
+        income: 8760.00,
+        rows: [
+          {
+            id: 'housing', name: 'Housing', color: '#8b6b4a',
+            spend: 2318.00, income: 0, txns: 4,
+            kids: [
+              { key: 'Rent payment J & K Trust', spend: 1850.00, income: 0, txns: 1 },
+              { key: 'Strata levies — Unit 4', spend: 420.00, income: 0, txns: 1 },
+              { key: 'Contents insurance NRMA', spend: 48.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'groceries', name: 'Groceries', color: '#3d8b6e',
+            spend: 1040.00, income: 0, txns: 12,
+            kids: [
+              { key: 'Woolworths 3342 Adelaide', spend: 520.00, income: 0, txns: 6 },
+              { key: 'Coles 0782 Norwood', spend: 364.00, income: 0, txns: 4 },
+              { key: 'Aldi Stores 145', spend: 156.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'transport', name: 'Transport', color: '#4a6fa5',
+            spend: 687.00, income: 0, txns: 9,
+            kids: [
+              { key: 'Shell Coles Express St Marys', spend: 412.00, income: 0, txns: 4 },
+              { key: 'Uber *Trip', spend: 148.00, income: 0, txns: 3 },
+              { key: 'Adelaide Metro Tap', spend: 127.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'dining', name: 'Dining out', color: '#c47a4a',
+            spend: 608.00, income: 0, txns: 11,
+            kids: [
+              { key: 'SQ *Line + Dot Cafe', spend: 214.00, income: 0, txns: 5 },
+              { key: 'Menulog *Order', spend: 246.00, income: 0, txns: 4 },
+              { key: 'Restaurant — Rundle St', spend: 148.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'utilities', name: 'Utilities', color: '#6b7a8b',
+            spend: 485.00, income: 0, txns: 5,
+            kids: [
+              { key: 'Origin Energy BPAY', spend: 214.80, income: 0, txns: 1 },
+              { key: 'SA Water BPAY', spend: 89.40, income: 0, txns: 1 },
+              { key: 'Netflix.com', spend: 22.99, income: 0, txns: 1 },
+              { key: 'Spotify P0A8X', spend: 12.99, income: 0, txns: 1 },
+              { key: 'iiNet Broadband', spend: 144.82, income: 0, txns: 1 },
+            ],
+          },
+          {
+            id: 'salary', name: 'Salary', color: '#2f7d5a',
+            spend: 0, income: 8640.00, txns: 2,
+            kids: [
+              { key: 'Salary Acme Pty Ltd', spend: 0, income: 8640.00, txns: 2 },
+            ],
+          },
+          {
+            id: 'other', name: 'Other', color: '#b8b8b8',
+            spend: 1128.40, income: 120.00, txns: 8,
+            kids: [
+              { key: 'ATM Withdrawal Rundle Mall', spend: 200.00, income: 0, txns: 2 },
+              { key: 'Bunnings 3921', spend: 184.20, income: 0, txns: 2 },
+              { key: 'Interest — Savings', spend: 0, income: 120.00, txns: 1 },
+              { key: 'Misc retail', spend: 744.20, income: 0, txns: 3 },
+            ],
+          },
+          {
+            id: 'uncat', name: 'Uncategorised', color: '#b0b0b0', uncat: true,
+            spend: 550.00, income: 0, txns: 5,
+            kids: [
+              { key: 'Unknown merchant 8841', spend: 45.90, income: 0, txns: 1 },
+              { key: 'Harvey Norman Online', spend: 349.00, income: 0, txns: 1 },
+              { key: 'Chemist Warehouse', spend: 24.60, income: 0, txns: 1 },
+              { key: 'Officeworks Online', spend: 39.95, income: 0, txns: 1 },
+              { key: 'ATM fee / sundry', spend: 90.55, income: 0, txns: 1 },
+            ],
+          },
+        ],
+      },
+      '3m': {
+        label: 'last 3 months',
+        scale: 3,
+      },
+      '6m': {
+        label: 'last 6 months',
+        spend: 43186.40,
+        income: 52410.00,
+        rows: [
+          {
+            id: 'housing', name: 'Housing', color: '#8b6b4a',
+            spend: 16800.00, income: 0, txns: 18,
+            kids: [
+              { key: 'Rent payment J & K Trust', spend: 11100.00, income: 0, txns: 6 },
+              { key: 'Strata levies — Unit 4', spend: 3360.00, income: 0, txns: 4 },
+              { key: 'Contents insurance NRMA', spend: 288.00, income: 0, txns: 6 },
+              { key: 'Maintenance / repairs', spend: 2052.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'groceries', name: 'Groceries', color: '#3d8b6e',
+            spend: 6240.00, income: 0, txns: 68,
+            kids: [
+              { key: 'Woolworths 3342 Adelaide', spend: 3120.00, income: 0, txns: 32 },
+              { key: 'Coles 0782 Norwood', spend: 2184.00, income: 0, txns: 24 },
+              { key: 'Aldi Stores 145', spend: 936.00, income: 0, txns: 12 },
+            ],
+          },
+          {
+            id: 'transport', name: 'Transport', color: '#4a6fa5',
+            spend: 4120.00, income: 0, txns: 42,
+            kids: [
+              { key: 'Shell Coles Express St Marys', spend: 2472.00, income: 0, txns: 20 },
+              { key: 'Uber *Trip', spend: 988.00, income: 0, txns: 14 },
+              { key: 'Adelaide Metro Tap', spend: 660.00, income: 0, txns: 8 },
+            ],
+          },
+          {
+            id: 'dining', name: 'Dining out', color: '#c47a4a',
+            spend: 3850.00, income: 0, txns: 54,
+            kids: [
+              { key: 'SQ *Line + Dot Cafe', spend: 1280.00, income: 0, txns: 24 },
+              { key: 'Menulog *Order', spend: 1540.00, income: 0, txns: 20 },
+              { key: 'Restaurant — Rundle St', spend: 1030.00, income: 0, txns: 10 },
+            ],
+          },
+          {
+            id: 'utilities', name: 'Utilities', color: '#6b7a8b',
+            spend: 2910.00, income: 0, txns: 24,
+            kids: [
+              { key: 'Origin Energy BPAY', spend: 1288.80, income: 0, txns: 6 },
+              { key: 'SA Water BPAY', spend: 536.40, income: 0, txns: 4 },
+              { key: 'Netflix.com', spend: 137.94, income: 0, txns: 6 },
+              { key: 'Spotify P0A8X', spend: 77.94, income: 0, txns: 6 },
+              { key: 'iiNet Broadband', spend: 868.92, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'salary', name: 'Salary', color: '#2f7d5a',
+            spend: 0, income: 48600.00, txns: 13,
+            kids: [
+              { key: 'Salary Acme Pty Ltd', spend: 0, income: 48600.00, txns: 13 },
+            ],
+          },
+          {
+            id: 'other', name: 'Other', color: '#b8b8b8',
+            spend: 7616.40, income: 3810.00, txns: 48,
+            kids: [
+              { key: 'Interest — Savings', spend: 0, income: 1840.00, txns: 6 },
+              { key: 'Refunds', spend: 0, income: 970.00, txns: 4 },
+              { key: 'Other income', spend: 0, income: 1000.00, txns: 3 },
+              { key: 'Misc retail / cash', spend: 7616.40, income: 0, txns: 35 },
+            ],
+          },
+          {
+            id: 'uncat', name: 'Uncategorised', color: '#b0b0b0', uncat: true,
+            spend: 1650.00, income: 0, txns: 14,
+            kids: [
+              { key: 'Unknown merchant 8841', spend: 245.90, income: 0, txns: 4 },
+              { key: 'Harvey Norman Online', spend: 349.00, income: 0, txns: 1 },
+              { key: 'Chemist Warehouse', spend: 148.60, income: 0, txns: 4 },
+              { key: 'Officeworks Online', spend: 219.95, income: 0, txns: 3 },
+              { key: 'ATM fee / sundry', spend: 686.55, income: 0, txns: 2 },
+            ],
+          },
+        ],
+      },
+      '1y': {
+        label: 'last 12 months',
+        scale: 12,
+      },
+      all: {
+        label: 'all time',
+        scale: 24,
+      },
+    };
+
+    function scaleRows(baseRows, factor) {
+      return baseRows.map((r) => {
+        const spend = Math.round(r.spend * factor * 100) / 100;
+        const income = Math.round(r.income * factor * 100) / 100;
+        const kids = (r.kids || []).map((k) => ({
+          key: k.key,
+          spend: Math.round(k.spend * factor * 100) / 100,
+          income: Math.round(k.income * factor * 100) / 100,
+          txns: Math.max(1, Math.round(k.txns * factor)),
+        }));
+        return {
+          id: r.id,
+          name: r.name,
+          color: r.color,
+          uncat: r.uncat,
+          spend,
+          income,
+          txns: Math.max(1, Math.round(r.txns * factor)),
+          kids,
+        };
+      });
+    }
+
+    const periodOverrides = {};
+
+    function resolvePeriod(key) {
+      if (periodOverrides[key]) return periodOverrides[key];
+      const p = PERIODS[key] || PERIODS['1m'];
+      if (p.rows) {
+        return {
+          label: p.label,
+          spend: p.spend,
+          income: p.income,
+          rows: p.rows,
+        };
+      }
+      const rows = scaleRows(PERIODS['1m'].rows, p.scale);
+      let spend = 0;
+      let income = 0;
+      for (const r of rows) {
+        spend += r.spend;
+        income += r.income;
+      }
+      return {
+        label: p.label,
+        spend: Math.round(spend * 100) / 100,
+        income: Math.round(income * 100) / 100,
+        rows,
+      };
+    }
+
+    let openId = 'housing';
+    let periodKey = '1m';
+    let mode = 'presets';
+    let sortKey = 'spend';
+    let sortDir = 'desc';
+
+    function moneyNeg(n) {
+      if (!n) return '—';
+      return '−' + FUNDS.money(n).replace(/^−/, '');
+    }
+
+    function moneyPos(n) {
+      if (!n) return '—';
+      return '+' + FUNDS.money(n);
+    }
+
+    function netClass(n) {
+      if (n > 0) return 'pos';
+      if (n < 0) return 'neg';
+      return '';
+    }
+
+    function fmtNet(n) {
+      if (n === 0) return FUNDS.money(0);
+      if (n > 0) return moneyPos(n);
+      return moneyNeg(Math.abs(n));
+    }
+
+    function catPill(row) {
+      const cls = 'cat-pill' + (row.uncat ? ' is-uncat' : '');
+      return `<span class="${cls}"><span class="cat-dot" style="background:${row.color}"></span>${row.name}</span>`;
+    }
+
+    function shareCell(pct, color) {
+      if (pct <= 0) return '<span class="share-pct">—</span>';
+      const w = Math.min(100, Math.max(2, pct));
+      return `<div class="share-cell">
+        <span class="share-pct">${pct.toFixed(1)}%</span>
+        <div class="share-track" aria-hidden="true"><div class="share-fill" style="width:${w}%;background:${color}"></div></div>
+      </div>`;
+    }
+
+    function paintTotals(data) {
+      const net = data.income - data.spend;
+      document.querySelectorAll('[data-summary-value="spend"]').forEach((element) => {
+        element.textContent = moneyNeg(data.spend);
+      });
+      document.querySelectorAll('[data-summary-value="spend-plain"]').forEach((element) => {
+        element.textContent = FUNDS.money(data.spend);
+      });
+      document.querySelectorAll('[data-summary-value="income"]').forEach((element) => {
+        element.textContent = moneyPos(data.income);
+      });
+      document.querySelectorAll('[data-summary-value="net"]').forEach((element) => {
+        element.textContent = fmtNet(net);
+        element.classList.toggle('pos', net > 0);
+        element.classList.toggle('neg', net < 0);
+      });
+    }
+
+    function parentSortValue(row, key) {
+      if (key === 'name') return row.name.toLowerCase();
+      if (key === 'spend' || key === 'pct') return row.spend;
+      if (key === 'income') return row.income;
+      if (key === 'net') return row.income - row.spend;
+      if (key === 'txns') return row.txns;
+      return 0;
+    }
+
+    function childSortValue(kid, key) {
+      if (key === 'name') return kid.key.toLowerCase();
+      if (key === 'spend' || key === 'pct') return kid.spend;
+      if (key === 'income') return kid.income;
+      if (key === 'net') return kid.income - kid.spend;
+      if (key === 'txns') return kid.txns;
+      return 0;
+    }
+
+    function compareValues(a, b, dir) {
+      if (typeof a === 'string' && typeof b === 'string') {
+        return a.localeCompare(b) * dir;
+      }
+      if (a === b) return 0;
+      return (a < b ? -1 : 1) * dir;
+    }
+
+    function sortedRows(rows) {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      return rows
+        .map((row) => {
+          const kids = row.kids
+            ? [...row.kids].sort((a, b) => {
+                const cmp = compareValues(childSortValue(a, sortKey), childSortValue(b, sortKey), dir);
+                if (cmp !== 0) return cmp;
+                return a.key.localeCompare(b.key);
+              })
+            : row.kids;
+          return Object.assign({}, row, { kids: kids });
+        })
+        .sort((a, b) => {
+          const cmp = compareValues(parentSortValue(a, sortKey), parentSortValue(b, sortKey), dir);
+          if (cmp !== 0) return cmp;
+          return a.name.localeCompare(b.name);
+        });
+    }
+
+    function paintSortHeaders() {
+      document.querySelectorAll('#bd-head [data-sort]').forEach((th) => {
+        const key = th.getAttribute('data-sort');
+        if (key === sortKey) {
+          th.setAttribute('aria-sort', sortDir === 'asc' ? 'ascending' : 'descending');
+        } else {
+          th.setAttribute('aria-sort', 'none');
+        }
+      });
+    }
+
+    function paintTable() {
+      const data = resolvePeriod(periodKey);
+      const acct = document.getElementById('bd-account');
+      const acctLabel = acct.options[acct.selectedIndex].text;
+      document.getElementById('table-hint').textContent = acctLabel + ' · ' + data.label;
+      paintTotals(data);
+      paintSortHeaders();
+
+      const spendTotal = data.spend || 1;
+      const body = document.getElementById('bd-body');
+      let html = '';
+      const rows = sortedRows(data.rows);
+
+      for (const row of rows) {
+        const net = row.income - row.spend;
+        const pct = row.spend > 0 ? (row.spend / spendTotal) * 100 : 0;
+        const isOpen = openId === row.id;
+        const hasKids = row.kids && row.kids.length > 0;
+
+        html += `<tr class="is-parent${isOpen ? ' is-open' : ''}" data-id="${row.id}" data-od-id="cat-row-${row.id}">
+          <td class="col-expand">
+            ${hasKids
+              ? `<button type="button" class="row-toggle" aria-expanded="${isOpen}" aria-label="${isOpen ? 'Collapse' : 'Expand'} ${row.name}" data-toggle="${row.id}">${CHEVRON}</button>`
+              : `<button type="button" class="row-toggle is-empty" tabindex="-1" aria-hidden="true">${CHEVRON}</button>`}
+          </td>
+          <td>${catPill(row)}</td>
+          <td class="amount ${row.spend ? 'neg' : ''} mono">${row.spend ? moneyNeg(row.spend) : '—'}</td>
+          <td class="col-pct">${row.spend ? shareCell(pct, row.color) : '—'}</td>
+          <td class="amount ${row.income ? 'pos' : ''} mono">${row.income ? moneyPos(row.income) : '—'}</td>
+          <td class="amount ${netClass(net)} mono">${fmtNet(net)}</td>
+          <td class="col-txns mono">${row.txns}</td>
+          <td class="col-actions"></td>
+        </tr>`;
+
+        if (hasKids) {
+          const hide = isOpen ? '' : ' is-hidden';
+          html += `<tr class="is-child-head${hide}" data-parent="${row.id}">
+            <td></td>
+            <td>Description</td>
+            <td style="text-align:right">Spending</td>
+            <td></td>
+            <td style="text-align:right">Income</td>
+            <td style="text-align:right">Net</td>
+            <td class="col-txns">Txns</td>
+            <td class="col-actions">Action</td>
+          </tr>`;
+
+          for (let i = 0; i < row.kids.length; i++) {
+            const k = row.kids[i];
+            const knet = k.income - k.spend;
+            const moveToken = row.id + '::' + encodeURIComponent(k.key);
+            html += `<tr class="is-child${hide}" data-parent="${row.id}" data-od-id="desc-${row.id}-${i}">
+              <td></td>
+              <td><span class="desc-key">${k.key}</span></td>
+              <td class="amount ${k.spend ? 'neg' : ''} mono">${k.spend ? moneyNeg(k.spend) : '—'}</td>
+              <td></td>
+              <td class="amount ${k.income ? 'pos' : ''} mono">${k.income ? moneyPos(k.income) : '—'}</td>
+              <td class="amount ${netClass(knet)} mono">${fmtNet(knet)}</td>
+              <td class="col-txns mono">${k.txns}</td>
+              <td class="col-actions">
+                <button type="button" class="btn move-trigger" data-move="${moveToken}" data-od-id="move-${row.id}-${i}" title="Move description group to another category" aria-haspopup="dialog">
+                  Move
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </button>
+              </td>
+            </tr>`;
+          }
+        }
+      }
+
+      body.innerHTML = html;
+    }
+
+    const moveDialog = document.getElementById('move-dialog');
+    const moveOptions = document.getElementById('move-options');
+    const moveSearch = document.getElementById('move-search');
+    const moveConfirm = document.getElementById('move-confirm');
+    let moveContext = null;
+    let toastTimer = null;
+
+    function openMoveDialog(sourceId, childKey) {
+      const data = resolvePeriod(periodKey);
+      const source = data.rows.find((row) => row.id === sourceId);
+      const childIndex = source && source.kids
+        ? source.kids.findIndex((kid) => kid.key === childKey)
+        : -1;
+      const item = childIndex >= 0 ? source.kids[childIndex] : null;
+      if (!source || !item) return;
+
+      moveContext = { sourceId, childIndex, item, destinationId: null };
+      document.getElementById('move-source-name').textContent = item.key;
+      document.getElementById('move-source-meta').textContent = item.txns + (item.txns === 1 ? ' txn' : ' txns');
+      moveSearch.value = '';
+      moveConfirm.disabled = true;
+
+      moveOptions.innerHTML = data.rows
+        .filter((row) => row.id !== sourceId)
+        .map((row) => `
+          <label class="move-option" data-search="${row.name.toLowerCase()}">
+            <input type="radio" name="move-destination" value="${row.id}" />
+            <span class="move-option-name">
+              <span class="move-option-dot" style="background:${row.color}"></span>
+              ${row.name}
+            </span>
+            <span class="move-option-meta">${row.txns} txns</span>
+          </label>
+        `).join('');
+
+      moveDialog.showModal();
+      window.setTimeout(() => moveSearch.focus(), 30);
+    }
+
+    function closeMoveDialog() {
+      moveDialog.close();
+      moveContext = null;
+    }
+
+    function showMoveToast(message) {
+      const toast = document.getElementById('move-toast');
+      document.getElementById('move-toast-text').textContent = message;
+      toast.classList.add('is-on');
+      if (toastTimer) window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => toast.classList.remove('is-on'), 3200);
+    }
+
+    document.getElementById('bd-head').addEventListener('click', (e) => {
+      const button = e.target.closest('.th-sort');
+      if (!button) return;
+      const th = button.closest('[data-sort]');
+      if (!th) return;
+      const key = th.getAttribute('data-sort');
+      if (sortKey === key) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortKey = key;
+        sortDir = key === 'name' ? 'asc' : 'desc';
+      }
+      paintTable();
+    });
+
+    document.getElementById('bd-body').addEventListener('click', (e) => {
+      const moveButton = e.target.closest('[data-move]');
+      if (moveButton) {
+        const token = moveButton.getAttribute('data-move');
+        const sep = token.indexOf('::');
+        if (sep === -1) return;
+        openMoveDialog(token.slice(0, sep), decodeURIComponent(token.slice(sep + 2)));
+        return;
+      }
+
+      const btn = e.target.closest('[data-toggle]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-toggle');
+      openId = openId === id ? null : id;
+      paintTable();
+    });
+
+    moveOptions.addEventListener('change', (e) => {
+      if (!moveContext || !e.target.matches('input[name="move-destination"]')) return;
+      moveContext.destinationId = e.target.value;
+      moveConfirm.disabled = false;
+    });
+
+    moveSearch.addEventListener('input', () => {
+      const query = moveSearch.value.trim().toLowerCase();
+      let visible = 0;
+      moveOptions.querySelectorAll('.move-option').forEach((option) => {
+        const matches = option.getAttribute('data-search').includes(query);
+        option.hidden = !matches;
+        if (matches) visible += 1;
+      });
+      document.getElementById('move-empty').hidden = visible !== 0;
+    });
+
+    moveConfirm.addEventListener('click', () => {
+      if (!moveContext || !moveContext.destinationId) return;
+      const data = resolvePeriod(periodKey);
+      const source = data.rows.find((row) => row.id === moveContext.sourceId);
+      const destination = data.rows.find((row) => row.id === moveContext.destinationId);
+      if (!source || !source.kids || !destination) return;
+
+      const movedItem = source.kids.splice(moveContext.childIndex, 1)[0];
+      if (!movedItem) return;
+      if (!destination.kids) destination.kids = [];
+      destination.kids.push(movedItem);
+      source.spend = Math.max(0, Math.round((source.spend - movedItem.spend) * 100) / 100);
+      source.income = Math.max(0, Math.round((source.income - movedItem.income) * 100) / 100);
+      source.txns = Math.max(0, source.txns - movedItem.txns);
+      destination.spend = Math.round((destination.spend + movedItem.spend) * 100) / 100;
+      destination.income = Math.round((destination.income + movedItem.income) * 100) / 100;
+      destination.txns += movedItem.txns;
+      periodOverrides[periodKey] = data;
+
+      const itemName = moveContext.item.key;
+      openId = destination.id;
+      closeMoveDialog();
+      paintTable();
+      showMoveToast('Moved “' + itemName + '” to ' + destination.name);
+    });
+
+    document.getElementById('move-close').addEventListener('click', closeMoveDialog);
+    document.getElementById('move-cancel').addEventListener('click', closeMoveDialog);
+    moveDialog.addEventListener('close', () => {
+      moveContext = null;
+    });
+
+    FUNDS.wireSegmented('#date-mode', (val) => {
+      mode = val;
+      const presets = document.getElementById('period');
+      const custom = document.getElementById('custom-dates');
+      if (val === 'custom') {
+        presets.hidden = true;
+        custom.classList.add('is-on');
+        document.getElementById('table-hint').textContent =
+          document.getElementById('bd-account').options[document.getElementById('bd-account').selectedIndex].text +
+          ' · ' + document.getElementById('date-from').value + ' → ' + document.getElementById('date-to').value;
+      } else {
+        presets.hidden = false;
+        custom.classList.remove('is-on');
+        paintTable();
+      }
+    });
+
+    FUNDS.wireSegmented('#period', (val) => {
+      periodKey = val;
+      paintTable();
+    });
+
+    document.querySelector('.summary-variant-tabs').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-summary-variant]');
+      if (!button) return;
+      const variant = button.getAttribute('data-summary-variant');
+      document.querySelectorAll('[data-summary-variant]').forEach((item) => {
+        const isSelected = item === button;
+        item.classList.toggle('is-on', isSelected);
+        item.setAttribute('aria-pressed', String(isSelected));
+      });
+      document.querySelectorAll('[data-summary-panel]').forEach((panel) => {
+        const isSelected = panel.getAttribute('data-summary-panel') === variant;
+        panel.hidden = !isSelected;
+        panel.classList.toggle('is-on', isSelected);
+      });
+    });
+
+    document.getElementById('bd-account').addEventListener('change', paintTable);
+    document.getElementById('date-from').addEventListener('change', () => {
+      if (mode === 'custom') {
+        document.getElementById('table-hint').textContent =
+          document.getElementById('bd-account').options[document.getElementById('bd-account').selectedIndex].text +
+          ' · ' + document.getElementById('date-from').value + ' → ' + document.getElementById('date-to').value;
+      }
+    });
+    document.getElementById('date-to').addEventListener('change', () => {
+      if (mode === 'custom') {
+        document.getElementById('table-hint').textContent =
+          document.getElementById('bd-account').options[document.getElementById('bd-account').selectedIndex].text +
+          ' · ' + document.getElementById('date-from').value + ' → ' + document.getElementById('date-to').value;
+      }
+    });
+
+    paintTable();
+  </script>
+</body>
+</html>

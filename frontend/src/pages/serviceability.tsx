@@ -1,95 +1,108 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Scale } from 'lucide-react';
+import { Loader2, Scale } from 'lucide-react';
 import { AccountFilter } from '@/components/account-filter';
-import { PeriodFilter } from '@/components/dashboard/PeriodFilter';
 import {
 	BREAKDOWN_PRESET_PERIODS,
 	DASHBOARD_PERIOD_STORAGE_KEY,
+	PERIOD_LABELS,
 	type DashboardPeriod,
 	periodDateRange,
 	readStoredPeriod,
 } from '@/components/dashboard/period';
 import { EmptyState } from '@/components/layout/EmptyState';
+import { ErrorState } from '@/components/layout/ErrorState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
-import { StatCard } from '@/components/layout/StatCard';
-import { glassCardClass } from '@/components/layout/tokens';
+import { SegmentedControl } from '@/components/layout/SegmentedControl';
+import {
+	glassCardClass,
+	pageSubtitleClass,
+	pageTitleClass,
+	panelHintClass,
+	panelTitleClass,
+} from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
 import { useAccountFilter } from '@/hooks/useAccountFilter';
+import {
+	formatMoney,
+	leKpiLabelClass,
+	leKpiMoneyClass,
+	leSegmentButtonActiveClass,
+	leSegmentButtonClass,
+	leSegmentedClass,
+} from '@/pages/lender-expenses/shared';
+import {
+	MetricRows,
+	rsKpiDeltaClass,
+	rsPanelHeadClass,
+	SurplusBar,
+} from '@/pages/report-snapshots/shared';
 import {
 	fetchServiceabilitySummary,
 	type ServiceabilitySummaryResponse,
 } from '@/types/serviceability';
 
-const formatMoney = (value: number): string =>
-	`$${value.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+type ServiceabilityScenario = 'base' | 'stress';
 
-function surplusTone(value: number): string {
-	if (value >= 0) {
-		return 'text-green-400';
-	}
-	return 'text-red-400';
+function surplusToneClass(value: number): string {
+	return value >= 0 ? 'text-[color:var(--success)]' : 'text-[color:var(--danger)]';
 }
 
-function BreakdownTable({
-	title,
-	headers,
-	rows,
-}: {
+function formatNegativeMoney(value: number): string {
+	return `−${formatMoney(value)}`;
+}
+
+type BreakdownMetricRow = {
+	label: string;
+	sub?: string;
+	value: string;
+};
+
+type BreakdownPanelProps = {
 	title: string;
-	headers: string[];
-	rows: string[][];
-}) {
-	if (rows.length === 0) {
-		return null;
-	}
+	hint: string;
+	rows: BreakdownMetricRow[];
+	totalLabel: string;
+	totalValue: string;
+	emptyMessage?: string;
+};
+
+function BreakdownPanel({
+	title,
+	hint,
+	rows,
+	totalLabel,
+	totalValue,
+	emptyMessage = 'Nothing to show.',
+}: BreakdownPanelProps) {
 	return (
-		<div className={glassCardClass}>
-			<h2 className="mb-3 text-sm font-semibold text-paper-fg">{title}</h2>
-			<div className="overflow-x-auto">
-				<table className="w-full min-w-[32rem] text-sm">
-					<thead>
-						<tr className="border-b border-paper-border text-left text-xs uppercase tracking-wide text-paper-muted">
-							{headers.map((header) => (
-								<th key={header} className="px-3 py-2 font-medium">
-									{header}
-								</th>
-							))}
-						</tr>
-					</thead>
-					<tbody>
-						{rows.map((cells) => (
-							<tr key={cells.join('|')} className="border-t border-paper-border text-paper-fg">
-								{cells.map((cell, index) => (
-									<td
-										key={`${cells[0]}-${String(index)}`}
-										className={cn(
-											'px-3 py-2',
-											index > 0 ? 'text-right font-mono tabular-nums' : ''
-										)}
-									>
-										{cell}
-									</td>
-								))}
-							</tr>
-						))}
-					</tbody>
-				</table>
+		<section className={cn(glassCardClass, 'overflow-hidden p-0')}>
+			<div className={rsPanelHeadClass}>
+				<h2 className={panelTitleClass}>{title}</h2>
+				<p className={cn(panelHintClass, 'm-0 shrink-0')}>{hint}</p>
 			</div>
-		</div>
+			<div className="p-4">
+				{rows.length > 0 ? (
+					<MetricRows rows={rows} totalLabel={totalLabel} totalValue={totalValue} />
+				) : (
+					<p className="m-0 text-[13px] text-paper-muted">{emptyMessage}</p>
+				)}
+			</div>
+		</section>
 	);
 }
 
 export function ServiceabilityPage() {
 	const { accountIdNumber } = useAccountFilter();
 	const [period, setPeriod] = useState<DashboardPeriod>(() => readStoredPeriod());
+	const [scenario, setScenario] = useState<ServiceabilityScenario>('base');
 	const [summary, setSummary] = useState<ServiceabilitySummaryResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
 	const dateRange = useMemo(() => periodDateRange(period), [period]);
+	const stressMode = scenario === 'stress';
 
 	const load = useCallback(async () => {
 		const start = dateRange.start;
@@ -124,133 +137,306 @@ export function ServiceabilityPage() {
 		void load();
 	}, [load]);
 
-	const incomeRows = useMemo(
+	const repaymentsMonthly = useMemo(() => {
+		if (summary === null) {
+			return 0;
+		}
+		return stressMode
+			? summary.stressedRepaymentsMonthlyDollars
+			: summary.repaymentsMonthlyDollars;
+	}, [stressMode, summary]);
+
+	const surplusMonthly = useMemo(() => {
+		if (summary === null) {
+			return 0;
+		}
+		return stressMode ? summary.stressedSurplusMonthlyDollars : summary.surplusMonthlyDollars;
+	}, [stressMode, summary]);
+
+	const commitmentsMonthly = useMemo(() => {
+		if (summary === null) {
+			return 0;
+		}
+		return repaymentsMonthly + summary.livingExpensesMonthlyDollars;
+	}, [repaymentsMonthly, summary]);
+
+	const incomeMetricRows = useMemo(
 		() =>
-			summary?.incomeLines.map((line) => [
-				line.label,
-				line.isConfirmed ? 'Yes' : 'No',
-				formatMoney(line.monthlyDollars),
-			]) ?? [],
+			summary?.incomeLines.map((line) => ({
+				label: line.label,
+				sub: line.isConfirmed ? 'Confirmed' : 'Unconfirmed',
+				value: formatMoney(line.monthlyDollars),
+			})) ?? [],
 		[summary]
 	);
 
-	const liabilityRows = useMemo(
+	const repaymentMetricRows = useMemo(
 		() =>
-			summary?.liabilities.map((line) => [
-				line.name,
-				line.included ? line.rateType ?? '—' : 'No repayment set',
-				line.included ? formatMoney(line.baselineRepaymentMonthlyDollars) : '—',
-				line.included ? formatMoney(line.stressedRepaymentMonthlyDollars) : '—',
-			]) ?? [],
-		[summary]
+			summary?.liabilities.map((line) => {
+				if (!line.included) {
+					return {
+						label: line.name,
+						sub: 'No repayment set',
+						value: '—',
+					};
+				}
+				const repayment = stressMode
+					? line.stressedRepaymentMonthlyDollars
+					: line.baselineRepaymentMonthlyDollars;
+				const rateLabel = line.rateType ?? '—';
+				const stressedNote =
+					stressMode &&
+					line.stressedRepaymentMonthlyDollars > line.baselineRepaymentMonthlyDollars
+						? ' · stressed'
+						: '';
+				return {
+					label: line.name,
+					sub: `${rateLabel}${stressedNote}`,
+					value: formatMoney(repayment),
+				};
+			}) ?? [],
+		[stressMode, summary]
 	);
 
-	const committedRows = useMemo(
-		() =>
-			summary?.livingSplit.committedBuckets.map((bucket) => [
-				bucket.label,
-				formatMoney(bucket.monthlyAverageDollars),
-			]) ?? [],
-		[summary]
-	);
+	const livingMetricRows = useMemo(() => {
+		if (summary === null) {
+			return [];
+		}
+		return [
+			...summary.livingSplit.committedBuckets,
+			...summary.livingSplit.discretionaryBuckets,
+		].map((bucket) => ({
+			label: bucket.label,
+			value: formatMoney(bucket.monthlyAverageDollars),
+		}));
+	}, [summary]);
 
-	const discretionaryRows = useMemo(
-		() =>
-			summary?.livingSplit.discretionaryBuckets.map((bucket) => [
-				bucket.label,
-				formatMoney(bucket.monthlyAverageDollars),
-			]) ?? [],
-		[summary]
-	);
+	const initialLoading = loading && summary === null && error === null;
+	if (initialLoading) {
+		return <PageLoadingState label="Loading serviceability…" />;
+	}
+
+	if (error !== null && summary === null) {
+		return (
+			<ErrorState
+				title="Error loading serviceability"
+				message={error}
+				onRetry={() => void load()}
+			/>
+		);
+	}
 
 	return (
-		<PageShell>
-			<PageHeader
-				title="Serviceability"
-				subtitle="Monthly surplus from income, loan repayments, and living expenses. Stressed figures apply a rate buffer to variable debts."
-			/>
-			<div className="mb-6 flex flex-wrap items-end gap-4">
-				<PeriodFilter
-					value={period}
-					onChange={setPeriod}
-					periods={BREAKDOWN_PRESET_PERIODS}
-					pending={loading}
-					ariaLabel="Serviceability period"
-				/>
-				<AccountFilter />
-			</div>
-
-			{loading ? <PageLoadingState label="Loading serviceability…" /> : null}
-			{error !== null ? <InlineAlert variant="error">{error}</InlineAlert> : null}
-
-			{!loading && summary === null && error === null ? (
-				<EmptyState
-					icon={Scale}
-					title="Choose a period"
-					description="Select a date range to calculate monthly surplus."
-				/>
-			) : null}
-
-			{summary !== null && !loading ? (
-				<div className="space-y-6">
-					{summary.incomeUsesUnconfirmed ? (
-						<InlineAlert variant="warning">
-							No confirmed income streams — totals include all detected income.
-						</InlineAlert>
-					) : null}
-					<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-						<StatCard label="Monthly income" value={formatMoney(summary.incomeMonthlyDollars)} />
-						<StatCard
-							label="Loan repayments"
-							value={formatMoney(summary.repaymentsMonthlyDollars)}
-						/>
-						<StatCard
-							label="Living expenses"
-							value={formatMoney(summary.livingExpensesMonthlyDollars)}
-						/>
-						<StatCard
-							label="Monthly surplus"
-							value={formatMoney(summary.surplusMonthlyDollars)}
-							valueClassName={surplusTone(summary.surplusMonthlyDollars)}
-						/>
+		<PageShell variant="table">
+			<header className="sticky top-0 z-30 shrink-0 border-b border-paper-border bg-paper-surface px-8 py-5">
+				<div className="flex flex-wrap items-start justify-between gap-4">
+					<div className="min-w-0">
+						<div className="flex flex-wrap items-center gap-2">
+							<h1 className={pageTitleClass}>Serviceability</h1>
+							{loading ? (
+								<Loader2
+									className="h-4 w-4 animate-spin text-secondary-default"
+									aria-label="Loading"
+								/>
+							) : null}
+						</div>
+						<p className={pageSubtitleClass}>
+							Broker-style surplus from income, repayments & living costs
+						</p>
 					</div>
-					<div className="grid gap-4 sm:grid-cols-2">
-						<StatCard
-							label={`Stressed surplus (+${(summary.rateBufferBps / 100).toFixed(1)}% buffer)`}
-							value={formatMoney(summary.stressedSurplusMonthlyDollars)}
-							valueClassName={surplusTone(summary.stressedSurplusMonthlyDollars)}
+					<div className="flex flex-wrap items-center gap-2.5">
+						<SegmentedControl
+							ariaLabel="Serviceability scenario"
+							value={scenario}
+							onChange={setScenario}
+							options={[
+								{ value: 'base', label: 'Base case' },
+								{
+									value: 'stress',
+									label: `Stress (+${summary !== null ? (summary.rateBufferBps / 100).toFixed(0) : '3'}%)`,
+								},
+							]}
 						/>
-						<StatCard
-							label="Committed (repayments + essential living)"
-							value={formatMoney(summary.committedTotalMonthlyDollars)}
-						/>
-						<StatCard
-							label="Discretionary living"
-							value={formatMoney(summary.discretionaryTotalMonthlyDollars)}
-						/>
+						<AccountFilter />
 					</div>
-					<BreakdownTable
-						title="Income streams"
-						headers={['Source', 'Confirmed', 'Monthly']}
-						rows={incomeRows}
-					/>
-					<BreakdownTable
-						title="Liabilities"
-						headers={['Name', 'Rate type', 'Repayment', 'Stressed']}
-						rows={liabilityRows}
-					/>
-					<BreakdownTable
-						title="Committed living expenses"
-						headers={['Bucket', 'Monthly avg']}
-						rows={committedRows}
-					/>
-					<BreakdownTable
-						title="Discretionary living expenses"
-						headers={['Bucket', 'Monthly avg']}
-						rows={discretionaryRows}
-					/>
 				</div>
-			) : null}
+			</header>
+
+			<div className="min-h-0 flex-grow overflow-auto px-8 py-6">
+				<div className="flex flex-col gap-6">
+					<div className="flex flex-wrap items-center gap-2.5">
+						<div className={leSegmentedClass} role="group" aria-label="Serviceability period">
+							{BREAKDOWN_PRESET_PERIODS.map((preset) => (
+								<button
+									key={preset}
+									type="button"
+									className={cn(
+										leSegmentButtonClass,
+										period === preset && leSegmentButtonActiveClass
+									)}
+									aria-pressed={period === preset}
+									onClick={() => setPeriod(preset)}
+								>
+									{PERIOD_LABELS[preset]}
+								</button>
+							))}
+						</div>
+					</div>
+
+					{!loading && summary === null && error === null ? (
+						<EmptyState
+							icon={Scale}
+							title="Choose a period"
+							description="Select a date range to calculate monthly surplus."
+						/>
+					) : null}
+
+					{summary !== null ? (
+						<>
+							{summary.incomeUsesUnconfirmed ? (
+								<InlineAlert variant="warning">
+									No confirmed income streams — totals include all detected income.
+								</InlineAlert>
+							) : null}
+
+							<section
+								className="grid grid-cols-1 gap-3 sm:grid-cols-3"
+								aria-label="Serviceability summary"
+							>
+								<article className="rounded-lg border border-paper-border bg-paper-surface px-[18px] py-4">
+									<p className={leKpiLabelClass}>Monthly income</p>
+									<p className={cn(leKpiMoneyClass, 'mt-2')}>
+										{formatMoney(summary.incomeMonthlyDollars)}
+									</p>
+									<p className={rsKpiDeltaClass}>
+										{summary.incomeUsesUnconfirmed
+											? 'All detected streams'
+											: 'Confirmed streams'}
+									</p>
+								</article>
+								<article className="rounded-lg border border-paper-border bg-paper-surface px-[18px] py-4">
+									<p className={leKpiLabelClass}>Commitments</p>
+									<p className={cn(leKpiMoneyClass, 'mt-2')}>
+										{formatMoney(commitmentsMonthly)}
+									</p>
+									<p className={rsKpiDeltaClass}>Repayments + living</p>
+								</article>
+								<article className="rounded-lg border border-paper-border bg-paper-surface px-[18px] py-4">
+									<p className={leKpiLabelClass}>Monthly surplus</p>
+									<p className={cn(leKpiMoneyClass, 'mt-2', surplusToneClass(surplusMonthly))}>
+										{formatMoney(surplusMonthly)}
+									</p>
+									<p className={rsKpiDeltaClass}>
+										{stressMode ? 'Stressed repayments' : 'Base case'}
+									</p>
+								</article>
+							</section>
+
+							<div className="grid grid-cols-1 gap-3 min-[900px]:grid-cols-2">
+								<BreakdownPanel
+									title="Income"
+									hint="Monthly · AUD"
+									rows={incomeMetricRows}
+									totalLabel="Total income"
+									totalValue={formatMoney(summary.incomeMonthlyDollars)}
+									emptyMessage="No income streams detected."
+								/>
+								<BreakdownPanel
+									title="Repayments"
+									hint="Existing facilities"
+									rows={repaymentMetricRows}
+									totalLabel="Total repayments"
+									totalValue={formatMoney(repaymentsMonthly)}
+									emptyMessage="No active liabilities."
+								/>
+							</div>
+
+							<div className="grid grid-cols-1 gap-3 min-[900px]:grid-cols-2">
+								<BreakdownPanel
+									title="Living costs"
+									hint="From categorised spend · HEM-style"
+									rows={livingMetricRows}
+									totalLabel="Total living"
+									totalValue={formatMoney(summary.livingExpensesMonthlyDollars)}
+									emptyMessage="No living expenses in this period."
+								/>
+
+								<section className={cn(glassCardClass, 'overflow-hidden p-0')}>
+									<div className={rsPanelHeadClass}>
+										<h2 className={panelTitleClass}>Surplus</h2>
+										<p className={cn(panelHintClass, 'm-0 shrink-0')}>
+											{stressMode
+												? `Stress scenario (+${(summary.rateBufferBps / 100).toFixed(1)}% rate approx.)`
+												: 'Base case'}
+										</p>
+									</div>
+									<div className="p-4">
+										<div className="flex flex-col">
+											<div className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-b border-paper-border py-3.5">
+												<span className="text-[13px] text-paper-fg">Income</span>
+												<span className="font-mono text-[15px] font-medium tabular-nums text-paper-fg">
+													{formatMoney(summary.incomeMonthlyDollars)}
+												</span>
+											</div>
+											<div className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-b border-paper-border py-3.5">
+												<span className="text-[13px] text-paper-fg">− Repayments</span>
+												<span className="font-mono text-[15px] font-medium tabular-nums text-paper-fg">
+													{formatNegativeMoney(repaymentsMonthly)}
+												</span>
+											</div>
+											<div className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-b border-paper-border py-3.5">
+												<span className="text-[13px] text-paper-fg">− Living costs</span>
+												<span className="font-mono text-[15px] font-medium tabular-nums text-paper-fg">
+													{formatNegativeMoney(summary.livingExpensesMonthlyDollars)}
+												</span>
+											</div>
+											<div className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-t border-paper-border pt-3.5">
+												<span className="text-[13px] font-medium text-paper-fg">
+													Net surplus / month
+												</span>
+												<span
+													className={cn(
+														'font-mono text-[20px] font-medium leading-none tracking-[-0.02em] tabular-nums',
+														surplusToneClass(surplusMonthly)
+													)}
+												>
+													{formatMoney(surplusMonthly)}
+												</span>
+											</div>
+											{stressMode ? (
+												<div className="grid grid-cols-[1fr_auto] items-baseline gap-4 border-t border-paper-border py-3.5">
+													<div className="min-w-0">
+														<span className="block text-[13px] text-paper-fg">
+															Stress surplus (+{(summary.rateBufferBps / 100).toFixed(1)}% rate)
+														</span>
+														<span className="mt-0.5 block text-[12px] text-paper-muted">
+															Loan repayment stressed
+														</span>
+													</div>
+													<span
+														className={cn(
+															'shrink-0 font-mono text-[15px] font-medium tabular-nums',
+															surplusToneClass(summary.stressedSurplusMonthlyDollars)
+														)}
+													>
+														{formatMoney(summary.stressedSurplusMonthlyDollars)}
+													</span>
+												</div>
+											) : null}
+										</div>
+										<SurplusBar surplus={surplusMonthly} income={summary.incomeMonthlyDollars} />
+										<p className={cn(panelHintClass, 'mt-2.5')}>
+											Surplus as share of income · higher is healthier capacity
+										</p>
+									</div>
+								</section>
+							</div>
+						</>
+					) : null}
+
+					{error !== null ? <InlineAlert variant="error">{error}</InlineAlert> : null}
+				</div>
+			</div>
 		</PageShell>
 	);
 }

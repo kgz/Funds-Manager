@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fileName": "funds-serviceability.html",
+  "entries": [
+    {
+      "id": "c665c1c7-4337-4779-a139-7e6018f7445e",
+      "fileName": "funds-serviceability.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1784354087013,
+      "source": "ai",
+      "prompt": "Redesign the existing Funds Manager personal-finance web app. SAME product behaviour and information architecture — only the visual design and polish change. Output interactive HTML prototypes (multi-file ok) that a developer can implement in React+Tailwind later.\n\n## Product (do not change behaviour)\nSelf-hosted AU personal finance SPA (no login). Import bank PDF statements, categorise transactions, cash-flow dashboard, net worth, broker serviceability / living expenses / printable reports.\n\n## Navigation IA (keep labels + grouping exactly)\nLeft sidebar brand \"FUNDS\":\n- Overview: Dashboard, Breakdown, Future predictions\n- Cash flow: Transactions, Income, Living expenses, Serviceability, Report snapshots, Repeat payments, Planned spending\n- Net worth: Accounts, Assets, Liabilities\n- Data & setup: Statements, Categories, Settings\n\nAttention badges can appear on Transactions and Planned spending.\n\n## Screens to design (priority)\n1. Dashboard — title \"Spending & Income Overview\"; account filter + period segmented control (This month / 3 months / 6 months / 1 year / All time); 4 KPI cards (Current Balance, Spending, Income, Net) with vs-prior deltas; monthly Receiving vs Spending bar chart; Spending by Category + Income by Category donuts (\"Click a slice to see transactions\"); balance-over-time / net-worth charts below.\n2. Transactions — dense paginated table; filters: account, search descriptions, All|Uncategorized, Hide transfers; actions Recategorize uncategorized / New category; columns: checkbox, Date, Account, Description, Amount (signed colour), Balance, Status pill, Category picker with colour dot; pagination footer.\n3. Statements — PDF upload/dropzone, statement list, missing-period alerts.\n4. Categories — parent/sub tree, colour chips, merge/reorder affordances.\n5. Serviceability — income, repayments, living costs, surplus (+ stress scenario).\n\nUse realistic AU dollar sample data similar to: balance ~$15k, spending ~$43k / income ~$52k over 6 months, account \"People's Choice 9120\", merchant-style descriptions.\n\n## Current look to REPLACE\nDark black/slate glassmorphism, purple (#a287cd) active-nav accent, soft glass cards. Functional but generic AI-dashboard / purple-glow vibe.\n\n## New visual direction\nMove away from purple glass. Aim for a calm, precise fintech workspace inspired by Linear-quality density and typography:\n- Distinctive but restrained; not marketing-landing, not crypto neon, not purple gradients, not cream+terracotta editorial, not newspaper broadsheet.\n- Light OR dark is fine — pick ONE coherent system. Prefer a confident dark charcoal OR warm off-white paper workspace — not both themes in one deliverable.\n- Expressive loaded fonts (not Inter/Roboto/system). Clear type hierarchy; tabular numbers for money.\n- Sidebar remains primary nav; keep one composition per page; avoid card-for-card's-sake — use surface only when it aids scanning of KPIs/charts/tables.\n- Charts: clear, legible, restrained motion (subtle hover only).\n- Preserve all interactive affordances (filters, category pickers, upload, badges) as working UI chrome in the prototype (can be static data).\n\n## Deliverables\n- Shared tokens (CSS variables) + layout chrome (sidebar + page shell)\n- Separate HTML pages or routed views for the 5 priority screens above\n- A short README/notes block in the entry file listing what stayed the same behaviour-wise vs what changed visually\n- Desktop-first (~1280–1440), usable at ~1024\n\nDo not invent new features or rename nav items. Do not add auth screens.",
+      "size": 9819,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-c665c1c7-4337-4779-a139-7e6018f7445e.html",
+      "promptSource": "message"
+    }
+  ]
+}

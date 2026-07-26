@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "fileName": "index.html",
+  "entries": [
+    {
+      "id": "b143d57b-fc34-4dd4-8ff1-c151a198739b",
+      "fileName": "index.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1784354087012,
+      "source": "ai",
+      "prompt": "Redesign the existing Funds Manager personal-finance web app. SAME product behaviour and information architecture — only the visual design and polish change. Output interactive HTML prototypes (multi-file ok) that a developer can implement in React+Tailwind later.\n\n## Product (do not change behaviour)\nSelf-hosted AU personal finance SPA (no login). Import bank PDF statements, categorise transactions, cash-flow dashboard, net worth, broker serviceability / living expenses / printable reports.\n\n## Navigation IA (keep labels + grouping exactly)\nLeft sidebar brand \"FUNDS\":\n- Overview: Dashboard, Breakdown, Future predictions\n- Cash flow: Transactions, Income, Living expenses, Serviceability, Report snapshots, Repeat payments, Planned spending\n- Net worth: Accounts, Assets, Liabilities\n- Data & setup: Statements, Categories, Settings\n\nAttention badges can appear on Transactions and Planned spending.\n\n## Screens to design (priority)\n1. Dashboard — title \"Spending & Income Overview\"; account filter + period segmented control (This month / 3 months / 6 months / 1 year / All time); 4 KPI cards (Current Balance, Spending, Income, Net) with vs-prior deltas; monthly Receiving vs Spending bar chart; Spending by Category + Income by Category donuts (\"Click a slice to see transactions\"); balance-over-time / net-worth charts below.\n2. Transactions — dense paginated table; filters: account, search descriptions, All|Uncategorized, Hide transfers; actions Recategorize uncategorized / New category; columns: checkbox, Date, Account, Description, Amount (signed colour), Balance, Status pill, Category picker with colour dot; pagination footer.\n3. Statements — PDF upload/dropzone, statement list, missing-period alerts.\n4. Categories — parent/sub tree, colour chips, merge/reorder affordances.\n5. Serviceability — income, repayments, living costs, surplus (+ stress scenario).\n\nUse realistic AU dollar sample data similar to: balance ~$15k, spending ~$43k / income ~$52k over 6 months, account \"People's Choice 9120\", merchant-style descriptions.\n\n## Current look to REPLACE\nDark black/slate glassmorphism, purple (#a287cd) active-nav accent, soft glass cards. Functional but generic AI-dashboard / purple-glow vibe.\n\n## New visual direction\nMove away from purple glass. Aim for a calm, precise fintech workspace inspired by Linear-quality density and typography:\n- Distinctive but restrained; not marketing-landing, not crypto neon, not purple gradients, not cream+terracotta editorial, not newspaper broadsheet.\n- Light OR dark is fine — pick ONE coherent system. Prefer a confident dark charcoal OR warm off-white paper workspace — not both themes in one deliverable.\n- Expressive loaded fonts (not Inter/Roboto/system). Clear type hierarchy; tabular numbers for money.\n- Sidebar remains primary nav; keep one composition per page; avoid card-for-card's-sake — use surface only when it aids scanning of KPIs/charts/tables.\n- Charts: clear, legible, restrained motion (subtle hover only).\n- Preserve all interactive affordances (filters, category pickers, upload, badges) as working UI chrome in the prototype (can be static data).\n\n## Deliverables\n- Shared tokens (CSS variables) + layout chrome (sidebar + page shell)\n- Separate HTML pages or routed views for the 5 priority screens above\n- A short README/notes block in the entry file listing what stayed the same behaviour-wise vs what changed visually\n- Desktop-first (~1280–1440), usable at ~1024\n\nDo not invent new features or rename nav items. Do not add auth screens.",
+      "size": 4009,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-b143d57b-fc34-4dd4-8ff1-c151a198739b.html",
+      "promptSource": "message"
+    },
+    {
+      "id": "aa344098-3baa-4f4c-9808-c92c4f7e2b5c",
+      "fileName": "index.html",
+      "version": 2,
+      "label": "Version 2",
+      "createdAt": 1784356370115,
+      "source": "ai",
+      "prompt": "SIDE CHAT / FEATURE BRANCH — Login only. Do NOT rewrite dashboard, transactions, statements, categories, serviceability, shared sidebar chrome, or existing chart JS.\n\nGoal: add a login prototype that matches the existing visual system in this project (warm paper / modern-minimal tokens in css/shared.css — IBM Plex Sans+Mono, hairline borders, single blue accent, no purple glass).\n\nCreate NEW files only:\n1. `funds-login.html` — full-bleed auth screen (NO app sidebar). Brand FUNDS hero-level. Email + password fields, Show/hide password, Remember me, Sign in CTA, Forgot password link, subtle error + loading states (can be demo toggles or buttons). Optional: link “Continue to app →” that goes to funds-dashboard.html for prototype flow.\n2. Optionally extend `index.html` with ONE new card/link to the login prototype — do not remove existing links or rewrite the notes sections beyond adding that link.\n\nBehaviour notes (prototype, not real auth):\n- Form validates empty fields with inline errors\n- Fake sign-in: after submit show brief loading then success toast / redirect hint to dashboard\n- Mobile-friendly single column; desktop can be split composition if tasteful (brand panel + form) but keep one clear composition, not a dashboard\n\nReuse css/shared.css tokens/classes where they fit; add a small `css/login.css` only if needed for auth-layout specifics.\n\nKeep IA of the main app untouched otherwise.",
+      "size": 4214,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0002-aa344098-3baa-4f4c-9808-c92c4f7e2b5c.html",
+      "promptSource": "message"
+    },
+    {
+      "id": "9ee83ba2-6466-4cb3-b5bf-b2e52394c1ae",
+      "fileName": "index.html",
+      "version": 3,
+      "label": "Version 3",
+      "createdAt": 1784356792722,
+      "source": "ai",
+      "prompt": "FEATURE BRANCH — First-time help walkthrough prototype for GitHub #52. Do NOT rewrite dashboard/transactions/statements/categories/serviceability/login layout or shared sidebar chrome beyond minimal data-od / data-tour hooks and a tiny Settings stub link.\n\n## Ticket intent (#52)\nNew users land with no guidance. Build a first-run tutorial: spotlight/tooltip overlays on REAL UI (not a standalone modal-only tour). Progress step N of M. Skip / dismiss anytime. Esc dismisses. localStorage flag `funds.walkthrough.done` (and Settings \"Show tutorial again\"). Degrades on narrow viewports.\n\n## Guided steps (exact order)\n1. Welcome — one sentence what FUNDS does (self-hosted AU personal finance)\n2. Statements — upload bank/credit PDF export (highlight dropzone / upload)\n3. Transactions — search, filters, category picker, suggestions/bulk affordances\n4. Categories — hierarchy, colours, merge/reorder\n5. Dashboard — period filter, KPIs, charts / drill-down hint\n6. Breakdown / Recurring — shorter optional stop or \"learn more\" (can be a compact step on Breakdown stub or dual callouts)\n\n## Visual system\nMatch THIS project's warm paper / modern-minimal tokens (`css/shared.css`) — IBM Plex, hairline, single blue accent. Not purple glass. (Production ticket mentions dark theme; prototype follows redesign system.)\n\n## Deliverables (NEW files preferred)\n1. `css/walkthrough.css` — overlay, spotlight cutout, tooltip card, progress, focus trap styling\n2. `js/walkthrough.js` — data-driven steps array (selectors + title + body + page href), localStorage, keyboard (Esc), Skip / Next / Back / Got it, auto-start if flag unset when `?tour=1` OR first visit on index/dashboard\n3. Wire minimal `data-tour=\"...\"` attributes onto EXISTING pages only where needed: funds-statements, funds-transactions, funds-categories, funds-dashboard (and a light Breakdown stub page OR step that uses a placeholder panel if Breakdown HTML doesn't exist — create `funds-breakdown.html` minimal stub matching chrome if required for step 6)\n4. `funds-walkthrough-demo.html` OR enhance `index.html` with a \"First-time walkthrough\" launcher that resets the flag and starts the tour\n5. Tiny Settings affordance: on index or a one-line note + button \"Show tutorial again\" that clears the flag\n\n## Behaviour\n- Tour navigates between pages as steps advance (or uses in-page multi-scene if cleaner — prefer real page navigation with query `?tour=1&step=N` so each core section is visited)\n- Always visible: progress, Skip tutorial, Next\n- Don't block forever; overlay allows Esc / Skip\n- Copy should be concise, action-oriented\n\n## Out of scope\n- Real auth, video, every-page contextual help, server-persisted state\n- Rewriting the main redesign screens\n\nWhen done, list files touched and confirm main screen layouts were not redesigned.",
+      "size": 6503,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0003-9ee83ba2-6466-4cb3-b5bf-b2e52394c1ae.html",
+      "promptSource": "message"
+    },
+    {
+      "id": "738b87fd-fa52-4f4a-a476-bcec41d97732",
+      "fileName": "index.html",
+      "version": 4,
+      "label": "Version 4 · restored from v2",
+      "createdAt": 1784363752015,
+      "source": "restore",
+      "prompt": "SIDE CHAT / FEATURE BRANCH — Login only. Do NOT rewrite dashboard, transactions, statements, categories, serviceability, shared sidebar chrome, or existing chart JS.\n\nGoal: add a login prototype that matches the existing visual system in this project (warm paper / modern-minimal tokens in css/shared.css — IBM Plex Sans+Mono, hairline borders, single blue accent, no purple glass).\n\nCreate NEW files only:\n1. `funds-login.html` — full-bleed auth screen (NO app sidebar). Brand FUNDS hero-level. Email + password fields, Show/hide password, Remember me, Sign in CTA, Forgot password link, subtle error + loading states (can be demo toggles or buttons). Optional: link “Continue to app →” that goes to funds-dashboard.html for prototype flow.\n2. Optionally extend `index.html` with ONE new card/link to the login prototype — do not remove existing links or rewrite the notes sections beyond adding that link.\n\nBehaviour notes (prototype, not real auth):\n- Form validates empty fields with inline errors\n- Fake sign-in: after submit show brief loading then success toast / redirect hint to dashboard\n- Mobile-friendly single column; desktop can be split composition if tasteful (brand panel + form) but keep one clear composition, not a dashboard\n\nReuse css/shared.css tokens/classes where they fit; add a small `css/login.css` only if needed for auth-layout specifics.\n\nKeep IA of the main app untouched otherwise.",
+      "size": 4214,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0004-738b87fd-fa52-4f4a-a476-bcec41d97732.html",
+      "promptSource": "restore",
+      "restoreFromVersionId": "aa344098-3baa-4f4c-9808-c92c4f7e2b5c"
+    }
+  ]
+}

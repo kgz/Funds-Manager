@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Transactions</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/transactions.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Transactions</h1>
+        <p class="page-sub" id="page-sub" data-od-id="page-sub">Categorise imports · People's Choice 9120</p>
+      </div>
+      <div class="page-actions">
+        <button type="button" class="btn btn-ghost" data-od-id="btn-recategorize">Recategorize uncategorized</button>
+        <button type="button" class="btn btn-primary" data-od-id="btn-new-category">New category</button>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <section class="panel tx-panel" data-od-id="transactions-panel">
+        <div class="toolbar" data-od-id="tx-filters" data-tour="transactions-tools">
+          <select class="select" id="tx-account" aria-label="Account">
+            <option value="all">All accounts</option>
+            <option value="pc-9120" selected>People's Choice 9120</option>
+            <option value="pc-savings">People's Choice Savings</option>
+            <option value="cba-offset">CBA Offset 4412</option>
+          </select>
+          <input class="input" type="search" id="tx-search" placeholder="Search descriptions…" aria-label="Search descriptions" data-od-id="tx-search" />
+          <div class="segmented" id="tx-status" role="group" aria-label="Category status" data-od-id="tx-status-filter">
+            <button type="button" data-value="all" class="is-on" aria-pressed="true">All</button>
+            <button type="button" data-value="uncat" aria-pressed="false">Uncategorized</button>
+          </div>
+          <label class="switch-row">
+            <button type="button" class="switch is-on" id="hide-transfers" role="switch" aria-checked="true" data-od-id="hide-transfers"></button>
+            Hide transfers
+          </label>
+        </div>
+
+        <div class="bulk-bar" id="bulk-bar" hidden data-od-id="bulk-bar">
+          <span class="bulk-count" id="bulk-count">0 selected</span>
+          <div class="bulk-actions">
+            <div class="cat-chip" id="bulk-cat-chip">
+              <span class="cat-dot" id="bulk-cat-dot"></span>
+              <select id="bulk-cat" aria-label="Bulk category">
+                <option value="">Choose category…</option>
+              </select>
+            </div>
+            <button type="button" class="btn btn-primary" id="bulk-apply" data-od-id="bulk-apply" disabled>Apply</button>
+            <button type="button" class="btn" id="bulk-suggest" data-od-id="bulk-suggest" hidden>Apply suggested</button>
+            <button type="button" class="btn btn-ghost" id="bulk-clear" data-od-id="bulk-clear">Clear</button>
+          </div>
+        </div>
+
+        <div class="xfer-callout" id="xfer-callout" data-od-id="xfer-callout">
+          <div class="xfer-callout-body">
+            <span class="xfer-callout-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 16V4m0 0-4 4m4-4 4 4M17 8v12m0 0 4-4m-4 4-4-4"/></svg>
+            </span>
+            <div class="xfer-callout-text">
+              <strong>Transfer match found</strong>
+              <p>These two legs look like the same internal transfer — confirm to link and categorise as Transfers.</p>
+              <div class="xfer-legs">
+                <span class="xfer-leg">
+                  <span class="leg-dir">Out</span>
+                  <span>14 Jul · People's Choice 9120</span>
+                  <span class="leg-amt is-out">−$500.00</span>
+                </span>
+                <span class="xfer-leg">
+                  <span class="leg-dir">In</span>
+                  <span>14 Jul · People's Choice Savings</span>
+                  <span class="leg-amt is-in">+$500.00</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="xfer-callout-actions">
+            <button type="button" class="btn" id="xfer-dismiss" data-od-id="xfer-dismiss">Dismiss</button>
+            <button type="button" class="btn btn-primary" id="xfer-confirm" data-od-id="xfer-confirm">Confirm transfer</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data" data-od-id="tx-table">
+            <thead>
+              <tr>
+                <th class="check" scope="col"><input type="checkbox" id="check-all" aria-label="Select all on page" /></th>
+                <th scope="col">Date</th>
+                <th scope="col">Account</th>
+                <th scope="col">Description</th>
+                <th class="col-amt" scope="col">Amount</th>
+                <th class="col-bal" scope="col">Balance</th>
+                <th class="col-cat" scope="col">Category</th>
+              </tr>
+            </thead>
+            <tbody id="tx-body"></tbody>
+          </table>
+        </div>
+
+        <div class="pager" data-od-id="tx-pager">
+          <span id="pager-label">Showing 1–25 of 312</span>
+          <div class="pager-controls">
+            <button type="button" class="btn" id="prev" disabled>Previous</button>
+            <button type="button" class="btn" id="next">Next</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('transactions');
+
+    const cats = FUNDS.categories.filter((c) => !c.parent);
+    const TOTAL_SAMPLE = 312;
+    let xferDismissed = false;
+
+    const suggestions = {
+      'UNKNOWN MERCHANT 8841': 'dining',
+      'BUNNINGS 3921': 'housing',
+      'ATM WITHDRAWAL RUNDLE MALL': 'transport',
+      'OFFICEWORKS ONLINE': 'utilities',
+      'CHEMIST WAREHOUSE': 'groceries',
+      'HARVEY NORMAN ONLINE': 'housing',
+    };
+
+    const rows = [
+      { id: 1, date: '19 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'PENDING AUTH — COLES EXPRESS', amount: -52.40, bal: 15332.22, status: 'pending', cat: 'uncat' },
+      { id: 2, date: '18 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'WOOLWORTHS 3342 ADELAIDE', amount: -87.42, bal: 15384.62, status: 'ok', cat: 'groceries' },
+      { id: 3, date: '17 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'SHELL COLES EXPRESS ST MARYS', amount: -72.15, bal: 15472.04, status: 'ok', cat: 'transport' },
+      { id: 4, date: '17 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'SQ *LINE + DOT CAFE', amount: -18.50, bal: 15544.19, status: 'ok', cat: 'dining' },
+      { id: 5, date: '16 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'SALARY ACME PTY LTD', amount: 4320.00, bal: 15562.69, status: 'ok', cat: 'salary' },
+      { id: 6, date: '15 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'ORIGIN ENERGY BPAY', amount: -214.80, bal: 11242.69, status: 'ok', cat: 'utilities' },
+      { id: 7, date: '14 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'TRANSFER TO SAVINGS *9121', amount: -500.00, bal: 11457.49, status: 'ok', cat: 'transfer', isTransfer: true },
+      { id: 8, date: '14 Jul 2026', acct: "People's Choice Savings", acctId: 'pc-savings', desc: 'TRANSFER FROM CHEQUE *9120', amount: 500.00, bal: 8420.00, status: 'ok', cat: 'transfer', isTransfer: true },
+      { id: 9, date: '14 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'UNKNOWN MERCHANT 8841', amount: -45.90, bal: 11957.49, status: 'warn', cat: 'uncat' },
+      { id: 10, date: '13 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'COLES 0782 NORWOOD', amount: -126.33, bal: 12003.39, status: 'ok', cat: 'groceries' },
+      { id: 11, date: '12 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'ADELAIDE METRO TAP', amount: -3.70, bal: 12129.72, status: 'ok', cat: 'transport' },
+      { id: 12, date: '11 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'RENT PAYMENT J & K TRUST', amount: -1850.00, bal: 12133.42, status: 'ok', cat: 'housing' },
+      { id: 13, date: '10 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'BUNNINGS 3921', amount: -64.20, bal: 13983.42, status: 'warn', cat: 'uncat' },
+      { id: 14, date: '09 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'NETFLIX.COM', amount: -22.99, bal: 14047.62, status: 'ok', cat: 'utilities' },
+      { id: 15, date: '08 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'UBER *TRIP', amount: -28.40, bal: 14070.61, status: 'ok', cat: 'transport' },
+      { id: 16, date: '07 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'ALDI STORES 145', amount: -54.18, bal: 14099.01, status: 'ok', cat: 'groceries' },
+      { id: 17, date: '06 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'ATM WITHDRAWAL RUNDLE MALL', amount: -100.00, bal: 14153.19, status: 'warn', cat: 'uncat' },
+      { id: 18, date: '05 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'SA WATER BPAY', amount: -89.40, bal: 14253.19, status: 'ok', cat: 'utilities' },
+      { id: 19, date: '04 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'MENULOG *ORDER', amount: -41.25, bal: 14342.59, status: 'ok', cat: 'dining' },
+      { id: 20, date: '03 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'BP CONNECT 2841', amount: -68.90, bal: 14383.84, status: 'ok', cat: 'transport' },
+      { id: 21, date: '02 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'SALARY ACME PTY LTD', amount: 4320.00, bal: 14452.74, status: 'ok', cat: 'salary' },
+      { id: 22, date: '01 Jul 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'OFFICEWORKS ONLINE', amount: -39.95, bal: 10132.74, status: 'warn', cat: 'uncat' },
+      { id: 23, date: '30 Jun 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'WOOLWORTHS 3342 ADELAIDE', amount: -112.08, bal: 10172.69, status: 'ok', cat: 'groceries' },
+      { id: 24, date: '29 Jun 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'TRANSFER FROM OFFSET', amount: 200.00, bal: 10284.77, status: 'ok', cat: 'transfer', isTransfer: true },
+      { id: 25, date: '28 Jun 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'CHEMIST WAREHOUSE', amount: -24.60, bal: 10084.77, status: 'warn', cat: 'uncat' },
+      { id: 26, date: '27 Jun 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'SPOTIFY P0A8X', amount: -12.99, bal: 10109.37, status: 'ok', cat: 'utilities' },
+      { id: 27, date: '26 Jun 2026', acct: "People's Choice 9120", acctId: 'pc-9120', desc: 'HARVEY NORMAN ONLINE', amount: -349.00, bal: 10122.36, status: 'warn', cat: 'uncat' },
+    ];
+
+    let page = 0;
+    const pageSize = 25;
+    const selected = new Set();
+
+    function catById(id) {
+      return cats.find((c) => c.id === id) || cats.find((c) => c.id === 'uncat');
+    }
+
+    function suggestFor(desc) {
+      return suggestions[desc] || null;
+    }
+
+    function catSelect(current, rowId) {
+      const cat = catById(current);
+      const uncat = current === 'uncat';
+      const opts = cats.map((c) =>
+        `<option value="${c.id}" ${c.id === current ? 'selected' : ''}>${c.name}</option>`
+      ).join('');
+      const suggestId = uncat ? suggestFor(rows.find((r) => r.id === rowId)?.desc || '') : null;
+      const suggestBtn = suggestId
+        ? `<button type="button" class="suggest-chip" data-suggest="${suggestId}" data-row="${rowId}" data-od-id="suggest-${rowId}">
+            <span class="suggest-label">Apply</span> ${catById(suggestId).name}
+          </button>`
+        : '';
+      return `<div class="cat-cell">
+        <div class="cat-chip${uncat ? ' is-uncat' : ''}" data-row="${rowId}">
+          <span class="cat-dot" style="background:${cat.color}"></span>
+          <select aria-label="Category" data-row="${rowId}">${opts}</select>
+        </div>${suggestBtn}
+      </div>`;
+    }
+
+    function descCell(r) {
+      const badges = [];
+      if (r.status === 'pending') badges.push('<span class="row-badge is-pending">Pending</span>');
+      if (r.isTransfer || r.cat === 'transfer') badges.push('<span class="row-badge">Transfer</span>');
+      const badgeHtml = badges.length ? `<span class="desc-badges">${badges.join('')}</span>` : '';
+      return `<div class="desc-cell"><span class="desc-text">${r.desc}</span>${badgeHtml}</div>`;
+    }
+
+    function filtered() {
+      const q = document.getElementById('tx-search').value.trim().toLowerCase();
+      const statusBtn = document.querySelector('#tx-status button.is-on');
+      const onlyUncat = statusBtn && statusBtn.dataset.value === 'uncat';
+      const hideXfer = document.getElementById('hide-transfers').classList.contains('is-on');
+      const acct = document.getElementById('tx-account').value;
+      return rows.filter((r) => {
+        if (acct !== 'all' && r.acctId !== acct) return false;
+        if (onlyUncat && r.cat !== 'uncat') return false;
+        if (hideXfer && (r.isTransfer || r.cat === 'transfer')) return false;
+        if (q && !r.desc.toLowerCase().includes(q)) return false;
+        return true;
+      });
+    }
+
+    function updateSubtitle() {
+      const acct = document.getElementById('tx-account').value;
+      const label = acct === 'all'
+        ? 'All accounts'
+        : (FUNDS.accounts.find((a) => a.id === acct) || { label: acct }).label;
+      document.getElementById('page-sub').textContent = `Categorise imports · ${label}`;
+    }
+
+    function updateXferCallout() {
+      document.getElementById('xfer-callout').hidden = xferDismissed;
+    }
+
+    function syncBulkBar() {
+      const bar = document.getElementById('bulk-bar');
+      const count = selected.size;
+      bar.hidden = count === 0;
+      document.getElementById('bulk-count').textContent =
+        count === 1 ? '1 transaction selected' : `${count} transactions selected`;
+
+      const selectedRows = rows.filter((r) => selected.has(r.id));
+      const uncatRows = selectedRows.filter((r) => r.cat === 'uncat');
+      const suggestIds = [...new Set(uncatRows.map((r) => suggestFor(r.desc)).filter(Boolean))];
+      const suggestBtn = document.getElementById('bulk-suggest');
+      if (suggestIds.length === 1 && uncatRows.length > 0) {
+        suggestBtn.hidden = false;
+        suggestBtn.textContent = `Apply ${catById(suggestIds[0]).name}`;
+        suggestBtn.dataset.suggest = suggestIds[0];
+      } else {
+        suggestBtn.hidden = true;
+        suggestBtn.removeAttribute('data-suggest');
+      }
+
+      document.getElementById('bulk-apply').disabled = !document.getElementById('bulk-cat').value;
+    }
+
+    function applyCategory(rowIds, catId) {
+      rowIds.forEach((id) => {
+        const row = rows.find((r) => r.id === id);
+        if (row) {
+          row.cat = catId;
+        }
+      });
+      selected.clear();
+      render();
+    }
+
+    function wireCatSelects(scope) {
+      scope.querySelectorAll('.cat-chip select').forEach((sel) => {
+        sel.addEventListener('change', () => {
+          const rowId = Number(sel.dataset.row);
+          const cat = catById(sel.value);
+          const chip = sel.closest('.cat-chip');
+          chip.querySelector('.cat-dot').style.background = cat.color;
+          chip.classList.toggle('is-uncat', sel.value === 'uncat');
+          const row = rows.find((r) => r.id === rowId);
+          if (row) {
+            row.cat = sel.value;
+          }
+        });
+      });
+
+      scope.querySelectorAll('.suggest-chip').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          applyCategory([Number(btn.dataset.row)], btn.dataset.suggest);
+        });
+      });
+    }
+
+    function wireRowChecks(scope) {
+      scope.querySelectorAll('tbody input[type=checkbox]').forEach((cb) => {
+        cb.addEventListener('change', () => {
+          const rowId = Number(cb.closest('tr').dataset.rowId);
+          if (cb.checked) selected.add(rowId);
+          else selected.delete(rowId);
+          cb.closest('tr').classList.toggle('is-selected', cb.checked);
+          syncBulkBar();
+          syncCheckAll();
+        });
+      });
+    }
+
+    function syncCheckAll() {
+      const boxes = [...document.querySelectorAll('#tx-body input[type=checkbox]')];
+      const checkAll = document.getElementById('check-all');
+      if (!boxes.length) {
+        checkAll.checked = false;
+        checkAll.indeterminate = false;
+        return;
+      }
+      const checked = boxes.filter((c) => c.checked).length;
+      checkAll.checked = checked === boxes.length;
+      checkAll.indeterminate = checked > 0 && checked < boxes.length;
+    }
+
+    function render() {
+      const data = filtered();
+      const start = page * pageSize;
+      const slice = data.slice(start, start + pageSize);
+      const body = document.getElementById('tx-body');
+
+      body.innerHTML = slice.map((r, i) => `
+        <tr data-od-id="tx-row-${start + i}" data-row-id="${r.id}" class="${selected.has(r.id) ? 'is-selected' : ''}">
+          <td class="check"><input type="checkbox" aria-label="Select ${r.desc}" ${selected.has(r.id) ? 'checked' : ''} /></td>
+          <td class="mono">${r.date}</td>
+          <td>${r.acct}</td>
+          <td>${descCell(r)}</td>
+          <td class="amount col-amt ${r.amount < 0 ? 'neg' : 'pos'}">${FUNDS.money(r.amount, { signed: true })}</td>
+          <td class="amount money col-bal">${FUNDS.money(r.bal)}</td>
+          <td>${catSelect(r.cat, r.id)}</td>
+        </tr>`).join('');
+
+      const from = data.length ? start + 1 : 0;
+      const to = Math.min(start + pageSize, data.length);
+      const totalLabel = data.length === rows.length ? String(TOTAL_SAMPLE) : String(data.length);
+      document.getElementById('pager-label').textContent = `Showing ${from}–${to} of ${totalLabel}`;
+
+      document.getElementById('prev').disabled = page === 0;
+      document.getElementById('next').disabled = start + pageSize >= data.length;
+
+      wireCatSelects(body);
+      wireRowChecks(body);
+      syncCheckAll();
+      syncBulkBar();
+      updateXferCallout();
+    }
+
+    function filter() {
+      page = 0;
+      updateSubtitle();
+      render();
+    }
+
+    function initBulkCat() {
+      const sel = document.getElementById('bulk-cat');
+      const dot = document.getElementById('bulk-cat-dot');
+      cats.filter((c) => c.id !== 'uncat').forEach((c) => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+      });
+      sel.addEventListener('change', () => {
+        const cat = catById(sel.value || 'uncat');
+        dot.style.background = cat.color;
+        document.getElementById('bulk-apply').disabled = !sel.value;
+      });
+      dot.style.background = cats[0].color;
+    }
+
+    FUNDS.wireSegmented('#tx-status', filter);
+    FUNDS.wireSwitch(document.getElementById('hide-transfers'));
+    document.getElementById('hide-transfers').addEventListener('click', filter);
+    document.getElementById('tx-search').addEventListener('input', filter);
+    document.getElementById('tx-account').addEventListener('change', filter);
+
+    document.getElementById('prev').addEventListener('click', () => { page = Math.max(0, page - 1); render(); });
+    document.getElementById('next').addEventListener('click', () => { page += 1; render(); });
+
+    document.getElementById('check-all').addEventListener('change', (e) => {
+      document.querySelectorAll('#tx-body tr').forEach((tr) => {
+        const rowId = Number(tr.dataset.rowId);
+        const cb = tr.querySelector('input[type=checkbox]');
+        cb.checked = e.target.checked;
+        tr.classList.toggle('is-selected', e.target.checked);
+        if (e.target.checked) selected.add(rowId);
+        else selected.delete(rowId);
+      });
+      syncBulkBar();
+    });
+
+    document.getElementById('bulk-apply').addEventListener('click', () => {
+      const catId = document.getElementById('bulk-cat').value;
+      if (!catId || selected.size === 0) return;
+      applyCategory([...selected], catId);
+    });
+
+    document.getElementById('bulk-suggest').addEventListener('click', () => {
+      const catId = document.getElementById('bulk-suggest').dataset.suggest;
+      if (!catId) return;
+      const ids = [...selected].filter((id) => {
+        const row = rows.find((r) => r.id === id);
+        return row && row.cat === 'uncat' && suggestFor(row.desc) === catId;
+      });
+      if (ids.length) applyCategory(ids, catId);
+    });
+
+    document.getElementById('bulk-clear').addEventListener('click', () => {
+      selected.clear();
+      render();
+    });
+
+    document.getElementById('xfer-dismiss').addEventListener('click', () => {
+      xferDismissed = true;
+      updateXferCallout();
+    });
+
+    document.getElementById('xfer-confirm').addEventListener('click', () => {
+      rows.filter((r) => r.isTransfer && r.desc.includes('TRANSFER')).forEach((r) => {
+        r.cat = 'transfer';
+      });
+      xferDismissed = true;
+      render();
+    });
+
+    document.getElementById('btn-new-category').addEventListener('click', () => {
+      alert('New category — opens category editor in product (prototype affordance).');
+    });
+    document.getElementById('btn-recategorize').addEventListener('click', () => {
+      alert('Recategorize uncategorized — batch flow (prototype affordance).');
+    });
+
+    initBulkCat();
+    updateSubtitle();
+    render();
+  </script>
+</body>
+</html>

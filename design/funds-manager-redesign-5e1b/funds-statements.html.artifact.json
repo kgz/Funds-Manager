@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-statements.html",
+  "entry": "funds-statements.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-18T05:53:25.786Z",
+  "updatedAt": "2026-07-18T05:53:25.786Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

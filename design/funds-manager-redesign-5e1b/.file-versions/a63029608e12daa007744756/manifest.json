@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fileName": "funds-income.html",
+  "entries": [
+    {
+      "id": "0dcee90a-b9b7-43bd-8dbb-da2acf9194b3",
+      "fileName": "funds-income.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1784882573701,
+      "source": "ai",
+      "prompt": "columns also need to be sortable. account selection needs to be multiple. not just one",
+      "size": 13056,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-0dcee90a-b9b7-43bd-8dbb-da2acf9194b3.html",
+      "promptSource": "message"
+    }
+  ]
+}
