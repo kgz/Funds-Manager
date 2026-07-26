@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Statements</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/walkthrough.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Statements</h1>
+        <p class="page-sub">Import bank PDF statements · People's Choice & CBA</p>
+      </div>
+      <div class="page-actions">
+        <button type="button" class="btn btn-primary" id="btn-upload" data-od-id="btn-upload">Upload PDF</button>
+        <input type="file" id="file-input" accept="application/pdf" hidden multiple />
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="alert" role="status" data-od-id="missing-periods">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9L2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <div>
+          <strong>Missing periods detected.</strong>
+          People's Choice 9120 has no statement covering <span class="mono">Mar 2026</span> or <span class="mono">May 2026</span>. Upload those PDFs to close the gaps.
+        </div>
+      </div>
+
+      <section class="panel" data-od-id="upload-zone" data-tour="statements-upload">
+        <div class="panel-body">
+          <div class="dropzone" id="dropzone" data-od-id="pdf-dropzone" tabindex="0" role="button" aria-label="Drop PDF statements here or click to browse">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="margin:0 auto;color:var(--muted)" aria-hidden="true">
+              <path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>
+            </svg>
+            <h3>Drop bank statement PDFs</h3>
+            <p>People's Choice, CBA, and similar AU statement formats · max 20 MB each</p>
+            <p style="margin-top:12px"><button type="button" class="btn" id="browse">Browse files</button></p>
+          </div>
+          <p class="panel-hint" id="upload-status" style="margin-top:12px" hidden></p>
+        </div>
+      </section>
+
+      <section class="panel" data-od-id="statement-list">
+        <div class="panel-head">
+          <h2 class="panel-title">Imported statements</h2>
+          <p class="panel-hint">8 on file</p>
+        </div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th>Period</th>
+                <th>Account</th>
+                <th>Filename</th>
+                <th>Imported</th>
+                <th>Txns</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-od-id="stmt-jul">
+                <td class="mono">01–18 Jul 2026</td>
+                <td>People's Choice 9120</td>
+                <td>PC_9120_Jul2026.pdf</td>
+                <td class="mono">18 Jul 2026</td>
+                <td class="mono">47</td>
+                <td><span class="pill ok">Parsed</span></td>
+                <td><button type="button" class="btn btn-ghost">View</button></td>
+              </tr>
+              <tr data-od-id="stmt-jun">
+                <td class="mono">01–30 Jun 2026</td>
+                <td>People's Choice 9120</td>
+                <td>PC_9120_Jun2026.pdf</td>
+                <td class="mono">02 Jul 2026</td>
+                <td class="mono">89</td>
+                <td><span class="pill ok">Parsed</span></td>
+                <td><button type="button" class="btn btn-ghost">View</button></td>
+              </tr>
+              <tr data-od-id="stmt-apr">
+                <td class="mono">01–30 Apr 2026</td>
+                <td>People's Choice 9120</td>
+                <td>PC_9120_Apr2026.pdf</td>
+                <td class="mono">04 May 2026</td>
+                <td class="mono">76</td>
+                <td><span class="pill ok">Parsed</span></td>
+                <td><button type="button" class="btn btn-ghost">View</button></td>
+              </tr>
+              <tr data-od-id="stmt-feb">
+                <td class="mono">01–28 Feb 2026</td>
+                <td>People's Choice 9120</td>
+                <td>PC_9120_Feb2026.pdf</td>
+                <td class="mono">03 Mar 2026</td>
+                <td class="mono">81</td>
+                <td><span class="pill ok">Parsed</span></td>
+                <td><button type="button" class="btn btn-ghost">View</button></td>
+              </tr>
+              <tr data-od-id="stmt-gap-mar" style="background:color-mix(in oklch, var(--warn) 6%, var(--surface))">
+                <td class="mono">Mar 2026</td>
+                <td>People's Choice 9120</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill warn">Missing</span></td>
+                <td><button type="button" class="btn">Upload</button></td>
+              </tr>
+              <tr data-od-id="stmt-gap-may" style="background:color-mix(in oklch, var(--warn) 6%, var(--surface))">
+                <td class="mono">May 2026</td>
+                <td>People's Choice 9120</td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td><span class="pill warn">Missing</span></td>
+                <td><button type="button" class="btn">Upload</button></td>
+              </tr>
+              <tr data-od-id="stmt-cba">
+                <td class="mono">01–30 Jun 2026</td>
+                <td>CBA Offset 4412</td>
+                <td>CBA_Offset_Jun2026.pdf</td>
+                <td class="mono">01 Jul 2026</td>
+                <td class="mono">22</td>
+                <td><span class="pill ok">Parsed</span></td>
+                <td><button type="button" class="btn btn-ghost">View</button></td>
+              </tr>
+              <tr data-od-id="stmt-sav">
+                <td class="mono">01–30 Jun 2026</td>
+                <td>People's Choice Savings</td>
+                <td>PC_Sav_Jun2026.pdf</td>
+                <td class="mono">02 Jul 2026</td>
+                <td class="mono">6</td>
+                <td><span class="pill ok">Parsed</span></td>
+                <td><button type="button" class="btn btn-ghost">View</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script src="js/walkthrough.js"></script>
+  <script>
+    FUNDS.renderSidebar('statements');
+
+    const dz = document.getElementById('dropzone');
+    const input = document.getElementById('file-input');
+    const status = document.getElementById('upload-status');
+
+    function showFiles(files) {
+      if (!files || !files.length) return;
+      const names = Array.from(files).map((f) => f.name).join(', ');
+      status.hidden = false;
+      status.textContent = 'Queued for parse (prototype): ' + names;
+    }
+
+    function openPicker() { input.click(); }
+
+    document.getElementById('btn-upload').addEventListener('click', openPicker);
+    document.getElementById('browse').addEventListener('click', (e) => { e.stopPropagation(); openPicker(); });
+    dz.addEventListener('click', openPicker);
+    dz.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+    });
+    input.addEventListener('change', () => showFiles(input.files));
+
+    ['dragenter', 'dragover'].forEach((ev) => {
+      dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add('is-drag'); });
+    });
+    ['dragleave', 'drop'].forEach((ev) => {
+      dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove('is-drag'); });
+    });
+    dz.addEventListener('drop', (e) => showFiles(e.dataTransfer.files));
+  </script>
+</body>
+</html>

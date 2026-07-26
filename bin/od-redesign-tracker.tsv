@@ -3,16 +3,16 @@
 # Update this when code status changes; run ./bin/board-audit.sh --apply to sync the GitHub board.
 214	in-progress	epic: warm-paper theme on branch; not all pages ported
 215	ready	sidebar + command palette — not started
-216	in-review	breakdown OD port on feature/219-transactions-od-design
-217	in-review	predictions OD port on feature/219-transactions-od-design
+216	done	breakdown OD port — merged to main
+217	done	predictions OD port — merged to main
 218	done	dashboard OD port (closed)
-219	in-review	transactions OD port on feature/219-transactions-od-design
+219	done	transactions OD port — merged to main
 220	backlog	statements — OD HTML only
 221	backlog	categories — OD HTML only
-222	backlog	serviceability — OD HTML only
-223	in-review	income OD port on feature/219-transactions-od-design
-224	done	living expenses OD port on feature/219-transactions-od-design
-225	ready	report snapshots — OD HTML only, React not started
+222	in-review	serviceability OD port — on branch with #225
+223	done	income OD port — merged to main
+224	done	living expenses OD port — merged to main
+225	in-review	report snapshots OD port — PR open
 226	backlog	repeat payments — no OD HTML
 227	backlog	planned spending — no OD HTML
 228	backlog	accounts — no OD HTML

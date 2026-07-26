@@ -1,0 +1,109 @@
+.summary-variants {
+  display: grid;
+  min-width: 392px;
+  margin-left: auto;
+}
+
+.period-summary {
+  min-height: 64px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 6%, transparent);
+}
+
+.period-summary strong {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.summary-net {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+}
+
+.summary-net-primary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 16px;
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.summary-kicker {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.summary-net-value { font-size: 20px; }
+.summary-net-value.pos { color: var(--success); }
+.summary-net-value.neg { color: var(--danger); }
+
+.summary-net-detail {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-width: 152px;
+  padding: 10px 14px;
+  border-left: 1px solid var(--border);
+  background: color-mix(in oklch, var(--bg) 62%, var(--surface));
+}
+
+.summary-net-detail span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.summary-net-detail span .summary-dot {
+  margin-right: -4px;
+}
+
+.summary-net-detail strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.summary-net-detail .is-income strong { color: var(--success); }
+.summary-net-detail .is-spend strong { color: var(--danger); }
+
+.summary-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.summary-dot.is-spending { background: var(--danger); }
+
+@media (max-width: 1100px) {
+  .summary-variants {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .summary-net { grid-template-columns: 1fr; }
+
+  .summary-net-primary {
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  .summary-net-detail {
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fileName": "funds-login.html",
+  "entries": [
+    {
+      "id": "0921d12e-b380-4f94-b189-3174d40249ff",
+      "fileName": "funds-login.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1784356370111,
+      "source": "ai",
+      "prompt": "SIDE CHAT / FEATURE BRANCH — Login only. Do NOT rewrite dashboard, transactions, statements, categories, serviceability, shared sidebar chrome, or existing chart JS.\n\nGoal: add a login prototype that matches the existing visual system in this project (warm paper / modern-minimal tokens in css/shared.css — IBM Plex Sans+Mono, hairline borders, single blue accent, no purple glass).\n\nCreate NEW files only:\n1. `funds-login.html` — full-bleed auth screen (NO app sidebar). Brand FUNDS hero-level. Email + password fields, Show/hide password, Remember me, Sign in CTA, Forgot password link, subtle error + loading states (can be demo toggles or buttons). Optional: link “Continue to app →” that goes to funds-dashboard.html for prototype flow.\n2. Optionally extend `index.html` with ONE new card/link to the login prototype — do not remove existing links or rewrite the notes sections beyond adding that link.\n\nBehaviour notes (prototype, not real auth):\n- Form validates empty fields with inline errors\n- Fake sign-in: after submit show brief loading then success toast / redirect hint to dashboard\n- Mobile-friendly single column; desktop can be split composition if tasteful (brand panel + form) but keep one clear composition, not a dashboard\n\nReuse css/shared.css tokens/classes where they fit; add a small `css/login.css` only if needed for auth-layout specifics.\n\nKeep IA of the main app untouched otherwise.",
+      "size": 10735,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-0921d12e-b380-4f94-b189-3174d40249ff.html",
+      "promptSource": "message"
+    }
+  ]
+}

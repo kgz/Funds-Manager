@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Transactions</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/walkthrough.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Transactions</h1>
+        <p class="page-sub">Categorise imports · People's Choice 9120</p>
+      </div>
+      <div class="page-actions">
+        <button type="button" class="btn" data-od-id="btn-recategorize">Recategorize uncategorized</button>
+        <button type="button" class="btn btn-primary" data-od-id="btn-new-category">New category</button>
+      </div>
+    </header>
+
+    <div class="page-body" style="padding-top:16px">
+      <section class="panel" data-od-id="transactions-panel" data-tour="transactions-tools">
+        <div class="toolbar" data-od-id="tx-filters">
+          <select class="select" id="tx-account" aria-label="Account">
+            <option value="all">All accounts</option>
+            <option value="pc-9120" selected>People's Choice 9120</option>
+            <option value="pc-savings">People's Choice Savings</option>
+          </select>
+          <input class="input" type="search" id="tx-search" placeholder="Search descriptions…" aria-label="Search descriptions" data-od-id="tx-search" />
+          <div class="segmented" id="tx-status" role="group" aria-label="Category status" data-od-id="tx-status-filter">
+            <button type="button" data-value="all" class="is-on" aria-pressed="true">All</button>
+            <button type="button" data-value="uncat">Uncategorized</button>
+          </div>
+          <label class="switch-row">
+            <button type="button" class="switch is-on" id="hide-transfers" role="switch" aria-checked="true" data-od-id="hide-transfers"></button>
+            Hide transfers
+          </label>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data" data-od-id="tx-table">
+            <thead>
+              <tr>
+                <th class="check"><input type="checkbox" id="check-all" aria-label="Select all" /></th>
+                <th>Date</th>
+                <th>Account</th>
+                <th>Description</th>
+                <th style="text-align:right">Amount</th>
+                <th style="text-align:right">Balance</th>
+                <th>Status</th>
+                <th>Category</th>
+              </tr>
+            </thead>
+            <tbody id="tx-body"></tbody>
+          </table>
+        </div>
+
+        <div class="pager" data-od-id="tx-pager">
+          <span id="pager-label">Showing 1–25 of 312</span>
+          <div class="pager-controls">
+            <button type="button" class="btn" id="prev" disabled>Previous</button>
+            <button type="button" class="btn" id="next">Next</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script src="js/walkthrough.js"></script>
+  <script>
+    FUNDS.renderSidebar('transactions');
+    FUNDS.wireSegmented('#tx-status', filter);
+    FUNDS.wireSwitch(document.getElementById('hide-transfers'));
+    document.getElementById('hide-transfers').addEventListener('click', filter);
+    document.getElementById('tx-search').addEventListener('input', filter);
+    document.getElementById('tx-account').addEventListener('change', filter);
+
+    const cats = [
+      { id: 'groceries', name: 'Groceries', color: '#3d8b6e' },
+      { id: 'transport', name: 'Transport', color: '#4a6fa5' },
+      { id: 'housing', name: 'Housing', color: '#8b6b4a' },
+      { id: 'dining', name: 'Dining out', color: '#c47a4a' },
+      { id: 'utilities', name: 'Utilities', color: '#6b7a8b' },
+      { id: 'salary', name: 'Salary', color: '#2f7d5a' },
+      { id: 'transfer', name: 'Transfers', color: '#888888' },
+      { id: 'uncat', name: 'Uncategorized', color: '#b0b0b0' },
+    ];
+
+    const rows = [
+      { date: '18 Jul 2026', acct: "People's Choice 9120", desc: 'WOOLWORTHS 3342 ADELAIDE', amount: -87.42, bal: 15284.62, status: 'ok', cat: 'groceries' },
+      { date: '17 Jul 2026', acct: "People's Choice 9120", desc: 'SHELL COLES EXPRESS ST MARYS', amount: -72.15, bal: 15372.04, status: 'ok', cat: 'transport' },
+      { date: '17 Jul 2026', acct: "People's Choice 9120", desc: 'SQ *LINE + DOT CAFE', amount: -18.50, bal: 15444.19, status: 'ok', cat: 'dining' },
+      { date: '16 Jul 2026', acct: "People's Choice 9120", desc: 'SALARY ACME PTY LTD', amount: 4320.00, bal: 15462.69, status: 'ok', cat: 'salary' },
+      { date: '15 Jul 2026', acct: "People's Choice 9120", desc: 'ORIGIN ENERGY BPAY', amount: -214.80, bal: 11142.69, status: 'ok', cat: 'utilities' },
+      { date: '14 Jul 2026', acct: "People's Choice 9120", desc: 'TRANSFER TO SAVINGS *9121', amount: -500.00, bal: 11357.49, status: 'ok', cat: 'transfer' },
+      { date: '14 Jul 2026', acct: "People's Choice 9120", desc: 'UNKNOWN MERCHANT 8841', amount: -45.90, bal: 11857.49, status: 'warn', cat: 'uncat' },
+      { date: '13 Jul 2026', acct: "People's Choice 9120", desc: 'COLES 0782 NORWOOD', amount: -126.33, bal: 11903.39, status: 'ok', cat: 'groceries' },
+      { date: '12 Jul 2026', acct: "People's Choice 9120", desc: 'ADELAIDE METRO TAP', amount: -3.70, bal: 12029.72, status: 'ok', cat: 'transport' },
+      { date: '11 Jul 2026', acct: "People's Choice 9120", desc: 'RENT PAYMENT J & K TRUST', amount: -1850.00, bal: 12033.42, status: 'ok', cat: 'housing' },
+      { date: '10 Jul 2026', acct: "People's Choice 9120", desc: 'BUNNINGS 3921', amount: -64.20, bal: 13883.42, status: 'warn', cat: 'uncat' },
+      { date: '09 Jul 2026', acct: "People's Choice 9120", desc: 'NETFLIX.COM', amount: -22.99, bal: 13947.62, status: 'ok', cat: 'utilities' },
+      { date: '08 Jul 2026', acct: "People's Choice 9120", desc: 'UBER *TRIP', amount: -28.40, bal: 13970.61, status: 'ok', cat: 'transport' },
+      { date: '07 Jul 2026', acct: "People's Choice 9120", desc: 'ALDI STORES 145', amount: -54.18, bal: 13999.01, status: 'ok', cat: 'groceries' },
+      { date: '06 Jul 2026', acct: "People's Choice 9120", desc: 'ATM WITHDRAWAL RUNDLE MALL', amount: -100.00, bal: 14053.19, status: 'warn', cat: 'uncat' },
+      { date: '05 Jul 2026', acct: "People's Choice 9120", desc: 'SA WATER BPAY', amount: -89.40, bal: 14153.19, status: 'ok', cat: 'utilities' },
+      { date: '04 Jul 2026', acct: "People's Choice 9120", desc: 'MENULOG *ORDER', amount: -41.25, bal: 14242.59, status: 'ok', cat: 'dining' },
+      { date: '03 Jul 2026', acct: "People's Choice 9120", desc: 'BP CONNECT 2841', amount: -68.90, bal: 14283.84, status: 'ok', cat: 'transport' },
+      { date: '02 Jul 2026', acct: "People's Choice 9120", desc: 'SALARY ACME PTY LTD', amount: 4320.00, bal: 14352.74, status: 'ok', cat: 'salary' },
+      { date: '01 Jul 2026', acct: "People's Choice 9120", desc: 'OFFICEWORKS ONLINE', amount: -39.95, bal: 10032.74, status: 'warn', cat: 'uncat' },
+      { date: '30 Jun 2026', acct: "People's Choice 9120", desc: 'WOOLWORTHS 3342 ADELAIDE', amount: -112.08, bal: 10072.69, status: 'ok', cat: 'groceries' },
+      { date: '29 Jun 2026', acct: "People's Choice 9120", desc: 'TRANSFER FROM OFFSET', amount: 200.00, bal: 10184.77, status: 'ok', cat: 'transfer' },
+      { date: '28 Jun 2026', acct: "People's Choice 9120", desc: 'CHEMIST WAREHOUSE', amount: -24.60, bal: 9984.77, status: 'warn', cat: 'uncat' },
+      { date: '27 Jun 2026', acct: "People's Choice 9120", desc: 'SPOTIFY P0A8X', amount: -12.99, bal: 10009.37, status: 'ok', cat: 'utilities' },
+      { date: '26 Jun 2026', acct: "People's Choice 9120", desc: 'HARVEY NORMAN ONLINE', amount: -349.00, bal: 10022.36, status: 'warn', cat: 'uncat' },
+    ];
+
+    let page = 0;
+    const pageSize = 25;
+
+    function catSelect(current) {
+      const opts = cats.map((c) =>
+        `<option value="${c.id}" ${c.id === current ? 'selected' : ''}>${c.name}</option>`
+      ).join('');
+      const color = (cats.find((c) => c.id === current) || cats[cats.length - 1]).color;
+      return `<div class="cat-chip"><span class="cat-dot" style="background:${color}"></span><select aria-label="Category">${opts}</select></div>`;
+    }
+
+    function statusPill(s) {
+      if (s === 'ok') return '<span class="pill ok">Posted</span>';
+      if (s === 'warn') return '<span class="pill warn">Needs cat.</span>';
+      return '<span class="pill muted">Pending</span>';
+    }
+
+    function filtered() {
+      const q = document.getElementById('tx-search').value.trim().toLowerCase();
+      const statusBtn = document.querySelector('#tx-status button.is-on');
+      const onlyUncat = statusBtn && statusBtn.dataset.value === 'uncat';
+      const hideXfer = document.getElementById('hide-transfers').classList.contains('is-on');
+      return rows.filter((r) => {
+        if (onlyUncat && r.cat !== 'uncat') return false;
+        if (hideXfer && r.cat === 'transfer') return false;
+        if (q && !r.desc.toLowerCase().includes(q)) return false;
+        return true;
+      });
+    }
+
+    function render() {
+      const data = filtered();
+      const start = page * pageSize;
+      const slice = data.slice(start, start + pageSize);
+      const body = document.getElementById('tx-body');
+      body.innerHTML = slice.map((r, i) => `
+        <tr data-od-id="tx-row-${start + i}">
+          <td class="check"><input type="checkbox" aria-label="Select transaction" /></td>
+          <td class="mono">${r.date}</td>
+          <td>${r.acct}</td>
+          <td>${r.desc}</td>
+          <td class="amount ${r.amount < 0 ? 'neg' : 'pos'}">${FUNDS.money(r.amount, { signed: true })}</td>
+          <td class="amount money">${FUNDS.money(r.bal)}</td>
+          <td>${statusPill(r.status)}</td>
+          <td>${catSelect(r.cat)}</td>
+        </tr>`).join('');
+
+      const from = data.length ? start + 1 : 0;
+      const to = Math.min(start + pageSize, data.length);
+      document.getElementById('pager-label').textContent =
+        `Showing ${from}–${to} of ${data.length}` + (data.length < rows.length ? ' (filtered)' : ' of 312 sample');
+      document.getElementById('prev').disabled = page === 0;
+      document.getElementById('next').disabled = start + pageSize >= data.length;
+
+      body.querySelectorAll('.cat-chip select').forEach((sel) => {
+        sel.addEventListener('change', () => {
+          const chip = sel.closest('.cat-chip');
+          const cat = cats.find((c) => c.id === sel.value);
+          if (cat) chip.querySelector('.cat-dot').style.background = cat.color;
+        });
+      });
+    }
+
+    function filter() {
+      page = 0;
+      render();
+    }
+
+    document.getElementById('prev').addEventListener('click', () => { page = Math.max(0, page - 1); render(); });
+    document.getElementById('next').addEventListener('click', () => { page += 1; render(); });
+    document.getElementById('check-all').addEventListener('change', (e) => {
+      document.querySelectorAll('#tx-body input[type=checkbox]').forEach((c) => { c.checked = e.target.checked; });
+    });
+
+    document.getElementById('btn-new-category').addEventListener('click', () => {
+      alert('New category — opens category editor in product (prototype affordance).');
+    });
+    document.getElementById('btn-recategorize').addEventListener('click', () => {
+      alert('Recategorize uncategorized — batch flow (prototype affordance).');
+    });
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-income.html",
+  "entry": "funds-income.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-24T08:42:40.558Z",
+  "updatedAt": "2026-07-24T08:42:40.558Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

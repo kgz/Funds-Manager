@@ -4,13 +4,15 @@ import { useAccountFilter } from '@/hooks/useAccountFilter';
 
 type AccountFilterProps = {
 	className?: string;
+	id?: string;
 };
 
-export function AccountFilter({ className }: AccountFilterProps) {
+export function AccountFilter({ className, id }: AccountFilterProps) {
 	const { accounts, accountsLoading, accountId, setAccountId } = useAccountFilter();
 
 	return (
 		<select
+			id={id}
 			className={cn(selectDarkClass, className)}
 			value={accountId ?? ''}
 			disabled={accountsLoading}

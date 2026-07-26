@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Serviceability</title>
+  <link rel="stylesheet" href="css/shared.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Serviceability</h1>
+        <p class="page-sub">Broker-style surplus from income, repayments & living costs</p>
+      </div>
+      <div class="page-actions">
+        <div class="segmented" id="scenario" role="group" aria-label="Scenario" data-od-id="scenario-toggle">
+          <button type="button" data-value="base" class="is-on" aria-pressed="true">Base case</button>
+          <button type="button" data-value="stress">Stress (+3%)</button>
+        </div>
+        <button type="button" class="btn" data-od-id="btn-print">Print report</button>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="kpi-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))" data-od-id="svc-kpis">
+        <article class="kpi" data-od-id="kpi-monthly-income">
+          <p class="kpi-label">Monthly income</p>
+          <p class="kpi-value money" id="kpi-income">$8,735.00</p>
+          <p class="kpi-delta flat">Gross · after tax sample</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-commitments">
+          <p class="kpi-label">Commitments</p>
+          <p class="kpi-value money" id="kpi-commit">$4,812.40</p>
+          <p class="kpi-delta flat">Repayments + living</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-surplus">
+          <p class="kpi-label">Monthly surplus</p>
+          <p class="kpi-value money" id="kpi-surplus" style="color:var(--success)">$3,922.60</p>
+          <p class="kpi-delta up" id="kpi-surplus-delta">Base case</p>
+        </article>
+      </div>
+
+      <div class="grid-2 equal">
+        <section class="panel" data-od-id="income-block">
+          <div class="panel-head">
+            <h2 class="panel-title">Income</h2>
+            <p class="panel-hint">Monthly · AUD</p>
+          </div>
+          <div class="panel-body">
+            <div class="metric-rows">
+              <div class="metric-row">
+                <div><span class="label">Salary (Acme Pty Ltd)</span><span class="sub">Fortnightly × 26 / 12</span></div>
+                <span class="value">$8,320.00</span>
+              </div>
+              <div class="metric-row">
+                <div><span class="label">Interest & other</span><span class="sub">Savings · offset</span></div>
+                <span class="value">$415.00</span>
+              </div>
+              <div class="metric-row total">
+                <div><span class="label">Total income</span></div>
+                <span class="value">$8,735.00</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-od-id="repayments-block">
+          <div class="panel-head">
+            <h2 class="panel-title">Repayments</h2>
+            <p class="panel-hint">Existing facilities</p>
+          </div>
+          <div class="panel-body">
+            <div class="metric-rows" id="repay-rows">
+              <div class="metric-row">
+                <div><span class="label">Home loan (CBA)</span><span class="sub">P&I · variable</span></div>
+                <span class="value" data-field="loan">$2,100.00</span>
+              </div>
+              <div class="metric-row">
+                <div><span class="label">Car loan</span><span class="sub">Remaining 28 months</span></div>
+                <span class="value">$412.00</span>
+              </div>
+              <div class="metric-row">
+                <div><span class="label">Credit card minimums</span><span class="sub">Assumed</span></div>
+                <span class="value">$180.00</span>
+              </div>
+              <div class="metric-row total">
+                <div><span class="label">Total repayments</span></div>
+                <span class="value" id="repay-total">$2,692.00</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="grid-2 equal">
+        <section class="panel" data-od-id="living-block">
+          <div class="panel-head">
+            <h2 class="panel-title">Living costs</h2>
+            <p class="panel-hint">From categorised spend · HEM-style</p>
+          </div>
+          <div class="panel-body">
+            <div class="metric-rows">
+              <div class="metric-row">
+                <div><span class="label">Groceries & household</span></div>
+                <span class="value">$820.00</span>
+              </div>
+              <div class="metric-row">
+                <div><span class="label">Transport</span></div>
+                <span class="value">$380.00</span>
+              </div>
+              <div class="metric-row">
+                <div><span class="label">Utilities & telecom</span></div>
+                <span class="value">$290.40</span>
+              </div>
+              <div class="metric-row">
+                <div><span class="label">Dining & discretionary</span></div>
+                <span class="value">$630.00</span>
+              </div>
+              <div class="metric-row total">
+                <div><span class="label">Total living</span></div>
+                <span class="value">$2,120.40</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-od-id="surplus-block">
+          <div class="panel-head">
+            <h2 class="panel-title">Surplus</h2>
+            <p class="panel-hint" id="scenario-label">Base case</p>
+          </div>
+          <div class="panel-body">
+            <div class="metric-rows">
+              <div class="metric-row">
+                <div><span class="label">Income</span></div>
+                <span class="value">$8,735.00</span>
+              </div>
+              <div class="metric-row">
+                <div><span class="label">− Repayments</span></div>
+                <span class="value" id="sum-repay">−$2,692.00</span>
+              </div>
+              <div class="metric-row">
+                <div><span class="label">− Living costs</span></div>
+                <span class="value">−$2,120.40</span>
+              </div>
+              <div class="metric-row total surplus" id="surplus-row">
+                <div><span class="label">Net surplus / month</span></div>
+                <span class="value" id="surplus-value">$3,922.60</span>
+              </div>
+              <div class="metric-row stress" id="stress-row" hidden>
+                <div><span class="label">Stress surplus (+3% rate)</span><span class="sub">Loan repayment stressed</span></div>
+                <span class="value" id="stress-value">$3,712.60</span>
+              </div>
+            </div>
+            <div class="bar-track" aria-hidden="true">
+              <div class="bar-fill" id="surplus-bar" style="width:45%"></div>
+            </div>
+            <p class="panel-hint" style="margin-top:10px">Surplus as share of income · higher is healthier capacity</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('serviceability');
+
+    const income = 8735;
+    const living = 2120.4;
+    const baseRepay = { loan: 2100, car: 412, cc: 180 };
+
+    function apply(scenario) {
+      const stress = scenario === 'stress';
+      const loan = stress
+        ? Math.round(baseRepay.loan * 1.12 * 100) / 100
+        : baseRepay.loan;
+      const repay = loan + baseRepay.car + baseRepay.cc;
+      const surplus = Math.round((income - repay - living) * 100) / 100;
+      const stressSurplus = Math.round(
+        (income - (baseRepay.loan * 1.12 + baseRepay.car + baseRepay.cc) - living) * 100
+      ) / 100;
+
+      document.querySelectorAll('[data-field="loan"]').forEach((el) => {
+        el.textContent = FUNDS.money(loan);
+      });
+      document.getElementById('repay-total').textContent = FUNDS.money(repay);
+      document.getElementById('sum-repay').textContent = '−' + FUNDS.money(repay);
+      document.getElementById('surplus-value').textContent = FUNDS.money(surplus);
+      document.getElementById('kpi-surplus').textContent = FUNDS.money(surplus);
+      document.getElementById('kpi-commit').textContent = FUNDS.money(repay + living);
+
+      const ok = surplus >= 0;
+      const tone = ok ? 'var(--success)' : 'var(--danger)';
+      document.getElementById('surplus-value').style.color = tone;
+      document.getElementById('kpi-surplus').style.color = tone;
+
+      document.getElementById('stress-row').hidden = !stress;
+      document.getElementById('stress-value').textContent = FUNDS.money(stressSurplus);
+      document.getElementById('scenario-label').textContent = stress
+        ? 'Stress scenario (+3% rate approx.)'
+        : 'Base case';
+      document.getElementById('kpi-surplus-delta').textContent = stress
+        ? 'Stressed repayments'
+        : 'Base case';
+      document.getElementById('kpi-surplus-delta').className =
+        'kpi-delta ' + (stress ? 'down' : 'up');
+
+      const pct = Math.max(0, Math.min(100, (surplus / income) * 100));
+      const bar = document.getElementById('surplus-bar');
+      bar.style.width = pct.toFixed(1) + '%';
+      bar.className =
+        'bar-fill' + (pct < 20 ? ' danger' : pct < 30 ? ' warn' : '');
+    }
+
+    FUNDS.wireSegmented('#scenario', apply);
+    apply('base');
+
+    document.querySelector('[data-od-id="btn-print"]').addEventListener('click', () => {
+      window.print();
+    });
+  </script>
+</body>
+</html>

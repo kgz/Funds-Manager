@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-transactions.html",
+  "entry": "funds-transactions.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-18T05:52:49.854Z",
+  "updatedAt": "2026-07-18T05:52:49.854Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

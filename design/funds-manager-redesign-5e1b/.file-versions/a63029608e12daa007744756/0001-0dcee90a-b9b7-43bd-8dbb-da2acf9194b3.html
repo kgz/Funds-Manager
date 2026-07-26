@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Income</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/income.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Income</h1>
+        <p class="page-sub" id="page-sub" data-od-id="page-sub">Detected salary and regular credits for broker verification</p>
+      </div>
+      <div class="page-actions" data-od-id="income-filters">
+        <label class="sr" for="acct">Account</label>
+        <select class="select" id="acct" data-od-id="filter-account" aria-label="Account filter">
+          <option value="all">All accounts</option>
+          <option value="pc-9120" selected>People's Choice 9120</option>
+          <option value="pc-savings">People's Choice Savings</option>
+          <option value="cba-offset">CBA Offset 4412</option>
+        </select>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <section class="kpi-grid" data-od-id="kpi-row" aria-label="Income summary">
+        <article class="kpi" data-od-id="kpi-monthly">
+          <p class="kpi-label">Est monthly</p>
+          <p class="kpi-value money" id="kpi-monthly">$0.00</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-yearly-ex">
+          <p class="kpi-label">Est yearly ex GST</p>
+          <p class="kpi-value money" id="kpi-yearly-ex">$0.00</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-yearly-inc">
+          <p class="kpi-label">Est yearly inc GST</p>
+          <p class="kpi-value money" id="kpi-yearly-inc">$0.00</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-streams">
+          <p class="kpi-label">Streams detected</p>
+          <p class="kpi-value" id="kpi-streams">0</p>
+        </article>
+      </section>
+
+      <section class="panel income-panel" data-od-id="income-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Income streams</h2>
+            <p class="panel-hint" id="table-hint">People's Choice 9120 · recurring credits</p>
+          </div>
+        </div>
+
+        <div class="income-callout" data-od-id="payg-callout">
+          <div class="income-callout-body">
+            <span class="income-callout-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </span>
+            <div class="income-callout-text">
+              <strong>Detected amounts are after PAYG withholding</strong>
+              <p>Bank deposits reflect take-home pay. Edit each stream to set the employment package ex GST per week, month, or year for lender serviceability.</p>
+            </div>
+          </div>
+          <div class="income-callout-actions">
+            <button type="button" class="btn" id="callout-edit" data-od-id="callout-edit">Edit packages</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data" data-od-id="streams-table">
+            <thead>
+              <tr>
+                <th class="col-source" scope="col">Source</th>
+                <th class="col-freq" scope="col">Frequency</th>
+                <th class="is-numeric" scope="col">Est monthly</th>
+                <th class="is-numeric" scope="col">Yearly ex GST</th>
+                <th class="is-numeric" scope="col">Yearly inc GST</th>
+                <th class="col-months is-numeric" scope="col">Months</th>
+                <th class="col-status" scope="col">Status</th>
+                <th class="col-actions" scope="col"><span class="sr">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="streams-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <dialog class="income-dialog" id="edit-dialog" data-od-id="edit-dialog" aria-labelledby="edit-title">
+    <form method="dialog" class="income-dialog-shell" id="edit-form">
+      <div class="income-dialog-head">
+        <div>
+          <span class="eyebrow">Income stream</span>
+          <h2 id="edit-title">Edit stream</h2>
+        </div>
+        <button class="dialog-close" type="button" id="edit-close" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="income-dialog-body">
+        <label class="income-field">
+          <span>Label</span>
+          <input class="input" type="text" id="edit-label" required data-od-id="edit-label" />
+        </label>
+        <div class="income-field">
+          <span>Package ex GST</span>
+          <div class="package-row">
+            <input class="input" type="number" id="edit-package" min="0" step="100" required data-od-id="edit-package" />
+            <select class="select" id="edit-period" data-od-id="edit-period" aria-label="Package period">
+              <option value="week">per week</option>
+              <option value="month">per month</option>
+              <option value="year" selected>per year</option>
+            </select>
+          </div>
+        </div>
+        <div class="checkbox-group">
+          <label class="checkbox-field">
+            <input type="checkbox" id="edit-primary" data-od-id="edit-primary" />
+            Primary income
+          </label>
+          <label class="checkbox-field">
+            <input type="checkbox" id="edit-confirmed" data-od-id="edit-confirmed" />
+            Confirmed by user
+          </label>
+        </div>
+      </div>
+      <div class="income-dialog-actions">
+        <button type="button" class="btn" id="edit-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="edit-save" data-od-id="edit-save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('income');
+
+    const GST_RATE = 0.1;
+
+    const streams = [
+      {
+        id: 's1',
+        label: 'Acme Pty Ltd',
+        acctId: 'pc-9120',
+        detectedLabel: 'SALARY ACME PTY LTD',
+        frequency: 'Fortnightly',
+        detectedAmount: 4320,
+        monthlyEst: 9360,
+        packageAmount: 95000,
+        packagePeriod: 'year',
+        months: 12,
+        primary: true,
+        confirmed: true,
+        variable: false,
+      },
+      {
+        id: 's2',
+        label: 'Philips Design Co',
+        acctId: 'pc-9120',
+        detectedLabel: 'PHILIPS DESIGN CO',
+        frequency: 'Monthly',
+        detectedAmount: 2800,
+        monthlyEst: 2800,
+        packageAmount: 2800,
+        packagePeriod: 'month',
+        months: 8,
+        primary: false,
+        confirmed: false,
+        variable: true,
+      },
+      {
+        id: 's3',
+        label: 'Metro Health Services',
+        acctId: 'pc-savings',
+        detectedLabel: 'METRO HEALTH PAY',
+        frequency: 'Fortnightly',
+        detectedAmount: 1890,
+        monthlyEst: 4095,
+        packageAmount: 42000,
+        packagePeriod: 'year',
+        months: 11,
+        primary: false,
+        confirmed: true,
+        variable: false,
+      },
+    ];
+
+    let editingId = null;
+    let accountFilter = 'pc-9120';
+
+    function yearlyExGst(stream) {
+      const amt = stream.packageAmount;
+      if (stream.packagePeriod === 'week') return amt * 52;
+      if (stream.packagePeriod === 'month') return amt * 12;
+      return amt;
+    }
+
+    function yearlyIncGst(stream) {
+      return yearlyExGst(stream) * (1 + GST_RATE);
+    }
+
+    function filteredStreams() {
+      if (accountFilter === 'all') return streams;
+      return streams.filter((s) => s.acctId === accountFilter);
+    }
+
+    function accountLabel(id) {
+      if (id === 'all') return 'All accounts';
+      const acct = FUNDS.accounts.find((a) => a.id === id);
+      return acct ? acct.label : id;
+    }
+
+    function statusBadges(stream) {
+      const badges = [];
+      if (stream.primary) badges.push('<span class="pill primary">Primary</span>');
+      if (stream.confirmed) badges.push('<span class="pill ok">Confirmed</span>');
+      if (stream.variable) badges.push('<span class="pill variable">Variable</span>');
+      return `<span class="status-badges">${badges.join('')}</span>`;
+    }
+
+    function updateKpis() {
+      const visible = filteredStreams();
+      const monthly = visible.reduce((sum, s) => sum + s.monthlyEst, 0);
+      const yearlyEx = visible.reduce((sum, s) => sum + yearlyExGst(s), 0);
+      const yearlyInc = visible.reduce((sum, s) => sum + yearlyIncGst(s), 0);
+
+      document.getElementById('kpi-monthly').textContent = FUNDS.money(monthly);
+      document.getElementById('kpi-yearly-ex').textContent = FUNDS.money(yearlyEx);
+      document.getElementById('kpi-yearly-inc').textContent = FUNDS.money(yearlyInc);
+      document.getElementById('kpi-streams').textContent = String(visible.length);
+    }
+
+    function renderTable() {
+      const visible = filteredStreams();
+      const body = document.getElementById('streams-body');
+
+      body.innerHTML = visible.map((s, i) => `
+        <tr data-od-id="stream-row-${i}" data-stream-id="${s.id}">
+          <td class="col-source">
+            <div class="source-cell">
+              <span class="source-name">${s.label}</span>
+              <span class="source-detected mono">${s.detectedLabel} · ${FUNDS.money(s.detectedAmount)}</span>
+            </div>
+          </td>
+          <td class="col-freq">${s.frequency}</td>
+          <td class="amount money">${FUNDS.money(s.monthlyEst)}</td>
+          <td class="amount money">${FUNDS.money(yearlyExGst(s))}</td>
+          <td class="amount money">${FUNDS.money(yearlyIncGst(s))}</td>
+          <td class="col-months mono">${s.months}</td>
+          <td class="col-status">${statusBadges(s)}</td>
+          <td class="col-actions">
+            <button type="button" class="btn btn-edit" data-edit="${s.id}" data-od-id="edit-stream-${i}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Edit
+            </button>
+          </td>
+        </tr>`).join('');
+
+      body.querySelectorAll('[data-edit]').forEach((btn) => {
+        btn.addEventListener('click', () => openEdit(btn.dataset.edit));
+      });
+
+      document.getElementById('table-hint').textContent =
+        `${accountLabel(accountFilter)} · recurring credits`;
+
+      updateKpis();
+    }
+
+    function openEdit(id) {
+      const stream = streams.find((s) => s.id === id);
+      if (!stream) return;
+      editingId = id;
+      document.getElementById('edit-label').value = stream.label;
+      document.getElementById('edit-package').value = stream.packageAmount;
+      document.getElementById('edit-period').value = stream.packagePeriod;
+      document.getElementById('edit-primary').checked = stream.primary;
+      document.getElementById('edit-confirmed').checked = stream.confirmed;
+      document.getElementById('edit-dialog').showModal();
+    }
+
+    function closeEdit() {
+      document.getElementById('edit-dialog').close();
+      editingId = null;
+    }
+
+    function saveEdit(e) {
+      e.preventDefault();
+      const stream = streams.find((s) => s.id === editingId);
+      if (!stream) return;
+
+      stream.label = document.getElementById('edit-label').value.trim() || stream.label;
+      stream.packageAmount = Number(document.getElementById('edit-package').value) || 0;
+      stream.packagePeriod = document.getElementById('edit-period').value;
+      stream.primary = document.getElementById('edit-primary').checked;
+      stream.confirmed = document.getElementById('edit-confirmed').checked;
+
+      if (stream.primary) {
+        streams.forEach((s) => {
+          if (s.id !== stream.id) s.primary = false;
+        });
+      }
+
+      closeEdit();
+      renderTable();
+    }
+
+    document.getElementById('acct').addEventListener('change', (e) => {
+      accountFilter = e.target.value;
+      renderTable();
+    });
+
+    document.getElementById('callout-edit').addEventListener('click', () => {
+      const visible = filteredStreams();
+      if (visible.length) openEdit(visible[0].id);
+    });
+
+    document.getElementById('edit-form').addEventListener('submit', saveEdit);
+    document.getElementById('edit-cancel').addEventListener('click', closeEdit);
+    document.getElementById('edit-close').addEventListener('click', closeEdit);
+
+    document.getElementById('edit-dialog').addEventListener('cancel', () => {
+      editingId = null;
+    });
+
+    renderTable();
+  </script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "fileName": "funds-predictions.html",
+  "entries": [
+    {
+      "id": "12f39038-f0d5-452f-8be2-ea77ca2c71e1",
+      "fileName": "funds-predictions.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1784441194079,
+      "source": "ai",
+      "prompt": "remove the other option, just keep the net focus one",
+      "size": 25840,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-12f39038-f0d5-452f-8be2-ea77ca2c71e1.html",
+      "promptSource": "message"
+    }
+  ]
+}

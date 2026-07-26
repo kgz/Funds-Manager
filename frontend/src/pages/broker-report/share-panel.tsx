@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Copy, Link2, Trash2 } from 'lucide-react';
 import { InlineAlert } from '@/components/layout/InlineAlert';
-import { glassCardClass } from '@/components/layout/tokens';
+import {
+	glassCardClass,
+	inputDarkClass,
+	panelHintClass,
+	panelTitleClass,
+} from '@/components/layout/tokens';
+import { cn } from '@/lib/utils/cn';
+import { rsBtnPrimaryClass } from '@/pages/report-snapshots/shared';
 import {
 	createBrokerReportShare,
 	fetchBrokerReportShares,
@@ -85,14 +92,14 @@ export function SharePanel({ snapshotId }: SharePanelProps) {
 	return (
 		<div className={`${glassCardClass} broker-report-no-print space-y-4 p-4`}>
 			<div className="flex items-center gap-2">
-				<Link2 size="1rem" aria-hidden />
-				<h2 className="text-sm font-semibold text-white">Share link (optional)</h2>
+				<Link2 size="1rem" className="text-paper-muted" aria-hidden />
+				<h2 className={panelTitleClass}>Share link (optional)</h2>
 			</div>
-			<p className="text-sm text-white/60">
+			<p className={panelHintClass}>
 				Send a read-only copy if needed. Revoke the link when you are done.
 			</p>
 			{error !== null ? <InlineAlert variant="error">{error}</InlineAlert> : null}
-			<label className="flex items-center gap-2 text-sm text-white/80">
+			<label className="flex items-center gap-2 text-sm text-paper-fg">
 				<input
 					type="checkbox"
 					checked={hideAccountNumbers}
@@ -100,10 +107,10 @@ export function SharePanel({ snapshotId }: SharePanelProps) {
 				/>
 				Hide account numbers
 			</label>
-			<label className="block space-y-1 text-sm text-white/80">
+			<label className="block space-y-1 text-sm text-paper-fg">
 				<span>Merchant patterns to redact (one per line)</span>
 				<textarea
-					className="min-h-20 w-full rounded border border-white/10 bg-black/30 px-3 py-2 text-white"
+					className={cn(inputDarkClass, 'min-h-20 w-full px-3 py-2')}
 					value={merchantPatterns}
 					onChange={(event) => setMerchantPatterns(event.target.value)}
 					placeholder="e.g. coles&#10;woolworths"
@@ -111,27 +118,27 @@ export function SharePanel({ snapshotId }: SharePanelProps) {
 			</label>
 			<button
 				type="button"
-				className="rounded bg-secondary-default px-4 py-2 text-sm font-medium text-black disabled:opacity-50"
+				className={rsBtnPrimaryClass}
 				disabled={saving}
 				onClick={() => void handleCreate()}
 			>
 				{saving ? 'Creating…' : 'Create share link'}
 			</button>
-			{loading ? <p className="text-sm text-white/50">Loading shares…</p> : null}
+			{loading ? <p className={panelHintClass}>Loading shares…</p> : null}
 			{shares.length > 0 ? (
 				<ul className="space-y-2 text-sm">
 					{shares.map((share) => (
 						<li
 							key={share.id}
-							className="flex flex-wrap items-center justify-between gap-2 rounded border border-white/10 bg-black/20 px-3 py-2"
+							className="flex flex-wrap items-center justify-between gap-2 rounded-paper border border-paper-border bg-paper px-3 py-2"
 						>
-							<span className="font-mono text-xs text-white/70">
+							<span className="font-mono text-xs text-paper-muted">
 								{shareUrl(share.urlPath)}
 							</span>
 							<div className="flex gap-2">
 								<button
 									type="button"
-									className="inline-flex items-center gap-1 text-white/80 hover:text-white"
+									className="inline-flex cursor-pointer items-center gap-1 text-paper-muted transition-colors hover:text-paper-fg"
 									onClick={() => void handleCopy(share)}
 								>
 									<Copy size="0.875rem" aria-hidden />
@@ -139,7 +146,7 @@ export function SharePanel({ snapshotId }: SharePanelProps) {
 								</button>
 								<button
 									type="button"
-									className="inline-flex items-center gap-1 text-red-300 hover:text-red-200"
+									className="inline-flex cursor-pointer items-center gap-1 text-[color:var(--danger)] transition-colors hover:opacity-80"
 									onClick={() => void handleRevoke(share.id)}
 								>
 									<Trash2 size="0.875rem" aria-hidden />

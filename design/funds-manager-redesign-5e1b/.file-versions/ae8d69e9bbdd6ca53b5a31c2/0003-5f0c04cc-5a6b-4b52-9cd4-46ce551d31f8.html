@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Breakdown</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/walkthrough.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Breakdown</h1>
+        <p class="page-sub">Spending and income by category · expand rows for grouped descriptions (same keys as repeat payments)</p>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="filters-row" data-od-id="breakdown-filters">
+        <label class="sr" for="bd-account">Account</label>
+        <select class="select" id="bd-account" data-od-id="filter-account" aria-label="Account filter">
+          <option value="all">All accounts</option>
+          <option value="pc-9120" selected>People's Choice 9120</option>
+          <option value="pc-savings">People's Choice Savings</option>
+          <option value="cba-offset">CBA Offset 4412</option>
+        </select>
+
+        <div class="segmented" role="group" aria-label="Date mode" data-od-id="filter-mode" id="date-mode">
+          <button type="button" data-value="presets" class="is-on" aria-pressed="true">Presets</button>
+          <button type="button" data-value="custom" aria-pressed="false">Custom</button>
+        </div>
+
+        <div class="segmented" role="group" aria-label="Period" data-od-id="filter-period" id="period">
+          <button type="button" data-value="1m" class="is-on" aria-pressed="true">This month</button>
+          <button type="button" data-value="3m" aria-pressed="false">3 months</button>
+          <button type="button" data-value="6m" aria-pressed="false">6 months</button>
+          <button type="button" data-value="1y" aria-pressed="false">1 year</button>
+          <button type="button" data-value="all" aria-pressed="false">All time</button>
+        </div>
+
+        <div class="custom-dates" id="custom-dates" data-od-id="filter-custom-dates">
+          <label class="sr" for="date-from">From</label>
+          <input class="input date" type="date" id="date-from" value="2026-01-01" aria-label="From date" />
+          <span class="date-sep">to</span>
+          <label class="sr" for="date-to">To</label>
+          <input class="input date" type="date" id="date-to" value="2026-07-19" aria-label="To date" />
+        </div>
+
+        <div class="period-totals" data-od-id="period-totals" aria-label="Period totals">
+          <div class="period-total is-spending" data-od-id="total-spending">
+            <span class="pt-label">Period spending</span>
+            <span class="pt-value neg" id="tot-spend">−$6,816.40</span>
+          </div>
+          <div class="period-total is-income" data-od-id="total-income">
+            <span class="pt-label">Period income</span>
+            <span class="pt-value pos" id="tot-income">+$8,760.00</span>
+          </div>
+          <div class="period-total is-net" data-od-id="total-net">
+            <span class="pt-label">Net</span>
+            <span class="pt-value pos" id="tot-net">+$1,943.60</span>
+          </div>
+        </div>
+      </div>
+
+      <section class="panel" data-tour="breakdown-recurring" data-od-id="breakdown-tour-target">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title" data-od-id="breakdown-table-title">By category</h2>
+            <p class="panel-hint" id="table-hint">People's Choice 9120 · this month</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data" data-od-id="breakdown-table">
+            <thead>
+              <tr>
+                <th class="col-expand" scope="col"><span class="sr">Expand</span></th>
+                <th scope="col">Category</th>
+                <th scope="col" style="text-align:right">Spending</th>
+                <th class="col-pct" scope="col">% of spending</th>
+                <th scope="col" style="text-align:right">Income</th>
+                <th scope="col" style="text-align:right">Net</th>
+                <th class="col-txns" scope="col">Txns</th>
+                <th class="col-actions" scope="col"><span class="sr">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="bd-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <style>
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  </style>
+
+  <script src="js/shared.js"></script>
+  <script src="js/walkthrough.js"></script>
+  <script>
+    FUNDS.renderSidebar('breakdown');
+
+    const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+
+    const PERIODS = {
+      '1m': {
+        label: 'this month',
+        spend: 6816.40,
+        income: 8760.00,
+        rows: [
+          {
+            id: 'housing', name: 'Housing', color: '#8b6b4a',
+            spend: 2318.00, income: 0, txns: 4,
+            kids: [
+              { key: 'Rent payment J & K Trust', spend: 1850.00, income: 0, txns: 1 },
+              { key: 'Strata levies — Unit 4', spend: 420.00, income: 0, txns: 1 },
+              { key: 'Contents insurance NRMA', spend: 48.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'groceries', name: 'Groceries', color: '#3d8b6e',
+            spend: 1040.00, income: 0, txns: 12,
+            kids: [
+              { key: 'Woolworths 3342 Adelaide', spend: 520.00, income: 0, txns: 6 },
+              { key: 'Coles 0782 Norwood', spend: 364.00, income: 0, txns: 4 },
+              { key: 'Aldi Stores 145', spend: 156.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'transport', name: 'Transport', color: '#4a6fa5',
+            spend: 687.00, income: 0, txns: 9,
+            kids: [
+              { key: 'Shell Coles Express St Marys', spend: 412.00, income: 0, txns: 4 },
+              { key: 'Uber *Trip', spend: 148.00, income: 0, txns: 3 },
+              { key: 'Adelaide Metro Tap', spend: 127.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'dining', name: 'Dining out', color: '#c47a4a',
+            spend: 608.00, income: 0, txns: 11,
+            kids: [
+              { key: 'SQ *Line + Dot Cafe', spend: 214.00, income: 0, txns: 5 },
+              { key: 'Menulog *Order', spend: 246.00, income: 0, txns: 4 },
+              { key: 'Restaurant — Rundle St', spend: 148.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'utilities', name: 'Utilities', color: '#6b7a8b',
+            spend: 485.00, income: 0, txns: 5,
+            kids: [
+              { key: 'Origin Energy BPAY', spend: 214.80, income: 0, txns: 1 },
+              { key: 'SA Water BPAY', spend: 89.40, income: 0, txns: 1 },
+              { key: 'Netflix.com', spend: 22.99, income: 0, txns: 1 },
+              { key: 'Spotify P0A8X', spend: 12.99, income: 0, txns: 1 },
+              { key: 'iiNet Broadband', spend: 144.82, income: 0, txns: 1 },
+            ],
+          },
+          {
+            id: 'salary', name: 'Salary', color: '#2f7d5a',
+            spend: 0, income: 8640.00, txns: 2,
+            kids: [
+              { key: 'Salary Acme Pty Ltd', spend: 0, income: 8640.00, txns: 2 },
+            ],
+          },
+          {
+            id: 'other', name: 'Other', color: '#b8b8b8',
+            spend: 1128.40, income: 120.00, txns: 8,
+            kids: [
+              { key: 'ATM Withdrawal Rundle Mall', spend: 200.00, income: 0, txns: 2 },
+              { key: 'Bunnings 3921', spend: 184.20, income: 0, txns: 2 },
+              { key: 'Interest — Savings', spend: 0, income: 120.00, txns: 1 },
+              { key: 'Misc retail', spend: 744.20, income: 0, txns: 3 },
+            ],
+          },
+          {
+            id: 'uncat', name: 'Uncategorised', color: '#b0b0b0', uncat: true,
+            spend: 550.00, income: 0, txns: 5,
+            kids: [
+              { key: 'Unknown merchant 8841', spend: 45.90, income: 0, txns: 1 },
+              { key: 'Harvey Norman Online', spend: 349.00, income: 0, txns: 1 },
+              { key: 'Chemist Warehouse', spend: 24.60, income: 0, txns: 1 },
+              { key: 'Officeworks Online', spend: 39.95, income: 0, txns: 1 },
+              { key: 'ATM fee / sundry', spend: 90.55, income: 0, txns: 1 },
+            ],
+          },
+        ],
+      },
+      '3m': {
+        label: 'last 3 months',
+        scale: 3,
+      },
+      '6m': {
+        label: 'last 6 months',
+        spend: 43186.40,
+        income: 52410.00,
+        rows: [
+          {
+            id: 'housing', name: 'Housing', color: '#8b6b4a',
+            spend: 16800.00, income: 0, txns: 18,
+            kids: [
+              { key: 'Rent payment J & K Trust', spend: 11100.00, income: 0, txns: 6 },
+              { key: 'Strata levies — Unit 4', spend: 3360.00, income: 0, txns: 4 },
+              { key: 'Contents insurance NRMA', spend: 288.00, income: 0, txns: 6 },
+              { key: 'Maintenance / repairs', spend: 2052.00, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'groceries', name: 'Groceries', color: '#3d8b6e',
+            spend: 6240.00, income: 0, txns: 68,
+            kids: [
+              { key: 'Woolworths 3342 Adelaide', spend: 3120.00, income: 0, txns: 32 },
+              { key: 'Coles 0782 Norwood', spend: 2184.00, income: 0, txns: 24 },
+              { key: 'Aldi Stores 145', spend: 936.00, income: 0, txns: 12 },
+            ],
+          },
+          {
+            id: 'transport', name: 'Transport', color: '#4a6fa5',
+            spend: 4120.00, income: 0, txns: 42,
+            kids: [
+              { key: 'Shell Coles Express St Marys', spend: 2472.00, income: 0, txns: 20 },
+              { key: 'Uber *Trip', spend: 988.00, income: 0, txns: 14 },
+              { key: 'Adelaide Metro Tap', spend: 660.00, income: 0, txns: 8 },
+            ],
+          },
+          {
+            id: 'dining', name: 'Dining out', color: '#c47a4a',
+            spend: 3850.00, income: 0, txns: 54,
+            kids: [
+              { key: 'SQ *Line + Dot Cafe', spend: 1280.00, income: 0, txns: 24 },
+              { key: 'Menulog *Order', spend: 1540.00, income: 0, txns: 20 },
+              { key: 'Restaurant — Rundle St', spend: 1030.00, income: 0, txns: 10 },
+            ],
+          },
+          {
+            id: 'utilities', name: 'Utilities', color: '#6b7a8b',
+            spend: 2910.00, income: 0, txns: 24,
+            kids: [
+              { key: 'Origin Energy BPAY', spend: 1288.80, income: 0, txns: 6 },
+              { key: 'SA Water BPAY', spend: 536.40, income: 0, txns: 4 },
+              { key: 'Netflix.com', spend: 137.94, income: 0, txns: 6 },
+              { key: 'Spotify P0A8X', spend: 77.94, income: 0, txns: 6 },
+              { key: 'iiNet Broadband', spend: 868.92, income: 0, txns: 2 },
+            ],
+          },
+          {
+            id: 'salary', name: 'Salary', color: '#2f7d5a',
+            spend: 0, income: 48600.00, txns: 13,
+            kids: [
+              { key: 'Salary Acme Pty Ltd', spend: 0, income: 48600.00, txns: 13 },
+            ],
+          },
+          {
+            id: 'other', name: 'Other', color: '#b8b8b8',
+            spend: 7616.40, income: 3810.00, txns: 48,
+            kids: [
+              { key: 'Interest — Savings', spend: 0, income: 1840.00, txns: 6 },
+              { key: 'Refunds', spend: 0, income: 970.00, txns: 4 },
+              { key: 'Other income', spend: 0, income: 1000.00, txns: 3 },
+              { key: 'Misc retail / cash', spend: 7616.40, income: 0, txns: 35 },
+            ],
+          },
+          {
+            id: 'uncat', name: 'Uncategorised', color: '#b0b0b0', uncat: true,
+            spend: 1650.00, income: 0, txns: 14,
+            kids: [
+              { key: 'Unknown merchant 8841', spend: 245.90, income: 0, txns: 4 },
+              { key: 'Harvey Norman Online', spend: 349.00, income: 0, txns: 1 },
+              { key: 'Chemist Warehouse', spend: 148.60, income: 0, txns: 4 },
+              { key: 'Officeworks Online', spend: 219.95, income: 0, txns: 3 },
+              { key: 'ATM fee / sundry', spend: 686.55, income: 0, txns: 2 },
+            ],
+          },
+        ],
+      },
+      '1y': {
+        label: 'last 12 months',
+        scale: 12,
+      },
+      all: {
+        label: 'all time',
+        scale: 24,
+      },
+    };
+
+    function scaleRows(baseRows, factor) {
+      return baseRows.map((r) => {
+        const spend = Math.round(r.spend * factor * 100) / 100;
+        const income = Math.round(r.income * factor * 100) / 100;
+        const kids = (r.kids || []).map((k) => ({
+          key: k.key,
+          spend: Math.round(k.spend * factor * 100) / 100,
+          income: Math.round(k.income * factor * 100) / 100,
+          txns: Math.max(1, Math.round(k.txns * factor)),
+        }));
+        return {
+          id: r.id,
+          name: r.name,
+          color: r.color,
+          uncat: r.uncat,
+          spend,
+          income,
+          txns: Math.max(1, Math.round(r.txns * factor)),
+          kids,
+        };
+      });
+    }
+
+    function resolvePeriod(key) {
+      const p = PERIODS[key] || PERIODS['1m'];
+      if (p.rows) {
+        return {
+          label: p.label,
+          spend: p.spend,
+          income: p.income,
+          rows: p.rows,
+        };
+      }
+      const rows = scaleRows(PERIODS['1m'].rows, p.scale);
+      let spend = 0;
+      let income = 0;
+      for (const r of rows) {
+        spend += r.spend;
+        income += r.income;
+      }
+      return {
+        label: p.label,
+        spend: Math.round(spend * 100) / 100,
+        income: Math.round(income * 100) / 100,
+        rows,
+      };
+    }
+
+    let openId = 'housing';
+    let periodKey = '1m';
+    let mode = 'presets';
+
+    function moneyNeg(n) {
+      if (!n) return '—';
+      return '−' + FUNDS.money(n).replace(/^−/, '');
+    }
+
+    function moneyPos(n) {
+      if (!n) return '—';
+      return '+' + FUNDS.money(n);
+    }
+
+    function netClass(n) {
+      if (n > 0) return 'pos';
+      if (n < 0) return 'neg';
+      return '';
+    }
+
+    function fmtNet(n) {
+      if (n === 0) return FUNDS.money(0);
+      if (n > 0) return moneyPos(n);
+      return moneyNeg(Math.abs(n));
+    }
+
+    function catPill(row) {
+      const cls = 'cat-pill' + (row.uncat ? ' is-uncat' : '');
+      return `<span class="${cls}"><span class="cat-dot" style="background:${row.color}"></span>${row.name}</span>`;
+    }
+
+    function shareCell(pct, color) {
+      if (pct <= 0) return '<span class="share-pct">—</span>';
+      const w = Math.min(100, Math.max(2, pct));
+      return `<div class="share-cell">
+        <span class="share-pct">${pct.toFixed(1)}%</span>
+        <div class="share-track" aria-hidden="true"><div class="share-fill" style="width:${w}%;background:${color}"></div></div>
+      </div>`;
+    }
+
+    function paintTotals(data) {
+      const net = data.income - data.spend;
+      document.getElementById('tot-spend').textContent = moneyNeg(data.spend);
+      document.getElementById('tot-income').textContent = moneyPos(data.income);
+      const netEl = document.getElementById('tot-net');
+      netEl.textContent = fmtNet(net);
+      netEl.className = 'pt-value ' + netClass(net);
+    }
+
+    function paintTable() {
+      const data = resolvePeriod(periodKey);
+      const acct = document.getElementById('bd-account');
+      const acctLabel = acct.options[acct.selectedIndex].text;
+      document.getElementById('table-hint').textContent = acctLabel + ' · ' + data.label;
+      paintTotals(data);
+
+      const spendTotal = data.spend || 1;
+      const body = document.getElementById('bd-body');
+      let html = '';
+
+      for (const row of data.rows) {
+        const net = row.income - row.spend;
+        const pct = row.spend > 0 ? (row.spend / spendTotal) * 100 : 0;
+        const isOpen = openId === row.id;
+        const hasKids = row.kids && row.kids.length > 0;
+
+        html += `<tr class="is-parent${isOpen ? ' is-open' : ''}" data-id="${row.id}" data-od-id="cat-row-${row.id}">
+          <td class="col-expand">
+            ${hasKids
+              ? `<button type="button" class="row-toggle" aria-expanded="${isOpen}" aria-label="${isOpen ? 'Collapse' : 'Expand'} ${row.name}" data-toggle="${row.id}">${CHEVRON}</button>`
+              : `<button type="button" class="row-toggle is-empty" tabindex="-1" aria-hidden="true">${CHEVRON}</button>`}
+          </td>
+          <td>${catPill(row)}</td>
+          <td class="amount ${row.spend ? 'neg' : ''} mono">${row.spend ? moneyNeg(row.spend) : '—'}</td>
+          <td class="col-pct">${row.spend ? shareCell(pct, row.color) : '—'}</td>
+          <td class="amount ${row.income ? 'pos' : ''} mono">${row.income ? moneyPos(row.income) : '—'}</td>
+          <td class="amount ${netClass(net)} mono">${fmtNet(net)}</td>
+          <td class="col-txns mono">${row.txns}</td>
+          <td class="col-actions"></td>
+        </tr>`;
+
+        if (hasKids) {
+          const hide = isOpen ? '' : ' is-hidden';
+          html += `<tr class="is-child-head${hide}" data-parent="${row.id}">
+            <td></td>
+            <td>Description</td>
+            <td style="text-align:right">Spending</td>
+            <td></td>
+            <td style="text-align:right">Income</td>
+            <td style="text-align:right">Net</td>
+            <td class="col-txns">Txns</td>
+            <td class="col-actions">Action</td>
+          </tr>`;
+
+          for (let i = 0; i < row.kids.length; i++) {
+            const k = row.kids[i];
+            const knet = k.income - k.spend;
+            html += `<tr class="is-child${hide}" data-parent="${row.id}" data-od-id="desc-${row.id}-${i}">
+              <td></td>
+              <td><span class="desc-key">${k.key}</span></td>
+              <td class="amount ${k.spend ? 'neg' : ''} mono">${k.spend ? moneyNeg(k.spend) : '—'}</td>
+              <td></td>
+              <td class="amount ${k.income ? 'pos' : ''} mono">${k.income ? moneyPos(k.income) : '—'}</td>
+              <td class="amount ${netClass(knet)} mono">${fmtNet(knet)}</td>
+              <td class="col-txns mono">${k.txns}</td>
+              <td class="col-actions"><button type="button" class="btn btn-ghost" data-od-id="move-${row.id}-${i}" title="Move description group to another category">Move</button></td>
+            </tr>`;
+          }
+        }
+      }
+
+      body.innerHTML = html;
+    }
+
+    document.getElementById('bd-body').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-toggle]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-toggle');
+      openId = openId === id ? null : id;
+      paintTable();
+    });
+
+    FUNDS.wireSegmented('#date-mode', (val) => {
+      mode = val;
+      const presets = document.getElementById('period');
+      const custom = document.getElementById('custom-dates');
+      if (val === 'custom') {
+        presets.hidden = true;
+        custom.classList.add('is-on');
+        document.getElementById('table-hint').textContent =
+          document.getElementById('bd-account').options[document.getElementById('bd-account').selectedIndex].text +
+          ' · ' + document.getElementById('date-from').value + ' → ' + document.getElementById('date-to').value;
+      } else {
+        presets.hidden = false;
+        custom.classList.remove('is-on');
+        paintTable();
+      }
+    });
+
+    FUNDS.wireSegmented('#period', (val) => {
+      periodKey = val;
+      paintTable();
+    });
+
+    document.getElementById('bd-account').addEventListener('change', paintTable);
+    document.getElementById('date-from').addEventListener('change', () => {
+      if (mode === 'custom') {
+        document.getElementById('table-hint').textContent =
+          document.getElementById('bd-account').options[document.getElementById('bd-account').selectedIndex].text +
+          ' · ' + document.getElementById('date-from').value + ' → ' + document.getElementById('date-to').value;
+      }
+    });
+    document.getElementById('date-to').addEventListener('change', () => {
+      if (mode === 'custom') {
+        document.getElementById('table-hint').textContent =
+          document.getElementById('bd-account').options[document.getElementById('bd-account').selectedIndex].text +
+          ' · ' + document.getElementById('date-from').value + ' → ' + document.getElementById('date-to').value;
+      }
+    });
+
+    paintTable();
+  </script>
+</body>
+</html>

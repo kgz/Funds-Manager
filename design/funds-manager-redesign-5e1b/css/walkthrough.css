@@ -1,0 +1,252 @@
+/* FUNDS first-run walkthrough — overlay / spotlight / tooltip */
+
+.funds-tour-root {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;
+  font-family: var(--font-body);
+}
+
+.funds-tour-root.is-active {
+  pointer-events: auto;
+}
+
+.funds-tour-scrim {
+  position: absolute;
+  inset: 0;
+  background: oklch(18% 0.012 250 / 0.48);
+  transition: opacity 180ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+.funds-tour-spotlight {
+  position: absolute;
+  border-radius: calc(var(--radius, 6px) + 4px);
+  box-shadow:
+    0 0 0 9999px oklch(18% 0.012 250 / 0.48),
+    0 0 0 2px var(--accent),
+    0 8px 28px oklch(18% 0.012 250 / 0.18);
+  background: transparent;
+  pointer-events: none;
+  transition:
+    top 200ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    left 200ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    width 200ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    height 200ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    opacity 180ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+.funds-tour-card {
+  position: absolute;
+  z-index: 4;
+  width: min(360px, calc(100vw - 32px));
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px oklch(18% 0.012 250 / 0.16);
+  padding: 16px 16px 14px;
+  pointer-events: auto;
+  outline: none;
+  transition:
+    top 340ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    left 340ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    width 340ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    height 340ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    opacity 160ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    transform 340ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+.funds-tour-root.is-page-handoff .funds-tour-card {
+  opacity: 0.86;
+  transform: translateY(3px) scale(0.985);
+}
+
+.funds-tour-card.is-morphing {
+  overflow: hidden;
+}
+
+.funds-tour-sidebar-spotlight {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--accent);
+  border-radius: calc(var(--radius, 6px) + 3px);
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow:
+    0 8px 24px oklch(18% 0.012 250 / 0.18),
+    0 0 0 3px color-mix(in oklch, var(--accent) 16%, transparent);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  transition:
+    top 340ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    left 340ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    width 340ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1)),
+    height 340ms var(--ease, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+.funds-tour-sidebar-spotlight svg {
+  flex: 0 0 auto;
+}
+
+.funds-tour-sidebar-spotlight .nav-badge {
+  margin-left: auto;
+}
+
+.funds-tour-card:focus-visible {
+  box-shadow:
+    0 12px 40px oklch(18% 0.012 250 / 0.16),
+    0 0 0 2px var(--accent);
+}
+
+.funds-tour-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.funds-tour-step {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.funds-tour-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.funds-tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.funds-tour-dot.is-on {
+  background: var(--accent);
+  width: 14px;
+  border-radius: 3px;
+}
+
+.funds-tour-title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.funds-tour-body {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  max-width: 42ch;
+}
+
+.funds-tour-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.funds-tour-actions .btn {
+  width: 100%;
+  height: 36px;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 550;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.funds-tour-actions [data-action="back"] {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.funds-tour-actions [data-action="next"] {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.funds-tour-actions .btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.funds-tour-skip {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: center;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 450;
+  letter-spacing: 0.02em;
+  padding: 4px 8px;
+  min-height: 28px;
+}
+
+.funds-tour-skip:hover {
+  color: var(--fg);
+}
+
+.funds-tour-skip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Narrow / degraded: fixed bottom sheet, no cutout chase */
+@media (max-width: 900px) {
+  .funds-tour-spotlight,
+  .funds-tour-sidebar-spotlight {
+    display: none;
+  }
+
+  .funds-tour-scrim {
+    background: oklch(18% 0.012 250 / 0.42);
+  }
+
+  .funds-tour-card {
+    position: fixed;
+    left: 12px !important;
+    right: 12px;
+    bottom: 12px;
+    top: auto !important;
+    width: auto;
+    max-width: none;
+  }
+
+  .funds-tour-actions .btn {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+}
+
+body.funds-tour-open {
+  overflow: hidden;
+}
+
+[data-tour].funds-tour-target-pulse {
+  position: relative;
+  z-index: 1;
+}

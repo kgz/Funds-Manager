@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "fileName": "funds-living-expenses.html",
+  "entries": [
+    {
+      "id": "bcbf0a0d-f992-47a3-bcc9-2253bf58ab20",
+      "fileName": "funds-living-expenses.html",
+      "version": 1,
+      "label": "Version 1",
+      "createdAt": 1784883765482,
+      "source": "ai",
+      "prompt": "columns also need to be sortable. account selection needs to be multiple. not just one",
+      "size": 23306,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0001-bcbf0a0d-f992-47a3-bcc9-2253bf58ab20.html",
+      "promptSource": "message"
+    },
+    {
+      "id": "4b4b9348-36e4-4172-9bcc-b71f3017a693",
+      "fileName": "funds-living-expenses.html",
+      "version": 2,
+      "label": "Version 2",
+      "createdAt": 1784883981814,
+      "source": "ai",
+      "prompt": "living expenses table needs to be sortable",
+      "size": 30825,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0002-4b4b9348-36e4-4172-9bcc-b71f3017a693.html",
+      "promptSource": "message"
+    },
+    {
+      "id": "c77a2f94-8265-4be2-9d3a-a8a619a96e25",
+      "fileName": "funds-living-expenses.html",
+      "version": 3,
+      "label": "Version 3",
+      "createdAt": 1784884140988,
+      "source": "ai",
+      "prompt": "what about sub tables?\n\nalso i think i prefer the chevrons on the lft",
+      "size": 32067,
+      "mime": "text/html; charset=utf-8",
+      "kind": "html",
+      "contentPath": "0003-c77a2f94-8265-4be2-9d3a-a8a619a96e25.html",
+      "promptSource": "message"
+    }
+  ]
+}

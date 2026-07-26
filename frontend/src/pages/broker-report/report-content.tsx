@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { ReportCoveragePanel } from '@/pages/report-snapshots/coverage-panel';
+import { buildDomainCoverageFromPayload } from '@/pages/report-snapshots/coverage-items';
 import type { BrokerReportAnnotation } from '@/types/broker-report';
 import type { ReportSnapshotPayload } from '@/types/report-snapshots';
 import type { ServiceabilitySummaryResponse } from '@/types/serviceability';
@@ -458,6 +459,19 @@ export function BrokerReportContent({
 		formatMoney(bucket.monthlyAverageDollars),
 	]);
 
+	const coverageItems = useMemo(() => {
+		if (payload.coverage === null) {
+			return [];
+		}
+		return buildDomainCoverageFromPayload({
+			coverage: payload.coverage,
+			income: payload.income,
+			lenderExpenses: payload.lenderExpenses,
+			assets: payload.assets,
+			liabilities: payload.liabilities,
+		});
+	}, [payload]);
+
 	const annotationRows = annotations.map((item) => [
 		item.transactionDate,
 		item.transactionDescription,
@@ -477,9 +491,9 @@ export function BrokerReportContent({
 				<p className="text-sm text-gray-500">Captured {capturedAt} · snapshot #{snapshotId}</p>
 			</header>
 
-			{payload.coverage !== null && !payload.coverage.sufficient ? (
+			{coverageItems.some((item) => item.state === 'warn') ? (
 				<div className="broker-report-section">
-					<ReportCoveragePanel coverage={payload.coverage} />
+					<ReportCoveragePanel payload={payload} />
 				</div>
 			) : null}
 

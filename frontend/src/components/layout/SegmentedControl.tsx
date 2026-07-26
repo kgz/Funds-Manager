@@ -1,4 +1,9 @@
 import { cn } from '@/lib/utils/cn';
+import {
+	leSegmentButtonActiveClass,
+	leSegmentButtonClass,
+	leSegmentedClass,
+} from '@/pages/lender-expenses/shared';
 
 type SegmentOption<T extends string> = {
 	value: T;
@@ -23,14 +28,7 @@ export function SegmentedControl<T extends string>({
 	className,
 }: SegmentedControlProps<T>) {
 	return (
-		<div
-			className={cn(
-				'inline-flex shrink-0 rounded-paper border border-paper-border p-0.5',
-				className
-			)}
-			role="group"
-			aria-label={ariaLabel}
-		>
+		<div className={cn(leSegmentedClass, className)} role="group" aria-label={ariaLabel}>
 			{options.map((option) => {
 				const active = value === option.value;
 				return (
@@ -38,12 +36,10 @@ export function SegmentedControl<T extends string>({
 						key={option.value}
 						type="button"
 						className={cn(
-							'cursor-pointer rounded px-2.5 py-1 text-xs font-medium tracking-[0.02em] transition-colors',
+							leSegmentButtonClass,
 							active
-								? (option.activeClassName ??
-									'bg-paper-surface text-paper-fg shadow-sm')
-								: (option.inactiveClassName ??
-									'text-paper-muted hover:text-paper-fg')
+								? (option.activeClassName ?? leSegmentButtonActiveClass)
+								: option.inactiveClassName
 						)}
 						aria-pressed={active}
 						onClick={() => onChange(option.value)}

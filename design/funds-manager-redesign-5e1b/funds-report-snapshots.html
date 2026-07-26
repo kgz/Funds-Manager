@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Report snapshots</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/report-snapshots.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Report snapshots</h1>
+        <p class="page-sub" data-od-id="page-sub">Freeze your figures at a point in time. Saved snapshots stay unchanged when live data moves.</p>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <section class="panel save-panel" data-od-id="save-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Save new snapshot</h2>
+            <p class="panel-hint">Capture serviceability figures from the selected period and accounts</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="save-form-row" data-od-id="save-form">
+            <div class="save-field">
+              <span>Period</span>
+              <div class="segmented" id="period" role="group" aria-label="Snapshot period" data-od-id="period-toggle">
+                <button type="button" data-value="1m" class="is-on" aria-pressed="true">This month</button>
+                <button type="button" data-value="3m" aria-pressed="false">3 months</button>
+                <button type="button" data-value="6m" aria-pressed="false">6 months</button>
+                <button type="button" data-value="1y" aria-pressed="false">1 year</button>
+              </div>
+            </div>
+            <div class="save-field">
+              <label for="acct">Account</label>
+              <select class="select" id="acct" data-od-id="filter-account" aria-label="Account filter">
+                <option value="all" selected>All accounts</option>
+                <option value="pc-9120">People's Choice 9120</option>
+                <option value="pc-savings">People's Choice Savings</option>
+                <option value="cba-offset">CBA Offset 4412</option>
+              </select>
+            </div>
+            <div class="save-field">
+              <label for="snap-name">Name</label>
+              <input class="input name" type="text" id="snap-name" placeholder="e.g. June refinance pack" data-od-id="snapshot-name" />
+            </div>
+            <div class="save-actions">
+              <button type="button" class="btn btn-primary" id="btn-save" data-od-id="btn-save-snapshot">Save snapshot</button>
+            </div>
+          </div>
+
+          <div class="coverage-panel" id="coverage-panel" data-od-id="coverage-panel">
+            <div class="coverage-head">
+              <h3 class="coverage-title">Data coverage</h3>
+              <p class="coverage-hint" id="coverage-hint">All accounts · this month</p>
+            </div>
+            <div class="coverage-grid" id="coverage-grid" data-od-id="coverage-grid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel snapshots-panel" data-od-id="snapshots-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Saved snapshots</h2>
+            <p class="panel-hint" id="list-hint">Frozen reports for broker or tax reference</p>
+          </div>
+        </div>
+
+        <div class="empty-state" id="empty-state" data-od-id="empty-state" hidden>
+          <div class="empty-state-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v12H4V7zm4-3h8v3H8V4z"/></svg>
+          </div>
+          <h3>No snapshots yet</h3>
+          <p>Save your first snapshot above to freeze income, living costs, and serviceability at a point in time.</p>
+        </div>
+
+        <div class="table-wrap" id="table-wrap" data-od-id="snapshots-table-wrap">
+          <table class="data" data-od-id="snapshots-table">
+            <thead>
+              <tr>
+                <th class="col-name" scope="col">Name</th>
+                <th class="col-date" scope="col">As at</th>
+                <th class="col-period" scope="col">Period</th>
+                <th class="col-saved" scope="col">Saved</th>
+                <th class="col-actions" scope="col"><span class="sr">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="snapshots-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('snapshots');
+
+    const ICON_OK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+    const ICON_WARN = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>';
+    const ICON_DELETE = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+
+    const COVERAGE_LABELS = {
+      income: 'Income',
+      living: 'Living expenses',
+      liabilities: 'Liabilities',
+      assets: 'Assets',
+    };
+
+    let draftPeriod = '1m';
+    let draftAccount = 'all';
+    let snapshots = FUNDS.snapshots.slice();
+
+    function renderCoverage() {
+      const coverage = FUNDS.coverageForDraft(draftPeriod, draftAccount);
+      const grid = document.getElementById('coverage-grid');
+      const hasWarn = Object.values(coverage).some((c) => c.state === 'warn');
+
+      document.getElementById('coverage-hint').textContent =
+        `${FUNDS.accountLabel(draftAccount)} · ${FUNDS.snapshotPeriods[draftPeriod].toLowerCase()}`;
+
+      document.getElementById('coverage-panel').classList.toggle('is-warn', hasWarn);
+
+      grid.innerHTML = Object.entries(COVERAGE_LABELS).map(([key, label]) => {
+        const item = coverage[key];
+        const cls = item.state === 'warn' ? 'is-warn' : 'is-ok';
+        const icon = item.state === 'warn' ? ICON_WARN : ICON_OK;
+        return `<div class="coverage-item ${cls}" data-od-id="coverage-${key}">
+          <span class="coverage-icon">${icon}</span>
+          <div>
+            <span class="coverage-label">${label}</span>
+            <span class="coverage-detail">${item.detail}</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderTable() {
+      const body = document.getElementById('snapshots-body');
+      const empty = document.getElementById('empty-state');
+      const wrap = document.getElementById('table-wrap');
+
+      if (snapshots.length === 0) {
+        empty.hidden = false;
+        wrap.hidden = true;
+        document.getElementById('list-hint').textContent = 'No saved snapshots';
+        return;
+      }
+
+      empty.hidden = true;
+      wrap.hidden = false;
+      document.getElementById('list-hint').textContent =
+        `${snapshots.length} frozen report${snapshots.length === 1 ? '' : 's'}`;
+
+      const sorted = snapshots.slice().sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+
+      body.innerHTML = sorted.map((s, i) => `
+        <tr data-od-id="snapshot-row-${i}" data-snapshot-id="${s.id}">
+          <td class="col-name">
+            <a class="snap-link" href="funds-report-snapshot-detail.html?id=${encodeURIComponent(s.id)}" data-od-id="snapshot-link-${i}">${s.name}</a>
+          </td>
+          <td class="col-date mono">${FUNDS.formatDate(s.asAt)}</td>
+          <td class="col-period">${FUNDS.snapshotPeriods[s.period]}</td>
+          <td class="col-saved mono">${FUNDS.formatDate(s.savedAt, 'datetime')}</td>
+          <td class="col-actions">
+            <button type="button" class="btn btn-icon" data-delete="${s.id}" aria-label="Delete ${s.name}" data-od-id="delete-snapshot-${i}">
+              ${ICON_DELETE}
+            </button>
+          </td>
+        </tr>`).join('');
+
+      body.querySelectorAll('[data-delete]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.delete;
+          snapshots = snapshots.filter((s) => s.id !== id);
+          FUNDS.snapshots = FUNDS.snapshots.filter((s) => s.id !== id);
+          renderTable();
+        });
+      });
+    }
+
+    function saveSnapshot() {
+      const nameInput = document.getElementById('snap-name');
+      const name = nameInput.value.trim() || `Snapshot ${FUNDS.formatDate(new Date().toISOString())}`;
+      const now = new Date();
+      const id = `snap-${now.getTime()}`;
+
+      const snap = {
+        id,
+        name,
+        asAt: now.toISOString().slice(0, 10),
+        period: draftPeriod,
+        accountId: draftAccount,
+        savedAt: now.toISOString(),
+        income: 8735,
+        repayments: 2692,
+        living: 2120.4,
+        surplus: 3922.6,
+        netWorth: 284500,
+        coverage: FUNDS.coverageForDraft(draftPeriod, draftAccount),
+        serviceability: FUNDS.defaultServiceability,
+      };
+
+      snapshots.unshift(snap);
+      FUNDS.snapshots.unshift(snap);
+      nameInput.value = '';
+      renderTable();
+    }
+
+    FUNDS.wireSegmented('#period', (value) => {
+      draftPeriod = value;
+      renderCoverage();
+    });
+
+    document.getElementById('acct').addEventListener('change', (e) => {
+      draftAccount = e.target.value;
+      renderCoverage();
+    });
+
+    document.getElementById('btn-save').addEventListener('click', saveSnapshot);
+
+    renderCoverage();
+    renderTable();
+  </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-breakdown.html",
+  "entry": "funds-breakdown.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-18T06:39:00.842Z",
+  "updatedAt": "2026-07-18T06:39:00.842Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Sign in</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/login.css" />
+</head>
+<body class="login-page">
+  <div class="login-shell" data-od-id="login-shell">
+    <aside class="login-brand" data-od-id="login-brand" aria-label="Brand">
+      <div class="login-brand-top">
+        <span class="brand-mark" aria-hidden="true">F</span>
+        <span class="brand-name">Funds</span>
+      </div>
+      <div class="login-brand-hero" data-od-id="login-hero">
+        <h1 data-od-id="login-brand-title">FUNDS</h1>
+        <p>Calm personal finance for a self-hosted Australian household — spending, statements, and serviceability in one place.</p>
+      </div>
+      <p class="login-brand-foot">Prototype · no real credentials · local session only</p>
+    </aside>
+
+    <main class="login-panel" data-od-id="login-panel">
+      <div class="login-card">
+        <p class="login-eyebrow">Account access</p>
+        <h2 data-od-id="login-heading">Sign in</h2>
+        <p class="login-lede">Use your local FUNDS credentials. This screen is a visual prototype — submit does not call a server.</p>
+
+        <div
+          id="formBanner"
+          class="login-banner"
+          data-od-id="login-banner"
+          role="status"
+          aria-live="polite"
+          hidden
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <span id="formBannerText"></span>
+        </div>
+
+        <form class="login-form" id="loginForm" data-od-id="login-form" novalidate>
+          <div class="field" id="emailField" data-od-id="field-email">
+            <label class="field-label" for="email">Email</label>
+            <input
+              class="input"
+              type="email"
+              id="email"
+              name="email"
+              autocomplete="username"
+              placeholder="you@example.com"
+              inputmode="email"
+              data-od-id="input-email"
+            />
+            <p class="field-hint" id="emailError" data-od-id="error-email">Enter your email.</p>
+          </div>
+
+          <div class="field" id="passwordField" data-od-id="field-password">
+            <label class="field-label" for="password">Password</label>
+            <div class="pw-wrap" data-od-id="password-wrap">
+              <input
+                class="input"
+                type="password"
+                id="password"
+                name="password"
+                autocomplete="current-password"
+                placeholder="••••••••"
+                data-od-id="input-password"
+              />
+              <button
+                type="button"
+                class="pw-toggle"
+                id="togglePassword"
+                data-od-id="toggle-password"
+                aria-label="Show password"
+                aria-pressed="false"
+              >
+                <svg id="iconEye" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/>
+                  <circle cx="12" cy="12" r="2.5"/>
+                </svg>
+                <svg id="iconEyeOff" viewBox="0 0 24 24" aria-hidden="true" hidden>
+                  <path d="M3 3l18 18"/>
+                  <path d="M10.6 10.6a2.5 2.5 0 0 0 3.5 3.5"/>
+                  <path d="M9.9 5.1A11.4 11.4 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-2.3 3.1"/>
+                  <path d="M6.1 6.1C3.8 7.8 2 12 2 12s3.5 6 10 6a10.6 10.6 0 0 0 3.4-.6"/>
+                </svg>
+              </button>
+            </div>
+            <p class="field-hint" id="passwordError" data-od-id="error-password">Enter your password.</p>
+          </div>
+
+          <div class="login-row">
+            <label class="remember" data-od-id="remember-me">
+              <input type="checkbox" id="remember" name="remember" />
+              Remember me
+            </label>
+            <a href="#" class="forgot" data-od-id="forgot-password" id="forgotLink">Forgot password?</a>
+          </div>
+
+          <button
+            type="submit"
+            class="btn btn-primary login-submit"
+            id="submitBtn"
+            data-od-id="btn-sign-in"
+          >
+            <span class="spinner" aria-hidden="true"></span>
+            <span class="label">Sign in</span>
+          </button>
+        </form>
+
+        <a
+          href="funds-dashboard.html"
+          class="login-continue"
+          id="continueLink"
+          data-od-id="continue-to-app"
+        >Continue to app →</a>
+
+        <div class="login-demo" data-od-id="login-demo">
+          <p class="login-demo-label">Prototype toggles</p>
+          <div class="login-demo-actions">
+            <button type="button" class="btn" id="demoError" data-od-id="demo-error">Show error</button>
+            <button type="button" class="btn" id="demoLoading" data-od-id="demo-loading">Show loading</button>
+            <button type="button" class="btn btn-ghost" id="demoReset" data-od-id="demo-reset">Reset</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div class="login-toast" id="toast" data-od-id="login-toast" role="status" aria-live="polite">
+    <span class="dot" aria-hidden="true"></span>
+    <span id="toastText">Signed in · opening dashboard…</span>
+  </div>
+
+  <script>
+    (function () {
+      var form = document.getElementById("loginForm");
+      var email = document.getElementById("email");
+      var password = document.getElementById("password");
+      var emailField = document.getElementById("emailField");
+      var passwordField = document.getElementById("passwordField");
+      var submitBtn = document.getElementById("submitBtn");
+      var banner = document.getElementById("formBanner");
+      var bannerText = document.getElementById("formBannerText");
+      var continueLink = document.getElementById("continueLink");
+      var toast = document.getElementById("toast");
+      var toastText = document.getElementById("toastText");
+      var togglePassword = document.getElementById("togglePassword");
+      var iconEye = document.getElementById("iconEye");
+      var iconEyeOff = document.getElementById("iconEyeOff");
+      var forgotLink = document.getElementById("forgotLink");
+      var loadingTimer = null;
+      var toastTimer = null;
+
+      function clearFieldErrors() {
+        emailField.classList.remove("has-error");
+        passwordField.classList.remove("has-error");
+      }
+
+      function hideBanner() {
+        banner.classList.remove("is-visible", "is-error", "is-ok");
+        banner.hidden = true;
+        bannerText.textContent = "";
+      }
+
+      function showBanner(kind, message) {
+        banner.hidden = false;
+        banner.classList.remove("is-error", "is-ok");
+        banner.classList.add("is-visible", kind === "ok" ? "is-ok" : "is-error");
+        bannerText.textContent = message;
+      }
+
+      function setLoading(on) {
+        submitBtn.classList.toggle("is-loading", on);
+        submitBtn.disabled = on;
+        submitBtn.querySelector(".label").textContent = on ? "Signing in…" : "Sign in";
+      }
+
+      function showToast(message) {
+        toastText.textContent = message;
+        toast.classList.add("is-on");
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          toast.classList.remove("is-on");
+        }, 3200);
+      }
+
+      function validate() {
+        clearFieldErrors();
+        var ok = true;
+        var emailVal = email.value.trim();
+        var passVal = password.value;
+
+        if (!emailVal) {
+          emailField.classList.add("has-error");
+          ok = false;
+        }
+        if (!passVal) {
+          passwordField.classList.add("has-error");
+          ok = false;
+        }
+        return ok;
+      }
+
+      function resetDemo() {
+        if (loadingTimer) clearTimeout(loadingTimer);
+        setLoading(false);
+        clearFieldErrors();
+        hideBanner();
+        continueLink.classList.remove("is-visible");
+        toast.classList.remove("is-on");
+      }
+
+      togglePassword.addEventListener("click", function () {
+        var showing = password.type === "text";
+        password.type = showing ? "password" : "text";
+        togglePassword.setAttribute("aria-pressed", showing ? "false" : "true");
+        togglePassword.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+        iconEye.hidden = !showing;
+        iconEyeOff.hidden = showing;
+      });
+
+      email.addEventListener("input", function () {
+        emailField.classList.remove("has-error");
+      });
+      password.addEventListener("input", function () {
+        passwordField.classList.remove("has-error");
+      });
+
+      form.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        hideBanner();
+        continueLink.classList.remove("is-visible");
+
+        if (!validate()) {
+          showBanner("error", "Check the highlighted fields and try again.");
+          return;
+        }
+
+        setLoading(true);
+        if (loadingTimer) clearTimeout(loadingTimer);
+        loadingTimer = setTimeout(function () {
+          setLoading(false);
+          showBanner("ok", "Signed in. Prototype ready — continue to the app when you like.");
+          continueLink.classList.add("is-visible");
+          showToast("Signed in · continue to dashboard when ready");
+        }, 900);
+      });
+
+      forgotLink.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        showBanner("error", "Password reset is not wired in this prototype.");
+      });
+
+      document.getElementById("demoError").addEventListener("click", function () {
+        resetDemo();
+        emailField.classList.add("has-error");
+        passwordField.classList.add("has-error");
+        showBanner("error", "Invalid email or password. (Demo state)");
+      });
+
+      document.getElementById("demoLoading").addEventListener("click", function () {
+        resetDemo();
+        setLoading(true);
+        if (loadingTimer) clearTimeout(loadingTimer);
+        loadingTimer = setTimeout(function () {
+          setLoading(false);
+        }, 1800);
+      });
+
+      document.getElementById("demoReset").addEventListener("click", function () {
+        resetDemo();
+        form.reset();
+        password.type = "password";
+        togglePassword.setAttribute("aria-pressed", "false");
+        togglePassword.setAttribute("aria-label", "Show password");
+        iconEye.hidden = false;
+        iconEyeOff.hidden = true;
+      });
+    })();
+  </script>
+</body>
+</html>

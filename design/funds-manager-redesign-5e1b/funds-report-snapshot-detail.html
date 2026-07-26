@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Report snapshot</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/report-snapshots.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header is-detail" data-od-id="page-header">
+      <div class="page-title-wrap">
+        <a class="detail-back" href="funds-report-snapshots.html" data-od-id="back-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+          Report snapshots
+        </a>
+        <h1 class="page-title" id="snap-title" data-od-id="page-title">—</h1>
+        <p class="page-sub" id="snap-sub" data-od-id="page-sub">—</p>
+      </div>
+      <div class="page-actions">
+        <button type="button" class="btn" id="btn-print" data-od-id="btn-print">Print report</button>
+      </div>
+    </header>
+
+    <div class="page-body" id="detail-body" data-od-id="detail-body" hidden>
+      <section class="kpi-grid is-five" data-od-id="kpi-row" aria-label="Frozen snapshot summary">
+        <article class="kpi" data-od-id="kpi-income">
+          <p class="kpi-label">Income</p>
+          <p class="kpi-value money" id="kpi-income">—</p>
+          <p class="kpi-delta flat">Monthly · frozen</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-repayments">
+          <p class="kpi-label">Repayments</p>
+          <p class="kpi-value money" id="kpi-repayments">—</p>
+          <p class="kpi-delta flat">Existing facilities</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-living">
+          <p class="kpi-label">Living</p>
+          <p class="kpi-value money" id="kpi-living">—</p>
+          <p class="kpi-delta flat">HEM-style average</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-surplus">
+          <p class="kpi-label">Surplus</p>
+          <p class="kpi-value money" id="kpi-surplus">—</p>
+          <p class="kpi-delta up" id="kpi-surplus-note">Net monthly</p>
+        </article>
+        <article class="kpi" data-od-id="kpi-networth">
+          <p class="kpi-label">Net worth</p>
+          <p class="kpi-value money" id="kpi-networth">—</p>
+          <p class="kpi-delta flat">Assets − liabilities</p>
+        </article>
+      </section>
+
+      <div class="grid-2 equal">
+        <section class="panel" data-od-id="serviceability-panel">
+          <div class="panel-head">
+            <h2 class="panel-title">Serviceability breakdown</h2>
+            <p class="panel-hint" id="svc-hint">Monthly · AUD</p>
+          </div>
+          <div class="panel-body">
+            <p class="panel-hint" style="margin:0 0 12px;font-weight:500;color:var(--fg)">Income</p>
+            <div class="metric-rows" id="income-rows"></div>
+            <p class="panel-hint" style="margin:20px 0 12px;font-weight:500;color:var(--fg)">Repayments</p>
+            <div class="metric-rows" id="repay-rows"></div>
+            <p class="panel-hint" style="margin:20px 0 12px;font-weight:500;color:var(--fg)">Living costs</p>
+            <div class="metric-rows" id="living-rows"></div>
+            <div class="metric-rows" style="margin-top:8px">
+              <div class="metric-row total surplus">
+                <div><span class="label">Net surplus / month</span></div>
+                <span class="value" id="surplus-value">—</span>
+              </div>
+            </div>
+            <div class="bar-track" aria-hidden="true">
+              <div class="bar-fill" id="surplus-bar"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-od-id="coverage-panel">
+          <div class="panel-head">
+            <h2 class="panel-title">Coverage summary</h2>
+            <p class="panel-hint" id="coverage-meta">At time of save</p>
+          </div>
+          <div class="panel-body">
+            <ul class="coverage-summary-list" id="coverage-list" data-od-id="coverage-list"></ul>
+            <div class="alert" id="coverage-alert" style="margin-top:16px" hidden data-od-id="coverage-alert">
+              <strong>Review before sharing</strong>
+              <span id="coverage-alert-text">Some data areas had warnings when this snapshot was saved.</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="page-body" id="missing-body" data-od-id="missing-body" hidden>
+      <section class="panel">
+        <div class="empty-state" data-od-id="missing-state">
+          <div class="empty-state-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+          </div>
+          <h3>Snapshot not found</h3>
+          <p>This snapshot may have been deleted. Return to the list and pick another report.</p>
+          <p style="margin-top:16px"><a class="snap-link" href="funds-report-snapshots.html">Back to report snapshots</a></p>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('snapshots');
+
+    const ICON_OK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+    const ICON_WARN = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>';
+
+    const COVERAGE_LABELS = {
+      income: 'Income',
+      living: 'Living expenses',
+      liabilities: 'Liabilities',
+      assets: 'Assets',
+    };
+
+    function metricRows(rows, totalLabel) {
+      const items = rows.map((r) => `
+        <div class="metric-row">
+          <div>
+            <span class="label">${r.label}</span>
+            ${r.sub ? `<span class="sub">${r.sub}</span>` : ''}
+          </div>
+          <span class="value">${FUNDS.money(r.value)}</span>
+        </div>`).join('');
+
+      const total = rows.reduce((sum, r) => sum + r.value, 0);
+      return items + `
+        <div class="metric-row total">
+          <div><span class="label">${totalLabel}</span></div>
+          <span class="value">${FUNDS.money(total)}</span>
+        </div>`;
+    }
+
+    function renderSnapshot(snap) {
+      document.title = `FUNDS — ${snap.name}`;
+      document.getElementById('snap-title').innerHTML =
+        `${snap.name}<span class="frozen-badge" data-od-id="frozen-badge">Frozen</span>`;
+      document.getElementById('snap-sub').textContent =
+        `As at ${FUNDS.formatDate(snap.asAt, 'long')} · ${FUNDS.snapshotPeriods[snap.period]} · ${FUNDS.accountLabel(snap.accountId)} · saved ${FUNDS.formatDate(snap.savedAt, 'datetime')}`;
+
+      document.getElementById('kpi-income').textContent = FUNDS.money(snap.income);
+      document.getElementById('kpi-repayments').textContent = FUNDS.money(snap.repayments);
+      document.getElementById('kpi-living').textContent = FUNDS.money(snap.living);
+      document.getElementById('kpi-surplus').textContent = FUNDS.money(snap.surplus);
+      document.getElementById('kpi-networth').textContent = FUNDS.money(snap.netWorth);
+
+      const surplusOk = snap.surplus >= 0;
+      const tone = surplusOk ? 'var(--success)' : 'var(--danger)';
+      document.getElementById('kpi-surplus').style.color = tone;
+      document.getElementById('surplus-value').textContent = FUNDS.money(snap.surplus);
+      document.getElementById('surplus-value').style.color = tone;
+
+      const pct = Math.max(0, Math.min(100, (snap.surplus / snap.income) * 100));
+      const bar = document.getElementById('surplus-bar');
+      bar.style.width = pct.toFixed(1) + '%';
+      bar.className = 'bar-fill' + (pct < 20 ? ' danger' : pct < 30 ? ' warn' : '');
+
+      const svc = snap.serviceability;
+      document.getElementById('income-rows').innerHTML = metricRows(svc.incomeRows, 'Total income');
+      document.getElementById('repay-rows').innerHTML = metricRows(svc.repaymentRows, 'Total repayments');
+      document.getElementById('living-rows').innerHTML = metricRows(svc.livingRows, 'Total living');
+
+      document.getElementById('coverage-meta').textContent =
+        `${FUNDS.accountLabel(snap.accountId)} · ${FUNDS.snapshotPeriods[snap.period].toLowerCase()}`;
+
+      const warnCount = Object.values(snap.coverage).filter((c) => c.state === 'warn').length;
+      document.getElementById('coverage-alert').hidden = warnCount === 0;
+      if (warnCount > 0) {
+        document.getElementById('coverage-alert-text').textContent =
+          `${warnCount} data area${warnCount === 1 ? '' : 's'} had warnings when this snapshot was saved. Figures are frozen as captured — review before sending to a broker.`;
+      }
+
+      document.getElementById('coverage-list').innerHTML = Object.entries(COVERAGE_LABELS).map(([key, label]) => {
+        const item = snap.coverage[key];
+        const pill = item.state === 'warn'
+          ? '<span class="pill warn">Needs review</span>'
+          : '<span class="pill ok">Sufficient</span>';
+        const icon = item.state === 'warn' ? ICON_WARN : ICON_OK;
+        return `<li data-od-id="coverage-item-${key}">
+          <div class="cs-label">
+            <span class="coverage-icon ${item.state === 'warn' ? 'is-warn' : 'is-ok'}">${icon}</span>
+            <div>
+              <span>${label}</span>
+              <span class="cs-detail">${item.detail}</span>
+            </div>
+          </div>
+          ${pill}
+        </li>`;
+      }).join('');
+
+      document.getElementById('detail-body').hidden = false;
+      document.getElementById('missing-body').hidden = true;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const snapId = params.get('id');
+    const snap = snapId ? FUNDS.getSnapshot(snapId) : null;
+
+    if (snap) {
+      renderSnapshot(snap);
+    } else {
+      document.getElementById('snap-title').textContent = 'Snapshot not found';
+      document.getElementById('snap-sub').textContent = 'The requested report could not be loaded.';
+      document.getElementById('detail-body').hidden = true;
+      document.getElementById('missing-body').hidden = false;
+    }
+
+    document.getElementById('btn-print').addEventListener('click', () => {
+      window.print();
+    });
+  </script>
+</body>
+</html>

@@ -29,13 +29,13 @@ export const tableTdClass =
 	'border-b border-paper-border px-3 py-2.5 align-middle text-[13px] text-paper-fg';
 
 export const leSegmentedClass =
-	'inline-flex gap-0.5 rounded-[calc(var(--radius)+2px)] border border-paper-border bg-paper p-[3px]';
+	'inline-flex max-w-full flex-wrap gap-0.5 rounded-[calc(var(--radius)+2px)] border border-paper-border bg-paper p-[3px]';
 
 export const leSegmentButtonClass =
-	'h-[26px] rounded-paper border-0 bg-transparent px-2.5 text-[12px] font-medium tracking-[0.02em] text-paper-muted transition-colors hover:text-paper-fg';
+	'h-[26px] cursor-pointer rounded-paper border-0 bg-transparent px-2.5 text-[12px] font-medium tracking-[0.02em] !text-paper-muted transition-colors hover:!text-paper-fg';
 
 export const leSegmentButtonActiveClass =
-	'bg-paper-surface text-paper-fg shadow-[0_1px_2px_color-mix(in_oklch,var(--fg)_6%,transparent)]';
+	'!bg-paper-surface !text-paper-fg shadow-[0_1px_2px_color-mix(in_oklch,var(--fg)_6%,transparent)]';
 
 export function formatPeriodRange(start: string, end: string): string {
 	const startDate = DateTime.fromISO(start.slice(0, 10));

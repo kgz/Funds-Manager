@@ -8,6 +8,7 @@ export type DashboardPeriod =
 	| 'all';
 
 export const DASHBOARD_PERIOD_STORAGE_KEY = 'dashboardDateRange';
+export const REPORT_SNAPSHOT_PERIOD_STORAGE_KEY = 'reportSnapshotPeriod';
 export const BREAKDOWN_PERIOD_STORAGE_KEY = 'breakdownDateRange';
 export const BREAKDOWN_RANGE_MODE_STORAGE_KEY = 'breakdownRangeMode';
 export const BREAKDOWN_CUSTOM_RANGE_STORAGE_KEY = 'breakdownCustomRange';
@@ -153,6 +154,18 @@ export function readStoredPeriod(): DashboardPeriod {
 		return stored;
 	}
 	return 'last-6-months';
+}
+
+export function readStoredSnapshotPeriod(): DashboardPeriod {
+	const stored = localStorage.getItem(REPORT_SNAPSHOT_PERIOD_STORAGE_KEY);
+	if (stored !== null) {
+		for (const period of BREAKDOWN_PRESET_PERIODS) {
+			if (period === stored) {
+				return period;
+			}
+		}
+	}
+	return 'this-month';
 }
 
 export function periodDateRange(period: DashboardPeriod): { start?: string; end?: string } {

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Living expenses</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/living-expenses.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Living expenses</h1>
+        <p class="page-sub" data-od-id="page-sub">HEM-style monthly averages and category mapping for broker declarations</p>
+      </div>
+    </header>
+
+    <nav class="page-tabs" role="tablist" aria-label="Living expenses views" data-od-id="view-tabs">
+      <button type="button" class="page-tab is-active" role="tab" id="tab-btn-summary" aria-selected="true" aria-controls="tab-summary" data-tab="summary" data-od-id="tab-summary">Monthly summary</button>
+      <button type="button" class="page-tab" role="tab" id="tab-btn-mapping" aria-selected="false" aria-controls="tab-mapping" data-tab="mapping" data-od-id="tab-mapping">Category mapping</button>
+    </nav>
+
+    <div class="page-body">
+      <!-- Monthly summary -->
+      <div id="tab-summary" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-btn-summary" data-od-id="panel-summary">
+        <div class="le-filters" data-od-id="summary-filters">
+          <div class="segmented" id="period" role="group" aria-label="Period">
+            <button type="button" data-value="1m" class="is-on" aria-pressed="true">This month</button>
+            <button type="button" data-value="3m" aria-pressed="false">3 months</button>
+            <button type="button" data-value="6m" aria-pressed="false">6 months</button>
+            <button type="button" data-value="1y" aria-pressed="false">1 year</button>
+            <button type="button" data-value="all" aria-pressed="false">All time</button>
+          </div>
+          <label class="sr" for="acct">Account</label>
+          <select class="select" id="acct" data-od-id="filter-account" aria-label="Account filter">
+            <option value="all">All accounts</option>
+            <option value="pc-9120" selected>People's Choice 9120</option>
+            <option value="pc-savings">People's Choice Savings</option>
+            <option value="cba-offset">CBA Offset 4412</option>
+          </select>
+        </div>
+
+        <section class="kpi-grid" data-od-id="kpi-row" aria-label="Living expenses summary">
+          <article class="kpi" data-od-id="kpi-living">
+            <p class="kpi-label">Living expenses / month</p>
+            <p class="kpi-value money" id="kpi-living">$3,677.67</p>
+          </article>
+          <article class="kpi" data-od-id="kpi-debits">
+            <p class="kpi-label">All debits / month</p>
+            <p class="kpi-value money" id="kpi-debits">$6,277.67</p>
+          </article>
+          <article class="kpi" data-od-id="kpi-months">
+            <p class="kpi-label">Months in range</p>
+            <p class="kpi-value" id="kpi-months">1</p>
+          </article>
+          <article class="kpi" data-od-id="kpi-period">
+            <p class="kpi-label">Period</p>
+            <p class="kpi-value is-range" id="kpi-period">1–19 Jul 2026</p>
+          </article>
+        </section>
+
+        <section class="panel le-panel" data-od-id="buckets-panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Lender buckets</h2>
+              <p class="panel-hint" id="bucket-hint">People's Choice 9120 · this month</p>
+            </div>
+          </div>
+
+          <div class="le-callout" data-od-id="summary-callout">
+            <div class="le-callout-body">
+              <span class="le-callout-icon" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+              </span>
+              <p class="le-callout-text">
+                Living expenses exclude salary/income and Excluded categories. Click a bucket row to expand category detail.
+                <a href="#" id="goto-mapping" data-od-id="link-category-mapping">Review category mapping</a>
+              </p>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data" data-od-id="buckets-table">
+              <thead id="buckets-head">
+                <tr>
+                  <th class="col-bucket" scope="col" data-sort="name" aria-sort="none">
+                    <button type="button" class="th-sort" data-od-id="sort-bucket-name">Lender bucket<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                  </th>
+                  <th class="is-numeric" scope="col" data-sort="total" aria-sort="none">
+                    <button type="button" class="th-sort" data-od-id="sort-bucket-total">Total<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                  </th>
+                  <th class="is-numeric" scope="col" data-sort="monthly" aria-sort="descending">
+                    <button type="button" class="th-sort" data-od-id="sort-bucket-monthly">Monthly avg<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                  </th>
+                  <th class="is-numeric" scope="col" data-sort="txns" aria-sort="none">
+                    <button type="button" class="th-sort" data-od-id="sort-bucket-txns">Transactions<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                  </th>
+                  <th class="col-detail" scope="col"><span class="sr">Detail</span></th>
+                </tr>
+              </thead>
+              <tbody id="buckets-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+      <!-- Category mapping -->
+      <div id="tab-mapping" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-mapping" hidden data-od-id="panel-mapping">
+        <div class="le-callout" data-od-id="mapping-callout">
+          <div class="le-callout-body">
+            <span class="le-callout-icon" aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            </span>
+            <p class="le-callout-text">
+              Map app categories to lender buckets or Excluded. Salary/income and loan categories are excluded by default.
+            </p>
+          </div>
+        </div>
+
+        <section class="panel mapping-panel" data-od-id="mapping-panel">
+          <div class="toolbar mapping-toolbar" data-od-id="mapping-filters">
+            <input class="input" type="search" id="map-search" placeholder="Search categories…" aria-label="Search categories" data-od-id="map-search" />
+            <div class="segmented" id="map-filter" role="group" aria-label="Mapping status">
+              <button type="button" data-value="all" class="is-on" aria-pressed="true">All</button>
+              <button type="button" data-value="override" aria-pressed="false">Overrides</button>
+              <button type="button" data-value="excluded" aria-pressed="false">Excluded</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data" data-od-id="mapping-table">
+              <thead id="mapping-head">
+                <tr>
+                  <th class="col-app-cat" scope="col" data-sort="name" aria-sort="ascending">
+                    <button type="button" class="th-sort" data-od-id="sort-map-name">App category<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                  </th>
+                  <th class="col-default" scope="col" data-sort="default" aria-sort="none">
+                    <button type="button" class="th-sort" data-od-id="sort-map-default">Default bucket<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                  </th>
+                  <th class="col-lender" scope="col" data-sort="lender" aria-sort="none">
+                    <button type="button" class="th-sort" data-od-id="sort-map-lender">Lender bucket<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                  </th>
+                  <th class="col-status" scope="col" data-sort="status" aria-sort="none">
+                    <button type="button" class="th-sort" data-od-id="sort-map-status">Status<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="mapping-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('living');
+
+    const CHEVRON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>';
+
+    const LENDER_BUCKETS = [
+      'Housing costs',
+      'Groceries',
+      'Transport',
+      'Utilities & communications',
+      'Insurance',
+      'Healthcare',
+      'Childcare & education',
+      'Recreation & entertainment',
+      'Clothing & personal care',
+      'Other living expenses',
+      'Unmapped',
+      'Excluded',
+    ];
+
+    const PERIODS = {
+      '1m': { label: 'this month', months: 1, range: '1–19 Jul 2026', living: 3677.67, debits: 6277.67, scale: 1 },
+      '3m': { label: '3 months', months: 3, range: '20 Apr – 19 Jul 2026', living: 3824.80, debits: 6520.40, scale: 1.04 },
+      '6m': { label: '6 months', months: 6, range: '20 Jan – 19 Jul 2026', living: 3934.10, debits: 6718.20, scale: 1.07 },
+      '1y': { label: '1 year', months: 12, range: '20 Jul 2025 – 19 Jul 2026', living: 4008.65, debits: 6836.90, scale: 1.09 },
+      all: { label: 'all time', months: 18, range: 'Jan 2025 – Jul 2026', living: 4082.20, debits: 6902.50, scale: 1.11 },
+    };
+
+    const buckets = [
+      {
+        id: 'housing',
+        name: 'Housing costs',
+        total: 1850,
+        monthly: 1850,
+        txns: 1,
+        categories: [
+          { name: 'Rent / mortgage', color: '#8b6b4a', total: 1850, monthly: 1850, txns: 1 },
+        ],
+      },
+      {
+        id: 'groceries',
+        name: 'Groceries',
+        total: 482.15,
+        monthly: 482.15,
+        txns: 6,
+        categories: [
+          { name: 'Groceries', color: '#3d8b6e', total: 380.01, monthly: 380.01, txns: 4 },
+          { name: 'Fresh produce', color: '#3d8b6e', total: 54.18, monthly: 54.18, txns: 1 },
+          { name: 'Household', color: '#5a9e7a', total: 47.96, monthly: 47.96, txns: 1 },
+        ],
+      },
+      {
+        id: 'transport',
+        name: 'Transport',
+        total: 172.25,
+        monthly: 172.25,
+        txns: 5,
+        categories: [
+          { name: 'Fuel', color: '#4a6fa5', total: 141.05, monthly: 141.05, txns: 2 },
+          { name: 'Public transport', color: '#6a8ab8', total: 3.70, monthly: 3.70, txns: 1 },
+          { name: 'Transport', color: '#4a6fa5', total: 27.50, monthly: 27.50, txns: 2 },
+        ],
+      },
+      {
+        id: 'utilities',
+        name: 'Utilities & communications',
+        total: 350.78,
+        monthly: 350.78,
+        txns: 4,
+        categories: [
+          { name: 'Utilities', color: '#6b7a8b', total: 304.19, monthly: 304.19, txns: 2 },
+          { name: 'Internet & phone', color: '#7a8a9b', total: 46.59, monthly: 46.59, txns: 2 },
+        ],
+      },
+      {
+        id: 'insurance',
+        name: 'Insurance',
+        total: 186.40,
+        monthly: 186.40,
+        txns: 2,
+        categories: [
+          { name: 'Contents insurance', color: '#a08060', total: 124.00, monthly: 124.00, txns: 1 },
+          { name: 'Car insurance', color: '#8b7a6a', total: 62.40, monthly: 62.40, txns: 1 },
+        ],
+      },
+      {
+        id: 'healthcare',
+        name: 'Healthcare',
+        total: 68.20,
+        monthly: 68.20,
+        txns: 2,
+        categories: [
+          { name: 'Medical & pharmacy', color: '#9a5b7a', total: 68.20, monthly: 68.20, txns: 2 },
+        ],
+      },
+      {
+        id: 'childcare',
+        name: 'Childcare & education',
+        total: 0,
+        monthly: 0,
+        txns: 0,
+        categories: [],
+      },
+      {
+        id: 'recreation',
+        name: 'Recreation & entertainment',
+        total: 59.74,
+        monthly: 59.74,
+        txns: 2,
+        categories: [
+          { name: 'Dining out', color: '#c47a4a', total: 59.74, monthly: 59.74, txns: 2 },
+        ],
+      },
+      {
+        id: 'clothing',
+        name: 'Clothing & personal care',
+        total: 48.60,
+        monthly: 48.60,
+        txns: 1,
+        categories: [
+          { name: 'Personal care', color: '#9a7a8a', total: 48.60, monthly: 48.60, txns: 1 },
+        ],
+      },
+      {
+        id: 'other',
+        name: 'Other living expenses',
+        total: 0,
+        monthly: 0,
+        txns: 0,
+        categories: [],
+      },
+      {
+        id: 'unmapped',
+        name: 'Unmapped',
+        total: 459.55,
+        monthly: 459.55,
+        txns: 4,
+        summary: 'muted',
+        categories: [
+          { name: 'Uncategorized', color: '#b0b0b0', total: 459.55, monthly: 459.55, txns: 4 },
+        ],
+      },
+      {
+        id: 'excluded',
+        name: 'Excluded',
+        total: 2600,
+        monthly: 2600,
+        txns: 3,
+        summary: 'dim',
+        categories: [
+          { name: 'Loan repayments', color: '#7a6a5a', total: 2100, monthly: 2100, txns: 1 },
+          { name: 'Transfers', color: '#888888', total: 500, monthly: 500, txns: 2 },
+        ],
+      },
+    ];
+
+    const mappings = [
+      { id: 'housing', name: 'Housing', color: '#8b6b4a', indent: 0, defaultBucket: 'Housing costs', lenderBucket: 'Housing costs', status: 'default' },
+      { id: 'housing-rent', name: 'Rent / mortgage', color: '#8b6b4a', indent: 1, defaultBucket: 'Housing costs', lenderBucket: 'Housing costs', status: 'default' },
+      { id: 'housing-insurance', name: 'Contents insurance', color: '#a08060', indent: 1, defaultBucket: 'Insurance', lenderBucket: 'Insurance', status: 'default' },
+      { id: 'groceries', name: 'Groceries', color: '#3d8b6e', indent: 0, defaultBucket: 'Groceries', lenderBucket: 'Groceries', status: 'default' },
+      { id: 'groceries-fresh', name: 'Fresh produce', color: '#3d8b6e', indent: 1, defaultBucket: 'Groceries', lenderBucket: 'Groceries', status: 'default' },
+      { id: 'groceries-household', name: 'Household', color: '#5a9e7a', indent: 1, defaultBucket: 'Groceries', lenderBucket: 'Groceries', status: 'default' },
+      { id: 'transport', name: 'Transport', color: '#4a6fa5', indent: 0, defaultBucket: 'Transport', lenderBucket: 'Transport', status: 'default' },
+      { id: 'transport-fuel', name: 'Fuel', color: '#4a6fa5', indent: 1, defaultBucket: 'Transport', lenderBucket: 'Transport', status: 'default' },
+      { id: 'transport-transit', name: 'Public transport', color: '#6a8ab8', indent: 1, defaultBucket: 'Transport', lenderBucket: 'Transport', status: 'default' },
+      { id: 'utilities', name: 'Utilities', color: '#6b7a8b', indent: 0, defaultBucket: 'Utilities & communications', lenderBucket: 'Utilities & communications', status: 'default' },
+      { id: 'dining', name: 'Dining out', color: '#c47a4a', indent: 0, defaultBucket: 'Recreation & entertainment', lenderBucket: 'Recreation & entertainment', status: 'default' },
+      { id: 'medical', name: 'Medical & pharmacy', color: '#9a5b7a', indent: 0, defaultBucket: 'Healthcare', lenderBucket: 'Healthcare', status: 'default' },
+      { id: 'personal', name: 'Personal care', color: '#9a7a8a', indent: 0, defaultBucket: 'Clothing & personal care', lenderBucket: 'Clothing & personal care', status: 'default' },
+      { id: 'uncat', name: 'Uncategorized', color: '#b0b0b0', indent: 0, defaultBucket: 'Unmapped', lenderBucket: 'Unmapped', status: 'default' },
+      { id: 'salary', name: 'Salary', color: '#2f7d5a', indent: 0, defaultBucket: 'Excluded', lenderBucket: 'Excluded', status: 'excluded' },
+      { id: 'transfer', name: 'Transfers', color: '#888888', indent: 0, defaultBucket: 'Excluded', lenderBucket: 'Excluded', status: 'excluded' },
+      { id: 'loan', name: 'Loan repayments', color: '#7a6a5a', indent: 0, defaultBucket: 'Excluded', lenderBucket: 'Excluded', status: 'excluded' },
+      { id: 'dining-override', name: 'Takeaway & delivery', color: '#d48a5a', indent: 1, defaultBucket: 'Recreation & entertainment', lenderBucket: 'Groceries', status: 'override' },
+    ];
+
+    let activeTab = 'summary';
+    let periodKey = '1m';
+    let accountFilter = 'pc-9120';
+    let openBucketId = 'housing';
+    let mapFilter = 'all';
+    let mapSearch = '';
+    let bucketSortKey = 'monthly';
+    let bucketSortDir = 'desc';
+    let mapSortKey = 'name';
+    let mapSortDir = 'asc';
+
+    function compareValues(a, b, dir) {
+      if (typeof a === 'string' && typeof b === 'string') {
+        return a.localeCompare(b) * dir;
+      }
+      if (a === b) return 0;
+      return (a < b ? -1 : 1) * dir;
+    }
+
+    function bucketSortValue(bucket, key) {
+      if (key === 'name') return bucket.name.toLowerCase();
+      if (key === 'total') return bucket.total;
+      if (key === 'monthly') return bucket.monthly;
+      if (key === 'txns') return bucket.txns;
+      return 0;
+    }
+
+    function bucketChildSortValue(cat, key) {
+      if (key === 'name') return cat.name.toLowerCase();
+      if (key === 'total') return cat.total;
+      if (key === 'monthly') return cat.monthly;
+      if (key === 'txns') return cat.txns;
+      return 0;
+    }
+
+    function sortedBuckets(list) {
+      const dir = bucketSortDir === 'asc' ? 1 : -1;
+      return [...list]
+        .map((bucket) => {
+          if (!bucket.categories || !bucket.categories.length) return bucket;
+          const categories = [...bucket.categories].sort((a, b) => {
+            const cmp = compareValues(
+              bucketChildSortValue(a, bucketSortKey),
+              bucketChildSortValue(b, bucketSortKey),
+              dir
+            );
+            if (cmp !== 0) return cmp;
+            return a.name.localeCompare(b.name);
+          });
+          return Object.assign({}, bucket, { categories: categories });
+        })
+        .sort((a, b) => {
+          const cmp = compareValues(bucketSortValue(a, bucketSortKey), bucketSortValue(b, bucketSortKey), dir);
+          if (cmp !== 0) return cmp;
+          return a.name.localeCompare(b.name);
+        });
+    }
+
+    function mapSortValue(row, key) {
+      if (key === 'name') return row.name.toLowerCase();
+      if (key === 'default') return row.defaultBucket.toLowerCase();
+      if (key === 'lender') return row.lenderBucket.toLowerCase();
+      if (key === 'status') {
+        const status = mappingStatus(row);
+        if (status === 'override') return 1;
+        if (status === 'excluded') return 2;
+        return 0;
+      }
+      return '';
+    }
+
+    function paintBucketSortHeaders() {
+      document.querySelectorAll('#buckets-head [data-sort]').forEach((th) => {
+        const key = th.getAttribute('data-sort');
+        if (key === bucketSortKey) {
+          th.setAttribute('aria-sort', bucketSortDir === 'asc' ? 'ascending' : 'descending');
+        } else {
+          th.setAttribute('aria-sort', 'none');
+        }
+      });
+    }
+
+    function paintMapSortHeaders() {
+      document.querySelectorAll('#mapping-head [data-sort]').forEach((th) => {
+        const key = th.getAttribute('data-sort');
+        if (key === mapSortKey) {
+          th.setAttribute('aria-sort', mapSortDir === 'asc' ? 'ascending' : 'descending');
+        } else {
+          th.setAttribute('aria-sort', 'none');
+        }
+      });
+    }
+
+    function accountLabel(id) {
+      if (id === 'all') return 'All accounts';
+      const acct = FUNDS.accounts.find((a) => a.id === id);
+      return acct ? acct.label : id;
+    }
+
+    function catPill(name, color) {
+      return `<span class="cat-pill"><span class="cat-dot" style="background:${color}"></span><span>${name}</span></span>`;
+    }
+
+    function statusPill(status) {
+      if (status === 'override') return '<span class="pill override">Override</span>';
+      if (status === 'excluded') return '<span class="pill excluded">Excluded</span>';
+      return '<span class="pill default">Default</span>';
+    }
+
+    function bucketOptions(selected) {
+      return LENDER_BUCKETS.map((b) =>
+        `<option value="${b}"${b === selected ? ' selected' : ''}>${b}</option>`
+      ).join('');
+    }
+
+    function scaledAmount(n, scale) {
+      return Math.round(n * scale * 100) / 100;
+    }
+
+    function updateKpis() {
+      const p = PERIODS[periodKey];
+      document.getElementById('kpi-living').textContent = FUNDS.money(scaledAmount(p.living, p.scale));
+      document.getElementById('kpi-debits').textContent = FUNDS.money(scaledAmount(p.debits, p.scale));
+      document.getElementById('kpi-months').textContent = String(p.months);
+      document.getElementById('kpi-period').textContent = p.range;
+      document.getElementById('bucket-hint').textContent =
+        `${accountLabel(accountFilter)} · ${p.label}`;
+    }
+
+    function renderBuckets() {
+      const p = PERIODS[periodKey];
+      const body = document.getElementById('buckets-body');
+      let html = '';
+      paintBucketSortHeaders();
+
+      for (const bucket of sortedBuckets(buckets)) {
+        const isOpen = openBucketId === bucket.id;
+        const hasKids = bucket.categories && bucket.categories.length > 0;
+        const summaryCls = bucket.summary === 'muted' ? ' is-muted' : bucket.summary === 'dim' ? ' is-dim' : '';
+        const total = scaledAmount(bucket.total, p.scale);
+        const monthly = scaledAmount(bucket.monthly, p.scale);
+
+        html += `<tr class="is-bucket is-summary${isOpen ? ' is-open' : ''}${summaryCls}${hasKids ? '' : ' no-expand'}"
+          data-bucket="${bucket.id}" data-od-id="bucket-row-${bucket.id}"${hasKids ? ' tabindex="0" role="button"' : ''}>
+          <td class="col-bucket">${bucket.name}</td>
+          <td class="amount money">${total > 0 ? FUNDS.money(total) : '—'}</td>
+          <td class="amount money">${monthly > 0 ? FUNDS.money(monthly) : '—'}</td>
+          <td class="amount mono">${bucket.txns || '—'}</td>
+          <td class="col-detail">${hasKids ? `<span class="detail-chevron" aria-hidden="true">${CHEVRON}</span>` : ''}</td>
+        </tr>`;
+
+        if (hasKids) {
+          const hide = isOpen ? '' : ' is-hidden';
+          html += `<tr class="is-bucket-child-head${hide}" data-parent="${bucket.id}">
+            <td>Category</td>
+            <td style="text-align:right">Total</td>
+            <td style="text-align:right">Monthly avg</td>
+            <td style="text-align:right">Txns</td>
+            <td></td>
+          </tr>`;
+
+          for (let i = 0; i < bucket.categories.length; i++) {
+            const c = bucket.categories[i];
+            const cTotal = scaledAmount(c.total, p.scale);
+            const cMonthly = scaledAmount(c.monthly, p.scale);
+            html += `<tr class="is-bucket-child${hide}" data-parent="${bucket.id}" data-od-id="bucket-cat-${bucket.id}-${i}">
+              <td>${catPill(c.name, c.color)}</td>
+              <td class="amount money">${FUNDS.money(cTotal)}</td>
+              <td class="amount money">${FUNDS.money(cMonthly)}</td>
+              <td class="amount mono">${c.txns}</td>
+              <td></td>
+            </tr>`;
+          }
+        }
+      }
+
+      body.innerHTML = html;
+      updateKpis();
+    }
+
+    function mappingStatus(row) {
+      if (row.lenderBucket === 'Excluded') return 'excluded';
+      if (row.lenderBucket !== row.defaultBucket) return 'override';
+      return 'default';
+    }
+
+    function filteredMappings() {
+      return mappings.filter((row) => {
+        const status = mappingStatus(row);
+        if (mapFilter === 'override' && status !== 'override') return false;
+        if (mapFilter === 'excluded' && status !== 'excluded') return false;
+        if (mapSearch) {
+          const q = mapSearch.toLowerCase();
+          if (!row.name.toLowerCase().includes(q) && !row.defaultBucket.toLowerCase().includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderMapping() {
+      const body = document.getElementById('mapping-body');
+      const dir = mapSortDir === 'asc' ? 1 : -1;
+      const rows = filteredMappings().sort((a, b) => {
+        const cmp = compareValues(mapSortValue(a, mapSortKey), mapSortValue(b, mapSortKey), dir);
+        if (cmp !== 0) return cmp;
+        return a.name.localeCompare(b.name);
+      });
+      paintMapSortHeaders();
+
+      body.innerHTML = rows.map((row, i) => {
+        const status = mappingStatus(row);
+        const selectCls = status === 'override' ? ' is-override' : status === 'excluded' ? ' is-excluded' : '';
+        const indent = row.indent ? `<span class="cat-indent" aria-hidden="true"></span>` : '';
+        return `<tr data-id="${row.id}" data-od-id="map-row-${row.id}">
+          <td class="col-app-cat">
+            <div class="app-cat-cell">${indent}${catPill(row.name, row.color)}</div>
+          </td>
+          <td class="col-default"><span class="default-bucket">${row.defaultBucket}</span></td>
+          <td class="col-lender">
+            <select class="bucket-select${selectCls}" data-map="${row.id}" aria-label="Lender bucket for ${row.name}" data-od-id="map-select-${row.id}">
+              ${bucketOptions(row.lenderBucket)}
+            </select>
+          </td>
+          <td class="col-status">${statusPill(status)}</td>
+        </tr>`;
+      }).join('');
+
+      body.querySelectorAll('.bucket-select').forEach((sel) => {
+        sel.addEventListener('change', () => {
+          const row = mappings.find((m) => m.id === sel.dataset.map);
+          if (!row) return;
+          row.lenderBucket = sel.value;
+          renderMapping();
+        });
+      });
+    }
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll('.page-tab').forEach((btn) => {
+        const on = btn.dataset.tab === tab;
+        btn.classList.toggle('is-active', on);
+        btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      document.getElementById('tab-summary').hidden = tab !== 'summary';
+      document.getElementById('tab-mapping').hidden = tab !== 'mapping';
+    }
+
+    function toggleBucket(id) {
+      openBucketId = openBucketId === id ? null : id;
+      renderBuckets();
+    }
+
+    document.querySelectorAll('.page-tab').forEach((btn) => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    document.getElementById('goto-mapping').addEventListener('click', (e) => {
+      e.preventDefault();
+      switchTab('mapping');
+    });
+
+    FUNDS.wireSegmented('#period', (val) => {
+      periodKey = val;
+      renderBuckets();
+    });
+
+    document.getElementById('acct').addEventListener('change', (e) => {
+      accountFilter = e.target.value;
+      updateKpis();
+      document.getElementById('bucket-hint').textContent =
+        `${accountLabel(accountFilter)} · ${PERIODS[periodKey].label}`;
+    });
+
+    document.getElementById('buckets-head').addEventListener('click', (e) => {
+      const button = e.target.closest('.th-sort');
+      if (!button) return;
+      const th = button.closest('[data-sort]');
+      if (!th) return;
+      const key = th.getAttribute('data-sort');
+      if (bucketSortKey === key) {
+        bucketSortDir = bucketSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        bucketSortKey = key;
+        bucketSortDir = key === 'name' ? 'asc' : 'desc';
+      }
+      renderBuckets();
+    });
+
+    document.getElementById('mapping-head').addEventListener('click', (e) => {
+      const button = e.target.closest('.th-sort');
+      if (!button) return;
+      const th = button.closest('[data-sort]');
+      if (!th) return;
+      const key = th.getAttribute('data-sort');
+      if (mapSortKey === key) {
+        mapSortDir = mapSortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        mapSortKey = key;
+        mapSortDir = key === 'name' || key === 'default' || key === 'lender' ? 'asc' : 'desc';
+      }
+      renderMapping();
+    });
+
+    document.getElementById('buckets-body').addEventListener('click', (e) => {
+      const row = e.target.closest('tr.is-bucket');
+      if (!row || row.classList.contains('no-expand')) return;
+      toggleBucket(row.dataset.bucket);
+    });
+
+    document.getElementById('buckets-body').addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const row = e.target.closest('tr.is-bucket');
+      if (!row || row.classList.contains('no-expand')) return;
+      e.preventDefault();
+      toggleBucket(row.dataset.bucket);
+    });
+
+    FUNDS.wireSegmented('#map-filter', (val) => {
+      mapFilter = val;
+      renderMapping();
+    });
+
+    document.getElementById('map-search').addEventListener('input', (e) => {
+      mapSearch = e.target.value.trim();
+      renderMapping();
+    });
+
+    renderBuckets();
+    renderMapping();
+  </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-login.html",
+  "entry": "funds-login.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-18T06:32:34.819Z",
+  "updatedAt": "2026-07-18T06:32:34.819Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}
