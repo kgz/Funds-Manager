@@ -5,6 +5,9 @@ import { InlineAlert } from '@/components/layout/InlineAlert';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
+import { glassCardClass } from '@/components/layout/tokens';
+import { cn } from '@/lib/utils/cn';
+import { rsBtnPrimaryClass } from '@/pages/report-snapshots/shared';
 import { AnnotationPanel } from '@/pages/broker-report/annotation-panel';
 import { BrokerReportContent } from '@/pages/broker-report/report-content';
 import { SharePanel } from '@/pages/broker-report/share-panel';
@@ -64,14 +67,14 @@ export function BrokerReportPage() {
 			<div className="broker-report-no-print mb-4 flex flex-wrap items-center justify-between gap-3">
 				<Link
 					to={Number.isFinite(snapshotId) ? `/report-snapshots/${snapshotId}` : '/report-snapshots'}
-					className="inline-flex items-center gap-1 text-sm text-white/60 hover:text-white"
+					className="inline-flex items-center gap-1 text-sm text-paper-muted transition-colors hover:text-paper-fg"
 				>
 					<ArrowLeft size="0.875rem" aria-hidden />
 					Back to snapshot
 				</Link>
 				<button
 					type="button"
-					className="inline-flex items-center gap-2 rounded bg-secondary-default px-4 py-2 text-sm font-medium text-black"
+					className={rsBtnPrimaryClass}
 					onClick={() => window.print()}
 				>
 					<Printer size="1rem" aria-hidden />
@@ -93,11 +96,11 @@ export function BrokerReportPage() {
 
 			{detail !== null && !loading ? (
 				<div className="space-y-6">
-					<details className="broker-report-no-print rounded-lg border border-white/10 bg-black/20">
-						<summary className="cursor-pointer px-4 py-3 text-sm font-medium text-white/80 hover:text-white">
+					<details className={cn(glassCardClass, 'broker-report-no-print overflow-hidden')}>
+						<summary className="cursor-pointer px-4 py-3 text-sm font-medium text-paper-fg transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_2%,var(--surface))]">
 							Share link &amp; notes (optional)
 						</summary>
-						<div className="grid gap-4 border-t border-white/10 p-4 lg:grid-cols-2">
+						<div className="grid gap-4 border-t border-paper-border p-4 lg:grid-cols-2">
 							<SharePanel snapshotId={detail.id} />
 							<AnnotationPanel snapshotId={detail.id} onChanged={() => void load()} />
 						</div>
