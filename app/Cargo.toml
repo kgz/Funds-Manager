@@ -59,7 +59,6 @@ serde_urlencoded = "0.7.1"
 serde_html_form = "0.2.7"
 utoipa-redoc = { version = "6.0.0", features = ["actix-web"] }
 actix-multipart = "0.8.0"
-actix-session = { version = "0.10", features = ["cookie-session"] }
 futures-util = "0.3.31"
 sanitize-filename = "0.6.0"
 statement-parser = { version = "0.2.0", path = "../crates/statement-parser" }

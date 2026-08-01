@@ -335,16 +335,6 @@ diesel::table! {
     }
 }
 
-diesel::table! {
-    users (id) {
-        id -> Bigint,
-        #[max_length = 255]
-        email -> Varchar,
-        password_hash -> Text,
-        created_at -> Timestamp,
-    }
-}
-
 diesel::joinable!(category_lender_exclusions -> categories (category_id));
 diesel::joinable!(category_lender_mappings -> categories (category_id));
 diesel::joinable!(category_lender_mappings -> lender_expense_buckets (bucket_key));
@@ -393,5 +383,4 @@ diesel::allow_tables_to_appear_in_same_query!(
     statement,
     transaction_categories,
     transaction_data,
-    users,
 );
