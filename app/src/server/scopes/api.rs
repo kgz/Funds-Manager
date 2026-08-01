@@ -8,6 +8,7 @@ use crate::routes::{
     ai_api::get_api_catalog,
     analytics_api::analytics_service,
     api::swagger::openapi,
+    auth_api::{get_me, login_user, logout_user, register_user},
     categories::categories_service,
     assets::assets_service,
     category_mappings::category_mappings_routes,
@@ -30,19 +31,18 @@ use crate::routes::{
 
 use super::api_users::api_users;
 
-
-
 pub fn api() -> Scope {
     web::scope("/api")
         .route("/version", web::get().to(get_version))
+        .route("/register", web::post().to(register_user))
+        .route("/login", web::post().to(login_user))
+        .route("/logout", web::post().to(logout_user))
+        .route("/me", web::get().to(get_me))
         .service(settings_service())
         .route("/ai", web::get().to(get_api_catalog))
         .route("/mcp", web::get().to(get_api_catalog))
         .route("openapi.json", web::get().to(openapi))
-
-        //migrations
-        // users
-        .service(category_mappings_routes()) // <-- Add the category mappings routes
+        .service(category_mappings_routes())
         .service(accounts_service())
         .service(categories_service())
         .service(planned_spending_service())
@@ -61,11 +61,4 @@ pub fn api() -> Scope {
         .service(prediction_scenarios_service())
         .service(prediction_goals_service())
         .service(api_users())
-        // //user
-
-        // .service(api_user())
-        // admin
-        // .service(api_admin())
-        // data
-
 }

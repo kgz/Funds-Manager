@@ -21,3 +21,4 @@ pub mod recurring_detection;
 pub mod statement;
 pub mod transaction;
 pub mod transaction_category_learn;
+pub mod user;

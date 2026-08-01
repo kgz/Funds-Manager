@@ -6,6 +6,7 @@ use std::str::FromStr;
 
 use crate::server::scopes::api::api;
 use crate::server::static_embed::serve_embedded;
+use crate::server::auth_middleware::auth_middleware;
 use crate::templates::redoc;
 use crate::{
     resources::environment::{load_certs, Environments, APP_ENV, SCOPE},
@@ -13,8 +14,10 @@ use crate::{
 };
 
 use actix_cors::Cors;
-use actix_web::{http, web, App, HttpServer};
+use actix_session::{storage::CookieSessionStore, SessionMiddleware};
+use actix_web::{cookie::Key, http, web, App, HttpServer};
 use database::modules::database::migrate_on_startup;
+use sha2::{Digest, Sha256};
 
 fn make_cors(listen_port: u16) -> Cors {
     let lp = listen_port;
@@ -38,6 +41,7 @@ fn make_cors(listen_port: u16) -> Cors {
         }
     }
     let mut cors = Cors::default()
+        .supports_credentials()
         .allowed_methods(vec![
             http::Method::GET,
             http::Method::POST,
@@ -53,6 +57,24 @@ fn make_cors(listen_port: u16) -> Cors {
         cors = cors.allowed_origin(o.as_str());
     }
     cors.allowed_origin_fn(|origin, _req_head| origin.as_bytes().ends_with(b".rust-lang.org"))
+}
+
+fn session_key() -> Key {
+    let secret = env::var("SESSION_SECRET").unwrap_or_else(|_| "funds-manager-dev-session".to_string());
+    let digest = Sha256::digest(secret.as_bytes());
+    let mut key = [0u8; 64];
+    key[..32].copy_from_slice(&digest);
+    key[32..].copy_from_slice(&digest);
+    Key::from(&key)
+}
+
+fn session_middleware() -> SessionMiddleware<CookieSessionStore> {
+    SessionMiddleware::builder(CookieSessionStore::default(), session_key())
+        .cookie_name("funds_session".to_string())
+        .cookie_http_only(true)
+        .cookie_same_site(actix_web::cookie::SameSite::Lax)
+        .cookie_secure(APP_ENV.env == Environments::PROD)
+        .build()
 }
 
 pub async fn server() {
@@ -75,7 +97,11 @@ pub async fn server() {
     let server = HttpServer::new(move || {
         let cors = make_cors(listen_port_u16);
 
-        App::new().wrap(cors).service(
+        App::new()
+            .wrap(auth_middleware())
+            .wrap(session_middleware())
+            .wrap(cors)
+            .service(
             web::scope(SCOPE)
                 // add cache to every request
                 // .route("/", web::get().to(index))

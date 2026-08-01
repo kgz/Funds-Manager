@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Route, Routes } from "react-router";
+import { AuthProvider } from "./components/auth/AuthProvider";
+import { RequireAuth } from "./components/auth/RequireAuth";
 import { Sidebar } from "./components/sidebar";
 import { Dashboard } from "./components/dashboard";
 import { Settings } from "./components/settings";
@@ -22,6 +24,7 @@ import { PublicBrokerReportPage } from "./pages/broker-report/public";
 import { LenderExpensesLayout } from "./pages/lender-expenses/layout";
 import { LenderExpenseMappingsPage } from "./pages/lender-expenses/mappings-page";
 import { LenderExpensesSummaryPage } from "./pages/lender-expenses/summary-page";
+import { LoginPage } from "./pages/login";
 
 function AppLayout() {
   return (
@@ -58,18 +61,28 @@ function AppLayout() {
 
 const App = () => {
   return (
-    <Router
-      basename={
-        import.meta.env.BASE_URL.replace(/\/$/, '') === ''
-          ? undefined
-          : import.meta.env.BASE_URL.replace(/\/$/, '')
-      }
-    >
-      <Routes>
-        <Route path="/r/:token" element={<PublicBrokerReportPage />} />
-        <Route path="*" element={<AppLayout />} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router
+        basename={
+          import.meta.env.BASE_URL.replace(/\/$/, '') === ''
+            ? undefined
+            : import.meta.env.BASE_URL.replace(/\/$/, '')
+        }
+      >
+        <Routes>
+          <Route path="/r/:token" element={<PublicBrokerReportPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="*"
+            element={
+              <RequireAuth>
+                <AppLayout />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 };
 
