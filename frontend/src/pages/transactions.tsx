@@ -610,7 +610,7 @@ const TransactionsPage = () => {
             sortable: true,
             render: (v) => DateTime.fromISO(v).isValid ? DateTime.fromISO(v).toFormat("dd LLL yyyy") : "Invalid Date",
             sortFunction: (a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis(),
-            cellClassName: "font-mono text-xs text-paper-muted whitespace-nowrap",
+            cellClassName: "font-mono tabular-nums text-[13px] text-paper-fg whitespace-nowrap",
         },
         {
             key: "financial_account",
@@ -629,7 +629,7 @@ const TransactionsPage = () => {
                     : '';
                 return labelA.localeCompare(labelB);
             },
-            cellClassName: "text-xs text-paper-muted whitespace-nowrap",
+            cellClassName: "text-[13px] text-paper-fg whitespace-nowrap",
         },
         {
             key: "description",
@@ -655,7 +655,7 @@ const TransactionsPage = () => {
             label: "Balance",
             sortable: true,
             render: (v) => (
-                <span className="font-mono tabular-nums text-paper-muted">
+                <span className="font-mono text-[13px] tabular-nums text-paper-muted">
                     {formatCurrency(v)}
                 </span>
             ),

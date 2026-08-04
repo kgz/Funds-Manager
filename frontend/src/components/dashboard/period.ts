@@ -121,6 +121,14 @@ export const COMPARISON_LABELS: Record<Exclude<DashboardPeriod, 'all'>, string> 
 	'last-12-months': 'vs prior year',
 };
 
+export const PERIOD_ACTIVITY_LABELS: Record<DashboardPeriod, string> = {
+	'this-month': 'this month of activity',
+	'last-3-months': 'last 3 months of activity',
+	'last-6-months': 'last 6 months of activity',
+	'last-12-months': 'last year of activity',
+	all: 'all time',
+};
+
 function isDashboardPeriod(value: string): value is DashboardPeriod {
 	return PERIOD_VALUES.includes(value as DashboardPeriod);
 }

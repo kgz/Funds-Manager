@@ -12,6 +12,9 @@ export type Statement = {
 	closing_balance: number;
 	deleted_at: string | null;
 	created_at: string;
+	financial_account_id?: number | null;
+	period_start?: string | null;
+	period_end?: string | null;
 	financial_account?: FinancialAccountSummary | null;
 };
 
@@ -79,6 +82,9 @@ function normalizeStatement(raw: unknown): Statement | null {
 	const closingBalance = readFiniteNumber(Reflect.get(raw, 'closing_balance'));
 	const deletedAt = readNullableString(Reflect.get(raw, 'deleted_at'));
 	const createdAt = readString(Reflect.get(raw, 'created_at'));
+	const financialAccountId = readFiniteNumber(Reflect.get(raw, 'financial_account_id'));
+	const periodStart = readNullableString(Reflect.get(raw, 'period_start'));
+	const periodEnd = readNullableString(Reflect.get(raw, 'period_end'));
 	const financialAccountRaw = Reflect.get(raw, 'financial_account');
 	const financialAccount =
 		financialAccountRaw === undefined || financialAccountRaw === null
@@ -104,6 +110,9 @@ function normalizeStatement(raw: unknown): Statement | null {
 		closing_balance: closingBalance,
 		deleted_at: deletedAt,
 		created_at: createdAt,
+		financial_account_id: financialAccountId,
+		period_start: periodStart,
+		period_end: periodEnd,
 		financial_account: financialAccount,
 	};
 }

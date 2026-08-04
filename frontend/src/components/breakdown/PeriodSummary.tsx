@@ -1,5 +1,9 @@
 import { cn } from '@/lib/utils/cn';
-import { chartColors } from '@/graphs/theme';
+import {
+	moneyDangerClass,
+	moneySuccessClass,
+	formatSignedMoneyFromDollars,
+} from '@/lib/utils/moneySemantics';
 
 type PeriodSummaryProps = {
 	spending: number;
@@ -8,26 +12,8 @@ type PeriodSummaryProps = {
 	className?: string;
 };
 
-const formatSignedMoney = (n: number, forceSign: 'plus' | 'minus' | 'auto') => {
-	const abs = Math.abs(n);
-	const body = `$${abs.toLocaleString('en-AU', {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	})}`;
-	if (forceSign === 'plus') {
-		return `+${body}`;
-	}
-	if (forceSign === 'minus') {
-		return `−${body}`;
-	}
-	if (n > 0) {
-		return `+${body}`;
-	}
-	if (n < 0) {
-		return `−${body}`;
-	}
-	return body;
-};
+const formatSignedMoney = (n: number, forceSign: 'plus' | 'minus' | 'auto') =>
+	formatSignedMoneyFromDollars(n, forceSign);
 
 export function PeriodSummary({
 	spending,
@@ -35,12 +21,8 @@ export function PeriodSummary({
 	net,
 	className,
 }: PeriodSummaryProps) {
-	const netColor =
-		net > 0
-			? chartColors.receiving
-			: net < 0
-				? chartColors.spending
-				: undefined;
+	const netClass =
+		net > 0 ? moneySuccessClass : net < 0 ? moneyDangerClass : 'text-paper-muted';
 
 	return (
 		<div
@@ -58,9 +40,8 @@ export function PeriodSummary({
 					<strong
 						className={cn(
 							'font-mono text-xl font-medium tracking-[-0.02em] tabular-nums',
-							netColor === undefined && 'text-paper-muted'
+							netClass
 						)}
-						style={netColor !== undefined ? { color: netColor } : undefined}
 					>
 						{formatSignedMoney(net, 'auto')}
 					</strong>
@@ -69,15 +50,16 @@ export function PeriodSummary({
 					<span className="flex items-center justify-between gap-3 text-[10px] text-paper-muted">
 						<span className="inline-flex items-center gap-1.5">
 							<i
-								className="inline-block h-[5px] w-[5px] rounded-full"
-								style={{ background: chartColors.receiving }}
+								className="inline-block h-[5px] w-[5px] rounded-full bg-[color:var(--success)]"
 								aria-hidden
 							/>
 							Income
 						</span>
 						<strong
-							className="font-mono text-[11px] font-medium tabular-nums tracking-[-0.02em]"
-							style={{ color: chartColors.receiving }}
+							className={cn(
+								'font-mono text-[11px] font-medium tabular-nums tracking-[-0.02em]',
+								moneySuccessClass
+							)}
 						>
 							{formatSignedMoney(income, 'plus')}
 						</strong>
@@ -85,15 +67,16 @@ export function PeriodSummary({
 					<span className="flex items-center justify-between gap-3 text-[10px] text-paper-muted">
 						<span className="inline-flex items-center gap-1.5">
 							<i
-								className="inline-block h-[5px] w-[5px] rounded-full"
-								style={{ background: chartColors.spending }}
+								className="inline-block h-[5px] w-[5px] rounded-full bg-[color:var(--danger)]"
 								aria-hidden
 							/>
 							Spending
 						</span>
 						<strong
-							className="font-mono text-[11px] font-medium tabular-nums tracking-[-0.02em]"
-							style={{ color: chartColors.spending }}
+							className={cn(
+								'font-mono text-[11px] font-medium tabular-nums tracking-[-0.02em]',
+								moneyDangerClass
+							)}
 						>
 							{formatSignedMoney(spending, 'minus')}
 						</strong>

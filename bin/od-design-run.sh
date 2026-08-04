@@ -9,16 +9,16 @@
 # Env (optional):
 #   OD_PROJECT          default: funds-manager-redesign-5e1b
 #   OD_CONVERSATION     default: main project conversation (see below)
-#   OD_DAEMON_URL       default: http://127.0.0.1:28585
-#   OD_WEB_URL          default: http://127.0.0.1:29013
+#   OD_DAEMON_URL       default: http://127.0.0.1:7456
+#   OD_WEB_URL          default: http://127.0.0.1:7456
 #   OD_AGENT_ID         default: cursor-agent
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT="${OD_PROJECT:-funds-manager-redesign-5e1b}"
 CONVERSATION="${OD_CONVERSATION:-66c8b7e4-40d6-4a43-b0bd-346a3ee68e4b}"
-DAEMON="${OD_DAEMON_URL:-http://127.0.0.1:28585}"
-WEB="${OD_WEB_URL:-http://127.0.0.1:29013}"
+DAEMON="${OD_DAEMON_URL:-http://127.0.0.1:7456}"
+WEB="${OD_WEB_URL:-http://127.0.0.1:7456}"
 AGENT="${OD_AGENT_ID:-cursor-agent}"
 
 ISSUE=""
@@ -69,7 +69,7 @@ fi
 
 if ! curl -sf --max-time 2 "$DAEMON/api/daemon/status" >/dev/null; then
 	echo "Open Design daemon not reachable at $DAEMON" >&2
-	echo "Start it: cd ~/tools/open-design && pnpm exec tools-dev run web --web-port 29013 --daemon-port 28585" >&2
+	echo "Start it: cd ~/tools/open-design/deploy && docker compose -f docker-compose.yml -f docker-compose.wsl.yml up -d" >&2
 	exit 1
 fi
 

@@ -15,6 +15,7 @@ import type { TooltipContentProps } from 'recharts';
 import { ChartCard } from '@/components/ChartCard';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { chartColors, chartTheme, chartTooltipClass } from '@/graphs/theme';
+import { formatChartAxisCompactMoney } from '@/lib/utils/chartMoney';
 import { formatChartAxisDate, chartDateSpanDays } from '@/lib/utils/dates';
 import { DateTime } from 'luxon';
 import {
@@ -100,7 +101,10 @@ function toLegendPayload(items: ChartLegendItem[]) {
 
 type NetWorthChartProps = {
 	dateRange: DashboardDateRange;
+	variant?: 'full' | 'dashboard';
 };
+
+const DASHBOARD_CHART_HEIGHT = 200;
 
 function readTooltipDate(row: object): string {
 	const ts = Reflect.get(row, 'ts');
@@ -152,7 +156,7 @@ function NetWorthTooltip({ active, payload }: TooltipContentProps) {
 	);
 }
 
-export function NetWorthChart({ dateRange }: NetWorthChartProps) {
+export function NetWorthChart({ dateRange, variant = 'full' }: NetWorthChartProps) {
 	const [points, setPoints] = useState<NetWorthPoint[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -224,13 +228,113 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 	const accountScoped = accountId != null;
 	const legendItems = toLegendPayload(chartLegendItems(accountScoped, hasDebts));
 
-	const subtitle = accountScoped
-		? 'Cash balance for the selected account.'
-		: 'Net Worth = (Assets + Cash) − Debts. Shaded area = Net Worth (the gap between total assets and debts).';
+	const subtitle =
+		variant === 'dashboard'
+			? 'Assets − liabilities'
+			: accountScoped
+				? 'Cash balance for the selected account.'
+				: 'Net Worth = (Assets + Cash) − Debts. Shaded area = Net Worth (the gap between total assets and debts).';
+
+	const chartHeight = variant === 'dashboard' ? DASHBOARD_CHART_HEIGHT : 300;
+	const title = variant === 'dashboard' ? 'Net worth' : 'Net Worth Over Time';
+
+	if (variant === 'dashboard') {
+		return (
+			<ChartCard
+				title={title}
+				subtitle={subtitle}
+				subtitleAlign="end"
+				titleExtra={
+					loading ? (
+						<Loader2 className="h-4 w-4 animate-spin text-secondary-default" aria-label="Loading" />
+					) : null
+				}
+			>
+				{error !== null && points.length === 0 ? (
+					<div
+						className="flex items-center justify-center text-sm text-[color:var(--danger)]"
+						style={{ height: chartHeight }}
+					>
+						{error}
+					</div>
+				) : loading && chartPoints.length === 0 ? (
+					<div className="flex items-center justify-center" style={{ height: chartHeight }}>
+						<Loader2 className="h-6 w-6 animate-spin text-secondary-default" aria-label="Loading" />
+					</div>
+				) : chartPoints.length === 0 ? (
+					<EmptyState
+						compact
+						icon={TrendingUp}
+						title="Not enough history"
+						description="Add assets with valuations or import statement balances to see net worth over time."
+						className="py-8"
+					/>
+				) : (
+					<div data-testid="net-worth-chart">
+						<ResponsiveContainer width="100%" height={chartHeight}>
+							<ComposedChart
+								data={chartPoints}
+								margin={{ top: 16, right: 12, bottom: 36, left: 4 }}
+							>
+								<CartesianGrid
+									stroke={chartTheme.grid.stroke}
+									strokeDasharray={chartTheme.grid.strokeDasharray}
+									vertical={false}
+								/>
+								<XAxis
+									type="number"
+									dataKey="ts"
+									domain={['dataMin', 'dataMax']}
+									stroke={chartTheme.axis.stroke}
+									tick={{ ...chartTheme.axis.tick, fontSize: 11 }}
+									tickLine={false}
+									axisLine={false}
+									tickFormatter={(ts) => formatTimeAxisTick(ts, spanDays)}
+									minTickGap={40}
+								/>
+								<YAxis
+									domain={yDomain}
+									stroke={chartTheme.axis.stroke}
+									tick={{
+										...chartTheme.axis.tick,
+										fontFamily: 'var(--font-mono)',
+										fontSize: 11,
+									}}
+									tickLine={false}
+									axisLine={false}
+									tickFormatter={formatChartAxisCompactMoney}
+									width={48}
+								/>
+								<Tooltip content={(props) => NetWorthTooltip(props)} />
+								<Area
+									type="linear"
+									dataKey="netWorth"
+									stroke="none"
+									fill={chartColors.dashboardNetWorthFill}
+									dot={false}
+									isAnimationActive={false}
+									legendType="none"
+								/>
+								<Line
+									type="linear"
+									dataKey="netWorth"
+									stroke={chartColors.dashboardNetWorthStroke}
+									strokeWidth={1.75}
+									dot={false}
+									isAnimationActive={false}
+									legendType="none"
+								/>
+							</ComposedChart>
+						</ResponsiveContainer>
+					</div>
+				)}
+			</ChartCard>
+		);
+	}
 
 	return (
 		<ChartCard
-			title="Net Worth Over Time"
+			title={title}
 			subtitle={subtitle}
 			titleExtra={
 				loading ? (
@@ -239,11 +343,14 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 			}
 		>
 			{error !== null && points.length === 0 ? (
-				<div className="flex h-[300px] items-center justify-center text-sm text-[color:var(--danger)]">
+				<div
+					className="flex items-center justify-center text-sm text-[color:var(--danger)]"
+					style={{ height: chartHeight }}
+				>
 					{error}
 				</div>
 			) : loading && chartPoints.length === 0 ? (
-				<div className="flex h-[300px] items-center justify-center">
+				<div className="flex items-center justify-center" style={{ height: chartHeight }}>
 					<Loader2 className="h-6 w-6 animate-spin text-secondary-default" aria-label="Loading" />
 				</div>
 			) : chartPoints.length === 0 ? (
@@ -254,7 +361,7 @@ export function NetWorthChart({ dateRange }: NetWorthChartProps) {
 				/>
 			) : (
 				<div data-testid="net-worth-chart">
-					<ResponsiveContainer width="100%" height={300}>
+					<ResponsiveContainer width="100%" height={chartHeight}>
 						<ComposedChart
 							data={chartPoints}
 							margin={{ top: 8, right: 8, left: 0, bottom: accountScoped ? 0 : 28 }}

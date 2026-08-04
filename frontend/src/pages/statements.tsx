@@ -1,4 +1,3 @@
-import { Table, type SortState, type TColumn } from "@/components/table";
 import {
 	fetchMissingStatementPeriods,
 	fetchStatementsPage,
@@ -7,32 +6,145 @@ import {
 	type MissingStatementPeriod,
 	type Statement,
 	type StatementPreviewFile,
-} from "@/types/statement";
+} from '@/types/statement';
+import { AccountMultiSelect } from '@/components/account-multi-select';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
-import { InlineAlert } from '@/components/layout/InlineAlert';
 import { Modal } from '@/components/layout/Modal';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
-import { buttonOutlineClass, buttonWarningClass, glassCardClass } from '@/components/layout/tokens';
-import { FileArchive, FilePlusIcon, Loader2, PlusCircle, Trash2, TrendingDown, TrendingUp, UploadCloud } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, ChangeEvent, DragEvent } from "react";
-import { DateTime } from "luxon";
-import { cn } from "@/lib/utils/cn";
-import { AccountFilter } from '@/components/account-filter';
-import { useAccountFilter } from '@/hooks/useAccountFilter';
+import {
+	buttonOutlineClass,
+	buttonWarningClass,
+	glassCardClass,
+	pageSubtitleClass,
+	pageTitleClass,
+	panelHintClass,
+	panelTitleClass,
+} from '@/components/layout/tokens';
+import { useStatementsAccountFilter } from '@/hooks/useStatementsAccountFilter';
+import { cn } from '@/lib/utils/cn';
 import { accountDisplayLabel } from '@/types/account';
+import { AlertTriangle, FileArchive, Loader2, Upload } from 'lucide-react';
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ChangeEvent,
+	type DragEvent,
+} from 'react';
+import { DateTime } from 'luxon';
 
 const PER_PAGE = 50;
+const CLIENT_FETCH_PER_PAGE = 200;
 
-const formatCurrency = (amount: number): string => {
-	const absAmount = Math.abs(amount / 100).toFixed(2);
-	return `${amount < 0 ? '-' : ''}$${absAmount}`;
+const stmtPrimaryButtonClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-fg bg-paper-fg px-3 text-[13px] font-medium tracking-[0.02em] !text-white transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_88%,white)] disabled:cursor-not-allowed disabled:opacity-50';
+
+const stmtGhostButtonClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center rounded-paper border border-transparent bg-transparent px-3 text-[13px] font-medium text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:cursor-not-allowed disabled:opacity-50';
+
+const stmtOutlineButtonClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-border bg-paper-surface px-3 text-[13px] font-medium tracking-[0.02em] text-paper-fg transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_3%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
+
+const pillBaseClass =
+	'inline-flex h-[22px] items-center rounded-full border px-2 text-[11px] font-medium uppercase tracking-[0.04em]';
+
+const tableThClass =
+	'sticky top-0 whitespace-nowrap border-b border-paper-border bg-paper px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-paper-muted';
+
+const tableTdClass =
+	'border-b border-paper-border px-3 py-2.5 align-middle text-[13px] text-paper-fg';
+
+type MissingPeriodRow = {
+	kind: 'missing';
+	key: string;
+	accountLabel: string;
+	period: string;
 };
 
+type StatementRow = {
+	kind: 'statement';
+	key: string;
+	statement: Statement;
+};
+
+type DisplayRow = MissingPeriodRow | StatementRow;
+
+function formatStatementPeriod(row: Statement): string {
+	const start = row.period_start ? DateTime.fromISO(row.period_start) : null;
+	const end = row.period_end ? DateTime.fromISO(row.period_end) : null;
+	if (start?.isValid && end?.isValid) {
+		if (start.month === end.month && start.year === end.year) {
+			return `${start.toFormat('dd')}–${end.toFormat('dd LLL yyyy')}`;
+		}
+		return `${start.toFormat('dd LLL yyyy')}–${end.toFormat('dd LLL yyyy')}`;
+	}
+	const date = DateTime.fromISO(row.date);
+	return date.isValid ? date.toFormat('LLL yyyy') : 'Invalid date';
+}
+
+function periodSortKey(period: string): number {
+	if (period.includes(' to ')) {
+		const start = period.split(' to ')[0]?.trim() ?? '';
+		const parsed = DateTime.fromISO(start);
+		if (parsed.isValid) {
+			return parsed.toMillis();
+		}
+	}
+	const parsed = DateTime.fromFormat(period, 'LLL yyyy');
+	return parsed.isValid ? parsed.toMillis() : 0;
+}
+
+function statementSortKey(row: Statement): number {
+	if (row.period_end) {
+		const parsed = DateTime.fromISO(row.period_end);
+		if (parsed.isValid) {
+			return parsed.toMillis();
+		}
+	}
+	const parsed = DateTime.fromISO(row.date);
+	return parsed.isValid ? parsed.toMillis() : 0;
+}
+
+function buildMissingAlertBody(periods: MissingStatementPeriod[]): string {
+	const byAccount = new Map<string, string[]>();
+	for (const entry of periods) {
+		const existing = byAccount.get(entry.account_label) ?? [];
+		existing.push(entry.period);
+		byAccount.set(entry.account_label, existing);
+	}
+	const sentences = [...byAccount.entries()].map(([label, accountPeriods]) => {
+		const periodBits = accountPeriods.map((period) => {
+			const display = period.includes(' to ')
+				? period
+				: period;
+			return display;
+		});
+		const joined =
+			periodBits.length === 1
+				? periodBits[0]
+				: `${periodBits.slice(0, -1).join(', ')} or ${periodBits[periodBits.length - 1]}`;
+		return `${label} has no statement covering ${joined}.`;
+	});
+	return sentences.join(' ');
+}
+
 export const Statements = () => {
-	const { accountIdNumber } = useAccountFilter();
+	const {
+		accounts,
+		accountsLoading,
+		selectedIds,
+		setSelectedIds,
+		filterLabel,
+		apiAccountId,
+		needsClientFilter,
+		accountLabelMatchesFilter,
+		statementMatchesFilter,
+	} = useStatementsAccountFilter();
+
 	const [page, setPage] = useState(1);
 	const [items, setItems] = useState<Statement[]>([]);
 	const [total, setTotal] = useState(0);
@@ -44,18 +156,20 @@ export const Statements = () => {
 
 	const [isUploading, setIsUploading] = useState(false);
 	const [uploadError, setUploadError] = useState<string | null>(null);
-	const [deletingId, setDeletingId] = useState<number | null>(null);
+	const [uploadStatus, setUploadStatus] = useState<string | null>(null);
 	const [isDraggingOver, setIsDraggingOver] = useState(false);
 	const [replacePrompt, setReplacePrompt] = useState<{
 		files: File[];
 		conflicts: StatementPreviewFile[];
 	} | null>(null);
-	const [sortState, setSortState] = useState<SortState<Statement>>({
-		key: 'date',
-		direction: 'desc',
-	});
 
+	const fileInputRef = useRef<HTMLInputElement>(null);
 	const fetchGenerationRef = useRef(0);
+
+	const filteredMissingPeriods = useMemo(
+		() => missingPeriods.filter((entry) => accountLabelMatchesFilter(entry.account_label)),
+		[missingPeriods, accountLabelMatchesFilter]
+	);
 
 	const reloadPage = useCallback(async (targetPage: number) => {
 		const generation = fetchGenerationRef.current + 1;
@@ -65,19 +179,36 @@ export const Statements = () => {
 
 		try {
 			const result = await fetchStatementsPage({
-				page: targetPage,
-				perPage: PER_PAGE,
-				accountId: accountIdNumber,
-				sortBy: sortState.key,
-				sortDir: sortState.direction,
+				page: needsClientFilter ? 1 : targetPage,
+				perPage: needsClientFilter ? CLIENT_FETCH_PER_PAGE : PER_PAGE,
+				accountId: apiAccountId,
+				sortBy: 'date',
+				sortDir: 'desc',
 			});
 			if (fetchGenerationRef.current !== generation) {
 				return;
 			}
-			setItems(result.items);
-			setTotal(result.total);
-			setTotalPages(result.total_pages);
-			setPage(result.page);
+
+			let nextItems = result.items;
+			let nextTotal = result.total;
+			let nextTotalPages = result.total_pages;
+			let nextPage = result.page;
+
+			if (needsClientFilter) {
+				nextItems = result.items.filter((row) =>
+					statementMatchesFilter(row.financial_account_id ?? row.financial_account?.id)
+				);
+				nextTotal = nextItems.length;
+				nextTotalPages = Math.max(1, Math.ceil(nextTotal / PER_PAGE));
+				nextPage = Math.min(targetPage, nextTotalPages);
+				const offset = (nextPage - 1) * PER_PAGE;
+				nextItems = nextItems.slice(offset, offset + PER_PAGE);
+			}
+
+			setItems(nextItems);
+			setTotal(nextTotal);
+			setTotalPages(nextTotalPages);
+			setPage(nextPage);
 		} catch (error) {
 			if (fetchGenerationRef.current !== generation) {
 				return;
@@ -93,27 +224,23 @@ export const Statements = () => {
 				setLoading(false);
 			}
 		}
-	}, [accountIdNumber, sortState]);
+	}, [apiAccountId, needsClientFilter, statementMatchesFilter]);
 
 	const reloadMissing = useCallback(async () => {
 		setMissingLoading(true);
 		try {
-			const periods = await fetchMissingStatementPeriods(accountIdNumber);
+			const periods = await fetchMissingStatementPeriods(apiAccountId);
 			setMissingPeriods(periods);
 		} catch {
 			setMissingPeriods([]);
 		} finally {
 			setMissingLoading(false);
 		}
-	}, [accountIdNumber]);
-
-	const refreshAll = useCallback(async () => {
-		await Promise.all([reloadPage(page), reloadMissing()]);
-	}, [page, reloadPage, reloadMissing]);
+	}, [apiAccountId]);
 
 	useEffect(() => {
 		setPage(1);
-	}, [accountIdNumber, sortState]);
+	}, [apiAccountId, needsClientFilter, selectedIds]);
 
 	useEffect(() => {
 		void reloadPage(page);
@@ -124,9 +251,14 @@ export const Statements = () => {
 	}, [reloadMissing]);
 
 	const clearFileInput = () => {
-		const fileInput = document.getElementById("file-upload") as HTMLInputElement | null;
-		if (fileInput) {
-			fileInput.value = '';
+		if (fileInputRef.current) {
+			fileInputRef.current.value = '';
+		}
+	};
+
+	const openFilePicker = () => {
+		if (!isUploading) {
+			fileInputRef.current?.click();
 		}
 	};
 
@@ -142,11 +274,16 @@ export const Statements = () => {
 			} else {
 				setUploadError(null);
 			}
+			if (result.processed_files.length > 0) {
+				setUploadStatus(`Imported ${result.processed_files.length} file(s)`);
+			}
 			setPage(1);
 			await reloadPage(1);
 			await reloadMissing();
 		} catch (error) {
-			setUploadError(error instanceof Error ? error.message : "An unknown error occurred during upload.");
+			setUploadError(
+				error instanceof Error ? error.message : 'An unknown error occurred during upload.'
+			);
 		} finally {
 			setIsUploading(false);
 			clearFileInput();
@@ -155,17 +292,17 @@ export const Statements = () => {
 
 	const handleFileUpload = async (files: FileList | null) => {
 		if (!files || files.length === 0) {
-			setUploadError("No files selected or dropped.");
+			setUploadError('No files selected or dropped.');
 			return;
 		}
 
-		const pdfFiles = Array.from(files).filter(file => file.type === "application/pdf");
+		const pdfFiles = Array.from(files).filter((file) => file.type === 'application/pdf');
 		if (pdfFiles.length === 0) {
-			setUploadError("No PDF files found. Please upload PDF statements only.");
+			setUploadError('No PDF files found. Please upload PDF statements only.');
 			return;
 		}
 		if (pdfFiles.length < files.length) {
-			setUploadError("Some non-PDF files were ignored. Only PDF files can be uploaded.");
+			setUploadError('Some non-PDF files were ignored. Only PDF files can be uploaded.');
 		} else {
 			setUploadError(null);
 		}
@@ -189,7 +326,9 @@ export const Statements = () => {
 			}
 			await commitUpload(pdfFiles, false);
 		} catch (error) {
-			setUploadError(error instanceof Error ? error.message : "An unknown error occurred during upload.");
+			setUploadError(
+				error instanceof Error ? error.message : 'An unknown error occurred during upload.'
+			);
 			clearFileInput();
 		} finally {
 			setIsUploading(false);
@@ -228,7 +367,9 @@ export const Statements = () => {
 		event.preventDefault();
 		event.stopPropagation();
 		setIsDraggingOver(false);
-		if (isUploading) return;
+		if (isUploading) {
+			return;
+		}
 		void handleFileUpload(event.dataTransfer.files);
 	};
 
@@ -236,102 +377,94 @@ export const Statements = () => {
 		void handleFileUpload(event.target.files);
 	};
 
-	const handleDeleteStatement = async (statementId: number) => {
-		if (!window.confirm(`Are you sure you want to delete statement ID ${statementId}? This action cannot be undone.`)) {
-			return;
-		}
-		setDeletingId(statementId);
-		try {
-			const response = await fetch(`/api/statements/${statementId}`, { method: 'DELETE' });
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({ message: "Delete failed" }));
-				throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-			}
-			await refreshAll();
-		} catch (error) {
-			alert(`Failed to delete statement: ${error instanceof Error ? error.message : 'Unknown error'}`);
-		} finally {
-			setDeletingId(null);
-		}
-	};
+	const displayRows: DisplayRow[] = useMemo(() => {
+		const statementRows: DisplayRow[] = items.map((statement) => ({
+			kind: 'statement',
+			key: `statement-${statement.id}`,
+			statement,
+		}));
+		const missingRows: DisplayRow[] = filteredMissingPeriods.map((entry) => ({
+			kind: 'missing',
+			key: `missing-${entry.account_label}-${entry.period}`,
+			accountLabel: entry.account_label,
+			period: entry.period.includes(' to ')
+				? entry.period
+				: entry.period,
+		}));
+		return [...statementRows, ...missingRows].sort((left, right) => {
+			const leftKey =
+				left.kind === 'statement'
+					? statementSortKey(left.statement)
+					: periodSortKey(left.period);
+			const rightKey =
+				right.kind === 'statement'
+					? statementSortKey(right.statement)
+					: periodSortKey(right.period);
+			return rightKey - leftKey;
+		});
+	}, [filteredMissingPeriods, items]);
 
-	const columns: TColumn<Statement>[] = useMemo(() => [
-		{
-			key: "id",
-			label: "ID",
-			sortable: true,
-			render: (v) => v,
-			sortFunction: (a, b) => a - b,
-		},
-		{
-			key: "date", label: "Statement Period", sortable: true,
-			render: (v) => DateTime.fromISO(v).isValid ? DateTime.fromISO(v).toFormat("LLL yyyy") : "Invalid Date",
-			sortFunction: (a, b) => DateTime.fromISO(a).toMillis() - DateTime.fromISO(b).toMillis(),
-		},
-		{
-			key: "financial_account",
-			label: "Account",
-			sortable: true,
-			render: (_v, row) =>
-				row.financial_account
-					? accountDisplayLabel(row.financial_account)
-					: row.account_id,
-			sortFunction: (_a, _b, rowA, rowB) => {
-				const labelA = rowA.financial_account
-					? accountDisplayLabel(rowA.financial_account)
-					: rowA.account_id;
-				const labelB = rowB.financial_account
-					? accountDisplayLabel(rowB.financial_account)
-					: rowB.account_id;
-				return labelA.localeCompare(labelB);
-			},
-		},
-		{
-			key: "closing_balance", label: "Profit/Loss", sortable: true,
-			render: (_v, row) => {
-				const profitOrLoss = row.closing_balance - row.opening_balance;
-				const isProfit = profitOrLoss >= 0;
-				return (
-					<span className={cn("flex items-center gap-1 font-mono", isProfit ? "text-green-400" : "text-red-400")}>
-						{isProfit ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-						{formatCurrency(profitOrLoss)}
-					</span>
-				);
-			},
-			sortFunction: (_a, _b, rowA, rowB) => (rowA.closing_balance - rowA.opening_balance) - (rowB.closing_balance - rowB.opening_balance)
-		},
-		{
-			key: "created_at",
-			label: "Actions",
-			sortable: false,
-			render: (_v, row) => (
-				<div className="flex gap-2 items-center">
-					<button title="View Details (Not Implemented)" className="cursor-pointer hover:text-secondary-default disabled:opacity-50 disabled:cursor-not-allowed" disabled={deletingId === row.id}>
-						<PlusCircle className="w-4 h-4 text-secondary-default/60 hover:text-secondary-default" />
-					</button>
-					<button title={`Delete Statement ${row.id}`} className="cursor-pointer text-red-500/60 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed" onClick={() => handleDeleteStatement(row.id)} disabled={deletingId === row.id}>
-						{deletingId === row.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-					</button>
-				</div>
-			),
-		},
-	], [deletingId]);
+	const visibleCount = displayRows.length;
+	const countLabel =
+		visibleCount === 1 ? '1 on file' : `${visibleCount} on file`;
 
 	const initialLoading = loading && items.length === 0 && loadError === null;
 	const showEmpty =
-		!loading && !isUploading && total === 0 && loadError === null;
+		!loading &&
+		!isUploading &&
+		total === 0 &&
+		filteredMissingPeriods.length === 0 &&
+		loadError === null;
+
+	const missingAlertBody = buildMissingAlertBody(filteredMissingPeriods);
 
 	return (
 		<PageShell variant="table" className="relative">
-			<div className="border-b border-paper-border p-4">
-				<PageHeader
-					title="Statements"
-					subtitle="Upload bank statement PDFs and manage imported periods."
-					icon={<FileArchive className="h-6 w-6 text-secondary-default" />}
-					className="mb-0"
-					actions={<AccountFilter />}
-				/>
-			</div>
+			<header className="sticky top-0 z-30 shrink-0 border-b border-paper-border bg-paper-surface px-8 py-5">
+				<div className="flex flex-wrap items-start justify-between gap-4">
+					<div className="min-w-0">
+						<div className="flex flex-wrap items-center gap-2">
+							<h1 className={pageTitleClass}>Statements</h1>
+							{loading ? (
+								<Loader2
+									className="h-4 w-4 animate-spin text-secondary-default"
+									aria-label="Loading"
+								/>
+							) : null}
+						</div>
+						<p className={pageSubtitleClass}>
+							Import bank PDF statements · {filterLabel}
+						</p>
+					</div>
+					<div className="flex flex-wrap items-center gap-2">
+						<AccountMultiSelect
+							accounts={accounts}
+							selectedIds={selectedIds}
+							onSelectedIdsChange={setSelectedIds}
+							disabled={accountsLoading}
+							menuAlign="right"
+						/>
+						<button
+							type="button"
+							className={stmtPrimaryButtonClass}
+							disabled={isUploading}
+							onClick={openFilePicker}
+						>
+							Upload PDF
+						</button>
+						<input
+							ref={fileInputRef}
+							type="file"
+							multiple
+							className="hidden"
+							accept=".pdf,application/pdf"
+							onChange={handleInputChange}
+							disabled={isUploading}
+						/>
+					</div>
+				</div>
+			</header>
+
 			<Modal
 				open={replacePrompt !== null}
 				onClose={handleCancelReplace}
@@ -354,134 +487,271 @@ export const Statements = () => {
 				}
 			>
 				{replacePrompt !== null ? (
-					<>
-						<p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-400/90">
-							Replace existing statements
-						</p>
-						<ul className="max-h-48 space-y-2 overflow-y-auto">
+					<ul className="max-h-48 space-y-2 overflow-y-auto">
 						{replacePrompt.conflicts.map((conflict) => (
 							<li
 								key={`${conflict.account_id}-${conflict.statement_date}-${conflict.filename}`}
-								className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-paper-fg"
+								className="rounded-paper border border-[color-mix(in_oklch,var(--warn)_35%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_8%,var(--surface))] px-3 py-2 text-sm text-paper-fg"
 							>
-								<span className="font-medium">{conflict.period_label}</span>
+								<span className="font-semibold">{conflict.period_label}</span>
 								{' · '}
-								<span className="text-paper-fg">account {conflict.account_id}</span>
-								<span className="mt-0.5 block text-xs text-paper-muted">{conflict.filename}</span>
+								<span>account {conflict.account_id}</span>
+								<span className="mt-0.5 block text-xs text-paper-muted">
+									{conflict.filename}
+								</span>
 							</li>
 						))}
-						</ul>
-					</>
+					</ul>
 				) : null}
 			</Modal>
 
-			{isUploading && (
-				<div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-paper-fg/35 backdrop-blur-sm">
-					<Loader2 className="w-12 h-12 animate-spin text-secondary-default mb-4" />
-					<p className="text-paper-fg text-lg">Uploading statements...</p>
-				</div>
-			)}
-
-			<div
-				className={cn(
-					'mx-4 mb-4 p-6 transition-colors duration-200 ease-in-out',
-					glassCardClass,
-					isDraggingOver && !isUploading && 'border-secondary-default/50 border-dashed bg-paper',
-					!isUploading ? 'cursor-pointer hover:bg-paper' : 'pointer-events-none opacity-50',
-				)}
-				onClick={() => !isUploading && document.getElementById("file-upload")?.click()}
-				onDragOver={handleDragOver}
-				onDragLeave={handleDragLeave}
-				onDrop={handleDrop}
-			>
-				<div className="flex flex-col items-center justify-center pointer-events-none">
-					{isDraggingOver && !isUploading ? (
-						<>
-							<UploadCloud className="w-10 h-10 mx-auto text-secondary-default mb-2" />
-							<p className="text-center text-secondary-default font-semibold">Drop PDF files here</p>
-						</>
-					) : (
-						<>
-							<p className="text-center text-paper-muted">Click or drop PDF statement(s) here to upload</p>
-							<br />
-							<FilePlusIcon className="w-8 h-8 mx-auto text-paper-muted group-hover:text-secondary-default/60" />
-						</>
-					)}
-				</div>
-				<input
-					type="file"
-					multiple
-					className="hidden"
-					accept=".pdf,application/pdf"
-					id="file-upload"
-					onChange={handleInputChange}
-					disabled={isUploading}
-				/>
-				{uploadError ? (
-					<p className="mt-2 text-center text-sm text-red-400">{uploadError}</p>
-				) : null}
-			</div>
-
-			{missingPeriods.length > 0 && !missingLoading ? (
-				<div className="mx-4 mb-4">
-					<InlineAlert variant="warning">
-						<span className="font-semibold">Missing statement coverage:</span>
-						<ul className="ml-4 mt-1 list-disc">
-							{missingPeriods.map((entry) => (
-								<li key={`${entry.account_label}-${entry.period}`}>
-									{entry.account_label} —{' '}
-									{entry.period.includes(' to ') ? `${entry.period} uncovered` : entry.period}
-								</li>
-							))}
-						</ul>
-					</InlineAlert>
+			{isUploading ? (
+				<div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[color-mix(in_oklch,var(--fg)_35%,transparent)] backdrop-blur-sm">
+					<Loader2 className="mb-4 h-12 w-12 animate-spin text-paper-fg" />
+					<p className="text-lg text-paper-fg">Uploading statements…</p>
 				</div>
 			) : null}
 
-			<div className={cn('min-h-0 flex-grow overflow-hidden px-4', isUploading && 'opacity-50')}>
-				{initialLoading ? (
-					<PageLoadingState label="Loading statements…" fullScreen={false} />
-				) : loadError !== null && items.length === 0 ? (
-					<ErrorState
-						title="Error loading statements"
-						message={loadError}
-						onRetry={() => void reloadPage(page)}
-						className="min-h-[30vh]"
-					/>
-				) : showEmpty ? (
-					<EmptyState
-						compact
-						icon={FileArchive}
-						title="No statements yet"
-						description="Upload a PDF above to import your first statement period."
-						className="py-12"
-					/>
-				) : (
-					<Table<Statement>
-						columns={columns}
-						data={items}
-						header={{ sticky: true }}
-						loading={loading && !isUploading}
-						sortState={sortState}
-						onSortChange={(key, direction) => {
-							if (key === null) {
-								return;
-							}
-							setSortState({ key, direction });
-						}}
-						itemsPerPage={PER_PAGE}
-						serverPagination={{
-							page,
-							totalPages: Math.max(totalPages, 1),
-							totalItems: total,
-							canPrevious: page > 1,
-							canNext: page < totalPages,
-							onPrevious: () => setPage((p) => Math.max(1, p - 1)),
-							onNext: () => setPage((p) => p + 1),
-						}}
-						emptyStateMessage="No statements on this page."
-					/>
-				)}
+			<div className="min-h-0 flex-grow overflow-auto px-8 py-6">
+				<div className="flex flex-col gap-6">
+					{filteredMissingPeriods.length > 0 && !missingLoading ? (
+						<div
+							role="status"
+							className="flex items-start gap-2.5 rounded-paper border border-[color-mix(in_oklch,var(--warn)_35%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_8%,var(--surface))] px-3.5 py-3 text-[13px] text-paper-fg"
+						>
+							<AlertTriangle
+								className="mt-0.5 h-4 w-4 shrink-0 text-[color-mix(in_oklch,var(--warn)_80%,var(--fg))]"
+								strokeWidth={1.8}
+								aria-hidden
+							/>
+							<div>
+								<strong className="font-semibold">Missing periods detected.</strong>{' '}
+								{missingAlertBody} Upload those PDFs to close the gaps.
+							</div>
+						</div>
+					) : null}
+
+					<section className={cn(glassCardClass, 'overflow-hidden p-0')}>
+						<div className="p-4">
+							<div
+								role="button"
+								tabIndex={0}
+								aria-label="Drop PDF statements here or click to browse"
+								className={cn(
+									'rounded-lg border border-dashed border-[color-mix(in_oklch,var(--muted)_40%,var(--border))] bg-paper px-6 py-9 text-center transition-[border-color,background] duration-150',
+									isDraggingOver && !isUploading
+										? 'border-[color-mix(in_oklch,var(--accent)_60%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_5%,var(--bg))]'
+										: 'cursor-pointer hover:border-[color-mix(in_oklch,var(--muted)_55%,var(--border))]',
+									isUploading && 'pointer-events-none opacity-50'
+								)}
+								onClick={openFilePicker}
+								onKeyDown={(event) => {
+									if (event.key === 'Enter' || event.key === ' ') {
+										event.preventDefault();
+										openFilePicker();
+									}
+								}}
+								onDragOver={handleDragOver}
+								onDragLeave={handleDragLeave}
+								onDrop={handleDrop}
+							>
+								<Upload
+									className="mx-auto h-8 w-8 text-paper-muted"
+									strokeWidth={1.5}
+									aria-hidden
+								/>
+								<h3 className="mt-3 text-[15px] font-semibold tracking-[-0.01em] text-paper-fg">
+									Drop bank statement PDFs
+								</h3>
+								<p className="mt-1 text-[13px] text-paper-muted">
+									People&apos;s Choice, CBA, and similar AU statement formats · max 20
+									MB each
+								</p>
+								<p className="mt-3">
+									<button
+										type="button"
+										className={stmtOutlineButtonClass}
+										onClick={(event) => {
+											event.stopPropagation();
+											openFilePicker();
+										}}
+										disabled={isUploading}
+									>
+										Browse files
+									</button>
+								</p>
+							</div>
+							{uploadError ? (
+								<p className="mt-3 text-center text-[13px] text-[var(--danger)]">
+									{uploadError}
+								</p>
+							) : null}
+							{uploadStatus && !uploadError ? (
+								<p className={cn(panelHintClass, 'mt-3 text-center')}>
+									{uploadStatus}
+								</p>
+							) : null}
+						</div>
+					</section>
+
+					<section className={cn(glassCardClass, 'overflow-hidden p-0')}>
+						<div className="flex items-center justify-between gap-3 border-b border-paper-border px-4 py-3.5">
+							<h2 className={panelTitleClass}>Imported statements</h2>
+							<p className={panelHintClass}>{countLabel}</p>
+						</div>
+
+						{initialLoading ? (
+							<PageLoadingState label="Loading statements…" fullScreen={false} />
+						) : loadError !== null && items.length === 0 ? (
+							<ErrorState
+								title="Error loading statements"
+								message={loadError}
+								onRetry={() => void reloadPage(page)}
+								className="min-h-[30vh]"
+							/>
+						) : showEmpty ? (
+							<EmptyState
+								compact
+								icon={FileArchive}
+								title="No statements yet"
+								description="Upload a PDF above to import your first statement period."
+								className="py-12"
+							/>
+						) : (
+							<>
+								<div className="overflow-x-auto">
+									<table className="w-full border-collapse text-[13px]">
+										<thead>
+											<tr>
+												<th className={tableThClass}>Period</th>
+												<th className={tableThClass}>Account</th>
+												<th className={tableThClass}>Filename</th>
+												<th className={tableThClass}>Imported</th>
+												<th className={tableThClass}>Txns</th>
+												<th className={tableThClass}>Status</th>
+												<th className={tableThClass} />
+											</tr>
+										</thead>
+										<tbody>
+											{displayRows.map((row) => {
+												if (row.kind === 'missing') {
+													return (
+														<tr
+															key={row.key}
+															className="bg-[color-mix(in_oklch,var(--warn)_6%,var(--surface))]"
+														>
+															<td className={cn(tableTdClass, 'font-mono tabular-nums')}>
+																{row.period}
+															</td>
+															<td className={tableTdClass}>{row.accountLabel}</td>
+															<td className={cn(tableTdClass, 'text-paper-muted')}>—</td>
+															<td className={cn(tableTdClass, 'text-paper-muted')}>—</td>
+															<td className={cn(tableTdClass, 'text-paper-muted')}>—</td>
+															<td className={tableTdClass}>
+																<span
+																	className={cn(
+																		pillBaseClass,
+																		'border-[color-mix(in_oklch,var(--warn)_35%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_10%,var(--surface))] text-[oklch(45%_0.12_75)]'
+																	)}
+																>
+																	Missing
+																</span>
+															</td>
+															<td className={tableTdClass}>
+																<button
+																	type="button"
+																	className={stmtOutlineButtonClass}
+																	onClick={openFilePicker}
+																	disabled={isUploading}
+																>
+																	Upload
+																</button>
+															</td>
+														</tr>
+													);
+												}
+
+												const statement = row.statement;
+												const accountLabel = statement.financial_account
+													? accountDisplayLabel(statement.financial_account)
+													: statement.account_id;
+												const imported = DateTime.fromISO(statement.created_at);
+
+												return (
+													<tr
+														key={row.key}
+														className="transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_2%,var(--surface))]"
+													>
+														<td className={cn(tableTdClass, 'font-mono tabular-nums')}>
+															{formatStatementPeriod(statement)}
+														</td>
+														<td className={tableTdClass}>{accountLabel}</td>
+														<td className={cn(tableTdClass, 'text-paper-muted')}>—</td>
+														<td className={cn(tableTdClass, 'font-mono tabular-nums')}>
+															{imported.isValid
+																? imported.toFormat('dd LLL yyyy')
+																: '—'}
+														</td>
+														<td className={cn(tableTdClass, 'font-mono tabular-nums text-paper-muted')}>
+															—
+														</td>
+														<td className={tableTdClass}>
+															<span
+																className={cn(
+																	pillBaseClass,
+																	'border-[color-mix(in_oklch,var(--success)_30%,var(--border))] bg-[color-mix(in_oklch,var(--success)_8%,var(--surface))] text-[var(--success)]'
+																)}
+															>
+																Parsed
+															</span>
+														</td>
+														<td className={tableTdClass}>
+															<button
+																type="button"
+																className={stmtGhostButtonClass}
+																disabled
+																title="View details (not implemented)"
+															>
+																View
+															</button>
+														</td>
+													</tr>
+												);
+											})}
+										</tbody>
+									</table>
+								</div>
+
+								{totalPages > 1 ? (
+									<div className="flex items-center justify-between gap-3 border-t border-paper-border px-4 py-3 text-xs text-paper-muted">
+										<span>
+											Page {page} of {totalPages} · {total} statement
+											{total === 1 ? '' : 's'}
+										</span>
+										<div className="flex items-center gap-1.5">
+											<button
+												type="button"
+												className={stmtOutlineButtonClass}
+												disabled={page <= 1 || loading}
+												onClick={() => setPage((current) => Math.max(1, current - 1))}
+											>
+												Previous
+											</button>
+											<button
+												type="button"
+												className={stmtOutlineButtonClass}
+												disabled={page >= totalPages || loading}
+												onClick={() => setPage((current) => current + 1)}
+											>
+												Next
+											</button>
+										</div>
+									</div>
+								) : null}
+							</>
+						)}
+					</section>
+				</div>
 			</div>
 		</PageShell>
 	);

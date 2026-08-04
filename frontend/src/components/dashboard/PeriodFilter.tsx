@@ -1,5 +1,6 @@
 import type { DashboardPeriod } from '@/components/dashboard/period';
 import { PERIOD_LABELS } from '@/components/dashboard/period';
+import { SegmentedControl } from '@/components/layout/SegmentedControl';
 
 const PERIODS: DashboardPeriod[] = [
 	'this-month',
@@ -15,6 +16,7 @@ type PeriodFilterProps = {
 	periods?: DashboardPeriod[];
 	pending?: boolean;
 	ariaLabel?: string;
+	className?: string;
 };
 
 export function PeriodFilter({
@@ -23,29 +25,20 @@ export function PeriodFilter({
 	periods = PERIODS,
 	pending = false,
 	ariaLabel = 'Dashboard period',
+	className,
 }: PeriodFilterProps) {
 	return (
-		<div
-			className="inline-flex max-w-full flex-wrap rounded-md border border-paper-border p-0.5 transition-opacity duration-300"
-			role="group"
-			aria-label={ariaLabel}
-			aria-busy={pending}
-		>
-			{periods.map((period) => (
-				<button
-					key={period}
-					type="button"
-					className={`cursor-pointer rounded px-3 py-1.5 text-sm transition-all duration-200 ease-out ${
-						value === period
-							? 'border-secondary-default bg-secondary-default/15 text-secondary-default shadow-sm'
-							: 'text-paper-muted hover:bg-paper hover:text-paper-fg'
-					} ${pending && value === period ? 'opacity-80' : 'opacity-100'}`}
-					aria-pressed={value === period}
-					onClick={() => onChange(period)}
-				>
-					{PERIOD_LABELS[period]}
-				</button>
-			))}
+		<div aria-busy={pending} className={pending ? 'opacity-80' : undefined}>
+			<SegmentedControl
+				ariaLabel={ariaLabel}
+				value={value}
+				onChange={onChange}
+				className={className}
+				options={periods.map((period) => ({
+					value: period,
+					label: PERIOD_LABELS[period],
+				}))}
+			/>
 		</div>
 	);
 }

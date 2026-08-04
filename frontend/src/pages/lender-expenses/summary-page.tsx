@@ -354,7 +354,7 @@ export function LenderExpensesSummaryPage() {
 					</p>
 				</div>
 
-				<LivingExpensesCallout className="mx-4 mb-3 mt-0">
+				<LivingExpensesCallout className="mx-4 mt-4 mb-3">
 					<p className="m-0">
 						Living expenses exclude salary/income and Excluded categories. Click a bucket row
 						to expand category detail.{' '}

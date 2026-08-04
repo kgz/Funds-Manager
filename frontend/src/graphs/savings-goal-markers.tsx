@@ -115,7 +115,7 @@ function GoalMarkerShape({
 						<p className="text-xs text-paper-muted">
 							{formatChartTooltipDate(goal.targetDate)}
 						</p>
-						<p className="mt-2 text-sm text-amber-200">
+						<p className="mt-2 font-mono text-[13px] tabular-nums text-paper-fg">
 							Target {formatMoneyFromCents(goal.targetAmountCents)}
 						</p>
 					</div>

@@ -135,7 +135,7 @@ function IncomeKpiRow({
 
 function IncomePaygCallout() {
 	return (
-		<div className="mx-4 mb-3 rounded-paper border border-[color-mix(in_oklch,var(--accent)_28%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_6%,var(--surface))] p-3.5 text-[13px] leading-[1.45]">
+		<div className="mx-4 mt-4 mb-3 rounded-paper border border-[color-mix(in_oklch,var(--accent)_28%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_6%,var(--surface))] p-3.5 text-[13px] leading-[1.45]">
 			<div className="flex min-w-0 items-start gap-2.5">
 				<span
 					className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[color-mix(in_oklch,var(--accent)_24%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_12%,var(--surface))] text-secondary-default"

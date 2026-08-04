@@ -1,5 +1,9 @@
 import { cn } from '@/lib/utils/cn';
-import { chartColors } from '@/graphs/theme';
+import {
+	moneyDangerClass,
+	moneySuccessClass,
+	formatSignedMoneyFromCents,
+} from '@/lib/utils/moneySemantics';
 
 type ProjectionSummaryProps = {
 	startingCents: number;
@@ -17,29 +21,13 @@ const formatMoneyFromCents = (cents: number) => {
 	})}`;
 };
 
-const formatSignedFromCents = (cents: number) => {
-	const dollars = cents / 100;
-	const abs = Math.abs(dollars);
-	const body = `$${abs.toLocaleString('en-AU', {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	})}`;
-	if (dollars > 0) {
-		return `+${body}`;
-	}
-	if (dollars < 0) {
-		return `−${body}`;
-	}
-	return body;
-};
-
 export function ProjectionSummary({
 	startingCents,
 	projectedEndCents,
 	monthlyNetCents,
 	className,
 }: ProjectionSummaryProps) {
-	const netPositive = monthlyNetCents >= 0;
+	const netClass = monthlyNetCents >= 0 ? moneySuccessClass : moneyDangerClass;
 
 	return (
 		<div
@@ -66,15 +54,8 @@ export function ProjectionSummary({
 				</span>
 				<span className="flex items-center justify-between gap-3 text-[10px] text-paper-muted">
 					Monthly net
-					<strong
-						className="font-mono text-[11px] font-medium tabular-nums"
-						style={{
-							color: netPositive
-								? chartColors.receiving
-								: chartColors.spending,
-						}}
-					>
-						{formatSignedFromCents(monthlyNetCents)}
+					<strong className={cn('font-mono text-[11px] font-medium tabular-nums', netClass)}>
+						{formatSignedMoneyFromCents(monthlyNetCents)}
 					</strong>
 				</span>
 			</div>

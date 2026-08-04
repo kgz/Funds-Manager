@@ -4,7 +4,7 @@
   gap: 12px;
 }
 
-/* Multi-account filter */
+/* Multi-account filter — shared component, also used on Statements */
 .acct-multi {
   position: relative;
   flex: 0 0 auto;
@@ -104,6 +104,23 @@
   height: 1px;
   margin: 4px 6px;
   background: var(--border);
+}
+
+.acct-multi-search {
+  width: 100%;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+.acct-multi-option.is-hidden {
+  display: none;
+}
+
+.acct-multi-empty {
+  padding: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
 }
 
 .tx-panel .toolbar .input {

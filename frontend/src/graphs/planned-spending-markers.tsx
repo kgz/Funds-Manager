@@ -1,15 +1,20 @@
 import { ReferenceDot } from 'recharts';
+import { cn } from '@/lib/utils/cn';
 import { chartColors, chartTooltipClass } from '@/graphs/theme';
 import { formatChartTooltipDate } from '@/lib/utils/dates';
+import {
+	formatPlannedMoneyFromCents,
+	moneyClassForPlannedCents,
+	moneyDangerColor,
+	moneySuccessColor,
+} from '@/lib/utils/moneySemantics';
 import type { PlannedSpendingItem } from '@/types/plannedSpending';
-import { formatMoneyFromCents } from '@/types/predictions';
+import { plannedAmountTypeFromCents } from '@/types/plannedSpending';
 import {
 	useTrendEventMarkerState,
 	type TrendEventMarkerState,
 } from '@/graphs/trend-event-markers';
 
-const SPENDING_COLOR = chartColors.spending;
-const INCOME_COLOR = chartColors.receiving;
 const MIXED_COLOR = chartColors.mixed;
 
 export type PlannedSpendingChartEvent = {
@@ -44,15 +49,19 @@ export function buildPlannedSpendingChartEvents(
 }
 
 function markerColor(items: PlannedSpendingItem[]): string {
-	const hasIncome = items.some((item) => item.amount_cents > 0);
-	const hasSpending = items.some((item) => item.amount_cents < 0);
+	const hasIncome = items.some(
+		(item) => plannedAmountTypeFromCents(item.amount_cents) === 'income'
+	);
+	const hasSpending = items.some(
+		(item) => plannedAmountTypeFromCents(item.amount_cents) === 'spending'
+	);
 	if (hasIncome && hasSpending) {
 		return MIXED_COLOR;
 	}
 	if (hasIncome) {
-		return INCOME_COLOR;
+		return moneySuccessColor;
 	}
-	return SPENDING_COLOR;
+	return moneyDangerColor;
 }
 
 type PlannedMarkerShapeProps = {
@@ -136,13 +145,12 @@ function PlannedMarkerShape({
 								<span className="font-medium">{item.name}</span>
 								{' — '}
 								<span
-									className={
-										item.amount_cents >= 0
-											? 'font-medium tabular-nums text-green-300'
-											: 'font-medium tabular-nums text-red-300'
-									}
+									className={cn(
+										'font-medium tabular-nums',
+										moneyClassForPlannedCents(item.amount_cents)
+									)}
 								>
-									{formatMoneyFromCents(item.amount_cents)}
+									{formatPlannedMoneyFromCents(item.amount_cents)}
 								</span>
 							</p>
 						))}

@@ -204,12 +204,14 @@ type BalanceStackGraphProps = {
 	data: BalanceStackChartData;
 	dateSpanDays: number;
 	isRefreshing?: boolean;
+	height?: number;
 };
 
 export function BalanceStackGraph({
 	data,
 	dateSpanDays,
 	isRefreshing = false,
+	height = 300,
 }: BalanceStackGraphProps) {
 	const { rows: chartRows, events, accountFirstIndex, trendLabels } = useMemo(
 		() => buildChartModel(data),
@@ -247,14 +249,14 @@ export function BalanceStackGraph({
 
 	if (data.accounts.length === 0 || chartRows.length === 0) {
 		return (
-			<p className="flex h-[300px] items-center justify-center text-center text-paper-muted">
+			<p className="flex items-center justify-center text-center text-paper-muted" style={{ height }}>
 				No balance history for this period.
 			</p>
 		);
 	}
 
 	return (
-		<ResponsiveContainer width="100%" height={300}>
+		<ResponsiveContainer width="100%" height={height}>
 			<ComposedChart data={chartRows}>
 				<CartesianGrid
 					stroke={chartTheme.grid.stroke}

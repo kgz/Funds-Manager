@@ -1,6 +1,16 @@
 export const glassCardClass =
 	'rounded-paper border border-paper-border bg-paper-surface';
 
+/** OD page-header */
+export const pageHeaderClass =
+	'sticky top-0 z-30 shrink-0 border-b border-paper-border bg-paper-surface px-8 pb-5 pt-7';
+
+/** OD page-body */
+export const pageBodyClass = 'min-h-0 flex-grow overflow-auto px-8 pb-12 pt-6';
+
+/** OD page-actions */
+export const pageActionsClass = 'flex flex-wrap items-center gap-2';
+
 /** Page H1 — OD page-title */
 export const pageTitleClass =
 	'text-[22px] font-semibold leading-tight tracking-[-0.02em] text-paper-fg';
