@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Settings</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/settings.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Settings</h1>
+        <p class="page-sub" data-od-id="page-sub">Storage and app configuration.</p>
+      </div>
+    </header>
+
+    <div class="page-body settings-body">
+      <section class="panel" data-od-id="storage-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Data storage</h2>
+            <p class="panel-hint">Where your financial data lives</p>
+          </div>
+        </div>
+
+        <p class="panel-intro" data-od-id="storage-intro">
+          Choose where your financial data lives. PostgreSQL is the active, production-ready backend
+          today — connect to your own server over Docker, a homelab box, or a managed cloud instance.
+          A local, single-file SQLite database is coming soon
+          (<a href="#" class="mono" style="text-decoration:underline">#165</a>).
+        </p>
+
+        <div class="storage-modes" role="radiogroup" aria-label="Storage mode" data-od-id="storage-modes">
+          <label class="storage-mode is-selected" id="mode-postgres" data-od-id="storage-mode-postgres">
+            <input type="radio" name="storage-mode" value="postgres" checked />
+            <span class="storage-mode-radio" aria-hidden="true"></span>
+            <span class="storage-mode-body">
+              <span class="storage-mode-title">External PostgreSQL</span>
+              <span class="storage-mode-desc">Connect to your own server — Docker, homelab, or cloud.</span>
+            </span>
+          </label>
+
+          <label class="storage-mode is-disabled" id="mode-sqlite" data-od-id="storage-mode-sqlite">
+            <input type="radio" name="storage-mode" value="sqlite" disabled />
+            <span class="storage-mode-radio" aria-hidden="true"></span>
+            <span class="storage-mode-body">
+              <span class="storage-mode-title">Local on this computer <span class="pill muted">Coming soon · #165</span></span>
+              <span class="storage-mode-desc">A single SQLite file stored in your user folder — no server, nothing to configure.</span>
+            </span>
+          </label>
+        </div>
+
+        <form class="settings-form" id="postgres-form" data-od-id="postgres-form">
+          <div class="saved-connections" data-od-id="saved-connections">
+            <div class="saved-connections-head">
+              <span class="saved-connections-label">Saved connections</span>
+              <span class="settings-field-hint">Pick a profile to load it below, or save these settings as a new one.</span>
+            </div>
+            <div class="conn-cards" id="conn-cards" data-od-id="conn-cards"></div>
+          </div>
+
+          <div class="settings-grid">
+            <label class="settings-field">
+              <span>Host</span>
+              <input class="input" type="text" id="pg-host" value="10.0.1.42" data-od-id="input-pg-host" />
+            </label>
+            <label class="settings-field">
+              <span>Port</span>
+              <input class="input" type="number" id="pg-port" value="5432" data-od-id="input-pg-port" />
+            </label>
+          </div>
+
+          <div class="settings-grid cols-2">
+            <label class="settings-field">
+              <span>Database name</span>
+              <input class="input" type="text" id="pg-database" value="funds_prod" data-od-id="input-pg-database" />
+            </label>
+            <label class="settings-field">
+              <span>Username</span>
+              <input class="input" type="text" id="pg-username" value="funds_app" data-od-id="input-pg-username" />
+            </label>
+          </div>
+
+          <div class="settings-grid cols-2">
+            <div class="settings-field">
+              <span>Password</span>
+              <div class="pw-field-wrap" data-od-id="pw-wrap">
+                <input class="input" type="password" id="pg-password" placeholder="Leave blank to keep saved password" data-od-id="input-pg-password" />
+                <button type="button" class="pw-field-toggle" id="pw-toggle" aria-label="Show password" aria-pressed="false" data-od-id="toggle-pg-password">
+                  <svg id="pw-icon-eye" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+                  <svg id="pw-icon-eye-off" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M3 3l18 18"/><path d="M10.6 10.6a2.5 2.5 0 0 0 3.5 3.5"/><path d="M9.9 5.1A11.4 11.4 0 0 1 12 5c6.5 0 10 7 10 7a18.4 18.4 0 0 1-2.3 3.1"/><path d="M6.1 6.1C3.8 7.8 2 12 2 12s3.5 6 10 6a10.6 10.6 0 0 0 3.4-.6"/></svg>
+                </button>
+              </div>
+              <p class="settings-field-hint" id="pw-hint">A password is already saved for this connection. Leave blank to keep it.</p>
+            </div>
+          </div>
+
+          <div class="settings-helper-lines" data-od-id="storage-helper-lines">
+            <div class="helper-row">
+              <span class="hl-label">Active source</span>
+              <span class="hl-value" id="hl-active-source">Environment variable (<span class="mono">DATABASE_URL</span>) — overrides config file</span>
+            </div>
+            <div class="helper-row">
+              <span class="hl-label">Currently connected</span>
+              <span class="hl-value mono" id="hl-connected-url">postgresql://funds_app:••••••••@10.0.1.42:5432/funds_prod?sslmode=disable</span>
+            </div>
+          </div>
+
+          <div class="settings-actions" data-od-id="storage-actions">
+            <button type="button" class="btn btn-primary" id="btn-save-storage" data-od-id="btn-save-storage">
+              <span class="btn-spin" aria-hidden="true"></span><span class="btn-label">Save storage settings</span>
+            </button>
+            <button type="button" class="btn" id="btn-test-connection" data-od-id="btn-test-connection">
+              <span class="btn-spin" aria-hidden="true"></span><span class="btn-label">Test connection</span>
+            </button>
+            <button type="button" class="btn" id="btn-connect" data-od-id="btn-connect">
+              <span class="btn-spin" aria-hidden="true"></span><span class="btn-label">Connect</span>
+            </button>
+          </div>
+
+          <div class="banner is-ok" id="storage-banner" data-od-id="storage-banner" role="status" aria-live="polite" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            <span id="storage-banner-text"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel" data-od-id="migrations-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Database migrations</h2>
+            <p class="panel-hint">Apply schema updates without the CLI</p>
+          </div>
+        </div>
+
+        <div class="migrations-status" data-od-id="migrations-status">
+          <span class="pill warn" id="migrations-status-pill">2 pending</span>
+          <p id="migrations-status-text">2 migrations pending — review and apply below.</p>
+        </div>
+
+        <div class="migrations-list" id="migrations-list" data-od-id="migrations-list"></div>
+
+        <div class="migrations-actions" data-od-id="migrations-actions">
+          <button type="button" class="btn btn-primary" id="btn-run-migrations" data-od-id="btn-run-migrations">
+            <span class="btn-spin" aria-hidden="true"></span><span class="btn-label">Run pending migrations</span>
+          </button>
+        </div>
+
+        <div class="migrations-banner-wrap">
+          <div class="banner is-ok" id="migrations-banner" data-od-id="migrations-banner" role="status" aria-live="polite" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+            <span id="migrations-banner-text"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" data-od-id="diagnostics-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Diagnostics</h2>
+            <p class="panel-hint">Runtime details for support and debugging</p>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="diagnostics-rows" data-od-id="diagnostics-rows">
+            <div class="diagnostics-row">
+              <span class="d-label">Config file</span>
+              <span class="d-value mono">/opt/funds-manager/config/config.toml</span>
+            </div>
+            <div class="diagnostics-row">
+              <span class="d-label">Configured mode</span>
+              <span class="d-value">PostgreSQL @ 127.0.0.1:5432/funds_prod <span class="pill muted">config file</span></span>
+            </div>
+            <div class="diagnostics-row">
+              <span class="d-label">Runtime mode</span>
+              <span class="d-value" id="diag-runtime-mode">PostgreSQL @ 10.0.1.42:5432/funds_prod <span class="pill ok">DATABASE_URL override</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('settings');
+
+    const ICON_OK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+    // ── Saved connections ──
+    const ICON_DB = '<svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg>';
+    const ICON_TRASH = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>';
+    const ICON_PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+
+    let CONNECTIONS = [
+      { id: 'production', name: 'Production', host: '10.0.1.42', port: 5432, database: 'funds_prod', username: 'funds_app', hasPassword: true, active: true },
+      { id: 'homelab-nas', name: 'Homelab NAS', host: '192.168.1.20', port: 5432, database: 'funds_prod_backup', username: 'funds_ro', hasPassword: true, active: false },
+      { id: 'docker-local', name: 'Docker (local)', host: 'localhost', port: 5433, database: 'funds_dev', username: 'postgres', hasPassword: false, active: false },
+    ];
+    let pendingRemoveId = null;
+    let addingConnection = false;
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function getActiveConnection() {
+      return CONNECTIONS.find((c) => c.active) || CONNECTIONS[0];
+    }
+
+    function maskedUrl(c) {
+      const pw = c.hasPassword ? '••••••••' : '(none)';
+      return `postgresql://${c.username}:${pw}@${c.host}:${c.port}/${c.database}?sslmode=disable`;
+    }
+
+    function connCardTemplate(c) {
+      const meta = `${c.host}:${c.port} · ${c.database}`;
+      if (c.active) {
+        return `
+          <div class="conn-card is-active" data-conn-id="${c.id}" data-od-id="conn-card-${c.id}">
+            <span class="conn-card-icon">${ICON_DB}</span>
+            <span class="conn-card-body">
+              <span class="conn-card-name">${escapeHtml(c.name)}<span class="pill ok conn-card-pill">Active</span></span>
+              <span class="conn-card-meta mono">${escapeHtml(meta)}</span>
+            </span>
+          </div>`;
+      }
+      const confirming = pendingRemoveId === c.id;
+      return `
+        <button type="button" class="conn-card" data-conn-id="${c.id}" data-od-id="conn-card-${c.id}">
+          <span class="conn-card-icon">${ICON_DB}</span>
+          <span class="conn-card-body">
+            <span class="conn-card-name">${escapeHtml(c.name)}</span>
+            <span class="conn-card-meta mono">${escapeHtml(meta)}</span>
+          </span>
+          <span class="conn-card-remove${confirming ? ' is-confirm' : ''}" data-remove="${c.id}" data-od-id="conn-remove-${c.id}" title="${confirming ? 'Click again to remove' : 'Remove connection'}">${confirming ? 'Confirm?' : ICON_TRASH}</span>
+        </button>`;
+    }
+
+    function connAddTemplate() {
+      if (!addingConnection) {
+        return `
+          <button type="button" class="conn-card conn-card-add" data-od-id="conn-card-add">
+            <span class="conn-card-add-icon">${ICON_PLUS}</span>
+            <span class="conn-card-add-label">Save current as…</span>
+          </button>`;
+      }
+      return `
+        <div class="conn-card conn-card-add is-editing" data-od-id="conn-card-add-form">
+          <input type="text" class="input conn-add-input" id="conn-add-name" placeholder="Connection name" data-od-id="input-conn-add-name" />
+          <div class="conn-add-actions">
+            <button type="button" class="btn btn-ghost" data-action="cancel-new" data-od-id="btn-conn-cancel">Cancel</button>
+            <button type="button" class="btn btn-primary" data-action="save-new" data-od-id="btn-conn-save">Save</button>
+          </div>
+        </div>`;
+    }
+
+    function renderConnections() {
+      const wrap = document.getElementById('conn-cards');
+      wrap.innerHTML = CONNECTIONS.map(connCardTemplate).join('') + connAddTemplate();
+      if (addingConnection) {
+        const input = document.getElementById('conn-add-name');
+        input.focus();
+        input.select();
+      }
+    }
+
+    function loadConnectionIntoForm(c) {
+      document.getElementById('pg-host').value = c.host;
+      document.getElementById('pg-port').value = c.port;
+      document.getElementById('pg-database').value = c.database;
+      document.getElementById('pg-username').value = c.username;
+      const pwInputEl = document.getElementById('pg-password');
+      pwInputEl.value = '';
+      pwInputEl.placeholder = c.hasPassword ? 'Leave blank to keep saved password' : 'Enter password';
+      const hint = document.getElementById('pw-hint');
+      if (hint) {
+        hint.textContent = c.hasPassword
+          ? 'A password is already saved for this connection. Leave blank to keep it.'
+          : 'No password saved for this connection yet.';
+      }
+    }
+
+    function selectConnection(id) {
+      const target = CONNECTIONS.find((c) => c.id === id);
+      if (!target) return;
+      CONNECTIONS.forEach((c) => { c.active = c.id === id; });
+      pendingRemoveId = null;
+      addingConnection = false;
+      renderConnections();
+      loadConnectionIntoForm(target);
+      document.getElementById('storage-banner').hidden = true;
+      showBanner(
+        document.getElementById('storage-banner'),
+        document.getElementById('storage-banner-text'),
+        'info',
+        `<strong>Loaded “${escapeHtml(target.name)}”</strong><p>Review the fields below, then click Connect to activate it.</p>`
+      );
+    }
+
+    function removeConnection(id) {
+      if (pendingRemoveId !== id) {
+        pendingRemoveId = id;
+        renderConnections();
+        setTimeout(() => {
+          if (pendingRemoveId === id) { pendingRemoveId = null; renderConnections(); }
+        }, 3000);
+        return;
+      }
+      pendingRemoveId = null;
+      CONNECTIONS = CONNECTIONS.filter((c) => c.id !== id);
+      renderConnections();
+    }
+
+    function enterAddMode() {
+      addingConnection = true;
+      pendingRemoveId = null;
+      renderConnections();
+    }
+
+    function exitAddMode() {
+      addingConnection = false;
+      renderConnections();
+    }
+
+    function slugify(name) {
+      const base = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      let slug = base || 'connection';
+      let i = 2;
+      while (CONNECTIONS.some((c) => c.id === slug)) { slug = `${base}-${i++}`; }
+      return slug;
+    }
+
+    function saveNewConnection() {
+      const nameInput = document.getElementById('conn-add-name');
+      const name = nameInput.value.trim() || 'Untitled connection';
+      const c = {
+        id: slugify(name),
+        name,
+        host: document.getElementById('pg-host').value.trim() || 'localhost',
+        port: document.getElementById('pg-port').value.trim() || '5432',
+        database: document.getElementById('pg-database').value.trim() || 'funds_prod',
+        username: document.getElementById('pg-username').value.trim() || 'funds_app',
+        hasPassword: !!document.getElementById('pg-password').value || getActiveConnection().hasPassword,
+        active: true,
+      };
+      CONNECTIONS.forEach((existing) => { existing.active = false; });
+      CONNECTIONS.push(c);
+      addingConnection = false;
+      renderConnections();
+      loadConnectionIntoForm(c);
+      showBanner(
+        document.getElementById('storage-banner'),
+        document.getElementById('storage-banner-text'),
+        'ok',
+        `<strong>Saved as “${escapeHtml(c.name)}”</strong><p>You can switch back to it anytime from Saved connections.</p>`
+      );
+    }
+
+    function syncActiveConnectionFromForm() {
+      const c = getActiveConnection();
+      c.host = document.getElementById('pg-host').value.trim() || c.host;
+      c.port = document.getElementById('pg-port').value.trim() || c.port;
+      c.database = document.getElementById('pg-database').value.trim() || c.database;
+      c.username = document.getElementById('pg-username').value.trim() || c.username;
+      if (document.getElementById('pg-password').value) c.hasPassword = true;
+      renderConnections();
+    }
+
+    document.getElementById('conn-cards').addEventListener('click', (e) => {
+      const removeEl = e.target.closest('[data-remove]');
+      if (removeEl) { removeConnection(removeEl.dataset.remove); return; }
+      const saveEl = e.target.closest('[data-action="save-new"]');
+      if (saveEl) { saveNewConnection(); return; }
+      const cancelEl = e.target.closest('[data-action="cancel-new"]');
+      if (cancelEl) { exitAddMode(); return; }
+      const addEl = e.target.closest('.conn-card-add:not(.is-editing)');
+      if (addEl) { enterAddMode(); return; }
+      const cardEl = e.target.closest('.conn-card[data-conn-id]');
+      if (cardEl && !cardEl.classList.contains('is-active')) { selectConnection(cardEl.dataset.connId); }
+    });
+
+    document.getElementById('conn-cards').addEventListener('keydown', (e) => {
+      if (e.target.id !== 'conn-add-name') return;
+      if (e.key === 'Enter') { e.preventDefault(); saveNewConnection(); }
+      if (e.key === 'Escape') { e.preventDefault(); exitAddMode(); }
+    });
+
+    renderConnections();
+
+    const MIGRATIONS = [
+      {
+        name: '2026_07_18_142230_add_index_transactions_category_id',
+        desc: 'Add index on transactions.category_id for faster category filters',
+        applied: true,
+      },
+      {
+        name: '2026_07_25_091500_add_report_snapshots_table',
+        desc: 'Create report_snapshots table for frozen serviceability reports',
+        applied: true,
+      },
+      {
+        name: '2026_08_02_101200_add_income_streams_gst_columns',
+        desc: 'Add ex_gst / inc_gst columns to income_streams',
+        applied: false,
+      },
+      {
+        name: '2026_08_05_163000_add_planned_spending_recurrence',
+        desc: 'Add recurrence_rule column to planned_spending',
+        applied: false,
+      },
+    ];
+
+    function renderMigrations() {
+      const list = document.getElementById('migrations-list');
+      list.innerHTML = MIGRATIONS.map((m, i) => `
+        <div class="migration-row${m.applied ? ' is-applied' : ''}" data-od-id="migration-row-${i}">
+          <div class="migration-info">
+            <span class="migration-desc">${m.desc}</span>
+            <span class="migration-name">${m.name}</span>
+          </div>
+          <span class="pill ${m.applied ? 'ok' : 'warn'}">${m.applied ? 'Applied' : 'Pending'}</span>
+        </div>`).join('');
+
+      const pending = MIGRATIONS.filter((m) => !m.applied).length;
+      const statusPill = document.getElementById('migrations-status-pill');
+      const statusText = document.getElementById('migrations-status-text');
+      const runBtn = document.getElementById('btn-run-migrations');
+
+      if (pending === 0) {
+        statusPill.className = 'pill ok';
+        statusPill.textContent = 'All applied';
+        statusText.textContent = 'All migrations are applied — schema is up to date.';
+        runBtn.disabled = true;
+      } else {
+        statusPill.className = 'pill warn';
+        statusPill.textContent = `${pending} pending`;
+        statusText.textContent = `${pending} migration${pending === 1 ? '' : 's'} pending — review and apply below.`;
+        runBtn.disabled = false;
+      }
+    }
+
+    function setButtonLoading(btn, on) {
+      btn.classList.toggle('is-loading', on);
+      btn.disabled = on;
+    }
+
+    function showBanner(el, textEl, kind, message) {
+      el.hidden = false;
+      el.className = 'banner is-' + kind;
+      textEl.innerHTML = message;
+    }
+
+    renderMigrations();
+
+    document.getElementById('btn-run-migrations').addEventListener('click', function () {
+      const btn = this;
+      setButtonLoading(btn, true);
+      document.getElementById('migrations-banner').hidden = true;
+      setTimeout(() => {
+        const pendingBefore = MIGRATIONS.filter((m) => !m.applied).length;
+        MIGRATIONS.forEach((m) => { m.applied = true; });
+        renderMigrations();
+        setButtonLoading(btn, false);
+        showBanner(
+          document.getElementById('migrations-banner'),
+          document.getElementById('migrations-banner-text'),
+          'ok',
+          `<strong>${pendingBefore} migration${pendingBefore === 1 ? '' : 's'} applied successfully</strong><p>Ran in 1.8s · schema is now up to date.</p>`
+        );
+      }, 900);
+    });
+
+    const pwInput = document.getElementById('pg-password');
+    const pwToggle = document.getElementById('pw-toggle');
+    const pwIconEye = document.getElementById('pw-icon-eye');
+    const pwIconEyeOff = document.getElementById('pw-icon-eye-off');
+
+    pwToggle.addEventListener('click', () => {
+      const showing = pwInput.type === 'text';
+      pwInput.type = showing ? 'password' : 'text';
+      pwToggle.setAttribute('aria-pressed', showing ? 'false' : 'true');
+      pwToggle.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      pwIconEye.hidden = !showing;
+      pwIconEyeOff.hidden = showing;
+    });
+
+    document.getElementById('postgres-form').addEventListener('submit', (e) => e.preventDefault());
+
+    document.getElementById('btn-save-storage').addEventListener('click', function () {
+      const btn = this;
+      setButtonLoading(btn, true);
+      document.getElementById('storage-banner').hidden = true;
+      setTimeout(() => {
+        setButtonLoading(btn, false);
+        syncActiveConnectionFromForm();
+        document.getElementById('hl-active-source').innerHTML =
+          'Config file (<span class="mono">/opt/funds-manager/config/config.toml</span>) — no environment override';
+        showBanner(
+          document.getElementById('storage-banner'),
+          document.getElementById('storage-banner-text'),
+          'ok',
+          `<strong>Storage settings saved</strong><p>Saved to “${escapeHtml(getActiveConnection().name)}”. Existing connection stays active until you reconnect.</p>`
+        );
+      }, 700);
+    });
+
+    document.getElementById('btn-test-connection').addEventListener('click', function () {
+      const btn = this;
+      setButtonLoading(btn, true);
+      document.getElementById('storage-banner').hidden = true;
+      setTimeout(() => {
+        setButtonLoading(btn, false);
+        const c = getActiveConnection();
+        showBanner(
+          document.getElementById('storage-banner'),
+          document.getElementById('storage-banner-text'),
+          'ok',
+          `<strong>Test connection succeeded</strong><p>Resolved in 42ms · PostgreSQL 16.4 at ${escapeHtml(c.host)}:${escapeHtml(String(c.port))}/${escapeHtml(c.database)}.</p>`
+        );
+      }, 800);
+    });
+
+    document.getElementById('btn-connect').addEventListener('click', function () {
+      const btn = this;
+      setButtonLoading(btn, true);
+      document.getElementById('storage-banner').hidden = true;
+      setTimeout(() => {
+        setButtonLoading(btn, false);
+        syncActiveConnectionFromForm();
+        const c = getActiveConnection();
+        document.getElementById('hl-connected-url').textContent = maskedUrl(c);
+        document.getElementById('diag-runtime-mode').innerHTML =
+          `PostgreSQL @ ${escapeHtml(c.host)}:${escapeHtml(String(c.port))}/${escapeHtml(c.database)} <span class="pill ok">Connected now</span>`;
+        showBanner(
+          document.getElementById('storage-banner'),
+          document.getElementById('storage-banner-text'),
+          'info',
+          `<strong>Connected</strong><p>Runtime switched to “${escapeHtml(c.name)}” — reconnected without a restart.</p>`
+        );
+      }, 900);
+    });
+  </script>
+</body>
+</html>

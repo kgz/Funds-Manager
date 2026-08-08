@@ -39,10 +39,58 @@ impl Default for StorageMode {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SavedConnection {
+    pub id: String,
+    pub name: String,
+    pub host: String,
+    #[serde(default)]
+    pub port: Option<u16>,
+    pub database: String,
+    pub user: String,
+    #[serde(default)]
+    pub password: Option<String>,
+}
+
+impl SavedConnection {
+    pub fn to_parts(&self) -> PostgresParts {
+        PostgresParts {
+            host: self.host.clone(),
+            port: self.port,
+            database: self.database.clone(),
+            user: self.user.clone(),
+            password: self.password.clone(),
+            options: None,
+        }
+    }
+
+    pub fn has_password(&self) -> bool {
+        self.password
+            .as_deref()
+            .is_some_and(|value| !value.is_empty())
+    }
+
+    pub fn update_from_parts(&mut self, parts: &PostgresParts) {
+        self.host = parts.host.clone();
+        self.port = parts.port;
+        self.database = parts.database.clone();
+        self.user = parts.user.clone();
+        if let Some(password) = &parts.password {
+            if !password.is_empty() {
+                self.password = Some(password.clone());
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PostgresConfig {
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default)]
+    pub connections: Vec<SavedConnection>,
+    #[serde(default)]
+    pub active_connection_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,19 +173,216 @@ fn resolve_config_dir() -> PathBuf {
     PathBuf::from(".funds-manager")
 }
 
+fn slugify_connection_id(name: &str) -> String {
+    let slug: String = name
+        .trim()
+        .to_lowercase()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let trimmed = slug.trim_matches('-');
+    if trimmed.is_empty() {
+        "connection".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn unique_connection_id(name: &str, existing: &[SavedConnection]) -> String {
+    let base = slugify_connection_id(name);
+    let mut slug = base.clone();
+    let mut suffix = 2;
+    while existing.iter().any(|connection| connection.id == slug) {
+        slug = format!("{base}-{suffix}");
+        suffix += 1;
+    }
+    slug
+}
+
 impl AppConfig {
     pub fn load() -> Self {
         let path = config_file_path();
         let Ok(contents) = fs::read_to_string(&path) else {
             return Self::default();
         };
-        match toml::from_str(&contents) {
-            Ok(config) => config,
+        match toml::from_str::<AppConfig>(&contents) {
+            Ok(mut config) => {
+                config.ensure_connections_migrated();
+                config
+            }
             Err(error) => {
                 eprintln!("Failed to parse {}: {error}", path.display());
                 Self::default()
             }
         }
+    }
+
+    pub fn ensure_connections_migrated(&mut self) {
+        if !self.postgres.connections.is_empty() {
+            if self.postgres.active_connection_id.is_none() {
+                self.postgres.active_connection_id =
+                    self.postgres.connections.first().map(|connection| connection.id.clone());
+            }
+            return;
+        }
+
+        let Some(url) = self
+            .postgres
+            .url
+            .as_ref()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+        else {
+            return;
+        };
+
+        let Some(parts) = parse_postgres_url(&url) else {
+            return;
+        };
+
+        let id = "default".to_string();
+        self.postgres.connections.push(SavedConnection {
+            id: id.clone(),
+            name: "Default".to_string(),
+            host: parts.host,
+            port: parts.port,
+            database: parts.database,
+            user: parts.user,
+            password: parts.password,
+        });
+        self.postgres.active_connection_id = Some(id);
+    }
+
+    pub fn active_connection(&self) -> Option<&SavedConnection> {
+        let active_id = self.postgres.active_connection_id.as_ref()?;
+        self.postgres
+            .connections
+            .iter()
+            .find(|connection| &connection.id == active_id)
+    }
+
+    pub fn active_connection_mut(&mut self) -> Option<&mut SavedConnection> {
+        let active_id = self.postgres.active_connection_id.clone()?;
+        self.postgres
+            .connections
+            .iter_mut()
+            .find(|connection| connection.id == active_id)
+    }
+
+    pub fn connection_by_id(&self, id: &str) -> Option<&SavedConnection> {
+        self.postgres
+            .connections
+            .iter()
+            .find(|connection| connection.id == id)
+    }
+
+    pub fn connection_by_id_mut(&mut self, id: &str) -> Option<&mut SavedConnection> {
+        self.postgres
+            .connections
+            .iter_mut()
+            .find(|connection| connection.id == id)
+    }
+
+    pub fn password_fallback_parts(&self) -> Option<PostgresParts> {
+        self.active_connection()
+            .map(SavedConnection::to_parts)
+            .or_else(current_postgres_parts_from_url)
+    }
+
+    pub fn sync_url_from_active_connection(&mut self) {
+        if let Some(connection) = self.active_connection() {
+            let url = build_postgres_url(&connection.to_parts());
+            self.postgres.url = Some(url);
+        }
+    }
+
+    pub fn create_connection(
+        &mut self,
+        name: &str,
+        parts: &PostgresParts,
+    ) -> Result<SavedConnection, String> {
+        let trimmed_name = name.trim();
+        let display_name = if trimmed_name.is_empty() {
+            "Untitled connection"
+        } else {
+            trimmed_name
+        };
+        let id = unique_connection_id(display_name, &self.postgres.connections);
+        let connection = SavedConnection {
+            id,
+            name: display_name.to_string(),
+            host: parts.host.clone(),
+            port: parts.port,
+            database: parts.database.clone(),
+            user: parts.user.clone(),
+            password: parts.password.clone(),
+        };
+        self.postgres.connections.push(connection.clone());
+        self.postgres.active_connection_id = Some(connection.id.clone());
+        self.sync_url_from_active_connection();
+        Ok(connection)
+    }
+
+    pub fn delete_connection(&mut self, id: &str) -> Result<(), String> {
+        let index = self
+            .postgres
+            .connections
+            .iter()
+            .position(|connection| connection.id == id)
+            .ok_or_else(|| "Connection not found.".to_string())?;
+        let was_active = self.postgres.active_connection_id.as_deref() == Some(id);
+        self.postgres.connections.remove(index);
+        if was_active {
+            self.postgres.active_connection_id = self
+                .postgres
+                .connections
+                .first()
+                .map(|connection| connection.id.clone());
+            if self.postgres.active_connection_id.is_some() {
+                self.sync_url_from_active_connection();
+            } else {
+                self.postgres.url = None;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn set_active_connection(&mut self, id: &str) -> Result<(), String> {
+        if self.connection_by_id(id).is_none() {
+            return Err("Connection not found.".to_string());
+        }
+        self.postgres.active_connection_id = Some(id.to_string());
+        Ok(())
+    }
+
+    pub fn update_connection_from_fields(
+        &mut self,
+        id: &str,
+        host: Option<&str>,
+        port: Option<&str>,
+        database: Option<&str>,
+        user: Option<&str>,
+        password: Option<&str>,
+    ) -> Result<(), String> {
+        let fallback = self
+            .connection_by_id(id)
+            .map(SavedConnection::to_parts)
+            .unwrap_or_default();
+        let parts = merge_postgres_parts(&fallback, host, port, database, user, password)?;
+        let connection = self
+            .connection_by_id_mut(id)
+            .ok_or_else(|| "Connection not found.".to_string())?;
+        connection.update_from_parts(&parts);
+        if self.postgres.active_connection_id.as_deref() == Some(id) {
+            self.sync_url_from_active_connection();
+        }
+        Ok(())
     }
 
     pub fn save(&self) -> Result<(), String> {
@@ -156,6 +401,12 @@ impl AppConfig {
     pub fn configured_postgres_url(&self) -> Option<String> {
         if self.storage_mode != StorageMode::Postgres {
             return None;
+        }
+        if let Some(connection) = self.active_connection() {
+            let url = build_postgres_url(&connection.to_parts());
+            if !url.is_empty() {
+                return Some(url);
+            }
         }
         self.postgres
             .url
@@ -287,22 +538,27 @@ pub fn build_postgres_url(parts: &PostgresParts) -> String {
     url
 }
 
-pub fn current_postgres_parts() -> Option<PostgresParts> {
+pub fn current_postgres_parts_from_url() -> Option<PostgresParts> {
     let config = AppConfig::load();
     let url = config
-        .configured_postgres_url()
+        .postgres
+        .url
+        .as_ref()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
         .or_else(|| env::var("DATABASE_URL").ok().filter(|url| !url.trim().is_empty()))?;
     parse_postgres_url(&url)
 }
 
-pub fn build_postgres_url_from_fields(
+pub fn merge_postgres_parts(
+    fallback: &PostgresParts,
     host: Option<&str>,
     port: Option<&str>,
     database: Option<&str>,
     user: Option<&str>,
     password: Option<&str>,
-) -> Result<String, String> {
-    let mut parts = current_postgres_parts().unwrap_or_default();
+) -> Result<PostgresParts, String> {
+    let mut parts = fallback.clone();
 
     if let Some(host) = host {
         let host = host.trim();
@@ -333,7 +589,6 @@ pub fn build_postgres_url_from_fields(
             parts.user = user.to_string();
         }
     }
-    // blank password keeps the previously saved one
     if let Some(password) = password {
         if !password.is_empty() {
             parts.password = Some(password.to_string());
@@ -350,6 +605,48 @@ pub fn build_postgres_url_from_fields(
         return Err("Username is required.".to_string());
     }
 
+    Ok(parts)
+}
+
+pub fn current_postgres_parts() -> Option<PostgresParts> {
+    let config = AppConfig::load();
+    if let Some(connection) = config.active_connection() {
+        return Some(connection.to_parts());
+    }
+    current_postgres_parts_from_url()
+}
+
+pub fn build_postgres_url_from_fields(
+    host: Option<&str>,
+    port: Option<&str>,
+    database: Option<&str>,
+    user: Option<&str>,
+    password: Option<&str>,
+) -> Result<String, String> {
+    let config = AppConfig::load();
+    build_postgres_url_from_fields_with_fallback(
+        config.password_fallback_parts().as_ref(),
+        host,
+        port,
+        database,
+        user,
+        password,
+    )
+}
+
+pub fn build_postgres_url_from_fields_with_fallback(
+    fallback: Option<&PostgresParts>,
+    host: Option<&str>,
+    port: Option<&str>,
+    database: Option<&str>,
+    user: Option<&str>,
+    password: Option<&str>,
+) -> Result<String, String> {
+    let base = fallback
+        .cloned()
+        .or_else(current_postgres_parts)
+        .unwrap_or_default();
+    let parts = merge_postgres_parts(&base, host, port, database, user, password)?;
     Ok(build_postgres_url(&parts))
 }
 
@@ -430,5 +727,67 @@ mod tests {
         let serialized = toml::to_string_pretty(&config).expect("serialize");
         let parsed: AppConfig = toml::from_str(&serialized).expect("parse");
         assert_eq!(parsed.storage_mode, StorageMode::Postgres);
+    }
+
+    #[test]
+    fn migrates_single_url_into_default_connection() {
+        let mut config = AppConfig::default();
+        config.postgres.url = Some("postgres://funds:secret@127.0.0.1:5434/funds".to_string());
+        config.ensure_connections_migrated();
+        assert_eq!(config.postgres.connections.len(), 1);
+        assert_eq!(config.postgres.connections[0].name, "Default");
+        assert_eq!(config.postgres.active_connection_id.as_deref(), Some("default"));
+    }
+
+    #[test]
+    fn create_connection_sets_active_and_syncs_url() {
+        let mut config = AppConfig::default();
+        let parts = PostgresParts {
+            host: "10.0.0.5".to_string(),
+            port: Some(5432),
+            database: "funds_prod".to_string(),
+            user: "funds".to_string(),
+            password: Some("secret".to_string()),
+            options: None,
+        };
+        let connection = config
+            .create_connection("Production", &parts)
+            .expect("create");
+        assert_eq!(connection.name, "Production");
+        assert_eq!(config.postgres.active_connection_id.as_deref(), Some(connection.id.as_str()));
+        assert!(config.configured_postgres_url().is_some());
+    }
+
+    #[test]
+    fn delete_active_connection_promotes_next_profile() {
+        let mut config = AppConfig::default();
+        let first = config
+            .create_connection(
+                "First",
+                &PostgresParts {
+                    host: "a".to_string(),
+                    port: Some(5432),
+                    database: "db".to_string(),
+                    user: "u".to_string(),
+                    password: None,
+                    options: None,
+                },
+            )
+            .expect("first");
+        let second = config
+            .create_connection(
+                "Second",
+                &PostgresParts {
+                    host: "b".to_string(),
+                    port: Some(5432),
+                    database: "db".to_string(),
+                    user: "u".to_string(),
+                    password: None,
+                    options: None,
+                },
+            )
+            .expect("second");
+        config.delete_connection(&second.id).expect("delete");
+        assert_eq!(config.postgres.active_connection_id.as_deref(), Some(first.id.as_str()));
     }
 }
