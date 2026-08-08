@@ -32,7 +32,7 @@ moka = { version = "0.12.7", features = ["future"] }
 openssl = { version = "0.10.73", features = ["vendored"] }
 rand = "0.10.1"
 reqwest = { version = "0.13.4", features = ["json"] }
-roxmltree = "0.19.0"
+roxmltree = "0.21.1"
 rusqlite = { version = "*", features = ["bundled"] }
 rustls = { version = "0.23", features = ["ring", "std"] }
 rustls-pemfile = "2"
