@@ -101,7 +101,7 @@ pub async fn server() {
                 Err(_) => panic!("DEV (debug) build requires KEY_PATH for HTTPS"),
             };
             server
-                .bind_rustls(listen_addr.as_str(), load_certs(cert, key).unwrap())
+                .bind_rustls_0_23(listen_addr.as_str(), load_certs(cert, key).unwrap())
                 .unwrap()
         }
         Environments::PROD => server.bind(listen_addr.as_str()).unwrap(),
