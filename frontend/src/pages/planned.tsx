@@ -1,38 +1,45 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
 import {
 	CalendarRange,
+	Check,
 	Edit2,
 	Link2,
 	Loader2,
 	Plus,
+	Search,
 	Trash2,
+	X,
 } from 'lucide-react';
-import { ActionableBadge } from '@/components/layout/ActionableBadge';
 import { AccountFilter } from '@/components/account-filter';
 import { CategoryPill } from '@/components/CategoryPill';
 import { PlannedPeriodFilter } from '@/components/dashboard/PlannedPeriodFilter';
 import { CategoryPicker } from '@/components/transactions/CategoryPicker';
-import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
-import { Modal } from '@/components/layout/Modal';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
-import { SearchInput } from '@/components/layout/SearchInput';
-import { SegmentedControl } from '@/components/layout/SegmentedControl';
-import { StatCard } from '@/components/layout/StatCard';
+import { PlannedMatchCallout } from '@/components/planned/PlannedMatchCallout';
 import {
-	buttonAccentClass,
-	buttonDangerClass,
-	buttonOutlineClass,
-	buttonPrimaryClass,
+	dateInputClass,
+	eyebrowClass,
 	glassCardClass,
 	inputDarkClass,
-	dateInputClass,
+	pageActionsClass,
+	pageBodyClass,
+	pageHeaderClass,
+	pageSubtitleClass,
+	pageTitleClass,
+	panelHintClass,
+	panelTitleClass,
 } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
+import {
+	formatPlannedMoneyFromCents,
+	formatSignedMoneyFromCents,
+	moneyClassForPlannedCents,
+	moneyClassForSignedCents,
+} from '@/lib/utils/moneySemantics';
 import { readThunkRejectMessage } from '@/lib/utils/thunkError';
 import {
 	PLANNED_CUSTOM_RANGE_STORAGE_KEY,
@@ -42,6 +49,13 @@ import {
 	readStoredPlannedPeriod,
 	type PlannedPeriod,
 } from '@/components/dashboard/period';
+import {
+	leSegmentButtonActiveClass,
+	leSegmentButtonClass,
+	leSegmentedClass,
+	tableTdClass,
+	tableThClass,
+} from '@/pages/lender-expenses/shared';
 import { useDebounce } from '@/hooks/useDebounce';
 import { notifyPlannedMatchesChanged } from '@/hooks/useActionableItemCount';
 import { useAppDispatch, useAppSelector } from '@/store/store';
@@ -70,16 +84,29 @@ import {
 
 type PlannedRangeMode = 'preset' | 'custom';
 type ModalMode = 'add' | 'edit';
+type PlannedSortKey = 'name' | 'amount' | 'date' | 'category';
+type SortDir = 'asc' | 'desc';
 
-const PLANNED_FORM_ID = 'planned-spending-form';
+const plannedBtnClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-border bg-paper-surface px-3 text-[13px] font-medium tracking-[0.02em] text-paper-fg transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_3%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
 
-const formatMoney = (cents: number) => {
-	const abs = Math.abs(cents / 100).toLocaleString('en-AU', {
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	});
-	return `${cents < 0 ? '-' : ''}$${abs}`;
-};
+const plannedBtnPrimaryClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-fg bg-paper-fg px-3 text-[13px] font-medium tracking-[0.02em] !text-white transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_88%,white)] disabled:cursor-not-allowed disabled:opacity-50';
+
+const plannedBtnSmClass =
+	'inline-flex h-[26px] shrink-0 cursor-pointer items-center justify-center gap-1 whitespace-nowrap rounded-paper border border-paper-border bg-paper-surface px-2 text-xs font-medium tracking-[0.02em] text-paper-fg transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_3%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
+
+const plannedBtnAccentSmClass =
+	'inline-flex h-[26px] shrink-0 cursor-pointer items-center justify-center gap-1 whitespace-nowrap rounded-paper border border-[color-mix(in_oklch,var(--accent)_45%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_10%,var(--surface))] px-2.5 text-xs font-medium tracking-[0.02em] text-secondary-default transition-colors hover:bg-[color-mix(in_oklch,var(--accent)_18%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
+
+const plannedBtnDangerSmClass =
+	'inline-flex h-[26px] shrink-0 cursor-pointer items-center justify-center gap-1 whitespace-nowrap rounded-paper border border-[color-mix(in_oklch,var(--danger)_38%,var(--border))] bg-[color-mix(in_oklch,var(--danger)_6%,var(--surface))] px-2 text-xs font-medium tracking-[0.02em] text-[color:var(--danger)] transition-colors hover:bg-[color-mix(in_oklch,var(--danger)_14%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
+
+const plannedDialogClass =
+	'fixed inset-0 m-auto h-fit w-[min(480px,calc(100vw-32px))] max-h-[min(640px,calc(100vh-48px))] overflow-hidden rounded-[10px] border border-paper-border bg-paper-surface p-0 shadow-[0_16px_48px_color-mix(in_oklch,var(--fg)_12%,transparent)] backdrop:bg-paper-fg/35 backdrop:backdrop-blur-sm [&:not([open])]:hidden';
+
+const plannedDialogWideClass =
+	'fixed inset-0 m-auto h-[min(720px,calc(100vh-48px))] w-[min(760px,calc(100vw-32px))] max-h-[min(720px,calc(100vh-48px))] overflow-hidden rounded-[10px] border border-paper-border bg-paper-surface p-0 shadow-[0_16px_48px_color-mix(in_oklch,var(--fg)_12%,transparent)] backdrop:bg-paper-fg/35 backdrop:backdrop-blur-sm [&:not([open])]:hidden';
 
 function formatPlannedDate(isoDate: string): string {
 	return DateTime.fromISO(isoDate).toFormat('d MMM yyyy');
@@ -166,25 +193,111 @@ function matchesPlannedSearch(
 	return false;
 }
 
-function matchReasonLabel(reason: string): string {
-	switch (reason) {
-		case 'exact_amount':
-			return 'Same amount';
-		case 'amount_within_tolerance':
-			return 'Close amount';
-		case 'exact_date':
-			return 'Same date';
-		case 'date_within_tolerance':
-			return 'Close date';
-		case 'category_match':
-			return 'Category matches';
-		case 'description_match':
-			return 'Description matches';
-		case 'partial_payment':
-			return 'Partial payment';
-		default:
-			return reason.replace(/_/g, ' ');
-	}
+function sortPlannedItems(
+	items: PlannedSpendingItem[],
+	key: PlannedSortKey,
+	dir: SortDir,
+	categories: Category[]
+): PlannedSpendingItem[] {
+	const mult = dir === 'asc' ? 1 : -1;
+	return [...items].sort((a, b) => {
+		switch (key) {
+			case 'name':
+				return mult * a.name.localeCompare(b.name);
+			case 'amount':
+				return mult * (a.amount_cents - b.amount_cents);
+			case 'date':
+				return mult * a.start_date.localeCompare(b.start_date);
+			case 'category': {
+				const catA = categoryById(categories, a.category_id);
+				const catB = categoryById(categories, b.category_id);
+				const labelA = catA ? categoryLabel(catA, categories) : '';
+				const labelB = catB ? categoryLabel(catB, categories) : '';
+				return mult * labelA.localeCompare(labelB);
+			}
+			default:
+				return 0;
+		}
+	});
+}
+
+type SortIndicatorProps = {
+	active: boolean;
+	direction: SortDir;
+};
+
+function SortIndicator({ active, direction }: SortIndicatorProps) {
+	return (
+		<span
+			className={cn(
+				'inline-grid h-3 w-2.5 shrink-0 opacity-35 transition-opacity',
+				active && 'opacity-100'
+			)}
+			aria-hidden
+		>
+			<svg viewBox="0 0 10 12" fill="none" stroke="currentColor" strokeWidth="1.6">
+				<path
+					d="M2 4.2 5 1.5 8 4.2"
+					opacity={active && direction === 'desc' ? 0.28 : 1}
+				/>
+				<path
+					d="M2 7.8 5 10.5 8 7.8"
+					opacity={active && direction === 'asc' ? 0.28 : 1}
+				/>
+			</svg>
+		</span>
+	);
+}
+
+type SortHeaderProps = {
+	label: string;
+	active: boolean;
+	direction: SortDir;
+	align?: 'left' | 'right';
+	onClick?: () => void;
+	className?: string;
+};
+
+function SortHeader({
+	label,
+	active,
+	direction,
+	align = 'left',
+	onClick,
+	className,
+}: SortHeaderProps) {
+	const ariaSort = active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none';
+	const numeric = align === 'right';
+
+	return (
+		<th
+			scope="col"
+			aria-sort={ariaSort}
+			className={cn(tableThClass, align === 'right' && 'text-right', className)}
+		>
+			<button
+				type="button"
+				onClick={onClick}
+				className={cn(
+					'flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-inherit hover:text-paper-fg',
+					active && 'text-paper-fg',
+					numeric && 'justify-end'
+				)}
+			>
+				{numeric ? (
+					<>
+						<SortIndicator active={active} direction={direction} />
+						{label}
+					</>
+				) : (
+					<>
+						{label}
+						<SortIndicator active={active} direction={direction} />
+					</>
+				)}
+			</button>
+		</th>
+	);
 }
 
 function defaultLinkSearch(item: PlannedSpendingItem): string {
@@ -199,18 +312,6 @@ function defaultLinkSearch(item: PlannedSpendingItem): string {
 		.map((word) => word.replace(/[^a-zA-Z0-9]/g, ''))
 		.filter((word) => word.length >= 4);
 	return words[0] ?? '';
-}
-
-function formatVarianceLabel(suggestion: PlannedMatchSuggestion): string {
-	const parts: string[] = [];
-	if (suggestion.amount_variance_cents > 0) {
-		parts.push(`${formatMoney(suggestion.amount_variance_cents)} off amount`);
-	}
-	if (suggestion.date_variance_days > 0) {
-		const days = suggestion.date_variance_days;
-		parts.push(`${days} day${days === 1 ? '' : 's'} off date`);
-	}
-	return parts.length > 0 ? parts.join(' · ') : 'Exact amount and date';
 }
 
 export default function PlannedSpendingPage() {
@@ -248,6 +349,12 @@ export default function PlannedSpendingPage() {
 	const [linkCandidatesLoading, setLinkCandidatesLoading] = useState(false);
 	const [linkCandidatesError, setLinkCandidatesError] = useState<string | null>(null);
 	const [selectedLinkTxnIds, setSelectedLinkTxnIds] = useState<number[]>([]);
+	const [sortKey, setSortKey] = useState<PlannedSortKey>('date');
+	const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+	const itemDialogRef = useRef<HTMLDialogElement>(null);
+	const linkDialogRef = useRef<HTMLDialogElement>(null);
+	const deleteDialogRef = useRef<HTMLDialogElement>(null);
 
 	const toggleLinkSelection = (transactionId: number) => {
 		setSelectedLinkTxnIds((current) =>
@@ -267,6 +374,42 @@ export default function PlannedSpendingPage() {
 	useEffect(() => {
 		reloadMatchSuggestions();
 	}, [reloadMatchSuggestions]);
+
+	useEffect(() => {
+		const dialog = itemDialogRef.current;
+		if (dialog === null) {
+			return;
+		}
+		if (modalOpen && !dialog.open) {
+			dialog.showModal();
+		} else if (!modalOpen && dialog.open) {
+			dialog.close();
+		}
+	}, [modalOpen]);
+
+	useEffect(() => {
+		const dialog = linkDialogRef.current;
+		if (dialog === null) {
+			return;
+		}
+		if (linkTarget !== null && !dialog.open) {
+			dialog.showModal();
+		} else if (linkTarget === null && dialog.open) {
+			dialog.close();
+		}
+	}, [linkTarget]);
+
+	useEffect(() => {
+		const dialog = deleteDialogRef.current;
+		if (dialog === null) {
+			return;
+		}
+		if (deleteTarget !== null && !dialog.open) {
+			dialog.showModal();
+		} else if (deleteTarget === null && dialog.open) {
+			dialog.close();
+		}
+	}, [deleteTarget]);
 
 	useEffect(() => {
 		if (linkTarget === null) {
@@ -381,6 +524,20 @@ export default function PlannedSpendingPage() {
 			),
 		[items, debouncedSearchQuery, activeCategories]
 	);
+
+	const sortedItems = useMemo(
+		() => sortPlannedItems(filteredItems, sortKey, sortDir, activeCategories),
+		[filteredItems, sortKey, sortDir, activeCategories]
+	);
+
+	const onSort = (key: PlannedSortKey) => {
+		if (sortKey === key) {
+			setSortDir((current) => (current === 'asc' ? 'desc' : 'asc'));
+			return;
+		}
+		setSortKey(key);
+		setSortDir(key === 'name' || key === 'category' ? 'asc' : 'desc');
+	};
 
 	const filteredTotalCents = useMemo(
 		() => filteredItems.reduce((sum, item) => sum + item.amount_cents, 0),
@@ -625,6 +782,8 @@ export default function PlannedSpendingPage() {
 		searchActive &&
 		error === null;
 
+	const displayTotalCents = searchActive ? filteredTotalCents : totalCents;
+
 	const plannedTotalHint = (() => {
 		if (searchActive) {
 			return `${filteredItems.length} of ${items.length} items match search.`;
@@ -654,45 +813,55 @@ export default function PlannedSpendingPage() {
 
 	return (
 		<PageShell variant="table">
-			<div className="shrink-0 space-y-3 border-b border-paper-border p-4">
-				<PageHeader
-					title="Planned spending"
-					subtitle="Upcoming expenses you expect but have not recorded yet. Items are global — the account filter does not apply here."
-					icon={<CalendarRange className="h-6 w-6 text-secondary-default" />}
-					className="mb-0"
-					pending={isRefreshing}
-					meta={
-						loading ? (
-							<Loader2
-								className="h-4 w-4 animate-spin text-secondary-default"
-								aria-label="Loading"
-							/>
-						) : null
-					}
-					actions={
-						<button
-							type="button"
-							className={buttonPrimaryClass}
-							onClick={openAddModal}
-						>
-							<Plus size="1rem" className="inline-block mr-1" />
+			<header className={pageHeaderClass}>
+				<div className="flex flex-wrap items-start justify-between gap-4">
+					<div className="min-w-0">
+						<div className="flex items-center gap-1.5">
+							<h1 className={pageTitleClass}>Planned spending</h1>
+							{isRefreshing ? (
+								<Loader2
+									className="h-4 w-4 animate-spin text-secondary-default"
+									aria-label="Loading"
+								/>
+							) : null}
+						</div>
+						<p className={pageSubtitleClass}>
+							Upcoming expenses you expect but haven&apos;t recorded yet. Items are
+							global — the account filter does not apply here.
+						</p>
+					</div>
+					<div className={pageActionsClass}>
+						<button type="button" className={plannedBtnPrimaryClass} onClick={openAddModal}>
+							<Plus className="h-3.5 w-3.5" aria-hidden />
 							Add planned item
 						</button>
-					}
-				/>
+					</div>
+				</div>
+			</header>
 
-				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-					<div className="flex min-h-9 flex-wrap items-center gap-3">
+			<div className={pageBodyClass}>
+				<div className="flex flex-col gap-6">
+					<div className="flex flex-wrap items-center gap-2.5">
 						<AccountFilter />
-						<SegmentedControl
-							ariaLabel="Date range mode"
-							value={rangeMode}
-							onChange={setRangeMode}
-							options={[
-								{ value: 'preset', label: 'Presets' },
-								{ value: 'custom', label: 'Custom' },
-							]}
-						/>
+						<span className="text-[10.5px] italic text-paper-muted">context only</span>
+
+						<div className={leSegmentedClass} role="group" aria-label="Date range mode">
+							{(['preset', 'custom'] as const).map((mode) => (
+								<button
+									key={mode}
+									type="button"
+									className={cn(
+										leSegmentButtonClass,
+										rangeMode === mode && leSegmentButtonActiveClass
+									)}
+									aria-pressed={rangeMode === mode}
+									onClick={() => setRangeMode(mode)}
+								>
+									{mode === 'preset' ? 'Presets' : 'Custom'}
+								</button>
+							))}
+						</div>
+
 						{rangeMode === 'preset' ? (
 							<PlannedPeriodFilter
 								value={period}
@@ -707,419 +876,370 @@ export default function PlannedSpendingPage() {
 									aria-label="From date"
 									value={customRange.start}
 									onChange={(e) =>
-										setCustomRange((r) => ({
-											...r,
-											start: e.target.value,
-										}))
+										setCustomRange((r) => ({ ...r, start: e.target.value }))
 									}
-									className={cn(dateInputClass, 'px-2 py-1.5')}
+									className={cn(dateInputClass, 'h-8 px-2.5')}
 								/>
-								<span className="text-sm text-paper-muted">–</span>
+								<span className="text-xs text-paper-muted">to</span>
 								<input
 									type="date"
 									aria-label="To date"
 									value={customRange.end}
 									onChange={(e) =>
-										setCustomRange((r) => ({
-											...r,
-											end: e.target.value,
-										}))
+										setCustomRange((r) => ({ ...r, end: e.target.value }))
 									}
-									className={cn(dateInputClass, 'px-2 py-1.5')}
+									className={cn(dateInputClass, 'h-8 px-2.5')}
 								/>
 								<button
 									type="button"
 									onClick={() => setCustomRange(defaultCustomRange())}
-									className={buttonOutlineClass}
+									className={plannedBtnClass}
 								>
 									Reset
 								</button>
 							</div>
 						)}
-					</div>
 
-					{!rangeInvalid ? (
-						<StatCard
-							label="Planned total"
-							value={formatMoney(searchActive ? filteredTotalCents : totalCents)}
-							valueClassName={
-								(searchActive ? filteredTotalCents : totalCents) >= 0
-									? 'text-green-300'
-									: 'text-red-300'
-							}
-							hint={plannedTotalHint}
-							align="right"
-						/>
-					) : null}
-				</div>
-
-				{!rangeInvalid && items.length > 0 ? (
-					<SearchInput
-						value={searchQuery}
-						onChange={setSearchQuery}
-						placeholder="Search name, notes, category…"
-						className="w-full lg:max-w-md"
-					/>
-				) : null}
-
-				{rangeInvalid ? (
-					<InlineAlert variant="warning">
-						Choose a valid date range (from on or before to).
-					</InlineAlert>
-				) : null}
-
-				{error !== null && items.length > 0 ? (
-					<InlineAlert variant="error">{error}</InlineAlert>
-				) : null}
-			</div>
-
-			<div className="min-h-0 flex-grow overflow-auto p-4">
-			{matchSuggestions.length > 0 ? (
-				<div className="mb-4 space-y-3 rounded-lg border border-amber-500/25 bg-amber-950/20 p-4">
-					<div className="flex flex-wrap items-start justify-between gap-3">
-						<div>
-							<p className="flex items-center gap-2 text-sm font-medium text-amber-100">
-								<ActionableBadge count={matchSuggestions.length} />
-								<span>
-									{matchSuggestions.length} planned item
-									{matchSuggestions.length === 1 ? '' : 's'} may match imported
-									transactions
+						{!rangeInvalid ? (
+							<div
+								className={cn(
+									'ml-auto flex flex-col items-end gap-0.5 rounded-paper border border-paper-border',
+									'bg-[color-mix(in_oklch,var(--warn)_3%,var(--surface))] px-4 py-2'
+								)}
+							>
+								<span className="text-[10px] font-medium uppercase tracking-[0.06em] text-paper-muted">
+									Planned total
 								</span>
-							</p>
-							<p className="mt-1 text-xs text-amber-100/70">
-								Review each pair and link manually — nothing is applied until you
-								confirm.
-							</p>
-						</div>
-					</div>
-					<div className="space-y-3">
-						{matchSuggestions.map((suggestion) => {
-							const plannedCat = categoryById(
-								activeCategories,
-								suggestion.planned.category_id
-							);
-							const txnCat =
-								suggestion.transaction.category_id === null
-									? null
-									: categoryById(
-											activeCategories,
-											String(suggestion.transaction.category_id)
-										);
-							return (
-								<div
-									key={`${suggestion.planned.id}-${suggestion.transaction.id}`}
-									className="rounded border border-paper-border bg-black/20 p-3"
+								<strong
+									className={cn(
+										'font-mono text-lg font-medium tabular-nums tracking-[-0.01em]',
+										moneyClassForSignedCents(displayTotalCents)
+									)}
 								>
-									<div className="grid gap-3 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
-										<div className="min-w-0">
-											<p className="text-[10px] font-semibold uppercase tracking-wide text-paper-muted">
-												Planned
-											</p>
-											<p className="font-medium text-paper-fg">
-												{suggestion.planned.name}
-											</p>
-											<p className="mt-1 text-xs text-paper-muted">
-												{formatMoney(suggestion.planned.amount_cents)} ·{' '}
-												{formatPlannedDate(suggestion.planned.start_date)}
-												{plannedCat
-													? ` · ${categoryLabel(plannedCat, activeCategories)}`
-													: ''}
-											</p>
-											{suggestion.planned.notes ? (
-												<p className="mt-1 truncate text-xs text-paper-muted">
-													{suggestion.planned.notes}
-												</p>
-											) : null}
-										</div>
-										<div className="hidden justify-center text-paper-muted lg:flex">
-											<Link2 size="1.1rem" aria-hidden />
-										</div>
-										<div className="min-w-0">
-											<p className="text-[10px] font-semibold uppercase tracking-wide text-paper-muted">
-												Bank transaction
-											</p>
-											<p className="truncate font-medium text-paper-fg">
-												{suggestion.transaction.description}
-											</p>
-											<p className="mt-1 text-xs text-paper-muted">
-												{formatMoney(suggestion.transaction.amount)} ·{' '}
-												{formatPlannedDate(suggestion.transaction.transaction_date)}{' '}
-												· {suggestion.transaction.account_label}
-												{txnCat
-													? ` · ${categoryLabel(txnCat, activeCategories)}`
-													: ''}
-											</p>
-										</div>
-									</div>
-									<div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-paper-border pt-3">
-										<div className="flex flex-wrap gap-1.5">
-											<span className="rounded bg-paper px-2 py-0.5 text-[10px] text-paper-muted">
-												{formatVarianceLabel(suggestion)}
-											</span>
-											{suggestion.reasons.slice(0, 3).map((reason) => (
-												<span
-													key={reason}
-													className="rounded bg-paper px-2 py-0.5 text-[10px] text-paper-muted"
-												>
-													{matchReasonLabel(reason)}
-												</span>
-											))}
-										</div>
-										<div className="flex flex-wrap gap-2">
-											<button
-												type="button"
-												className={buttonAccentClass}
-												disabled={matchBusy}
-												onClick={() => void handleLinkMatch(suggestion)}
-											>
-												Add payment link
-											</button>
-											<button
-												type="button"
-												className={buttonOutlineClass}
-												disabled={matchBusy}
-												onClick={() => void handleDismissMatch(suggestion)}
-											>
-												Not a match
-											</button>
-										</div>
-									</div>
-								</div>
-							);
-						})}
+									{formatSignedMoneyFromCents(displayTotalCents)}
+								</strong>
+								<span className="max-w-[220px] text-right text-[11px] text-paper-muted">
+									{plannedTotalHint}
+								</span>
+							</div>
+						) : null}
 					</div>
-				</div>
-			) : null}
-			{showEmpty ? (
-				<EmptyState
-					icon={CalendarRange}
-					title="No planned spending"
-					description="Add upcoming expenses to track what you expect to spend in this period."
-					action={
-						<button
-							type="button"
-							className={buttonPrimaryClass}
-							onClick={openAddModal}
-						>
-							<Plus size="1rem" className="inline-block mr-1" />
-							Add planned item
-						</button>
-					}
-				/>
-			) : null}
 
-			{showSearchEmpty ? (
-				<EmptyState
-					icon={CalendarRange}
-					title="No planned items match your search"
-					description="Try clearing the search or using a different term."
-				/>
-			) : null}
-
-			{!loading && !rangeInvalid && filteredItems.length > 0 ? (
-				<div className={glassCardClass}>
-					<table className="w-full text-sm">
-						<thead>
-							<tr className="border-b border-paper-border text-left text-paper-muted">
-								<th className="px-4 py-3 font-medium">Name</th>
-								<th className="px-4 py-3 font-medium text-right">Amount</th>
-								<th className="px-4 py-3 font-medium">Date</th>
-								<th className="px-4 py-3 font-medium">Category</th>
-								<th className="px-4 py-3 font-medium">Notes</th>
-								<th className="px-4 py-3 font-medium" />
-							</tr>
-						</thead>
-						<tbody>
-							{filteredItems.map((item) => {
-								const cat = categoryById(activeCategories, item.category_id);
-								const hasLinks = item.linked_transactions.length > 0;
-								return (
-									<tr
-										key={item.id}
-										className="border-b border-paper-border text-paper-fg"
-									>
-										<td className="px-4 py-3 font-medium">
-											<span className="inline-flex items-center gap-2">
-												<span>{item.name}</span>
-												{suggestionByPlannedId.has(item.id) ? (
-													<span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-200">
-														Match found
-													</span>
-												) : null}
-											</span>
-											{hasLinks ? (
-												<p className="mt-1 text-xs text-amber-200/80">
-													{formatMoney(item.linked_total_cents)} of{' '}
-													{formatMoney(item.amount_cents)} linked (
-													{item.linked_transactions.length} payment
-													{item.linked_transactions.length === 1 ? '' : 's'})
-												</p>
-											) : null}
-										</td>
-										<td
-											className={cn(
-												'px-4 py-3 text-right font-mono tabular-nums',
-												item.amount_cents >= 0
-													? 'text-green-400'
-													: 'text-red-400'
-											)}
-										>
-											{formatMoney(item.amount_cents)}
-										</td>
-										<td className="px-4 py-3 text-paper-muted">
-											{formatPlannedDate(item.start_date)}
-										</td>
-										<td className="px-4 py-3">
-											{cat ? (
-												<CategoryPill
-													name={categoryLabel(cat, activeCategories)}
-													colour={cat.colour}
-												/>
-											) : (
-												<span className="text-paper-muted">—</span>
-											)}
-										</td>
-										<td className="max-w-[14rem] truncate px-4 py-3 text-paper-muted">
-											{item.notes ?? '—'}
-										</td>
-										<td className="px-4 py-3 text-right whitespace-nowrap">
-											{hasLinks ? (
-												<button
-													type="button"
-													className={cn(buttonAccentClass, 'mr-2')}
-													disabled={matchBusy}
-													onClick={() => void handleMarkComplete(item)}
-												>
-													Mark complete
-												</button>
-											) : null}
-											<button
-												type="button"
-												className={cn(buttonOutlineClass, 'mr-2')}
-												onClick={() => openLinkModal(item)}
-											>
-												<Link2 size="1rem" className="inline-block mr-1" />
-												{hasLinks ? 'Add link' : 'Link'}
-											</button>
-											<button
-												type="button"
-												className={cn(buttonOutlineClass, 'mr-2')}
-												onClick={() => openEditModal(item)}
-											>
-												<Edit2 size="1rem" className="inline-block mr-1" />
-												Edit
-											</button>
-											<button
-												type="button"
-												className={buttonDangerClass}
-												onClick={() => setDeleteTarget(item)}
-											>
-												<Trash2 size="1rem" className="inline-block mr-1" />
-												Delete
-											</button>
-										</td>
-									</tr>
-								);
-							})}
-						</tbody>
-					</table>
-				</div>
-			) : null}
-			</div>
-
-			<Modal
-				open={modalOpen}
-				onClose={closeModal}
-				closeDisabled={submitting}
-				title={modalMode === 'add' ? 'Add planned item' : 'Edit planned item'}
-				description="When you expect this spend to occur."
-				size="md"
-				footer={
-					<div className="flex justify-end gap-2">
-						<button
-							type="button"
-							className={buttonOutlineClass}
-							onClick={closeModal}
-							disabled={submitting}
-						>
-							Cancel
-						</button>
-						<button
-							type="submit"
-							form={PLANNED_FORM_ID}
-							className={buttonPrimaryClass}
-							disabled={submitting}
-						>
-							{submitting ? (
-								<Loader2 className="inline-block h-4 w-4 animate-spin" />
-							) : modalMode === 'add' ? (
-								'Add'
-							) : (
-								'Save'
-							)}
-						</button>
-					</div>
-				}
-			>
-				<form id={PLANNED_FORM_ID} onSubmit={onSubmit}>
-					{modalError !== null ? (
-						<InlineAlert variant="error" className="mb-4">
-							{modalError}
+					{rangeInvalid ? (
+						<InlineAlert variant="warning">
+							Choose a valid date range (from on or before to).
 						</InlineAlert>
 					) : null}
 
-					<div className="space-y-4">
-						<div>
-							<label
-								htmlFor="plannedNameInput"
-								className="mb-1.5 block text-sm font-medium text-paper-fg"
+					{error !== null && items.length > 0 ? (
+						<InlineAlert variant="error">{error}</InlineAlert>
+					) : null}
+
+					{!rangeInvalid && items.length > 0 ? (
+						<input
+							type="search"
+							value={searchQuery}
+							onChange={(e) => setSearchQuery(e.target.value)}
+							placeholder="Search name, notes, category…"
+							aria-label="Search planned items"
+							className={cn(inputDarkClass, 'h-8 w-full max-w-[420px] px-2.5')}
+						/>
+					) : null}
+
+					<PlannedMatchCallout
+						suggestions={matchSuggestions}
+						categories={activeCategories}
+						busy={matchBusy}
+						onLink={(suggestion) => void handleLinkMatch(suggestion)}
+						onDismiss={(suggestion) => void handleDismissMatch(suggestion)}
+					/>
+
+					{showEmpty ? (
+						<div className="rounded-lg border border-paper-border bg-paper-surface px-6 py-12 text-center">
+							<div
+								className="mx-auto mb-3.5 grid h-11 w-11 place-items-center rounded-[10px] border border-paper-border bg-paper text-paper-muted"
+								aria-hidden
 							>
+								<CalendarRange className="h-5 w-5" />
+							</div>
+							<h3 className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-paper-fg">
+								No planned spending
+							</h3>
+							<p className="mx-auto mt-1.5 max-w-[36ch] text-[13px] leading-[1.45] text-paper-muted">
+								Add upcoming expenses to track what you expect to spend in this period.
+							</p>
+							<div className="mt-4">
+								<button
+									type="button"
+									className={plannedBtnPrimaryClass}
+									onClick={openAddModal}
+								>
+									<Plus className="h-3.5 w-3.5" aria-hidden />
+									Add planned item
+								</button>
+							</div>
+						</div>
+					) : null}
+
+					{showSearchEmpty ? (
+						<div className="rounded-lg border border-paper-border bg-paper-surface px-6 py-12 text-center">
+							<div
+								className="mx-auto mb-3.5 grid h-11 w-11 place-items-center rounded-[10px] border border-paper-border bg-paper text-paper-muted"
+								aria-hidden
+							>
+								<Search className="h-5 w-5" />
+							</div>
+							<h3 className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-paper-fg">
+								No planned items match your search
+							</h3>
+							<p className="mx-auto mt-1.5 max-w-[36ch] text-[13px] leading-[1.45] text-paper-muted">
+								Try clearing the search or using a different term.
+							</p>
+						</div>
+					) : null}
+
+					{!loading && !rangeInvalid && sortedItems.length > 0 ? (
+						<section className={cn(glassCardClass, 'overflow-hidden p-0')}>
+							<div className="border-b border-paper-border px-4 py-3.5">
+								<h2 className={panelTitleClass}>Planned items</h2>
+								<p className={panelHintClass}>
+									{sortedItems.length} item{sortedItems.length === 1 ? '' : 's'}
+								</p>
+							</div>
+							<div className="overflow-x-auto">
+								<table className="w-full min-w-[56rem] border-collapse text-[13px]">
+									<thead>
+										<tr>
+											<SortHeader
+												label="Name"
+												active={sortKey === 'name'}
+												direction={sortDir}
+												onClick={() => onSort('name')}
+												className="min-w-[200px] max-w-[320px]"
+											/>
+											<SortHeader
+												label="Amount"
+												active={sortKey === 'amount'}
+												direction={sortDir}
+												align="right"
+												onClick={() => onSort('amount')}
+												className="w-[110px]"
+											/>
+											<SortHeader
+												label="Date"
+												active={sortKey === 'date'}
+												direction={sortDir}
+												onClick={() => onSort('date')}
+												className="w-[100px] whitespace-nowrap"
+											/>
+											<SortHeader
+												label="Category"
+												active={sortKey === 'category'}
+												direction={sortDir}
+												onClick={() => onSort('category')}
+												className="min-w-[150px]"
+											/>
+											<th scope="col" className={cn(tableThClass, 'max-w-[200px]')}>
+												Notes
+											</th>
+											<th scope="col" className={cn(tableThClass, 'w-[1%]')}>
+												<span className="sr-only">Actions</span>
+											</th>
+										</tr>
+									</thead>
+									<tbody>
+										{sortedItems.map((item) => {
+											const cat = categoryById(activeCategories, item.category_id);
+											const hasLinks = item.linked_transactions.length > 0;
+											return (
+												<tr key={item.id} className="text-paper-fg">
+													<td className={tableTdClass}>
+														<div className="flex flex-wrap items-center gap-1.5">
+															<span className="font-medium text-paper-fg">
+																{item.name}
+															</span>
+															{suggestionByPlannedId.has(item.id) ? (
+																<span className="inline-flex h-[18px] items-center rounded-full border border-[color-mix(in_oklch,var(--warn)_35%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_10%,var(--surface))] px-1.5 text-[9.5px] font-medium uppercase tracking-[0.04em] text-[oklch(45%_0.12_75)]">
+																	Match found
+																</span>
+															) : null}
+														</div>
+														{hasLinks ? (
+															<p className="m-0 mt-1 text-[11px] text-[oklch(45%_0.12_75)]">
+																{formatSignedMoneyFromCents(item.linked_total_cents)}{' '}
+																of {formatPlannedMoneyFromCents(item.amount_cents)}{' '}
+																linked ({item.linked_transactions.length} payment
+																{item.linked_transactions.length === 1 ? '' : 's'})
+															</p>
+														) : null}
+													</td>
+													<td
+														className={cn(
+															tableTdClass,
+															'text-right font-mono tabular-nums',
+															moneyClassForPlannedCents(item.amount_cents)
+														)}
+													>
+														{formatPlannedMoneyFromCents(item.amount_cents)}
+													</td>
+													<td className={cn(tableTdClass, 'whitespace-nowrap text-paper-muted')}>
+														{formatPlannedDate(item.start_date)}
+													</td>
+													<td className={tableTdClass}>
+														{cat ? (
+															<CategoryPill
+																name={categoryLabel(cat, activeCategories)}
+																colour={cat.colour}
+																variant="outline"
+															/>
+														) : (
+															<span className="text-paper-muted">—</span>
+														)}
+													</td>
+													<td className={cn(tableTdClass, 'max-w-[200px]')}>
+														<span className="block truncate text-paper-muted">
+															{item.notes ?? '—'}
+														</span>
+													</td>
+													<td className={tableTdClass}>
+														<div className="flex flex-nowrap justify-end gap-1.5">
+															{hasLinks ? (
+																<button
+																	type="button"
+																	className={plannedBtnAccentSmClass}
+																	disabled={matchBusy}
+																	onClick={() => void handleMarkComplete(item)}
+																>
+																	<Check className="h-3 w-3" aria-hidden />
+																	Mark complete
+																</button>
+															) : null}
+															<button
+																type="button"
+																className={plannedBtnSmClass}
+																onClick={() => openLinkModal(item)}
+															>
+																<Link2 className="h-3 w-3" aria-hidden />
+																{hasLinks ? 'Add link' : 'Link'}
+															</button>
+															<button
+																type="button"
+																className={plannedBtnSmClass}
+																onClick={() => openEditModal(item)}
+															>
+																<Edit2 className="h-3 w-3" aria-hidden />
+																Edit
+															</button>
+															<button
+																type="button"
+																className={plannedBtnDangerSmClass}
+																onClick={() => setDeleteTarget(item)}
+															>
+																<Trash2 className="h-3 w-3" aria-hidden />
+																Delete
+															</button>
+														</div>
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+							</div>
+						</section>
+					) : null}
+				</div>
+			</div>
+
+			<dialog
+				ref={itemDialogRef}
+				className={plannedDialogClass}
+				onCancel={(event) => {
+					event.preventDefault();
+					if (!submitting) {
+						closeModal();
+					}
+				}}
+				onClose={closeModal}
+			>
+				<form className="flex min-h-0 flex-col" onSubmit={onSubmit}>
+					<div className="flex items-start justify-between gap-3 px-[22px] pt-[18px]">
+						<div className="min-w-0">
+							<span className={cn(eyebrowClass, 'mb-1 block')}>Planned spending</span>
+							<h2 className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-paper-fg">
+								{modalMode === 'add' ? 'Add planned item' : 'Edit planned item'}
+							</h2>
+							<p className="m-0 mt-1 text-[12.5px] text-paper-muted">
+								When you expect this spend to occur.
+							</p>
+						</div>
+						<button
+							type="button"
+							onClick={closeModal}
+							disabled={submitting}
+							className="grid h-8 w-8 shrink-0 place-items-center rounded-paper border border-transparent bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:opacity-50"
+							aria-label="Close"
+						>
+							<X className="h-4 w-4" strokeWidth={2} />
+						</button>
+					</div>
+
+					<div className="flex flex-col gap-3.5 overflow-y-auto px-[22px] py-[18px]">
+						{modalError !== null ? (
+							<p className="m-0 rounded-paper border border-[color-mix(in_oklch,var(--danger)_30%,var(--border))] bg-[color-mix(in_oklch,var(--danger)_8%,var(--surface))] px-2.5 py-2 text-xs text-[color:var(--danger)]">
+								{modalError}
+							</p>
+						) : null}
+
+						<label className="flex flex-col gap-1.5">
+							<span className="text-[11px] font-medium uppercase tracking-[0.04em] text-paper-muted">
 								Name
-							</label>
+							</span>
 							<input
 								id="plannedNameInput"
 								type="text"
 								value={name}
 								onChange={(e) => setName(e.target.value)}
-								className={cn(inputDarkClass, 'w-full px-3 py-2')}
+								className={cn(inputDarkClass, 'h-8 w-full px-2.5')}
 								placeholder="e.g. Holiday, Car service"
 								autoFocus
 								disabled={submitting}
 								required
 							/>
-						</div>
+						</label>
 
-						<div>
-							<div className="mb-1.5 flex flex-wrap items-center justify-between gap-3">
-								<label
-									htmlFor="plannedAmountInput"
-									className="text-sm font-medium text-paper-fg"
-								>
+						<div className="flex flex-col gap-1.5">
+							<div className="flex flex-wrap items-center justify-between gap-3">
+								<span className="text-[11px] font-medium uppercase tracking-[0.04em] text-paper-muted">
 									Amount ($)
-								</label>
-								<SegmentedControl
-									ariaLabel="Planned amount type"
-									value={amountType}
-									onChange={setAmountType}
-									options={[
-										{
-											value: 'spending',
-											label: 'Spending',
-											activeClassName:
-												'bg-red-500/20 text-red-400 shadow-sm',
-											inactiveClassName:
-												'text-paper-muted hover:bg-red-500/10 hover:text-red-300',
-										},
-										{
-											value: 'income',
-											label: 'Income',
-											activeClassName:
-												'bg-green-500/20 text-green-400 shadow-sm',
-											inactiveClassName:
-												'text-paper-muted hover:bg-green-500/10 hover:text-green-300',
-										},
-									]}
-								/>
+								</span>
+								<div
+									className={leSegmentedClass}
+									role="group"
+									aria-label="Planned amount type"
+								>
+									{(['spending', 'income'] as const).map((type) => (
+										<button
+											key={type}
+											type="button"
+											className={cn(
+												leSegmentButtonClass,
+												amountType === type && leSegmentButtonActiveClass,
+												amountType === type &&
+													type === 'spending' &&
+													'!bg-[color-mix(in_oklch,var(--danger)_16%,var(--surface))] !text-[color:var(--danger)]',
+												amountType === type &&
+													type === 'income' &&
+													'!bg-[color-mix(in_oklch,var(--success)_16%,var(--surface))] !text-[color:var(--success)]'
+											)}
+											aria-pressed={amountType === type}
+											onClick={() => setAmountType(type)}
+											disabled={submitting}
+										>
+											{type === 'spending' ? 'Spending' : 'Income'}
+										</button>
+									))}
+								</div>
 							</div>
 							<input
 								id="plannedAmountInput"
@@ -1127,53 +1247,42 @@ export default function PlannedSpendingPage() {
 								inputMode="decimal"
 								value={amount}
 								onChange={(e) => {
-									const parsed = parsePlannedAmountInput(
-										e.target.value,
-										amountType
-									);
+									const parsed = parsePlannedAmountInput(e.target.value, amountType);
 									setAmount(parsed.value);
 									setAmountType(parsed.type);
 								}}
 								onBlur={() => {
 									const magnitudeCents = dollarsToCents(amount);
 									if (magnitudeCents !== null) {
-										setAmount(
-											centsToDollars(Math.abs(magnitudeCents))
-										);
+										setAmount(centsToDollars(Math.abs(magnitudeCents)));
 									}
 								}}
-								className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
+								className={cn(inputDarkClass, 'h-8 w-full px-2.5 font-mono tabular-nums')}
 								placeholder="0.00"
 								disabled={submitting}
 								required
 							/>
 						</div>
 
-						<div>
-							<label
-								htmlFor="plannedDateInput"
-								className="mb-1.5 block text-sm font-medium text-paper-fg"
-							>
+						<label className="flex flex-col gap-1.5">
+							<span className="text-[11px] font-medium uppercase tracking-[0.04em] text-paper-muted">
 								Date
-							</label>
+							</span>
 							<input
 								id="plannedDateInput"
 								type="date"
 								value={plannedDate}
 								onChange={(e) => setPlannedDate(e.target.value)}
-								className={cn(dateInputClass, 'w-full px-3 py-2')}
+								className={cn(dateInputClass, 'h-8 w-full px-2.5')}
 								disabled={submitting}
 								required
 							/>
-						</div>
+						</label>
 
-						<div>
-							<label
-								htmlFor="plannedCategoryInput"
-								className="mb-1.5 block text-sm font-medium text-paper-fg"
-							>
+						<label className="flex flex-col gap-1.5">
+							<span className="text-[11px] font-medium uppercase tracking-[0.04em] text-paper-muted">
 								Category (optional)
-							</label>
+							</span>
 							<CategoryPicker
 								value={categoryId}
 								categories={categories}
@@ -1184,15 +1293,12 @@ export default function PlannedSpendingPage() {
 								disabled={submitting}
 								className="w-full"
 							/>
-						</div>
+						</label>
 
-						<div>
-							<label
-								htmlFor="plannedNotesInput"
-								className="mb-1.5 block text-sm font-medium text-paper-fg"
-							>
+						<label className="flex flex-col gap-1.5">
+							<span className="text-[11px] font-medium uppercase tracking-[0.04em] text-paper-muted">
 								Notes (optional)
-							</label>
+							</span>
 							<textarea
 								id="plannedNotesInput"
 								value={notes}
@@ -1200,171 +1306,238 @@ export default function PlannedSpendingPage() {
 								rows={3}
 								className={cn(
 									inputDarkClass,
-									'min-h-[4.5rem] w-full resize-y px-3 py-2'
+									'min-h-[70px] w-full resize-y px-2.5 py-2'
 								)}
 								placeholder="Any extra context"
 								disabled={submitting}
 							/>
-						</div>
+						</label>
 					</div>
-				</form>
-			</Modal>
 
-			<Modal
-				open={linkTarget !== null}
-				onClose={closeLinkModal}
-				closeDisabled={matchBusy}
-				title="Link transactions"
-				description={
-					linkTarget !== null
-						? `Select one or more bank transactions for “${linkTarget.name}”. Same spend/income sign, within ±30 days of ${formatPlannedDate(linkTarget.start_date)}.`
-						: undefined
-				}
-				size="xl"
-				fillViewport
-				footer={
-					<div className="flex justify-end gap-2">
+					<div className="flex justify-end gap-2 border-t border-paper-border px-[22px] py-3.5">
 						<button
 							type="button"
-							className={buttonOutlineClass}
-							onClick={closeLinkModal}
-							disabled={matchBusy}
+							className={plannedBtnClass}
+							onClick={closeModal}
+							disabled={submitting}
 						>
 							Cancel
 						</button>
-						<button
-							type="button"
-							className={buttonAccentClass}
-							onClick={() => void handleConfirmManualLink()}
-							disabled={matchBusy || selectedLinkTxnIds.length === 0}
-						>
-							{matchBusy ? (
-								<Loader2 className="inline-block h-4 w-4 animate-spin" />
-							) : selectedLinkTxnIds.length > 1 ? (
-								`Link ${selectedLinkTxnIds.length} transactions`
+						<button type="submit" className={plannedBtnPrimaryClass} disabled={submitting}>
+							{submitting ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : modalMode === 'add' ? (
+								'Add'
 							) : (
-								'Link selected'
+								'Save'
 							)}
 						</button>
 					</div>
-				}
+				</form>
+			</dialog>
+
+			<dialog
+				ref={linkDialogRef}
+				className={plannedDialogWideClass}
+				onCancel={(event) => {
+					event.preventDefault();
+					if (!matchBusy) {
+						closeLinkModal();
+					}
+				}}
+				onClose={resetLinkModal}
 			>
 				{linkTarget !== null ? (
-					<div className="flex min-h-0 flex-1 flex-col gap-4">
-						<SearchInput
-							value={linkSearch}
-							onChange={setLinkSearch}
-							placeholder="Search transaction description…"
-							className="w-full shrink-0"
-						/>
-						{linkCandidatesError !== null ? (
-							<InlineAlert variant="error" className="shrink-0">
-								{linkCandidatesError}
-							</InlineAlert>
-						) : null}
-						{linkCandidatesLoading ? (
-							<div className="flex flex-1 items-center justify-center text-paper-muted">
-								<Loader2 className="h-5 w-5 animate-spin" />
-							</div>
-						) : linkCandidates.length === 0 ? (
-							<div className="flex flex-1 items-center justify-center">
-								<p className="text-center text-sm text-paper-muted">
-									No transactions found nearby. Try a different search term.
+					<div className="flex h-full min-h-0 flex-col">
+						<div className="flex items-start justify-between gap-3 px-[22px] pt-[18px]">
+							<div className="min-w-0">
+								<span className={cn(eyebrowClass, 'mb-1 block')}>Link transactions</span>
+								<h2 className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-paper-fg">
+									Link transactions
+								</h2>
+								<p className="m-0 mt-1 text-[12.5px] text-paper-muted">
+									Select one or more bank transactions for &ldquo;{linkTarget.name}
+									&rdquo;. Same spend/income sign, within ±30 days of{' '}
+									{formatPlannedDate(linkTarget.start_date)}.
 								</p>
 							</div>
-						) : (
-							<div className="min-h-0 flex-1 overflow-auto rounded-lg border border-paper-border">
-								<table className="w-full min-w-[40rem] text-sm">
-									<thead className="sticky top-0 z-10 bg-paper-surface backdrop-blur-sm">
-										<tr className="border-b border-paper-border text-left text-xs uppercase tracking-wide text-paper-muted">
-											<th className="w-10 px-3 py-2.5 font-medium" />
-											<th className="whitespace-nowrap px-3 py-2.5 font-medium">
-												Date
-											</th>
-											<th className="min-w-[12rem] px-3 py-2.5 font-medium">
-												Description
-											</th>
-											<th className="whitespace-nowrap px-3 py-2.5 font-medium">
-												Account
-											</th>
-											<th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">
-												Amount
-											</th>
-										</tr>
-									</thead>
-									<tbody>
-										{linkCandidates.map((candidate) => {
-											const selected = selectedLinkTxnIds.includes(candidate.id);
-											return (
-												<tr
-													key={candidate.id}
-													className={cn(
-														'cursor-pointer border-t border-paper-border transition-colors',
-														selected
-															? 'bg-secondary-default/15'
-															: 'hover:bg-paper'
-													)}
-													onClick={() => toggleLinkSelection(candidate.id)}
-												>
-													<td
-														className="px-3 py-2.5 text-center align-middle"
-														onClick={(e) => e.stopPropagation()}
-													>
-														<input
-															type="checkbox"
-															checked={selected}
-															onChange={() =>
-																toggleLinkSelection(candidate.id)
-															}
-															className="form-checkbox h-4 w-4 rounded text-secondary-default"
-															aria-label={`Select transaction ${candidate.id}`}
-														/>
-													</td>
-													<td className="whitespace-nowrap px-3 py-2.5 align-middle text-paper-muted">
-														{formatPlannedDate(candidate.transaction_date)}
-													</td>
-													<td className="px-3 py-2.5 align-middle text-paper-fg">
-														{candidate.description}
-													</td>
-													<td className="whitespace-nowrap px-3 py-2.5 align-middle text-paper-muted">
-														{candidate.account_label}
-													</td>
-													<td
+							<button
+								type="button"
+								onClick={closeLinkModal}
+								disabled={matchBusy}
+								className="grid h-8 w-8 shrink-0 place-items-center rounded-paper border border-transparent bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:opacity-50"
+								aria-label="Close"
+							>
+								<X className="h-4 w-4" strokeWidth={2} />
+							</button>
+						</div>
+
+						<div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-hidden px-[22px] py-[18px]">
+							<input
+								type="search"
+								value={linkSearch}
+								onChange={(e) => setLinkSearch(e.target.value)}
+								placeholder="Search transaction description…"
+								aria-label="Search transactions"
+								className={cn(inputDarkClass, 'h-8 w-full shrink-0 px-2.5')}
+							/>
+							{linkCandidatesError !== null ? (
+								<InlineAlert variant="error" className="shrink-0">
+									{linkCandidatesError}
+								</InlineAlert>
+							) : null}
+							{linkCandidatesLoading ? (
+								<div className="flex flex-1 items-center justify-center text-paper-muted">
+									<Loader2 className="h-5 w-5 animate-spin" />
+								</div>
+							) : linkCandidates.length === 0 ? (
+								<div className="flex flex-1 items-center justify-center">
+									<p className="m-0 text-center text-sm text-paper-muted">
+										No transactions found nearby. Try a different search term.
+									</p>
+								</div>
+							) : (
+								<div className="min-h-0 flex-1 overflow-auto rounded-lg border border-paper-border">
+									<table className="w-full min-w-[40rem] border-collapse text-[13px]">
+										<thead>
+											<tr>
+												<th className={cn(tableThClass, 'w-10')} />
+												<th className={tableThClass}>Date</th>
+												<th className={cn(tableThClass, 'min-w-[12rem]')}>
+													Description
+												</th>
+												<th className={tableThClass}>Account</th>
+												<th className={cn(tableThClass, 'text-right')}>Amount</th>
+											</tr>
+										</thead>
+										<tbody>
+											{linkCandidates.map((candidate) => {
+												const selected = selectedLinkTxnIds.includes(candidate.id);
+												return (
+													<tr
+														key={candidate.id}
 														className={cn(
-															'whitespace-nowrap px-3 py-2.5 text-right align-middle font-mono tabular-nums',
-															candidate.amount >= 0
-																? 'text-green-400'
-																: 'text-red-400'
+															'cursor-pointer transition-colors',
+															selected
+																? 'bg-[color-mix(in_oklch,var(--accent)_10%,var(--surface))]'
+																: 'hover:bg-[color-mix(in_oklch,var(--fg)_2%,var(--surface))]'
 														)}
+														onClick={() => toggleLinkSelection(candidate.id)}
 													>
-														{formatMoney(candidate.amount)}
-													</td>
-												</tr>
-											);
-										})}
-									</tbody>
-								</table>
-							</div>
-						)}
+														<td
+															className={tableTdClass}
+															onClick={(e) => e.stopPropagation()}
+														>
+															<input
+																type="checkbox"
+																checked={selected}
+																onChange={() => toggleLinkSelection(candidate.id)}
+																className="h-4 w-4 cursor-pointer accent-paper-fg"
+																aria-label={`Select transaction ${candidate.id}`}
+															/>
+														</td>
+														<td
+															className={cn(
+																tableTdClass,
+																'whitespace-nowrap text-paper-muted'
+															)}
+														>
+															{formatPlannedDate(candidate.transaction_date)}
+														</td>
+														<td className={tableTdClass}>{candidate.description}</td>
+														<td
+															className={cn(
+																tableTdClass,
+																'whitespace-nowrap text-paper-muted'
+															)}
+														>
+															{candidate.account_label}
+														</td>
+														<td
+															className={cn(
+																tableTdClass,
+																'text-right font-mono tabular-nums',
+																moneyClassForSignedCents(candidate.amount)
+															)}
+														>
+															{formatSignedMoneyFromCents(candidate.amount)}
+														</td>
+													</tr>
+												);
+											})}
+										</tbody>
+									</table>
+								</div>
+							)}
+						</div>
+
+						<div className="flex justify-end gap-2 border-t border-paper-border px-[22px] py-3.5">
+							<button
+								type="button"
+								className={plannedBtnClass}
+								onClick={closeLinkModal}
+								disabled={matchBusy}
+							>
+								Cancel
+							</button>
+							<button
+								type="button"
+								className={plannedBtnPrimaryClass}
+								onClick={() => void handleConfirmManualLink()}
+								disabled={matchBusy || selectedLinkTxnIds.length === 0}
+							>
+								{matchBusy ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : selectedLinkTxnIds.length > 1 ? (
+									`Link ${selectedLinkTxnIds.length} transactions`
+								) : (
+									'Link selected'
+								)}
+							</button>
+						</div>
 					</div>
 				) : null}
-			</Modal>
+			</dialog>
 
-			<Modal
-				open={deleteTarget !== null}
+			<dialog
+				ref={deleteDialogRef}
+				className={plannedDialogClass}
+				onCancel={(event) => {
+					event.preventDefault();
+					if (!submitting) {
+						closeDeleteModal();
+					}
+				}}
 				onClose={closeDeleteModal}
-				closeDisabled={submitting}
-				title="Delete planned item"
-				description={
-					deleteTarget !== null
-						? `Remove “${deleteTarget.name}” from planned spending?`
-						: undefined
-				}
-				footer={
-					<div className="flex justify-end gap-2">
+			>
+				<div className="flex min-h-0 flex-col">
+					<div className="flex items-start justify-between gap-3 px-[22px] pt-[18px]">
+						<div className="min-w-0">
+							<span className={cn(eyebrowClass, 'mb-1 block')}>Planned spending</span>
+							<h2 className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-paper-fg">
+								Delete planned item
+							</h2>
+							{deleteTarget !== null ? (
+								<p className="m-0 mt-1 text-[12.5px] text-paper-muted">
+									Remove &ldquo;{deleteTarget.name}&rdquo; from planned spending?
+								</p>
+							) : null}
+						</div>
 						<button
 							type="button"
-							className={buttonOutlineClass}
+							onClick={closeDeleteModal}
+							disabled={submitting}
+							className="grid h-8 w-8 shrink-0 place-items-center rounded-paper border border-transparent bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:opacity-50"
+							aria-label="Close"
+						>
+							<X className="h-4 w-4" strokeWidth={2} />
+						</button>
+					</div>
+
+					<div className="flex justify-end gap-2 border-t border-paper-border px-[22px] py-3.5">
+						<button
+							type="button"
+							className={plannedBtnClass}
 							onClick={closeDeleteModal}
 							disabled={submitting}
 						>
@@ -1372,19 +1545,19 @@ export default function PlannedSpendingPage() {
 						</button>
 						<button
 							type="button"
-							className={buttonDangerClass}
+							className={plannedBtnDangerSmClass}
 							onClick={() => void onConfirmDelete()}
 							disabled={submitting}
 						>
 							{submitting ? (
-								<Loader2 className="inline-block h-4 w-4 animate-spin" />
+								<Loader2 className="h-4 w-4 animate-spin" />
 							) : (
 								'Delete'
 							)}
 						</button>
 					</div>
-				}
-			/>
+				</div>
+			</dialog>
 		</PageShell>
 	);
 }

@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Planned spending</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/planned.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Planned spending</h1>
+        <p class="page-sub" data-od-id="page-sub">Upcoming expenses you expect but haven't recorded yet. Items are global — the account filter does not apply here.</p>
+      </div>
+      <div class="page-actions" data-od-id="page-actions">
+        <button type="button" class="btn btn-primary" id="btn-add-planned" data-od-id="btn-add-planned">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Add planned item
+        </button>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="filters-row" data-od-id="planned-filters">
+        <label class="sr" for="pl-account">Account</label>
+        <select class="select" id="pl-account" data-od-id="filter-account" aria-label="Account filter — context only, does not filter planned items" title="Shown for context — planned items are global and are not filtered by account.">
+          <option value="all" selected>All accounts</option>
+          <option value="pc-9120">People's Choice 9120</option>
+          <option value="pc-savings">People's Choice Savings</option>
+          <option value="cba-offset">CBA Offset 4412</option>
+        </select>
+        <span class="context-note" data-od-id="account-context-note">context only</span>
+
+        <div class="segmented" role="group" aria-label="Date range mode" id="range-mode" data-od-id="filter-range-mode">
+          <button type="button" data-value="preset" class="is-on" aria-pressed="true">Presets</button>
+          <button type="button" data-value="custom" aria-pressed="false">Custom</button>
+        </div>
+
+        <div class="segmented" role="group" aria-label="Planned spending period" id="period" data-od-id="filter-period">
+          <button type="button" data-value="all" class="is-on" aria-pressed="true">All</button>
+          <button type="button" data-value="future" aria-pressed="false">Future</button>
+          <button type="button" data-value="this-year" aria-pressed="false">This year</button>
+          <button type="button" data-value="next-year" aria-pressed="false">Next year</button>
+          <button type="button" data-value="year-after-next" aria-pressed="false">+1 year</button>
+        </div>
+
+        <div class="custom-dates" id="custom-dates" data-od-id="filter-custom-dates">
+          <label class="sr" for="date-from">From</label>
+          <input class="input date" type="date" id="date-from" data-od-id="date-from" aria-label="From date" />
+          <span class="date-sep">to</span>
+          <label class="sr" for="date-to">To</label>
+          <input class="input date" type="date" id="date-to" data-od-id="date-to" aria-label="To date" />
+          <button type="button" class="btn btn-ghost" id="date-reset" data-od-id="date-reset">Reset</button>
+        </div>
+
+        <div class="planned-total" id="planned-total" data-od-id="kpi-planned-total">
+          <span class="pt-label">Planned total</span>
+          <strong class="pt-value money" id="pt-value">$0.00</strong>
+          <span class="pt-hint" id="pt-hint">Items dated in this period.</span>
+        </div>
+      </div>
+
+      <div class="alert" id="range-invalid" data-od-id="range-invalid-alert" hidden>
+        <span>Choose a valid date range (from on or before to).</span>
+      </div>
+
+      <input class="input search-input" type="search" id="pl-search" placeholder="Search name, notes, category…" aria-label="Search planned items" data-od-id="search-input" hidden />
+
+      <div class="match-callout" id="match-callout" data-od-id="match-callout" hidden>
+        <div class="match-callout-head">
+          <div class="match-callout-heading">
+            <span class="match-badge" id="match-badge" data-od-id="match-badge">0</span>
+            <span class="match-callout-title" id="match-callout-title" data-od-id="match-callout-title"></span>
+          </div>
+          <p class="match-callout-sub">Review each pair and link manually — nothing is applied until you confirm.</p>
+        </div>
+        <div class="match-list" id="match-list" data-od-id="match-list"></div>
+      </div>
+
+      <div class="empty-state" id="empty-state" data-od-id="empty-state" hidden>
+        <div class="empty-state-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
+        </div>
+        <h3>No planned spending</h3>
+        <p>Add upcoming expenses to track what you expect to spend in this period.</p>
+        <div class="empty-state-action">
+          <button type="button" class="btn btn-primary" id="btn-add-planned-empty" data-od-id="btn-add-planned-empty">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Add planned item
+          </button>
+        </div>
+      </div>
+
+      <div class="empty-state" id="search-empty-state" data-od-id="search-empty-state" hidden>
+        <div class="empty-state-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </div>
+        <h3>No planned items match your search</h3>
+        <p>Try clearing the search or using a different term.</p>
+      </div>
+
+      <section class="panel planned-panel" id="planned-panel" data-od-id="planned-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Planned items</h2>
+            <p class="panel-hint" id="panel-hint" data-od-id="panel-hint">0 items</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data" data-od-id="planned-table">
+            <thead>
+              <tr id="planned-head">
+                <th class="col-name" scope="col" data-sort="name" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-name">Name<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-amt is-numeric" scope="col" data-sort="amount" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-amount">Amount<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-date" scope="col" data-sort="date" aria-sort="ascending">
+                  <button type="button" class="th-sort" data-od-id="sort-date">Date<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-cat" scope="col" data-sort="category" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-category">Category<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-notes" scope="col">Notes</th>
+                <th class="col-actions" scope="col"><span class="sr">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="planned-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Add / edit planned item -->
+  <dialog class="modal-dialog" id="item-dialog" data-od-id="item-dialog" aria-labelledby="item-dialog-title">
+    <form method="dialog" class="modal-shell" id="item-form" data-od-id="item-form">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Planned spending</span>
+          <h2 id="item-dialog-title">Add planned item</h2>
+          <p>When you expect this spend to occur.</p>
+        </div>
+        <button class="dialog-close" type="button" id="item-close" aria-label="Close" data-od-id="item-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="form-error" id="item-error" data-od-id="item-error" hidden></p>
+
+        <label class="modal-field">
+          <span>Name</span>
+          <input class="input" type="text" id="item-name" placeholder="e.g. Holiday, Car service" required data-od-id="item-name" />
+        </label>
+
+        <div class="modal-field">
+          <div class="field-row">
+            <span>Amount ($)</span>
+            <div class="segmented amount-type" role="group" aria-label="Planned amount type" id="item-amount-type" data-od-id="item-amount-type">
+              <button type="button" data-value="spending" class="is-on" aria-pressed="true">Spending</button>
+              <button type="button" data-value="income" aria-pressed="false">Income</button>
+            </div>
+          </div>
+          <input class="input mono" type="number" min="0" step="0.01" id="item-amount" placeholder="0.00" required data-od-id="item-amount" />
+        </div>
+
+        <label class="modal-field">
+          <span>Date</span>
+          <input class="input date" type="date" id="item-date" required data-od-id="item-date" />
+        </label>
+
+        <label class="modal-field">
+          <span>Category (optional)</span>
+          <select class="select" id="item-category" data-od-id="item-category"></select>
+        </label>
+
+        <label class="modal-field">
+          <span>Notes (optional)</span>
+          <textarea id="item-notes" placeholder="Any extra context" data-od-id="item-notes"></textarea>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="item-cancel" data-od-id="item-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="item-save" data-od-id="item-save">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Link transactions -->
+  <dialog class="modal-dialog is-wide" id="link-dialog" data-od-id="link-dialog" aria-labelledby="link-dialog-title">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Link transactions</span>
+          <h2 id="link-dialog-title">Link transactions</h2>
+          <p id="link-dialog-desc"></p>
+        </div>
+        <button class="dialog-close" type="button" id="link-close" aria-label="Close" data-od-id="link-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body link-modal-body">
+        <label class="sr" for="link-search">Search transaction description</label>
+        <input class="input search-input" type="search" id="link-search" placeholder="Search transaction description…" data-od-id="link-search" />
+        <div class="link-candidates-wrap" data-od-id="link-candidates-wrap">
+          <table class="data" id="link-table" hidden>
+            <thead>
+              <tr>
+                <th class="col-check" scope="col"><span class="sr">Select</span></th>
+                <th class="col-date" scope="col">Date</th>
+                <th scope="col">Description</th>
+                <th scope="col">Account</th>
+                <th class="is-numeric" scope="col">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="link-body"></tbody>
+          </table>
+          <div class="link-empty" id="link-empty" data-od-id="link-empty">No transactions found nearby. Try a different search term.</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="link-cancel" data-od-id="link-cancel">Cancel</button>
+        <button type="button" class="btn btn-accent" id="link-confirm" data-od-id="link-confirm" disabled>Link selected</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Delete confirm -->
+  <dialog class="modal-dialog" id="delete-dialog" data-od-id="delete-dialog" aria-labelledby="delete-dialog-title">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Planned spending</span>
+          <h2 id="delete-dialog-title">Delete planned item</h2>
+          <p id="delete-dialog-desc"></p>
+        </div>
+        <button class="dialog-close" type="button" id="delete-close" aria-label="Close" data-od-id="delete-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="delete-cancel" data-od-id="delete-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="delete-confirm" data-od-id="delete-confirm">Delete</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" data-od-id="toast">
+    <span class="toast-icon" aria-hidden="true">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg>
+    </span>
+    <span id="toast-text"></span>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('planned');
+
+    const TODAY_ISO = '2026-08-08';
+
+    const LINK_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+    const EDIT_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+    const DELETE_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+    const CHECK_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+    const CATS = {
+      travel:       { name: 'Travel',                color: '#4a7d8b' },
+      transport:    { name: 'Transport',              color: '#4a6fa5' },
+      insurance:    { name: 'Insurance',               color: '#8b6b4a' },
+      salary:       { name: 'Salary',                 color: '#2f7d5a' },
+      gifts:        { name: 'Gifts & family',         color: '#a5527a' },
+      health:       { name: 'Health',                 color: '#3d8b6e' },
+      professional: { name: 'Professional services',  color: '#6b7a8b' },
+    };
+
+    /* Bank transactions available to link — not yet attached to any planned item */
+    let CANDIDATES = [
+      { id: 901, description: 'TOYOTA SERVICE CENTRE MARION', amount: -612.40, date: '2026-09-10', account: "People's Choice 9120" },
+      { id: 902, description: 'H&R BLOCK TAX AGENTS',          amount: -350.00, date: '2026-08-18', account: "People's Choice 9120" },
+      { id: 903, description: 'BALI FLIGHT CENTRE DEPOSIT',    amount: -450.00, date: '2026-08-02', account: "People's Choice 9120" },
+      { id: 904, description: 'NRMA INSURANCE BPAY',           amount: -580.00, date: '2026-09-28', account: "People's Choice 9120" },
+      { id: 905, description: 'KMART CHRISTMAS LAYBY',         amount: -120.00, date: '2026-11-20', account: "People's Choice Savings" },
+      { id: 906, description: 'RACV REGO RENEWAL',             amount: -890.00, date: '2026-11-04', account: 'CBA Offset 4412' },
+      { id: 907, description: 'ACME PTY LTD PAY ADJUSTMENT',   amount: 1850.00, date: '2026-08-03', account: "People's Choice 9120" },
+      { id: 908, description: 'WOOLWORTHS CHRISTMAS CATERING', amount: -85.40,  date: '2026-12-18', account: "People's Choice 9120" },
+    ];
+
+    /* Planned spending items — global, no account scoping */
+    let ITEMS = [
+      { id: 'p1', name: 'Bali family holiday', amount: -3200.00, date: '2026-12-10', categoryId: 'travel', notes: 'Flights + resort deposit paid — remainder due before departure', linked: [] },
+      { id: 'p2', name: 'Car service — Toyota Camry 60k', amount: -650.00, date: '2026-09-12', categoryId: 'transport', notes: 'Toyota dealership scheduled service', linked: [] },
+      { id: 'p3', name: 'Home & contents insurance renewal', amount: -1180.00, date: '2026-10-01', categoryId: 'insurance', notes: 'NRMA renewal — paying in full for the discount', linked: [
+        { id: 801, description: 'NRMA INSURANCE BPAY', amount: -600.00, date: '2026-08-05', account: "People's Choice 9120" },
+      ] },
+      { id: 'p4', name: 'EOFY salary adjustment', amount: 1850.00, date: '2026-08-01', categoryId: 'salary', notes: 'Annual increment lands with August pay', linked: [] },
+      { id: 'p5', name: 'Christmas gifts', amount: -600.00, date: '2026-12-15', categoryId: 'gifts', notes: null, linked: [] },
+      { id: 'p6', name: 'Dental crown — Dr Whitfield', amount: -420.00, date: '2026-07-18', categoryId: 'health', notes: 'Crown replacement, private health rebate already applied', linked: [
+        { id: 802, description: 'DR WHITFIELD DENTAL', amount: -420.00, date: '2026-07-20', account: "People's Choice 9120" },
+      ] },
+      { id: 'p7', name: 'Tax return — accountant fee', amount: -350.00, date: '2026-08-20', categoryId: 'professional', notes: 'H&R Block preparation fee', linked: [] },
+      { id: 'p8', name: 'Car registration renewal', amount: -890.00, date: '2026-11-05', categoryId: 'transport', notes: null, linked: [] },
+    ];
+    let nextItemSeq = 9;
+
+    /* Match suggestions — auto-detected pairings awaiting manual confirmation */
+    let MATCH_SUGGESTIONS = [
+      { id: 'sg1', plannedId: 'p2', txnId: 901, dateVarianceDays: 2, amountVarianceDollars: 37.60, reasons: ['amount_within_tolerance', 'date_within_tolerance', 'category_match'] },
+      { id: 'sg2', plannedId: 'p7', txnId: 902, dateVarianceDays: 2, amountVarianceDollars: 0, reasons: ['exact_amount', 'date_within_tolerance', 'category_match'] },
+    ];
+
+    let rangeMode = 'preset';
+    let period = 'all';
+    let customRange = { start: TODAY_ISO, end: '2026-12-31' };
+    let searchQuery = '';
+    let sortKey = 'date';
+    let sortDir = 'asc';
+
+    let modalMode = 'add';
+    let editingId = null;
+    let amountType = 'spending';
+
+    let linkTargetId = null;
+    let linkSearchQuery = '';
+    const selectedLinkIds = new Set();
+
+    let deleteTargetId = null;
+    let toastTimer = null;
+
+    function findItem(id) { return ITEMS.find((i) => i.id === id) || null; }
+
+    function catPill(categoryId) {
+      const cat = CATS[categoryId];
+      if (!cat) return '<span class="dim">—</span>';
+      return `<span class="cat-pill"><span class="cat-dot" style="background:${cat.color}"></span>${cat.name}</span>`;
+    }
+
+    function catLabel(categoryId) {
+      const cat = CATS[categoryId];
+      return cat ? cat.name : '';
+    }
+
+    function linkedTotal(item) {
+      return item.linked.reduce((sum, t) => sum + t.amount, 0);
+    }
+
+    function computeRange() {
+      if (rangeMode === 'custom') {
+        return { start: customRange.start, end: customRange.end, showAllItems: false, showFutureOnly: false };
+      }
+      if (period === 'all') return { start: '', end: '', showAllItems: true, showFutureOnly: false };
+      if (period === 'future') return { start: TODAY_ISO, end: '', showAllItems: false, showFutureOnly: true };
+      const offset = period === 'this-year' ? 0 : period === 'next-year' ? 1 : 2;
+      const year = Number(TODAY_ISO.slice(0, 4)) + offset;
+      return { start: `${year}-01-01`, end: `${year}-12-31`, showAllItems: false, showFutureOnly: false };
+    }
+
+    function isRangeInvalid(range) {
+      if (range.showAllItems) return false;
+      if (range.start.length < 10) return true;
+      if (range.showFutureOnly) return false;
+      return range.end.length < 10 || range.start > range.end;
+    }
+
+    function inRange(dateIso, range) {
+      if (range.showAllItems) return true;
+      if (range.showFutureOnly) return dateIso >= range.start;
+      return dateIso >= range.start && dateIso <= range.end;
+    }
+
+    function matchesSearch(item, query) {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      if (item.name.toLowerCase().includes(q)) return true;
+      if (item.notes && item.notes.toLowerCase().includes(q)) return true;
+      const catName = catLabel(item.categoryId);
+      if (catName && catName.toLowerCase().includes(q)) return true;
+      return false;
+    }
+
+    function sortValue(item, key) {
+      if (key === 'name') return item.name.toLowerCase();
+      if (key === 'amount') return item.amount;
+      if (key === 'date') return item.date;
+      if (key === 'category') return catLabel(item.categoryId).toLowerCase();
+      return 0;
+    }
+
+    function compareValues(a, b, dir) {
+      if (typeof a === 'string' && typeof b === 'string') {
+        return a.localeCompare(b) * dir;
+      }
+      if (a === b) return 0;
+      return (a < b ? -1 : 1) * dir;
+    }
+
+    function sortItems(items) {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      return [...items].sort((a, b) => {
+        const cmp = compareValues(sortValue(a, sortKey), sortValue(b, sortKey), dir);
+        if (cmp !== 0) return cmp;
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    function paintSortHeaders() {
+      document.querySelectorAll('#planned-head [data-sort]').forEach((th) => {
+        const key = th.getAttribute('data-sort');
+        th.setAttribute('aria-sort', key === sortKey ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+      });
+    }
+
+    function scopeHint(range, searchActive, dateCount, searchCount) {
+      if (searchActive) return `${searchCount} of ${dateCount} item${dateCount === 1 ? '' : 's'} match search.`;
+      if (range.showAllItems) return 'All planned items.';
+      if (range.showFutureOnly) return 'Items dated today or later.';
+      return 'Items dated in this period.';
+    }
+
+    function matchReasonLabel(reason) {
+      switch (reason) {
+        case 'exact_amount': return 'Same amount';
+        case 'amount_within_tolerance': return 'Close amount';
+        case 'exact_date': return 'Same date';
+        case 'date_within_tolerance': return 'Close date';
+        case 'category_match': return 'Category matches';
+        case 'description_match': return 'Description matches';
+        case 'partial_payment': return 'Partial payment';
+        default: return reason.replace(/_/g, ' ');
+      }
+    }
+
+    function formatVarianceLabel(sg) {
+      const parts = [];
+      if (sg.amountVarianceDollars > 0) parts.push(`${FUNDS.money(sg.amountVarianceDollars)} off amount`);
+      if (sg.dateVarianceDays > 0) parts.push(`${sg.dateVarianceDays} day${sg.dateVarianceDays === 1 ? '' : 's'} off date`);
+      return parts.length > 0 ? parts.join(' · ') : 'Exact amount and date';
+    }
+
+    function defaultLinkSearch(item) {
+      if (item.notes) {
+        const seg = item.notes.split(/[\s—–-]+/)[0].trim();
+        if (seg.length >= 3) return seg;
+      }
+      const words = item.name.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9]/g, '')).filter((w) => w.length >= 4);
+      return words[0] || '';
+    }
+
+    function defaultCustomRange() {
+      const year = Number(TODAY_ISO.slice(0, 4));
+      return { start: TODAY_ISO, end: `${year}-12-31` };
+    }
+
+    function showToast(text) {
+      const el = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = text;
+      el.classList.add('is-visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2600);
+    }
+
+    /* ── Rendering ── */
+
+    function renderFiltersChrome() {
+      document.getElementById('period').hidden = rangeMode === 'custom';
+      document.getElementById('custom-dates').classList.toggle('is-on', rangeMode === 'custom');
+      document.getElementById('date-from').value = customRange.start;
+      document.getElementById('date-to').value = customRange.end;
+    }
+
+    function renderKpi(range, invalid, dateItems, searchItems, searchActive) {
+      const card = document.getElementById('planned-total');
+      card.hidden = invalid;
+      if (invalid) return;
+      const total = (searchActive ? searchItems : dateItems).reduce((sum, i) => sum + i.amount, 0);
+      const valueEl = document.getElementById('pt-value');
+      valueEl.textContent = FUNDS.money(total);
+      valueEl.classList.toggle('pos', total >= 0);
+      valueEl.classList.toggle('neg', total < 0);
+      document.getElementById('pt-hint').textContent = scopeHint(range, searchActive, dateItems.length, searchItems.length);
+    }
+
+    function renderMatchCallout() {
+      const callout = document.getElementById('match-callout');
+      if (MATCH_SUGGESTIONS.length === 0) {
+        callout.hidden = true;
+        return;
+      }
+      callout.hidden = false;
+      document.getElementById('match-badge').textContent = String(MATCH_SUGGESTIONS.length);
+      document.getElementById('match-callout-title').textContent =
+        `${MATCH_SUGGESTIONS.length} planned item${MATCH_SUGGESTIONS.length === 1 ? '' : 's'} may match imported transactions`;
+
+      document.getElementById('match-list').innerHTML = MATCH_SUGGESTIONS.map((sg) => {
+        const planned = findItem(sg.plannedId);
+        const txn = CANDIDATES.find((c) => c.id === sg.txnId);
+        if (!planned || !txn) return '';
+        const plannedCat = catLabel(planned.categoryId);
+        return `<div class="match-pair" data-od-id="match-pair-${sg.id}">
+          <div class="match-pair-grid">
+            <div class="match-side">
+              <span class="match-side-label">Planned</span>
+              <p class="match-side-name" title="${planned.name}">${planned.name}</p>
+              <p class="match-side-meta">${FUNDS.money(planned.amount)} · ${FUNDS.formatDate(planned.date)}${plannedCat ? ' · ' + plannedCat : ''}</p>
+              ${planned.notes ? `<p class="match-side-notes" title="${planned.notes}">${planned.notes}</p>` : ''}
+            </div>
+            <span class="match-link-icon" aria-hidden="true">${LINK_ICON}</span>
+            <div class="match-side">
+              <span class="match-side-label">Bank transaction</span>
+              <p class="match-side-name" title="${txn.description}">${txn.description}</p>
+              <p class="match-side-meta">${FUNDS.money(txn.amount)} · ${FUNDS.formatDate(txn.date)} · ${txn.account}</p>
+            </div>
+          </div>
+          <div class="match-footer">
+            <div class="match-chips">
+              <span class="match-chip">${formatVarianceLabel(sg)}</span>
+              ${sg.reasons.slice(0, 3).map((r) => `<span class="match-chip">${matchReasonLabel(r)}</span>`).join('')}
+            </div>
+            <div class="match-actions">
+              <button type="button" class="btn btn-sm btn-accent" data-add-link="${sg.id}" data-od-id="match-add-link-${sg.id}">Add payment link</button>
+              <button type="button" class="btn btn-sm" data-dismiss="${sg.id}" data-od-id="match-dismiss-${sg.id}">Not a match</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderRow(item, index) {
+      const total = linkedTotal(item);
+      const hasLinks = item.linked.length > 0;
+      const hasSuggestion = MATCH_SUGGESTIONS.some((sg) => sg.plannedId === item.id);
+      const sign = item.amount < 0 ? 'neg' : 'pos';
+
+      const nameCell = `<div class="name-cell">
+          <span class="name-text">${item.name}</span>
+          ${hasSuggestion ? '<span class="pill warn sm">Match found</span>' : ''}
+        </div>
+        ${hasLinks ? `<p class="linked-progress">${FUNDS.money(total)} of ${FUNDS.money(item.amount)} linked (${item.linked.length} payment${item.linked.length === 1 ? '' : 's'})</p>` : ''}`;
+
+      const actions = [];
+      if (hasLinks) actions.push(`<button type="button" class="btn btn-sm btn-accent" data-complete="${item.id}" data-od-id="complete-item-${index}">${CHECK_ICON}Mark complete</button>`);
+      actions.push(`<button type="button" class="btn btn-sm" data-link="${item.id}" data-od-id="link-item-${index}">${LINK_ICON}${hasLinks ? 'Add link' : 'Link'}</button>`);
+      actions.push(`<button type="button" class="btn btn-sm" data-edit="${item.id}" data-od-id="edit-item-${index}">${EDIT_ICON}Edit</button>`);
+      actions.push(`<button type="button" class="btn btn-sm btn-danger" data-delete="${item.id}" data-od-id="delete-item-${index}">${DELETE_ICON}Delete</button>`);
+
+      return `<tr data-od-id="planned-row-${index}" data-item-id="${item.id}">
+        <td class="col-name">${nameCell}</td>
+        <td class="amount money col-amt ${sign}">${FUNDS.money(item.amount)}</td>
+        <td class="col-date mono">${FUNDS.formatDate(item.date)}</td>
+        <td class="col-cat">${catPill(item.categoryId)}</td>
+        <td class="col-notes"><span class="notes-cell" title="${item.notes || ''}">${item.notes || '<span class="dim">—</span>'}</span></td>
+        <td class="col-actions"><div class="actions-cell">${actions.join('')}</div></td>
+      </tr>`;
+    }
+
+    function render() {
+      const range = computeRange();
+      const invalid = isRangeInvalid(range);
+
+      renderFiltersChrome();
+      document.getElementById('range-invalid').hidden = !invalid;
+
+      const dateItems = invalid ? [] : ITEMS.filter((i) => inRange(i.date, range));
+      const searchActive = searchQuery.trim().length > 0;
+      const searchItems = invalid ? [] : dateItems.filter((i) => matchesSearch(i, searchQuery));
+
+      renderKpi(range, invalid, dateItems, searchItems, searchActive);
+      renderMatchCallout();
+
+      document.getElementById('pl-search').hidden = invalid || dateItems.length === 0;
+
+      const showEmpty = !invalid && dateItems.length === 0;
+      const showSearchEmpty = !invalid && dateItems.length > 0 && searchItems.length === 0 && searchActive;
+      const showTable = !invalid && searchItems.length > 0;
+
+      document.getElementById('empty-state').hidden = !showEmpty;
+      document.getElementById('search-empty-state').hidden = !showSearchEmpty;
+      document.getElementById('planned-panel').hidden = !showTable;
+
+      paintSortHeaders();
+      if (showTable) {
+        document.getElementById('planned-body').innerHTML = sortItems(searchItems).map((item, i) => renderRow(item, i)).join('');
+      }
+      document.getElementById('panel-hint').textContent =
+        `${searchItems.length} item${searchItems.length === 1 ? '' : 's'} · ${scopeHint(range, searchActive, dateItems.length, searchItems.length)}`;
+    }
+
+    /* ── Match suggestion actions ── */
+
+    function addPaymentLink(sgId) {
+      const sg = MATCH_SUGGESTIONS.find((s) => s.id === sgId);
+      if (!sg) return;
+      const item = findItem(sg.plannedId);
+      const txn = CANDIDATES.find((c) => c.id === sg.txnId);
+      if (!item || !txn) return;
+      item.linked.push(txn);
+      CANDIDATES = CANDIDATES.filter((c) => c.id !== sg.txnId);
+      MATCH_SUGGESTIONS = MATCH_SUGGESTIONS.filter((s) => s.id !== sgId);
+      showToast(`Linked "${txn.description}" to "${item.name}"`);
+      render();
+    }
+
+    function dismissMatch(sgId) {
+      MATCH_SUGGESTIONS = MATCH_SUGGESTIONS.filter((s) => s.id !== sgId);
+      render();
+    }
+
+    function markComplete(itemId) {
+      const item = findItem(itemId);
+      if (!item) return;
+      ITEMS = ITEMS.filter((i) => i.id !== itemId);
+      showToast(`Marked "${item.name}" complete`);
+      render();
+    }
+
+    /* ── Add / edit modal ── */
+
+    function populateCategorySelect() {
+      const select = document.getElementById('item-category');
+      select.innerHTML = '<option value="">None</option>' +
+        Object.entries(CATS).map(([id, cat]) => `<option value="${id}">${cat.name}</option>`).join('');
+    }
+
+    function setSegmentedValue(rootId, value) {
+      const root = document.getElementById(rootId);
+      root.querySelectorAll('button').forEach((b) => {
+        const on = b.dataset.value === value;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    function openAddModal() {
+      modalMode = 'add';
+      editingId = null;
+      amountType = 'spending';
+      document.getElementById('item-dialog-title').textContent = 'Add planned item';
+      document.getElementById('item-save').textContent = 'Add';
+      document.getElementById('item-name').value = '';
+      document.getElementById('item-amount').value = '';
+      document.getElementById('item-date').value = TODAY_ISO;
+      document.getElementById('item-category').value = '';
+      document.getElementById('item-notes').value = '';
+      document.getElementById('item-error').hidden = true;
+      setSegmentedValue('item-amount-type', 'spending');
+      document.getElementById('item-dialog').showModal();
+    }
+
+    function openEditModal(itemId) {
+      const item = findItem(itemId);
+      if (!item) return;
+      modalMode = 'edit';
+      editingId = itemId;
+      amountType = item.amount < 0 ? 'spending' : 'income';
+      document.getElementById('item-dialog-title').textContent = 'Edit planned item';
+      document.getElementById('item-save').textContent = 'Save';
+      document.getElementById('item-name').value = item.name;
+      document.getElementById('item-amount').value = Math.abs(item.amount).toFixed(2);
+      document.getElementById('item-date').value = item.date;
+      document.getElementById('item-category').value = item.categoryId || '';
+      document.getElementById('item-notes').value = item.notes || '';
+      document.getElementById('item-error').hidden = true;
+      setSegmentedValue('item-amount-type', amountType);
+      document.getElementById('item-dialog').showModal();
+    }
+
+    function closeItemModal() {
+      document.getElementById('item-dialog').close();
+    }
+
+    function submitItem(e) {
+      e.preventDefault();
+      const name = document.getElementById('item-name').value.trim();
+      const amountRaw = Number(document.getElementById('item-amount').value);
+      const date = document.getElementById('item-date').value;
+      const categoryId = document.getElementById('item-category').value || null;
+      const notes = document.getElementById('item-notes').value.trim() || null;
+      const errorEl = document.getElementById('item-error');
+
+      if (!name) { errorEl.textContent = 'Name is required'; errorEl.hidden = false; return; }
+      if (!Number.isFinite(amountRaw) || amountRaw <= 0) { errorEl.textContent = 'Enter a non-zero amount'; errorEl.hidden = false; return; }
+      if (!date) { errorEl.textContent = 'Date is required'; errorEl.hidden = false; return; }
+
+      const amount = amountType === 'spending' ? -Math.abs(amountRaw) : Math.abs(amountRaw);
+
+      if (modalMode === 'add') {
+        ITEMS.push({ id: `p${nextItemSeq++}`, name, amount, date, categoryId, notes, linked: [] });
+        showToast(`Added "${name}"`);
+      } else if (editingId) {
+        const item = findItem(editingId);
+        if (item) {
+          item.name = name;
+          item.amount = amount;
+          item.date = date;
+          item.categoryId = categoryId;
+          item.notes = notes;
+          showToast(`Saved "${name}"`);
+        }
+      }
+
+      closeItemModal();
+      render();
+    }
+
+    /* ── Link modal ── */
+
+    function openLinkModal(itemId) {
+      const item = findItem(itemId);
+      if (!item) return;
+      linkTargetId = itemId;
+      linkSearchQuery = defaultLinkSearch(item);
+      selectedLinkIds.clear();
+      document.getElementById('link-search').value = linkSearchQuery;
+      document.getElementById('link-dialog-title').textContent = 'Link transactions';
+      document.getElementById('link-dialog-desc').textContent =
+        `Select one or more bank transactions for "${item.name}". Same spend/income sign, within ±30 days of ${FUNDS.formatDate(item.date)}.`;
+      renderLinkCandidates();
+      document.getElementById('link-dialog').showModal();
+    }
+
+    function closeLinkModal() {
+      document.getElementById('link-dialog').close();
+      linkTargetId = null;
+      selectedLinkIds.clear();
+    }
+
+    function linkCandidatePool() {
+      const item = findItem(linkTargetId);
+      if (!item) return [];
+      const sameSign = item.amount < 0 ? (n) => n < 0 : (n) => n >= 0;
+      const targetTs = Date.parse(item.date);
+      const q = linkSearchQuery.trim().toLowerCase();
+      return CANDIDATES.filter((c) => {
+        if (!sameSign(c.amount)) return false;
+        const diffDays = Math.abs(Date.parse(c.date) - targetTs) / 86400000;
+        if (diffDays > 30) return false;
+        if (q && !c.description.toLowerCase().includes(q)) return false;
+        return true;
+      });
+    }
+
+    function renderLinkCandidates() {
+      const candidates = linkCandidatePool();
+      const table = document.getElementById('link-table');
+      const empty = document.getElementById('link-empty');
+
+      if (candidates.length === 0) {
+        table.hidden = true;
+        empty.hidden = false;
+        document.getElementById('link-body').innerHTML = '';
+        updateLinkConfirmButton();
+        return;
+      }
+
+      table.hidden = false;
+      empty.hidden = true;
+      document.getElementById('link-body').innerHTML = candidates.map((c) => {
+        const selected = selectedLinkIds.has(c.id);
+        return `<tr class="cand-row${selected ? ' is-selected' : ''}" data-cand-id="${c.id}" data-od-id="link-candidate-${c.id}">
+          <td class="col-check"><input type="checkbox" ${selected ? 'checked' : ''} aria-label="Select ${c.description}" /></td>
+          <td class="col-date mono">${FUNDS.formatDate(c.date)}</td>
+          <td>${c.description}</td>
+          <td>${c.account}</td>
+          <td class="amount money ${c.amount < 0 ? 'neg' : 'pos'}">${FUNDS.money(c.amount)}</td>
+        </tr>`;
+      }).join('');
+      updateLinkConfirmButton();
+    }
+
+    function toggleLinkSelection(id) {
+      if (selectedLinkIds.has(id)) selectedLinkIds.delete(id);
+      else selectedLinkIds.add(id);
+      renderLinkCandidates();
+    }
+
+    function updateLinkConfirmButton() {
+      const btn = document.getElementById('link-confirm');
+      btn.disabled = selectedLinkIds.size === 0;
+      btn.textContent = selectedLinkIds.size > 1 ? `Link ${selectedLinkIds.size} transactions` : 'Link selected';
+    }
+
+    function confirmManualLink() {
+      const item = findItem(linkTargetId);
+      if (!item || selectedLinkIds.size === 0) return;
+      const linkedNow = CANDIDATES.filter((c) => selectedLinkIds.has(c.id));
+      item.linked.push(...linkedNow);
+      CANDIDATES = CANDIDATES.filter((c) => !selectedLinkIds.has(c.id));
+      MATCH_SUGGESTIONS = MATCH_SUGGESTIONS.filter((sg) => !(sg.plannedId === item.id && selectedLinkIds.has(sg.txnId)));
+      showToast(`Linked ${linkedNow.length} transaction${linkedNow.length === 1 ? '' : 's'} to "${item.name}"`);
+      closeLinkModal();
+      render();
+    }
+
+    /* ── Delete modal ── */
+
+    function openDeleteModal(itemId) {
+      const item = findItem(itemId);
+      if (!item) return;
+      deleteTargetId = itemId;
+      document.getElementById('delete-dialog-desc').textContent = `Remove "${item.name}" from planned spending?`;
+      document.getElementById('delete-dialog').showModal();
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-dialog').close();
+      deleteTargetId = null;
+    }
+
+    function confirmDelete() {
+      if (!deleteTargetId) return;
+      const item = findItem(deleteTargetId);
+      ITEMS = ITEMS.filter((i) => i.id !== deleteTargetId);
+      closeDeleteModal();
+      if (item) showToast(`Deleted "${item.name}"`);
+      render();
+    }
+
+    /* ── Wire up ── */
+
+    FUNDS.wireSegmented('#range-mode', (val) => { rangeMode = val; render(); });
+    FUNDS.wireSegmented('#period', (val) => { period = val; render(); });
+
+    document.getElementById('date-from').addEventListener('change', (e) => { customRange.start = e.target.value; render(); });
+    document.getElementById('date-to').addEventListener('change', (e) => { customRange.end = e.target.value; render(); });
+    document.getElementById('date-reset').addEventListener('click', () => { customRange = defaultCustomRange(); render(); });
+
+    document.getElementById('pl-search').addEventListener('input', (e) => { searchQuery = e.target.value; render(); });
+
+    document.getElementById('btn-add-planned').addEventListener('click', openAddModal);
+    document.getElementById('btn-add-planned-empty').addEventListener('click', openAddModal);
+
+    document.getElementById('match-list').addEventListener('click', (e) => {
+      const addBtn = e.target.closest('[data-add-link]');
+      if (addBtn) { addPaymentLink(addBtn.dataset.addLink); return; }
+      const dismissBtn = e.target.closest('[data-dismiss]');
+      if (dismissBtn) dismissMatch(dismissBtn.dataset.dismiss);
+    });
+
+    document.getElementById('planned-head').addEventListener('click', (e) => {
+      const button = e.target.closest('.th-sort');
+      if (!button) return;
+      const th = button.closest('[data-sort]');
+      if (!th) return;
+      const key = th.getAttribute('data-sort');
+      if (sortKey === key) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortKey = key;
+        sortDir = key === 'amount' ? 'desc' : 'asc';
+      }
+      render();
+    });
+
+    document.getElementById('planned-body').addEventListener('click', (e) => {
+      const completeBtn = e.target.closest('[data-complete]');
+      if (completeBtn) { markComplete(completeBtn.dataset.complete); return; }
+      const linkBtn = e.target.closest('[data-link]');
+      if (linkBtn) { openLinkModal(linkBtn.dataset.link); return; }
+      const editBtn = e.target.closest('[data-edit]');
+      if (editBtn) { openEditModal(editBtn.dataset.edit); return; }
+      const deleteBtn = e.target.closest('[data-delete]');
+      if (deleteBtn) openDeleteModal(deleteBtn.dataset.delete);
+    });
+
+    FUNDS.wireSegmented('#item-amount-type', (val) => { amountType = val; });
+    document.getElementById('item-form').addEventListener('submit', submitItem);
+    document.getElementById('item-cancel').addEventListener('click', closeItemModal);
+    document.getElementById('item-close').addEventListener('click', closeItemModal);
+
+    document.getElementById('link-search').addEventListener('input', (e) => { linkSearchQuery = e.target.value; renderLinkCandidates(); });
+    document.getElementById('link-body').addEventListener('click', (e) => {
+      const row = e.target.closest('.cand-row');
+      if (!row) return;
+      toggleLinkSelection(Number(row.dataset.candId));
+    });
+    document.getElementById('link-cancel').addEventListener('click', closeLinkModal);
+    document.getElementById('link-close').addEventListener('click', closeLinkModal);
+    document.getElementById('link-confirm').addEventListener('click', confirmManualLink);
+    document.getElementById('link-dialog').addEventListener('cancel', () => { linkTargetId = null; selectedLinkIds.clear(); });
+
+    document.getElementById('delete-cancel').addEventListener('click', closeDeleteModal);
+    document.getElementById('delete-close').addEventListener('click', closeDeleteModal);
+    document.getElementById('delete-confirm').addEventListener('click', confirmDelete);
+    document.getElementById('delete-dialog').addEventListener('cancel', () => { deleteTargetId = null; });
+
+    document.getElementById('item-dialog').addEventListener('cancel', () => { editingId = null; });
+
+    document.getElementById('pl-account').addEventListener('change', () => { /* context only — planned items are global */ });
+
+    populateCategorySelect();
+    render();
+  </script>
+</body>
+</html>

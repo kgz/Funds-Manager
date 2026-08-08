@@ -87,19 +87,85 @@ if [[ -n "$ISSUE" ]]; then
 	"$ROOT/bin/board-status.sh" in-progress "$ISSUE"
 fi
 
-payload="$(
-	PROMPT="$PROMPT" PROJECT="$PROJECT" CONVERSATION="$CONVERSATION" AGENT="$AGENT" python3 <<'PY'
-import json, os
-print(json.dumps({
-    "projectId": os.environ["PROJECT"],
-    "conversationId": os.environ["CONVERSATION"],
-    "message": os.environ["PROMPT"],
-    "agentId": os.environ["AGENT"],
-}))
+# Seed user + assistant messages so the run streams in the OD conversation UI.
+# POST /api/runs alone does not populate chat when conversationId is explicit —
+# assistantMessageId must be set and messages PUT first (see OD batch-design-system-test.ts).
+response="$(
+	PROMPT="$PROMPT" PROJECT="$PROJECT" CONVERSATION="$CONVERSATION" AGENT="$AGENT" DAEMON="$DAEMON" python3 <<'PY'
+import json
+import os
+import time
+import uuid
+from urllib import error, request
+
+prompt = os.environ["PROMPT"]
+project = os.environ["PROJECT"]
+conversation = os.environ["CONVERSATION"]
+agent = os.environ["AGENT"]
+daemon = os.environ["DAEMON"]
+now = int(time.time() * 1000)
+
+user_message_id = str(uuid.uuid4())
+assistant_message_id = str(uuid.uuid4())
+
+def api(method: str, path: str, body: dict | None = None) -> dict:
+    data = None if body is None else json.dumps(body).encode()
+    req = request.Request(
+        f"{daemon}{path}",
+        data=data,
+        method=method,
+        headers={"Content-Type": "application/json"} if body is not None else {},
+    )
+    with request.urlopen(req) as resp:
+        return json.loads(resp.read().decode())
+
+api(
+    "PUT",
+    f"/api/projects/{project}/conversations/{conversation}/messages/{user_message_id}",
+    {"role": "user", "content": prompt, "createdAt": now},
+)
+api(
+    "PUT",
+    f"/api/projects/{project}/conversations/{conversation}/messages/{assistant_message_id}",
+    {
+        "role": "assistant",
+        "content": "",
+        "agentId": agent,
+        "agentName": agent,
+        "runStatus": "queued",
+        "startedAt": now,
+        "createdAt": now,
+    },
+)
+
+run = api(
+    "POST",
+    "/api/runs",
+    {
+        "projectId": project,
+        "conversationId": conversation,
+        "assistantMessageId": assistant_message_id,
+        "message": prompt,
+        "currentPrompt": prompt,
+        "agentId": agent,
+    },
+)
+
+api(
+    "PUT",
+    f"/api/projects/{project}/conversations/{conversation}/messages/{assistant_message_id}",
+    {
+        "agentId": agent,
+        "runId": run["runId"],
+        "runStatus": "queued",
+        "createdAt": now,
+    },
+)
+
+print(json.dumps({"runId": run["runId"], "conversationId": run.get("conversationId") or conversation}))
 PY
 )"
 
-response="$(curl -sf -X POST "$DAEMON/api/runs" -H 'Content-Type: application/json' -d "$payload")"
 run_id="$(echo "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["runId"])')"
 conv_id="$(echo "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("conversationId") or "")')"
 

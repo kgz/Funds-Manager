@@ -219,7 +219,7 @@ function renderSidebar(active) {
         { id: 'serviceability', href: 'funds-serviceability.html', label: 'Serviceability', icon: 'calc' },
         { id: 'snapshots', href: 'funds-report-snapshots.html', label: 'Report snapshots', icon: 'snap' },
         { id: 'repeat', href: 'funds-repeat-payments.html', label: 'Repeat payments', icon: 'repeat' },
-        { id: 'planned', href: '#', label: 'Planned spending', icon: 'plan', badge: 3, stub: true },
+        { id: 'planned', href: 'funds-planned-spending.html', label: 'Planned spending', icon: 'plan', badge: 2 },
       ],
     },
     {
