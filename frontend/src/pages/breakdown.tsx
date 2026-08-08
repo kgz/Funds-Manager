@@ -9,6 +9,7 @@ import {
 	BREAKDOWN_PERIOD_STORAGE_KEY,
 	BREAKDOWN_PRESET_PERIODS,
 	BREAKDOWN_RANGE_MODE_STORAGE_KEY,
+	PERIOD_LABELS,
 	periodDateRange,
 	type DashboardPeriod,
 } from '@/components/dashboard/period';
@@ -16,16 +17,26 @@ import { CategoryPicker } from '@/components/transactions/CategoryPicker';
 import { cn } from '@/lib/utils/cn';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
-import { GlassCard } from '@/components/layout/GlassCard';
 import { InlineAlert } from '@/components/layout/InlineAlert';
 import { Modal } from '@/components/layout/Modal';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { PeriodSummary } from '@/components/breakdown/PeriodSummary';
 import { SpendShareCell } from '@/components/breakdown/SpendShareCell';
-import { buttonOutlineClass, buttonPrimaryClass, inputDarkClass } from '@/components/layout/tokens';
+import {
+	buttonOutlineClass,
+	buttonPrimaryClass,
+	dateInputClass,
+	glassCardClass,
+	pageBodyClass,
+	pageHeaderClass,
+	pageSubtitleClass,
+	pageTitleClass,
+	panelHintClass,
+	panelTitleClass,
+	selectDarkClass,
+} from '@/components/layout/tokens';
 import { chartColors } from '@/graphs/theme';
 import { ChevronDown, ChevronRight, LayoutList, Loader2, MoveRight } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store/store';
@@ -36,6 +47,14 @@ type BreakdownRangeMode = 'preset' | 'custom';
 
 const formatMoney = (n: number) =>
 	`$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+import {
+	moneyDangerClass,
+	moneySuccessClass,
+	formatMoneyNeg,
+	formatMoneyPos,
+	formatNetMoney,
+} from '@/lib/utils/moneySemantics';
 
 function round2(n: number): number {
 	return Math.round(n * 100) / 100;
@@ -296,7 +315,7 @@ function readCustomRange(): { start: string; end: string } {
 const BreakdownPage = () => {
 	const dispatch = useAppDispatch();
 	const { categories } = useAppSelector((state) => state.CategoryReducer);
-	const { accountIdNumber } = useAccountFilter();
+	const { accountIdNumber, selectedLabel } = useAccountFilter();
 	const [rangeMode, setRangeMode] = useState<BreakdownRangeMode>(readBreakdownRangeMode);
 	const [period, setPeriod] = useState<DashboardPeriod>(readBreakdownPeriod);
 	const [customRange, setCustomRange] = useState(readCustomRange);
@@ -356,6 +375,18 @@ const BreakdownPage = () => {
 	const { start, end } = effectiveRange;
 	const rangeInvalid =
 		start.length < 10 || end.length < 10 || start > end;
+
+	const tableHint = useMemo(() => {
+		if (rangeMode === 'custom') {
+			const startDt = DateTime.fromISO(start);
+			const endDt = DateTime.fromISO(end);
+			if (startDt.isValid && endDt.isValid) {
+				return `${selectedLabel} · ${startDt.toFormat('d LLL yyyy')} – ${endDt.toFormat('d LLL yyyy')}`;
+			}
+		}
+		const periodLabel = PERIOD_LABELS[period];
+		return `${selectedLabel} · ${periodLabel.charAt(0).toLowerCase()}${periodLabel.slice(1)}`;
+	}, [rangeMode, start, end, period, selectedLabel]);
 
 	useEffect(() => {
 		localStorage.setItem(BREAKDOWN_RANGE_MODE_STORAGE_KEY, rangeMode);
@@ -504,83 +535,91 @@ const BreakdownPage = () => {
 
 	return (
 		<PageShell variant="table">
-			<div className="space-y-3 border-b border-paper-border p-4">
-				<PageHeader
-					title="Breakdown"
-					subtitle="Spending and income by category. Expand a row to see grouped descriptions (same keys as repeat payments)."
-					icon={<LayoutList className="h-6 w-6 text-secondary-default" />}
-					className="mb-0"
-					pending={isRefreshing}
-					meta={
-						loading ? (
+			<header className={pageHeaderClass}>
+				<div className="min-w-0">
+					<div className="flex flex-wrap items-center gap-2">
+						<h1 className={pageTitleClass}>Breakdown</h1>
+						{isRefreshing ? (
 							<Loader2
 								className="h-4 w-4 animate-spin text-secondary-default"
 								aria-label="Loading"
 							/>
-						) : null
-					}
-				/>
-
-				<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-					<div className="flex min-h-9 flex-wrap items-center gap-2.5">
-						<AccountFilter />
-						<SegmentedControl
-							ariaLabel="Date range mode"
-							value={rangeMode}
-							onChange={setRangeMode}
-							options={[
-								{ value: 'preset', label: 'Presets' },
-								{ value: 'custom', label: 'Custom' },
-							]}
-						/>
-						{rangeMode === 'preset' ? (
-							<PeriodFilter
-								value={period}
-								onChange={setPeriod}
-								periods={BREAKDOWN_PRESET_PERIODS}
-								pending={loading}
-								ariaLabel="Breakdown period"
-							/>
-						) : (
-							<div className="flex flex-wrap items-center gap-2">
-								<input
-									type="date"
-									aria-label="From date"
-									value={customRange.start}
-									onChange={(e) =>
-										setCustomRange((r) => ({
-											...r,
-											start: e.target.value,
-										}))
-									}
-									className={cn(inputDarkClass, 'px-2 py-1.5')}
-								/>
-								<span className="text-sm text-paper-muted">to</span>
-								<input
-									type="date"
-									aria-label="To date"
-									value={customRange.end}
-									onChange={(e) =>
-										setCustomRange((r) => ({
-											...r,
-											end: e.target.value,
-										}))
-									}
-									className={cn(inputDarkClass, 'px-2 py-1.5')}
-								/>
-								<button
-									type="button"
-									onClick={() => setCustomRange(defaultCustomRange())}
-									className={buttonOutlineClass}
-								>
-									Reset
-								</button>
-							</div>
-						)}
+						) : null}
 					</div>
+					<p className={pageSubtitleClass}>
+						Spending and income by category · expand rows for grouped descriptions
+						(same keys as repeat payments)
+					</p>
+				</div>
+			</header>
 
+			<div
+				className={cn(
+					pageBodyClass,
+					'flex flex-col gap-6 transition-opacity duration-300',
+					isRefreshing && 'opacity-55'
+				)}
+				aria-busy={isRefreshing}
+			>
+				<div className="flex flex-wrap items-center gap-2.5">
+					<AccountFilter className={cn(selectDarkClass, 'h-8 min-w-[10rem] px-2.5')} />
+					<SegmentedControl
+						ariaLabel="Date range mode"
+						value={rangeMode}
+						onChange={setRangeMode}
+						options={[
+							{ value: 'preset', label: 'Presets' },
+							{ value: 'custom', label: 'Custom' },
+						]}
+					/>
+					{rangeMode === 'preset' ? (
+						<PeriodFilter
+							value={period}
+							onChange={setPeriod}
+							periods={BREAKDOWN_PRESET_PERIODS}
+							pending={loading}
+							ariaLabel="Breakdown period"
+							className="flex-nowrap"
+						/>
+					) : (
+						<div className="flex flex-wrap items-center gap-2">
+							<input
+								type="date"
+								aria-label="From date"
+								value={customRange.start}
+								onChange={(e) =>
+									setCustomRange((r) => ({
+										...r,
+										start: e.target.value,
+									}))
+								}
+								className={cn(dateInputClass, 'h-8 px-2')}
+							/>
+							<span className="text-[13px] text-paper-muted">to</span>
+							<input
+								type="date"
+								aria-label="To date"
+								value={customRange.end}
+								onChange={(e) =>
+									setCustomRange((r) => ({
+										...r,
+										end: e.target.value,
+									}))
+								}
+								className={cn(dateInputClass, 'h-8 px-2')}
+							/>
+							<button
+								type="button"
+								onClick={() => setCustomRange(defaultCustomRange())}
+								className={buttonOutlineClass}
+							>
+								Reset
+							</button>
+						</div>
+					)}
 					{!rangeInvalid ? (
 						<PeriodSummary
+							className="ml-auto"
 							spending={totals.spending}
 							income={totals.income}
 							net={netTotal}
@@ -597,15 +636,7 @@ const BreakdownPage = () => {
 				{error !== null && parents.length > 0 ? (
 					<InlineAlert variant="error">{error}</InlineAlert>
 				) : null}
-			</div>
 
-			<div
-				className={cn(
-					'min-h-0 flex-grow overflow-auto p-4 transition-opacity duration-300',
-					isRefreshing && 'opacity-55'
-				)}
-				aria-busy={isRefreshing}
-			>
 				{rangeInvalid ? null : showEmpty ? (
 					<EmptyState
 						compact
@@ -615,14 +646,10 @@ const BreakdownPage = () => {
 						className="py-12"
 					/>
 				) : (
-					<GlassCard className="overflow-hidden p-0">
+					<div className={cn(glassCardClass, 'overflow-hidden p-0')}>
 					<div className="border-b border-paper-border px-4 py-3.5">
-						<h2 className="text-[13px] font-semibold tracking-[-0.01em] text-paper-fg">
-							By category
-						</h2>
-						<p className="mt-0.5 text-xs text-paper-muted">
-							Expand a row for grouped descriptions
-						</p>
+						<h2 className={panelTitleClass}>By category</h2>
+						<p className={panelHintClass}>{tableHint}</p>
 					</div>
 					<table className="w-full min-w-[720px] text-left text-[13px]">
 						<thead className="sticky top-0 z-10 border-b border-paper-border bg-paper">
@@ -728,14 +755,12 @@ const BreakdownPage = () => {
 												</div>
 											</td>
 											<td
-												className="px-3 py-2.5 text-right font-mono text-[13px] tabular-nums"
-												style={
-													p.spending > 0
-														? { color: chartColors.spending }
-														: undefined
-												}
+												className={cn(
+													'px-3 py-2.5 text-right font-mono text-[13px] tabular-nums',
+													p.spending > 0 && moneyDangerClass
+												)}
 											>
-												{p.spending > 0 ? formatMoney(p.spending) : '—'}
+												{p.spending > 0 ? formatMoneyNeg(p.spending) : '—'}
 											</td>
 											<td
 												className="px-3 py-2.5 text-right"
@@ -753,34 +778,27 @@ const BreakdownPage = () => {
 												</div>
 											</td>
 											<td
-												className="px-3 py-2.5 text-right font-mono text-[13px] tabular-nums"
-												style={
-													p.income > 0
-														? { color: chartColors.receiving }
-														: undefined
-												}
+												className={cn(
+													'px-3 py-2.5 text-right font-mono text-[13px] tabular-nums',
+													p.income > 0 && moneySuccessClass
+												)}
 											>
-												{p.income > 0 ? formatMoney(p.income) : '—'}
+												{p.income > 0 ? formatMoneyPos(p.income) : '—'}
 											</td>
 											<td
 												className={cn(
 													'px-3 py-2.5 text-right font-mono text-[13px] tabular-nums',
-													catNet === 0 && 'text-paper-muted'
+													catNet === 0 && 'text-paper-muted',
+													catNet > 0 && moneySuccessClass,
+													catNet < 0 && moneyDangerClass
 												)}
-												style={
-													catNet > 0
-														? { color: chartColors.receiving }
-														: catNet < 0
-															? { color: chartColors.spending }
-															: undefined
-												}
 												title="Income minus spending for this category"
 											>
 												{catNet === 0 &&
 												p.spending === 0 &&
 												p.income === 0
 													? '—'
-													: formatMoney(catNet)}
+													: formatNetMoney(catNet)}
 											</td>
 											<td className="px-3 py-2.5 text-right text-[13px]">
 												{p.txnCount}
@@ -941,11 +959,16 @@ const BreakdownPage = () => {
 																	{s.labelSample}
 																</p>
 															</td>
-															<td className="px-4 py-2 text-right align-top font-mono text-[13px] text-red-300/90">
+															<td
+																className={cn(
+																	'px-4 py-2 text-right align-top font-mono text-[13px] tabular-nums',
+																	s.spending > 0 && moneyDangerClass
+																)}
+															>
 																<div className="flex flex-col items-end gap-1">
 																	<span>
 																		{s.spending > 0
-																			? formatMoney(s.spending)
+																			? formatMoneyNeg(s.spending)
 																			: '—'}
 																	</span>
 																	{showChipUnderSpending ? (
@@ -977,11 +1000,16 @@ const BreakdownPage = () => {
 															>
 																{subSpendPct}
 															</td>
-															<td className="px-4 py-2 text-right align-top font-mono text-[13px] text-green-400/90">
+															<td
+																className={cn(
+																	'px-4 py-2 text-right align-top font-mono text-[13px] tabular-nums',
+																	s.income > 0 && moneySuccessClass
+																)}
+															>
 																<div className="flex flex-col items-end gap-1">
 																	<span>
 																		{s.income > 0
-																			? formatMoney(s.income)
+																			? formatMoneyPos(s.income)
 																			: '—'}
 																	</span>
 																	{showChipUnderIncome ? (
@@ -1027,7 +1055,7 @@ const BreakdownPage = () => {
 							})}
 						</tbody>
 					</table>
-					</GlassCard>
+					</div>
 				)}
 			</div>
 

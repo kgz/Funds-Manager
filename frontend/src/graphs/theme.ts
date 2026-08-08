@@ -12,8 +12,8 @@ export const chartSeriesPalette = [
 ];
 
 export const chartColors = {
-	receiving: '#2f7d5a',
-	spending: '#b85c50',
+	receiving: 'var(--success)',
+	spending: 'var(--danger)',
 	assets: '#3d8b6e',
 	debts: '#b85c50',
 	netWorth: '#4a6fa5',
@@ -21,6 +21,14 @@ export const chartColors = {
 	mixed: '#7b6d91',
 	other: '#8b929a',
 	surface: '#ffffff',
+	/** Dashboard cashflow bars — OD uses ink + muted grey, not semantic green/red */
+	cashflowReceiving: 'oklch(18% 0.012 250)',
+	cashflowSpending: 'oklch(72% 0.01 250)',
+	/** Dashboard line charts */
+	dashboardBalanceStroke: 'oklch(18% 0.012 250)',
+	dashboardBalanceFill: 'oklch(18% 0.012 250 / 0.05)',
+	dashboardNetWorthStroke: 'oklch(42% 0.02 250)',
+	dashboardNetWorthFill: 'oklch(42% 0.02 250 / 0.07)',
 };
 
 export function chartSeriesColor(index: number): string {

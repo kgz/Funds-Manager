@@ -2,6 +2,7 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 import type { TooltipContentProps } from 'recharts';
 import { useMemo, useState } from 'react';
 import { chartColors, chartTheme, chartTooltipClass } from '@/graphs/theme';
+import { cn } from '@/lib/utils/cn';
 
 const formatCurrency = (amount: number): string => {
 	const absAmount = Math.abs(amount / 100).toFixed(2);
@@ -90,19 +91,20 @@ function RankedCategoryList({
 	const clickable = onRowClick !== undefined;
 
 	return (
-		<ul className="mt-4 space-y-1.5 xl:mt-0">
+		<ul className="flex w-fit max-w-full flex-col gap-2">
 			{rows.map((row) => {
 				const content = (
 					<>
-						<span className="flex min-w-0 items-center gap-2 text-paper-fg">
+						<span className="flex min-w-0 items-center gap-2">
 							<span
-								className="h-2.5 w-2.5 shrink-0 rounded-full"
+								className="h-2 w-2 shrink-0 rounded-full"
 								style={{ backgroundColor: row.color }}
+								aria-hidden
 							/>
-							<span className="truncate">{row.name}</span>
+							<span className="truncate text-paper-fg">{row.name}</span>
 						</span>
-						<span className="shrink-0 tabular-nums text-paper-muted">
-							{formatDollars(row.value)} · {row.percent.toFixed(1)}%
+						<span className="shrink-0 font-mono text-xs tabular-nums text-paper-muted">
+							{formatDollars(row.value)}
 						</span>
 					</>
 				);
@@ -111,13 +113,13 @@ function RankedCategoryList({
 						{clickable ? (
 							<button
 								type="button"
-								className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-sm hover:bg-paper"
+								className="grid cursor-pointer grid-cols-[auto_auto] items-center gap-x-3 rounded-paper py-0.5 text-left text-xs hover:opacity-80"
 								onClick={() => onRowClick(row)}
 							>
 								{content}
 							</button>
 						) : (
-							<div className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm">
+							<div className="grid grid-cols-[auto_auto] items-center gap-x-3 text-xs">
 								{content}
 							</div>
 						)}
@@ -176,24 +178,28 @@ export const CategoryPieChart = ({
 
 	const sliceCursor = onSliceClick !== undefined ? 'pointer' : 'default';
 	const legendCursor = onSliceClick !== undefined ? 'pointer' : 'default';
-	const innerRadius = variant === 'donut' ? 62 : 0;
-	const outerRadius = 100;
+	const donutRadii =
+		variant === 'donut'
+			? showRankedList
+				? { innerRadius: 42, outerRadius: 67 }
+				: { innerRadius: 62, outerRadius: 100 }
+			: { innerRadius: 0, outerRadius: 100 };
+	const chartHeight = showRankedList ? 160 : 300;
 
 	return (
 		<div
-			className={[
-				onSliceClick !== undefined
-					? '[&_.recharts-pie-sector]:cursor-pointer'
-					: '',
-				showRankedList
-					? 'xl:grid xl:grid-cols-[minmax(210px,0.9fr)_minmax(220px,1.1fr)] xl:items-center xl:gap-4'
-					: '',
-			]
-				.filter(Boolean)
-				.join(' ')}
+			className={cn(
+				showRankedList &&
+					'grid min-h-[180px] grid-cols-[160px_minmax(0,1fr)] items-center gap-5 max-lg:grid-cols-1'
+			)}
 		>
-			<div className="min-w-0">
-				<ResponsiveContainer width="100%" height={300}>
+			<div
+				className={cn(
+					'min-w-0',
+					showRankedList && 'mx-auto h-[160px] w-[160px] max-lg:mx-auto lg:mx-0'
+				)}
+			>
+				<ResponsiveContainer width="100%" height={chartHeight}>
 					<PieChart>
 					<Pie
 						data={chartData}
@@ -201,8 +207,8 @@ export const CategoryPieChart = ({
 						nameKey="name"
 						cx="50%"
 						cy="50%"
-						innerRadius={innerRadius}
-						outerRadius={outerRadius}
+						innerRadius={donutRadii.innerRadius}
+						outerRadius={donutRadii.outerRadius}
 						labelLine={false}
 						style={{ cursor: sliceCursor }}
 						onMouseEnter={(entry) => {
@@ -237,7 +243,7 @@ export const CategoryPieChart = ({
 							);
 						})}
 					</Pie>
-					{variant === 'donut' ? (
+					{variant === 'donut' && !showRankedList ? (
 						<text
 							x="50%"
 							y="50%"
@@ -283,7 +289,7 @@ export const CategoryPieChart = ({
 				</ResponsiveContainer>
 			</div>
 			{showRankedList ? (
-				<div className="min-w-0 xl:self-center">
+				<div className="min-w-0">
 					<RankedCategoryList
 						rows={otherRow !== null ? [...rankedRows, otherRow] : rankedRows}
 						onRowClick={

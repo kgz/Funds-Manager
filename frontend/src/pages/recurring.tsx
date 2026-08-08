@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import {
@@ -6,37 +6,59 @@ import {
 	type RecurringCandidateRow,
 } from '@/store/thunks/analytics';
 import { CategoryPill } from '@/components/CategoryPill';
-import {
-	Table,
-	type SortDirection,
-	type TColumn,
-} from '@/components/table';
 import { cn } from '@/lib/utils/cn';
 import { ErrorState } from '@/components/layout/ErrorState';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
-import { StatCard } from '@/components/layout/StatCard';
-import { inputDarkClass } from '@/components/layout/tokens';
+import {
+	glassCardClass,
+	pageActionsClass,
+	pageBodyClass,
+	pageHeaderClass,
+	pageSubtitleClass,
+	pageTitleClass,
+	panelHintClass,
+	panelTitleClass,
+	selectDarkClass,
+} from '@/components/layout/tokens';
 import { AccountFilter } from '@/components/account-filter';
 import { SegmentedControl } from '@/components/layout/SegmentedControl';
 import { useAccountFilter } from '@/hooks/useAccountFilter';
 import { RepeatPaymentsHelp } from '@/components/recurring/RepeatPaymentsHelp';
-import { ChevronDown, ChevronRight, Repeat } from 'lucide-react';
+import { RepeatFlowChip } from '@/components/recurring/RepeatFlowChip';
+import { RepeatScoreBadge } from '@/components/recurring/RepeatScoreBadge';
+import { moneyDangerClass, moneySuccessClass } from '@/lib/utils/moneySemantics';
+import { ChevronRight, Loader2 } from 'lucide-react';
 
 const formatMoney = (n: number) =>
 	`$${n.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-// Keep render/key correlation generic so the column union doesn't collapse to never.
-function renderCell<TData>(col: TColumn<TData>, row: TData): ReactNode {
-	return col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '');
+const formatTableDate = (iso: string): string => {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) {
+		return iso;
+	}
+	return d.toLocaleDateString('en-AU', {
+		day: 'numeric',
+		month: 'short',
+		year: 'numeric',
+	});
+};
+
+function shouldShowGapSubline(cadenceLabel: string): boolean {
+	return !cadenceLabel.startsWith('~every ');
 }
 
-const mainAmountClass = (flow: RecurringCandidateRow['flow']) =>
-	flow === 'income' ? 'text-green-400' : 'text-red-300';
+const kpiLabelClass =
+	'm-0 text-[12px] font-medium uppercase tracking-[0.06em] text-paper-muted';
 
-const rangeAmountClass = (flow: RecurringCandidateRow['flow']) =>
-	flow === 'income' ? 'text-green-400/90' : 'text-red-300/90';
+const kpiHintClass = 'm-0 mt-2 text-xs text-paper-muted';
+
+const tableThClass =
+	'sticky top-0 z-10 whitespace-nowrap border-b border-paper-border bg-paper-surface px-3 py-2.5 text-[11px] font-medium uppercase tracking-[0.06em] text-paper-muted';
+
+const tableTdClass =
+	'border-b border-paper-border px-3 py-2.5 align-middle text-[13px] text-paper-fg';
 
 type RecurringSection = {
 	sectionKey: string;
@@ -73,7 +95,7 @@ function buildRecurringSections(
 		const label =
 			categoryId === null
 				? 'Uncategorized'
-				: cat?.name ?? `Category ${String(categoryId)}`;
+				: (cat?.name ?? `Category ${String(categoryId)}`);
 		let spendingMonthly = 0;
 		let incomeMonthly = 0;
 		for (const r of bucket) {
@@ -105,7 +127,6 @@ function buildRecurringSections(
 	return sections;
 }
 
-/** One table row per category when “Group by category” is on. */
 type RecurringCategoryAggRow = {
 	rowId: string;
 	labelSample: string;
@@ -183,30 +204,6 @@ type PatternSortKey =
 	| 'lastDate'
 	| 'confidence';
 
-function sectionSortKeyFromAggKey(
-	k: keyof RecurringCategoryAggRow
-): SectionSortKey | null {
-	if (k === 'labelSample') {
-		return 'label';
-	}
-	if (k === 'typicalAmountDollars') {
-		return 'typical';
-	}
-	if (k === 'occurrences') {
-		return 'occurrences';
-	}
-	if (k === 'firstDate') {
-		return 'firstDate';
-	}
-	if (k === 'lastDate') {
-		return 'lastDate';
-	}
-	if (k === 'confidence') {
-		return 'confidence';
-	}
-	return null;
-}
-
 function sortSectionsList(
 	sections: RecurringSection[],
 	key: SectionSortKey,
@@ -247,25 +244,6 @@ function sortSectionsList(
 		}
 	});
 	return out;
-}
-
-function patternSortKeyFromColumnKey(
-	k: keyof RecurringCandidateRow
-): PatternSortKey | null {
-	switch (k) {
-		case 'labelSample':
-		case 'cadenceLabel':
-		case 'medianGapDays':
-		case 'typicalAmountDollars':
-		case 'minAmountDollars':
-		case 'occurrences':
-		case 'firstDate':
-		case 'lastDate':
-		case 'confidence':
-			return k;
-		default:
-			return null;
-	}
 }
 
 function sortPatterns(
@@ -327,9 +305,343 @@ const DEFAULT_PATTERN_SORT: { key: PatternSortKey; dir: SortDir } = {
 	dir: 'desc',
 };
 
+type SortIndicatorProps = {
+	active: boolean;
+	direction: SortDir;
+};
+
+function SortIndicator({ active, direction }: SortIndicatorProps) {
+	return (
+		<span
+			className={cn(
+				'inline-grid h-3 w-2.5 shrink-0 opacity-35 transition-opacity',
+				active && 'opacity-100'
+			)}
+			aria-hidden
+		>
+			<svg viewBox="0 0 10 12" fill="none" stroke="currentColor" strokeWidth="1.6">
+				<path
+					d="M2 4.2 5 1.5 8 4.2"
+					opacity={active && direction === 'desc' ? 0.28 : 1}
+				/>
+				<path
+					d="M2 7.8 5 10.5 8 7.8"
+					opacity={active && direction === 'asc' ? 0.28 : 1}
+				/>
+			</svg>
+		</span>
+	);
+}
+
+type SortHeaderProps = {
+	label: string;
+	active: boolean;
+	direction: SortDir;
+	align?: 'left' | 'right';
+	onClick?: () => void;
+	sortable?: boolean;
+	className?: string;
+};
+
+function SortHeader({
+	label,
+	active,
+	direction,
+	align = 'left',
+	onClick,
+	sortable = true,
+	className,
+}: SortHeaderProps) {
+	const ariaSort = active ? (direction === 'asc' ? 'ascending' : 'descending') : 'none';
+	const numeric = align === 'right';
+
+	if (!sortable || onClick === undefined) {
+		return (
+			<th scope="col" className={cn(tableThClass, align === 'right' && 'text-right', className)}>
+				<span>{label}</span>
+			</th>
+		);
+	}
+
+	return (
+		<th
+			scope="col"
+			aria-sort={ariaSort}
+			className={cn(tableThClass, align === 'right' && 'text-right', className)}
+		>
+			<button
+				type="button"
+				onClick={onClick}
+				className={cn(
+					'flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-inherit hover:text-paper-fg',
+					active && 'text-paper-fg',
+					numeric && 'justify-end'
+				)}
+			>
+				{numeric ? (
+					<>
+						<SortIndicator active={active} direction={direction} />
+						{label}
+					</>
+				) : (
+					<>
+						{label}
+						<SortIndicator active={active} direction={direction} />
+					</>
+				)}
+			</button>
+		</th>
+	);
+}
+
+type CategoryTagsProps = {
+	categoryId: number | null;
+	categoryList: Category[];
+};
+
+function CategoryTags({ categoryId, categoryList }: CategoryTagsProps) {
+	const cat =
+		categoryId !== null
+			? categoryList.find((c) => String(c.id) === String(categoryId))
+			: undefined;
+	const showDeleted = cat?.deleted_at && categoryId !== null;
+
+	if (categoryId !== null && cat && !cat.deleted_at) {
+		return (
+			<CategoryPill
+				name={cat.name}
+				colour={cat.colour}
+				variant="outline"
+				uncategorized={false}
+			/>
+		);
+	}
+	if (categoryId !== null && showDeleted) {
+		return (
+			<span className="inline-flex h-[26px] shrink-0 items-center rounded-full border border-paper-border bg-paper px-2.5 text-xs text-paper-muted">
+				{cat?.name ?? `ID ${String(categoryId)}`} (deleted)
+			</span>
+		);
+	}
+	if (categoryId !== null && !cat) {
+		return (
+			<span className="inline-flex h-[26px] shrink-0 items-center rounded-full border border-paper-border bg-paper px-2.5 text-xs text-paper-muted">
+				ID: {categoryId}
+			</span>
+		);
+	}
+	return (
+		<CategoryPill name="Uncategorized" variant="outline" uncategorized />
+	);
+}
+
+type PatternAmountProps = {
+	row: RecurringCandidateRow;
+};
+
+function PatternAmountCell({ row }: PatternAmountProps) {
+	const flowClass = row.flow === 'income' ? moneySuccessClass : moneyDangerClass;
+	return (
+		<div className="flex flex-col items-end gap-0.5">
+			<span className={cn('font-mono text-[13px] font-medium tabular-nums', flowClass)}>
+				{formatMoney(row.typicalAmountDollars)}
+			</span>
+			<span className="font-mono text-[11px] tabular-nums text-paper-muted">
+				≈ {formatMoney(row.estimatedMonthlyDollars)}/mo
+			</span>
+		</div>
+	);
+}
+
+type SectionAmountProps = {
+	spendingMonthly: number;
+	incomeMonthly: number;
+};
+
+function SectionAmountCell({ spendingMonthly, incomeMonthly }: SectionAmountProps) {
+	return (
+		<div className="flex flex-col items-end gap-0.5">
+			{spendingMonthly > 0 ? (
+				<span className={cn('font-mono text-[13px] font-medium tabular-nums', moneyDangerClass)}>
+					{formatMoney(spendingMonthly)}
+					<span className="ml-1 font-sans text-[10px] font-normal text-paper-muted">
+						spend/mo
+					</span>
+				</span>
+			) : null}
+			{incomeMonthly > 0 ? (
+				<span className={cn('font-mono text-[13px] font-medium tabular-nums', moneySuccessClass)}>
+					{formatMoney(incomeMonthly)}
+					<span className="ml-1 font-sans text-[10px] font-normal text-paper-muted">
+						income/mo
+					</span>
+				</span>
+			) : null}
+			{spendingMonthly === 0 && incomeMonthly === 0 ? (
+				<span className="text-paper-muted">—</span>
+			) : null}
+		</div>
+	);
+}
+
+type RepeatKpiRowProps = {
+	spendingTotal: number;
+	incomeTotal: number;
+	expenseCount: number;
+	incomeCount: number;
+};
+
+function RepeatKpiRow({
+	spendingTotal,
+	incomeTotal,
+	expenseCount,
+	incomeCount,
+}: RepeatKpiRowProps) {
+	if (expenseCount === 0 && incomeCount === 0) {
+		return null;
+	}
+	return (
+		<section
+			className="flex flex-wrap gap-3"
+			aria-label="Repeat payment summary"
+		>
+			{expenseCount > 0 ? (
+				<article className="min-w-[260px] flex-1 rounded-lg border border-paper-border bg-paper-surface px-[18px] py-4">
+					<p className={kpiLabelClass}>Estimated monthly spending</p>
+					<p className={cn('m-0 mt-2 font-mono text-[26px] font-medium leading-none tracking-[-0.02em] tabular-nums', moneyDangerClass)}>
+						{formatMoney(spendingTotal)}
+					</p>
+					<p className={kpiHintClass}>
+						{expenseCount} spending pattern{expenseCount === 1 ? '' : 's'}
+					</p>
+				</article>
+			) : null}
+			{incomeCount > 0 ? (
+				<article className="min-w-[260px] flex-1 rounded-lg border border-paper-border bg-paper-surface px-[18px] py-4">
+					<p className={kpiLabelClass}>Estimated monthly income</p>
+					<p className={cn('m-0 mt-2 font-mono text-[26px] font-medium leading-none tracking-[-0.02em] tabular-nums', moneySuccessClass)}>
+						{formatMoney(incomeTotal)}
+					</p>
+					<p className={kpiHintClass}>
+						{incomeCount} income pattern{incomeCount === 1 ? '' : 's'}
+					</p>
+				</article>
+			) : null}
+		</section>
+	);
+}
+
+type PatternRowProps = {
+	row: RecurringCandidateRow;
+	categoryList: Category[];
+	isChild?: boolean;
+};
+
+function PatternRow({ row, categoryList, isChild = false }: PatternRowProps) {
+	const flowClass = row.flow === 'income' ? moneySuccessClass : moneyDangerClass;
+	return (
+		<tr
+			className={cn(
+				isChild &&
+					'[&>td]:bg-[color-mix(in_oklch,var(--fg)_1%,var(--surface))] [&>td]:py-2'
+			)}
+		>
+			{isChild ? <td className={tableTdClass} /> : null}
+			<td className={cn(tableTdClass, 'min-w-[220px] max-w-[340px]', isChild && 'pl-7')}>
+				<div className="flex min-w-0 flex-col gap-[5px]">
+					<div className="flex flex-wrap items-center gap-[5px]">
+						{isChild ? (
+							<RepeatFlowChip flow={row.flow} />
+						) : (
+							<>
+								<CategoryTags categoryId={row.modeCategoryId} categoryList={categoryList} />
+								<RepeatFlowChip flow={row.flow} />
+							</>
+						)}
+					</div>
+					<p className="m-0 truncate text-[13px] text-paper-fg" title={row.labelSample}>
+						{row.labelSample}
+					</p>
+				</div>
+			</td>
+			<td className={tableTdClass}>
+				<div className="flex flex-col gap-0.5">
+					<span>{row.cadenceLabel}</span>
+					{shouldShowGapSubline(row.cadenceLabel) ? (
+						<span className="font-mono text-[11px] text-paper-muted">
+							~{row.medianGapDays}d apart
+						</span>
+					) : null}
+				</div>
+			</td>
+			<td className={cn(tableTdClass, 'text-right')}>
+				<PatternAmountCell row={row} />
+			</td>
+			<td className={cn(tableTdClass, 'whitespace-nowrap text-right font-mono tabular-nums', flowClass)}>
+				{formatMoney(row.minAmountDollars)} – {formatMoney(row.maxAmountDollars)}
+			</td>
+			<td className={cn(tableTdClass, 'w-14 text-right font-mono tabular-nums')}>
+				{row.occurrences}
+			</td>
+			<td className={cn(tableTdClass, 'w-24 whitespace-nowrap font-mono tabular-nums')}>
+				{formatTableDate(row.firstDate)}
+			</td>
+			<td className={cn(tableTdClass, 'w-24 whitespace-nowrap font-mono tabular-nums')}>
+				{formatTableDate(row.lastDate)}
+			</td>
+			<td className={cn(tableTdClass, 'w-24 text-right')}>
+				<RepeatScoreBadge score={row.confidence} />
+			</td>
+		</tr>
+	);
+}
+
+type SubSortHeaderProps = {
+	label: string;
+	active: boolean;
+	direction: SortDir;
+	align?: 'left' | 'right';
+	onClick: () => void;
+};
+
+function SubSortHeader({
+	label,
+	active,
+	direction,
+	align = 'left',
+	onClick,
+}: SubSortHeaderProps) {
+	const numeric = align === 'right';
+	return (
+		<td className={cn('px-3 py-1.5', align === 'right' && 'text-right')}>
+			<button
+				type="button"
+				onClick={onClick}
+				className={cn(
+					'inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[10px] font-medium uppercase tracking-[0.06em] hover:text-paper-fg',
+					active ? 'text-paper-fg' : 'text-paper-muted',
+					numeric && 'flex-row-reverse'
+				)}
+			>
+				{numeric ? (
+					<>
+						<SortIndicator active={active} direction={direction} />
+						{label}
+					</>
+				) : (
+					<>
+						{label}
+						<SortIndicator active={active} direction={direction} />
+					</>
+				)}
+			</button>
+		</td>
+	);
+}
+
 const RecurringExpensesPage = () => {
 	const dispatch = useAppDispatch();
-	const { accountIdNumber } = useAccountFilter();
+	const { accountIdNumber, selectedLabel } = useAccountFilter();
 	const { categories, categoriesLoading, categoriesError } = useAppSelector(
 		(s) => s.CategoryReducer
 	);
@@ -362,10 +674,10 @@ const RecurringExpensesPage = () => {
 	const [subSortBySection, setSubSortBySection] = useState<
 		Record<string, { key: PatternSortKey; dir: SortDir }>
 	>({});
-	const [detailSort, setDetailSort] = useState<{
-		key: keyof RecurringCandidateRow;
-		direction: SortDirection;
-	}>({ key: 'confidence', direction: 'desc' });
+	const [patternSort, setPatternSort] = useState<{
+		key: PatternSortKey;
+		dir: SortDir;
+	}>(DEFAULT_PATTERN_SORT);
 
 	useEffect(() => {
 		setLoading(true);
@@ -405,37 +717,10 @@ const RecurringExpensesPage = () => {
 		return merged;
 	}, [apiRows]);
 
-	const handleDetailSortChange = (
-		sortKey: keyof RecurringCandidateRow | null,
-		direction: SortDirection
-	) => {
-		if (sortKey === null) {
-			return;
-		}
-		setDetailSort((prev) => {
-			if (prev.key === sortKey) {
-				return { key: sortKey, direction };
-			}
-			const numeric = sortKey !== 'labelSample';
-			return {
-				key: sortKey,
-				direction: numeric ? 'desc' : 'asc',
-			};
-		});
-	};
-
-	const sortedDetailRows = useMemo(() => {
-		const pk = patternSortKeyFromColumnKey(detailSort.key);
-		if (pk === null) {
-			return rows;
-		}
-		return sortPatterns(
-			rows,
-			pk,
-			detailSort.direction === 'asc' ? 'asc' : 'desc',
-			categoryList
-		);
-	}, [rows, detailSort, categoryList]);
+	const sortedPatternRows = useMemo(
+		() => sortPatterns(rows, patternSort.key, patternSort.dir, categoryList),
+		[rows, patternSort, categoryList]
+	);
 
 	const sections = useMemo(() => {
 		if (!groupByCategory || rows.length === 0) {
@@ -479,6 +764,16 @@ const RecurringExpensesPage = () => {
 		});
 	};
 
+	const cycleMainPatternSort = (key: PatternSortKey) => {
+		setPatternSort((prev) => {
+			if (prev.key === key) {
+				return { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' };
+			}
+			const numeric = key !== 'labelSample' && key !== 'cadenceLabel';
+			return { key, dir: numeric ? 'desc' : 'asc' };
+		});
+	};
+
 	const toggleSection = (sectionKey: string) => {
 		setExpandedSections((prev) => {
 			const next = new Set(prev);
@@ -491,336 +786,21 @@ const RecurringExpensesPage = () => {
 		});
 	};
 
-	const { estimatedMonthlyTotal } = useMemo(() => {
+	const estimatedMonthlyTotal = useMemo(() => {
 		let monthly = 0;
 		for (const r of expenseRows) {
 			monthly += r.estimatedMonthlyDollars;
 		}
-		return {
-			estimatedMonthlyTotal: Math.round(monthly * 100) / 100,
-		};
+		return Math.round(monthly * 100) / 100;
 	}, [expenseRows]);
 
-	const { estimatedMonthlyIncomeTotal } = useMemo(() => {
+	const estimatedMonthlyIncomeTotal = useMemo(() => {
 		let monthly = 0;
 		for (const r of incomeRows) {
 			monthly += r.estimatedMonthlyDollars;
 		}
-		return {
-			estimatedMonthlyIncomeTotal: Math.round(monthly * 100) / 100,
-		};
+		return Math.round(monthly * 100) / 100;
 	}, [incomeRows]);
-
-	const detailColumns: TColumn<RecurringCandidateRow>[] = useMemo(
-		() => [
-			{
-				key: 'labelSample',
-				label: 'Example description',
-				sortable: true,
-				sortFunction: (a, b, rowA, rowB) => {
-					const catName = (id: number | null) => {
-						if (id === null) {
-							return '\uffff';
-						}
-						const c = categoryList.find((x) => String(x.id) === String(id));
-						return c?.name ?? String(id);
-					};
-					const byCat = catName(rowA.modeCategoryId).localeCompare(
-						catName(rowB.modeCategoryId)
-					);
-					if (byCat !== 0) {
-						return byCat;
-					}
-					return a.localeCompare(b);
-				},
-				render: (v, row) => {
-					const cat =
-						row.modeCategoryId !== null
-							? categoryList.find(
-									(c) => String(c.id) === String(row.modeCategoryId)
-								)
-							: undefined;
-					const showDeleted =
-						cat?.deleted_at && row.modeCategoryId !== null;
-					return (
-						<div className="max-w-md">
-							<div className="flex flex-wrap gap-1 mb-1.5">
-								{row.modeCategoryId !== null && cat && !cat.deleted_at ? (
-									<CategoryPill name={cat.name} colour={cat.colour} />
-								) : row.modeCategoryId !== null && showDeleted ? (
-									<span className="inline-block px-2 py-0.5 rounded text-xs text-paper-fg bg-gray-600 shrink-0">
-										{cat?.name ?? `ID ${row.modeCategoryId}`} (deleted)
-									</span>
-								) : row.modeCategoryId !== null && !cat ? (
-									<span className="inline-block px-2 py-0.5 rounded text-xs text-paper-fg bg-gray-600 shrink-0">
-										ID: {row.modeCategoryId}
-									</span>
-								) : (
-									<span className="inline-block px-2 py-0.5 rounded text-xs italic text-gray-400 bg-gray-700 shrink-0">
-										Uncategorized
-									</span>
-								)}
-								<span
-									className={
-										row.flow === 'income'
-											? 'inline-block px-2 py-0.5 rounded text-[10px] uppercase tracking-wide shrink-0 border border-green-500/45 text-green-400/95'
-											: 'inline-block px-2 py-0.5 rounded text-[10px] uppercase tracking-wide shrink-0 border border-red-500/35 text-red-300/90'
-									}
-								>
-									{row.flow === 'income' ? 'Income' : 'Spending'}
-								</span>
-							</div>
-							<p className="text-sm truncate" title={v}>
-								{v}
-							</p>
-						</div>
-					);
-				},
-			},
-			{
-				key: 'cadenceLabel',
-				label: 'Cadence',
-				sortable: true,
-				render: (v) => <span className="text-sm">{v}</span>,
-			},
-			{
-				key: 'medianGapDays',
-				label: 'Typical spacing (days)',
-				sortable: true,
-				render: (v) => (
-					<span className="font-mono text-sm">{v}</span>
-				),
-			},
-			{
-				key: 'typicalAmountDollars',
-				label: 'Amount · per month',
-				sortable: true,
-				sortFunction: (a, b, rowA, rowB) => {
-					const byMo =
-						rowA.estimatedMonthlyDollars - rowB.estimatedMonthlyDollars;
-					if (byMo !== 0) {
-						return byMo;
-					}
-					return a - b;
-				},
-				render: (v, row) => (
-					<div className="flex flex-col gap-1 py-0.5 min-w-[6.75rem]">
-						<span
-							className={`font-mono text-sm tabular-nums leading-none ${mainAmountClass(row.flow)}`}
-						>
-							{formatMoney(v)}
-						</span>
-						<span className="font-mono text-[11px] tabular-nums leading-none text-paper-muted">
-							<span className="text-paper-muted mr-0.5" aria-hidden>
-								≈
-							</span>
-							{formatMoney(row.estimatedMonthlyDollars)}
-							<span className="text-paper-muted font-sans font-normal text-[10px] ml-1">
-								/mo
-							</span>
-						</span>
-					</div>
-				),
-			},
-			{
-				key: 'minAmountDollars',
-				label: 'Min / max',
-				sortable: true,
-				render: (_v, row) => (
-					<span
-						className={`font-mono text-sm ${rangeAmountClass(row.flow)}`}
-					>
-						{formatMoney(row.minAmountDollars)} —{' '}
-						{formatMoney(row.maxAmountDollars)}
-					</span>
-				),
-				sortFunction: (_a, _b, rowA, rowB) =>
-					rowA.minAmountDollars - rowB.minAmountDollars,
-			},
-			{
-				key: 'occurrences',
-				label: 'Times seen',
-				sortable: true,
-				render: (v) => <span className="text-center">{v}</span>,
-				cellClassName: 'text-center',
-				headerClassName: 'text-center',
-			},
-			{
-				key: 'firstDate',
-				label: 'First',
-				sortable: true,
-			},
-			{
-				key: 'lastDate',
-				label: 'Last',
-				sortable: true,
-			},
-			{
-				key: 'confidence',
-				label: 'Match score',
-				sortable: true,
-				render: (v) => (
-					<span
-						className={
-							v >= 70
-								? 'text-green-400'
-								: v >= 45
-									? 'text-amber-300'
-									: 'text-gray-400'
-						}
-					>
-						{v}
-					</span>
-				),
-			},
-		],
-		[categoryList]
-	);
-
-	const categoryColumns: TColumn<RecurringCategoryAggRow>[] = useMemo(
-		() => [
-			{
-				key: 'labelSample',
-				label: 'Category',
-				sortable: true,
-				sortFunction: (a, b) => a.localeCompare(b),
-				render: (_v, row) => {
-					const cat =
-						row.modeCategoryId !== null
-							? categoryList.find(
-									(c) => String(c.id) === String(row.modeCategoryId)
-								)
-							: undefined;
-					const showDeleted =
-						cat?.deleted_at && row.modeCategoryId !== null;
-					return (
-						<div className="max-w-md">
-							<div className="flex flex-wrap items-center gap-2">
-								{row.modeCategoryId !== null && cat && !cat.deleted_at ? (
-									<CategoryPill name={cat.name} colour={cat.colour} />
-								) : row.modeCategoryId !== null && showDeleted ? (
-									<span className="inline-block px-2 py-0.5 rounded text-xs text-paper-fg bg-gray-600 shrink-0">
-										{cat?.name ?? `ID ${row.modeCategoryId}`} (deleted)
-									</span>
-								) : row.modeCategoryId !== null && !cat ? (
-									<span className="inline-block px-2 py-0.5 rounded text-xs text-paper-fg bg-gray-600 shrink-0">
-										ID: {row.modeCategoryId}
-									</span>
-								) : (
-									<span className="inline-block px-2 py-0.5 rounded text-xs italic text-gray-400 bg-gray-700 shrink-0">
-										Uncategorized
-									</span>
-								)}
-							</div>
-							<p className="text-[10px] text-paper-muted mt-1">
-								{row.patternCount} pattern{row.patternCount === 1 ? '' : 's'} ·
-								click to expand
-							</p>
-						</div>
-					);
-				},
-			},
-			{
-				key: 'cadenceLabel',
-				label: 'Cadence',
-				sortable: false,
-				render: () => <span className="text-sm text-paper-muted">—</span>,
-			},
-			{
-				key: 'medianGapDays',
-				label: 'Typical spacing (days)',
-				sortable: false,
-				render: () => (
-					<span className="font-mono text-sm text-paper-muted">—</span>
-				),
-			},
-			{
-				key: 'typicalAmountDollars',
-				label: 'Est. per month',
-				sortable: true,
-				sortFunction: (_a, _b, rowA, rowB) => {
-					const t =
-						rowA.spendingMonthly +
-						rowA.incomeMonthly -
-						(rowB.spendingMonthly + rowB.incomeMonthly);
-					if (t !== 0) {
-						return t;
-					}
-					return rowA.labelSample.localeCompare(rowB.labelSample);
-				},
-				render: (_v, row) => (
-					<div className="flex flex-col gap-1 py-0.5 min-w-[6.75rem]">
-						{row.spendingMonthly > 0 ? (
-							<span className="font-mono text-sm tabular-nums text-red-300 leading-none">
-								{formatMoney(row.spendingMonthly)}
-								<span className="text-paper-muted font-sans font-normal text-[10px] ml-1">
-									spend/mo
-								</span>
-							</span>
-						) : null}
-						{row.incomeMonthly > 0 ? (
-							<span className="font-mono text-sm tabular-nums text-green-400 leading-none">
-								{formatMoney(row.incomeMonthly)}
-								<span className="text-paper-muted font-sans font-normal text-[10px] ml-1">
-									income/mo
-								</span>
-							</span>
-						) : null}
-						{row.spendingMonthly === 0 && row.incomeMonthly === 0 ? (
-							<span className="text-paper-muted text-sm">—</span>
-						) : null}
-					</div>
-				),
-			},
-			{
-				key: 'minAmountDollars',
-				label: 'Min / max',
-				sortable: false,
-				render: () => (
-					<span className="font-mono text-sm text-paper-muted">—</span>
-				),
-			},
-			{
-				key: 'occurrences',
-				label: 'Times seen',
-				sortable: true,
-				sortFunction: (a, b) => a - b,
-				render: (v) => <span className="text-center">{v}</span>,
-				cellClassName: 'text-center',
-				headerClassName: 'text-center',
-			},
-			{
-				key: 'firstDate',
-				label: 'First',
-				sortable: true,
-			},
-			{
-				key: 'lastDate',
-				label: 'Last',
-				sortable: true,
-			},
-			{
-				key: 'confidence',
-				label: 'Match score',
-				sortable: true,
-				sortFunction: (a, b) => a - b,
-				render: (v) => (
-					<span
-						className={
-							v >= 70
-								? 'text-green-400'
-								: v >= 45
-									? 'text-amber-300'
-									: 'text-gray-400'
-						}
-					>
-						{v}
-					</span>
-				),
-			},
-		],
-		[categoryList]
-	);
 
 	const initialLoading = loading && apiRows.length === 0 && !error;
 
@@ -842,305 +822,502 @@ const RecurringExpensesPage = () => {
 			? sections.length === 0 && !loading
 			: rows.length === 0 && !loading;
 
+	const emptyMessage =
+		'No repeat patterns found — lower "minimum occurrences" or add more history.';
+
+	const tableHint = `${selectedLabel} · min ${minOccurrences} occurrences`;
+
+	const patternSortActive = (key: PatternSortKey) =>
+		!groupByCategory && patternSort.key === key;
+	const patternSortDir = (key: PatternSortKey) =>
+		patternSortActive(key) ? patternSort.dir : 'asc';
+
+	const sectionSortActive = (key: SectionSortKey) =>
+		groupByCategory && sectionSort.key === key;
+	const sectionSortDir = (key: SectionSortKey) =>
+		sectionSortActive(key) ? sectionSort.dir : 'asc';
+
 	return (
-		<PageShell variant="table" className="p-4">
-			<PageHeader
-				title="Repeat payments"
-				icon={<Repeat className="h-6 w-6 text-secondary-default" />}
-				meta={<RepeatPaymentsHelp />}
-				actions={
-					expenseRows.length > 0 || incomeRows.length > 0 ? (
-						<div className="flex flex-row flex-wrap items-stretch justify-end gap-3">
-							{expenseRows.length > 0 ? (
-								<StatCard
-									label="Estimated monthly spending"
-									value={formatMoney(estimatedMonthlyTotal)}
-									valueClassName="text-red-300"
-									hint={`${expenseRows.length} spending pattern${expenseRows.length === 1 ? '' : 's'}`}
-								/>
-							) : null}
-							{incomeRows.length > 0 ? (
-								<StatCard
-									align="right"
-									label="Estimated monthly income"
-									value={formatMoney(estimatedMonthlyIncomeTotal)}
-									valueClassName="text-green-400"
-									hint={`${incomeRows.length} income pattern${incomeRows.length === 1 ? '' : 's'}`}
+		<PageShell variant="table">
+			<header className={pageHeaderClass}>
+				<div className="flex flex-wrap items-start justify-between gap-4">
+					<div className="min-w-0">
+						<div className="flex items-center gap-1.5">
+							<h1 className={pageTitleClass}>Repeat payments</h1>
+							<RepeatPaymentsHelp />
+							{loading ? (
+								<Loader2
+									className="h-4 w-4 animate-spin text-secondary-default"
+									aria-label="Loading"
 								/>
 							) : null}
 						</div>
-					) : null
-				}
-			/>
-
-			{groupByCategory ? (
-				<p className="mb-3 text-sm text-paper-muted">
-					Grouped by category — click a row to see the individual payments behind
-					it.
-				</p>
-			) : null}
-
-			<div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-				<div className="flex flex-wrap items-center gap-3">
-					<AccountFilter />
-					<SegmentedControl
-						ariaLabel="Repeat payments view"
-						value={groupByCategory ? 'category' : 'pattern'}
-						onChange={(next) => setGroupByCategory(next === 'category')}
-						options={[
-							{ value: 'pattern', label: 'By pattern' },
-							{ value: 'category', label: 'By category' },
-						]}
-					/>
+						<p className={pageSubtitleClass}>
+							Recurring debits and credits detected from statement history — refreshed
+							as new statements import.
+						</p>
+					</div>
+					<div className={pageActionsClass}>
+						<AccountFilter />
+						<SegmentedControl
+							ariaLabel="Repeat payments view"
+							value={groupByCategory ? 'category' : 'pattern'}
+							onChange={(next) => setGroupByCategory(next === 'category')}
+							options={[
+								{ value: 'pattern', label: 'By pattern' },
+								{ value: 'category', label: 'By category' },
+							]}
+						/>
+						<label className="inline-flex items-center gap-2 whitespace-nowrap text-[12.5px] text-paper-muted">
+							<span>Minimum occurrences</span>
+							<select
+								value={minOccurrences}
+								onChange={(e) =>
+									setMinOccurrences(Number.parseInt(e.target.value, 10))
+								}
+								className={cn(selectDarkClass, 'w-16 px-2 py-1.5')}
+								aria-label="Minimum occurrences"
+							>
+								<option value={3} className="bg-paper-surface text-paper-fg">
+									3
+								</option>
+								<option value={4} className="bg-paper-surface text-paper-fg">
+									4
+								</option>
+								<option value={5} className="bg-paper-surface text-paper-fg">
+									5
+								</option>
+								<option value={6} className="bg-paper-surface text-paper-fg">
+									6
+								</option>
+							</select>
+						</label>
+					</div>
 				</div>
-				<label className="flex items-center gap-2 text-sm text-paper-fg">
-					<span>Minimum occurrences</span>
-					<select
-						value={minOccurrences}
-						onChange={(e) =>
-							setMinOccurrences(Number.parseInt(e.target.value, 10))
-						}
-						className={cn(inputDarkClass, 'px-2 py-1')}
-					>
-						<option value={2}>2</option>
-						<option value={3}>3</option>
-						<option value={4}>4</option>
-						<option value={5}>5</option>
-					</select>
-				</label>
-			</div>
+			</header>
 
-			<div className="flex-grow overflow-hidden min-h-0">
-				{groupByCategory ? (
-					<div className="flex flex-col h-full bg-primary-default text-gray-200">
-						<div className="flex-grow overflow-auto min-h-0">
-							<table className="w-full min-w-[960px]">
-								<thead
-									className={cn(
-										'border-b border-paper-border bg-paper-surface backdrop-blur-sm',
-										'sticky top-0 z-10'
-									)}
-								>
+			<div className={pageBodyClass}>
+				<div className="flex flex-col gap-6">
+					<RepeatKpiRow
+						spendingTotal={estimatedMonthlyTotal}
+						incomeTotal={estimatedMonthlyIncomeTotal}
+						expenseCount={expenseRows.length}
+						incomeCount={incomeRows.length}
+					/>
+
+					<section className={cn(glassCardClass, 'overflow-hidden p-0')}>
+						<div className="border-b border-paper-border px-4 py-3.5">
+							<h2 className={panelTitleClass}>
+								{groupByCategory ? 'By category' : 'By pattern'}
+							</h2>
+							<p className={cn(panelHintClass, 'mt-1')}>{tableHint}</p>
+						</div>
+
+						{groupByCategory ? (
+							<p className="m-0 border-b border-paper-border bg-[color-mix(in_oklch,var(--fg)_1.5%,var(--surface))] px-4 py-2.5 text-[12.5px] text-paper-muted">
+								Grouped by category — click a row to see the individual payments
+								behind it.
+							</p>
+						) : null}
+
+						<div className="overflow-x-auto">
+							<table className="w-full min-w-[960px] border-collapse">
+								<thead>
 									<tr>
-										<th className="px-4 py-3 w-10" />
-										{categoryColumns.map((col) => {
-											const sk = sectionSortKeyFromAggKey(col.key);
-											const headerSortable =
-												Boolean(col.sortable) && sk !== null;
-											return (
-												<th
-													key={String(col.key)}
-													className={cn(
-														'px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-400',
-														col.headerClassName
-													)}
-												>
-													{headerSortable && sk !== null ? (
-														<button
-															type="button"
-															onClick={() => cycleSectionSort(sk)}
-															className={cn(
-																'w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
-																col.headerClassName,
-																sectionSort.key === sk
-																	? 'text-secondary-default'
-																	: 'text-gray-400'
-															)}
-														>
-															{col.label}
-															{sectionSort.key === sk
-																? sectionSort.dir === 'asc'
-																	? ' ▲'
-																	: ' ▼'
-																: ''}
-														</button>
-													) : (
-														<span
-															className={cn(
-																'text-gray-400',
-																col.headerClassName
-															)}
-														>
-															{col.label}
-														</span>
-													)}
-												</th>
-											);
-										})}
+										{groupByCategory ? (
+											<th className={cn(tableThClass, 'w-10')}>
+												<span className="sr-only">Expand</span>
+											</th>
+										) : null}
+										<SortHeader
+											label={groupByCategory ? 'Category' : 'Description'}
+											active={
+												groupByCategory
+													? sectionSortActive('label')
+													: patternSortActive('labelSample')
+											}
+											direction={
+												groupByCategory
+													? sectionSortDir('label')
+													: patternSortDir('labelSample')
+											}
+											onClick={() =>
+												groupByCategory
+													? cycleSectionSort('label')
+													: cycleMainPatternSort('labelSample')
+											}
+											className="min-w-[220px] max-w-[340px]"
+										/>
+										<SortHeader
+											label="Frequency"
+											active={
+												groupByCategory
+													? false
+													: patternSortActive('cadenceLabel')
+											}
+											direction={patternSortDir('cadenceLabel')}
+											onClick={
+												groupByCategory
+													? undefined
+													: () => cycleMainPatternSort('cadenceLabel')
+											}
+											sortable={!groupByCategory}
+										/>
+										<SortHeader
+											label="Amount · per month"
+											align="right"
+											active={
+												groupByCategory
+													? sectionSortActive('typical')
+													: patternSortActive('typicalAmountDollars')
+											}
+											direction={
+												groupByCategory
+													? sectionSortDir('typical')
+													: patternSortDir('typicalAmountDollars')
+											}
+											onClick={() =>
+												groupByCategory
+													? cycleSectionSort('typical')
+													: cycleMainPatternSort('typicalAmountDollars')
+											}
+										/>
+										<SortHeader
+											label="Min / max"
+											align="right"
+											active={
+												groupByCategory
+													? false
+													: patternSortActive('minAmountDollars')
+											}
+											direction={patternSortDir('minAmountDollars')}
+											onClick={
+												groupByCategory
+													? undefined
+													: () => cycleMainPatternSort('minAmountDollars')
+											}
+											sortable={!groupByCategory}
+										/>
+										<SortHeader
+											label="Times seen"
+											align="right"
+											active={
+												groupByCategory
+													? sectionSortActive('occurrences')
+													: patternSortActive('occurrences')
+											}
+											direction={
+												groupByCategory
+													? sectionSortDir('occurrences')
+													: patternSortDir('occurrences')
+											}
+											onClick={() =>
+												groupByCategory
+													? cycleSectionSort('occurrences')
+													: cycleMainPatternSort('occurrences')
+											}
+											className="w-14"
+										/>
+										<SortHeader
+											label="First"
+											active={
+												groupByCategory
+													? sectionSortActive('firstDate')
+													: patternSortActive('firstDate')
+											}
+											direction={
+												groupByCategory
+													? sectionSortDir('firstDate')
+													: patternSortDir('firstDate')
+											}
+											onClick={() =>
+												groupByCategory
+													? cycleSectionSort('firstDate')
+													: cycleMainPatternSort('firstDate')
+											}
+											className="w-24"
+										/>
+										<SortHeader
+											label="Last"
+											active={
+												groupByCategory
+													? sectionSortActive('lastDate')
+													: patternSortActive('lastDate')
+											}
+											direction={
+												groupByCategory
+													? sectionSortDir('lastDate')
+													: patternSortDir('lastDate')
+											}
+											onClick={() =>
+												groupByCategory
+													? cycleSectionSort('lastDate')
+													: cycleMainPatternSort('lastDate')
+											}
+											className="w-24"
+										/>
+										<SortHeader
+											label="Match score"
+											align="right"
+											active={
+												groupByCategory
+													? sectionSortActive('confidence')
+													: patternSortActive('confidence')
+											}
+											direction={
+												groupByCategory
+													? sectionSortDir('confidence')
+													: patternSortDir('confidence')
+											}
+											onClick={() =>
+												groupByCategory
+													? cycleSectionSort('confidence')
+													: cycleMainPatternSort('confidence')
+											}
+											className="w-24"
+										/>
 									</tr>
 								</thead>
-								<tbody className="divide-y divide-paper-border">
-									{loading && sortedSections.length === 0
+								<tbody>
+									{loading && (groupByCategory ? sortedSections.length === 0 : sortedPatternRows.length === 0)
 										? Array.from({ length: 8 }).map((_, rowIndex) => (
 												<tr key={`skel-${String(rowIndex)}`} className="animate-pulse">
-													<td className="px-4 py-3">
-														<div className="h-4 w-4 rounded bg-gray-700" />
-													</td>
-													{categoryColumns.map((_, colIndex) => (
+													{groupByCategory ? (
+														<td className={tableTdClass}>
+															<div className="h-4 w-4 rounded bg-paper-border" />
+														</td>
+													) : null}
+													{Array.from({ length: 8 }).map((__, colIndex) => (
 														<td
 															key={`skel-${String(rowIndex)}-${String(colIndex)}`}
-															className="px-4 py-3"
+															className={tableTdClass}
 														>
-															<div className="h-4 w-3/4 rounded bg-gray-700" />
+															<div className="h-4 w-3/4 rounded bg-paper-border" />
 														</td>
 													))}
 												</tr>
 											))
 										: null}
-									{!loading && sortedSections.length === 0 ? (
+
+									{!loading && tableEmpty ? (
 										<tr>
 											<td
-												colSpan={1 + categoryColumns.length}
-												className="text-center py-10 px-4 text-gray-500"
+												colSpan={groupByCategory ? 9 : 8}
+												className="px-4 py-10 text-center text-[13px] text-paper-muted"
 											>
-												{tableEmpty
-													? 'No repeat patterns found — lower “minimum occurrences” or add more history.'
-													: 'Loading…'}
+												{emptyMessage}
 											</td>
 										</tr>
 									) : null}
-									{sortedSections.map((section) => {
-										const isOpen = expandedSections.has(section.sectionKey);
-										const agg = sectionToAggRow(section);
-										const subSort = subSortFor(section.sectionKey);
-										const sortedPatterns = sortPatterns(
-											section.rows,
-											subSort.key,
-											subSort.dir,
-											categoryList
-										);
-										return (
-											<Fragment key={section.sectionKey}>
-												<tr
-													className="hover:bg-paper cursor-pointer transition-colors"
-													onClick={() => toggleSection(section.sectionKey)}
-												>
-													<td className="px-4 py-3 align-middle text-paper-muted">
-														{isOpen ? (
-															<ChevronDown className="w-4 h-4" />
-														) : (
-															<ChevronRight className="w-4 h-4" />
-														)}
-													</td>
-													{categoryColumns.map((col) => (
-														<td
-															key={String(col.key)}
-															className={cn(
-																'px-4 py-3 whitespace-nowrap text-sm text-gray-300',
-																col.cellClassName
-															)}
-														>
-															{renderCell(col, agg)}
-														</td>
-													))}
-												</tr>
-												{isOpen ? (
-													<>
+
+									{!groupByCategory
+										? sortedPatternRows.map((row) => (
+												<PatternRow
+													key={row.rowId}
+													row={row}
+													categoryList={categoryList}
+												/>
+											))
+										: null}
+
+									{groupByCategory
+										? sortedSections.map((section) => {
+												const isOpen = expandedSections.has(section.sectionKey);
+												const agg = sectionToAggRow(section);
+												const subSort = subSortFor(section.sectionKey);
+												const sortedPatterns = sortPatterns(
+													section.rows,
+													subSort.key,
+													subSort.dir,
+													categoryList
+												);
+												return (
+													<Fragment key={section.sectionKey}>
 														<tr
-															className="bg-paper-surface border-y border-paper-border"
-															onClick={(e) => e.stopPropagation()}
+															className={cn(
+																'cursor-pointer font-medium transition-colors hover:[&>td]:bg-[color-mix(in_oklch,var(--fg)_2%,var(--surface))]',
+																isOpen &&
+																	'[&>td]:border-b-transparent [&>td]:bg-[color-mix(in_oklch,var(--fg)_1.5%,var(--surface))]'
+															)}
+															onClick={() => toggleSection(section.sectionKey)}
 														>
-															<td className="px-4 py-2" />
-															{detailColumns.map((col) => {
-																const pk = patternSortKeyFromColumnKey(
-																	col.key
-																);
-																const subHeaderSortable =
-																	Boolean(col.sortable) && pk !== null;
-																return (
-																	<td
-																		key={String(col.key)}
+															<td className={cn(tableTdClass, 'w-10')}>
+																<button
+																	type="button"
+																	className="inline-grid h-7 w-7 place-items-center rounded-paper border-0 bg-transparent p-0 text-paper-muted transition-[background,color] hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg"
+																	aria-expanded={isOpen}
+																	aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${section.label}`}
+																	onClick={(e) => {
+																		e.stopPropagation();
+																		toggleSection(section.sectionKey);
+																	}}
+																>
+																	<ChevronRight
 																		className={cn(
-																			'px-4 py-2',
-																			col.headerClassName
+																			'h-3 w-3 transition-transform duration-150',
+																			isOpen && 'rotate-90'
 																		)}
-																	>
-																		{subHeaderSortable && pk !== null ? (
-																			<button
-																				type="button"
-																				onClick={() =>
-																					cyclePatternSort(
-																						section.sectionKey,
-																						pk
-																					)
-																				}
-																				className={cn(
-																					'text-[10px] font-medium uppercase tracking-wider w-full bg-transparent border-0 p-0 cursor-pointer hover:text-secondary-default',
-																					col.headerClassName,
-																					subSort.key === pk
-																						? 'text-secondary-default'
-																						: 'text-gray-500'
-																				)}
-																			>
-																				{col.label}
-																				{subSort.key === pk
-																					? subSort.dir === 'asc'
-																						? ' ▲'
-																						: ' ▼'
-																					: ''}
-																			</button>
-																		) : (
-																			<span
-																				className={cn(
-																					'text-[10px] font-medium uppercase tracking-wider text-gray-500',
-																					col.headerClassName
-																				)}
-																			>
-																				{col.label}
-																			</span>
-																		)}
-																	</td>
-																);
-															})}
+																		strokeWidth={2.2}
+																	/>
+																</button>
+															</td>
+															<td className={cn(tableTdClass, 'min-w-[220px] max-w-[340px]')}>
+																<div className="flex min-w-0 flex-col gap-[5px]">
+																	<CategoryTags
+																		categoryId={section.categoryId}
+																		categoryList={categoryList}
+																	/>
+																	<p className="m-0 text-[11px] text-paper-muted">
+																		{agg.patternCount} pattern
+																		{agg.patternCount === 1 ? '' : 's'} · click to
+																		expand
+																	</p>
+																</div>
+															</td>
+															<td className={tableTdClass}>
+																<span className="text-paper-muted">—</span>
+															</td>
+															<td className={cn(tableTdClass, 'text-right')}>
+																<SectionAmountCell
+																	spendingMonthly={section.spendingMonthly}
+																	incomeMonthly={section.incomeMonthly}
+																/>
+															</td>
+															<td className={cn(tableTdClass, 'text-right')}>
+																<span className="text-paper-muted">—</span>
+															</td>
+															<td className={cn(tableTdClass, 'text-right font-mono tabular-nums')}>
+																{agg.occurrences}
+															</td>
+															<td className={cn(tableTdClass, 'font-mono tabular-nums')}>
+																{formatTableDate(agg.firstDate)}
+															</td>
+															<td className={cn(tableTdClass, 'font-mono tabular-nums')}>
+																{formatTableDate(agg.lastDate)}
+															</td>
+															<td className={cn(tableTdClass, 'text-right')}>
+																<RepeatScoreBadge score={agg.confidence} />
+															</td>
 														</tr>
-														{sortedPatterns.map((pattern) => (
-															<tr
-																key={pattern.rowId}
-																className="bg-paper-surface/60 hover:bg-gray-900/50"
-																onClick={(e) => e.stopPropagation()}
-															>
-																<td className="px-4 py-2" />
-																{detailColumns.map((col) => (
-																	<td
-																		key={String(col.key)}
-																		className={cn(
-																			'px-4 py-2 whitespace-nowrap text-sm text-gray-300',
-																			col.cellClassName
-																		)}
-																	>
-																		{renderCell(col, pattern)}
-																	</td>
+														{isOpen ? (
+															<>
+																<tr
+																	className="border-y border-paper-border bg-[color-mix(in_oklch,var(--fg)_2%,var(--bg))] [&>td]:py-1.5"
+																	onClick={(e) => e.stopPropagation()}
+																>
+																	<td className={tableTdClass} />
+																	<SubSortHeader
+																		label="Description"
+																		active={subSort.key === 'labelSample'}
+																		direction={subSort.dir}
+																		onClick={() =>
+																			cyclePatternSort(
+																				section.sectionKey,
+																				'labelSample'
+																			)
+																		}
+																	/>
+																	<SubSortHeader
+																		label="Frequency"
+																		active={subSort.key === 'cadenceLabel'}
+																		direction={subSort.dir}
+																		onClick={() =>
+																			cyclePatternSort(
+																				section.sectionKey,
+																				'cadenceLabel'
+																			)
+																		}
+																	/>
+																	<SubSortHeader
+																		label="Amount · per month"
+																		align="right"
+																		active={subSort.key === 'typicalAmountDollars'}
+																		direction={subSort.dir}
+																		onClick={() =>
+																			cyclePatternSort(
+																				section.sectionKey,
+																				'typicalAmountDollars'
+																			)
+																		}
+																	/>
+																	<SubSortHeader
+																		label="Min / max"
+																		align="right"
+																		active={subSort.key === 'minAmountDollars'}
+																		direction={subSort.dir}
+																		onClick={() =>
+																			cyclePatternSort(
+																				section.sectionKey,
+																				'minAmountDollars'
+																			)
+																		}
+																	/>
+																	<SubSortHeader
+																		label="Seen"
+																		align="right"
+																		active={subSort.key === 'occurrences'}
+																		direction={subSort.dir}
+																		onClick={() =>
+																			cyclePatternSort(
+																				section.sectionKey,
+																				'occurrences'
+																			)
+																		}
+																	/>
+																	<SubSortHeader
+																		label="First"
+																		active={subSort.key === 'firstDate'}
+																		direction={subSort.dir}
+																		onClick={() =>
+																			cyclePatternSort(
+																				section.sectionKey,
+																				'firstDate'
+																			)
+																		}
+																	/>
+																	<SubSortHeader
+																		label="Last"
+																		active={subSort.key === 'lastDate'}
+																		direction={subSort.dir}
+																		onClick={() =>
+																			cyclePatternSort(
+																				section.sectionKey,
+																				'lastDate'
+																			)
+																		}
+																	/>
+																	<SubSortHeader
+																		label="Score"
+																		align="right"
+																		active={subSort.key === 'confidence'}
+																		direction={subSort.dir}
+																		onClick={() =>
+																			cyclePatternSort(
+																				section.sectionKey,
+																				'confidence'
+																			)
+																		}
+																	/>
+																</tr>
+																{sortedPatterns.map((pattern) => (
+																	<PatternRow
+																		key={pattern.rowId}
+																		row={pattern}
+																		categoryList={categoryList}
+																		isChild
+																	/>
 																))}
-															</tr>
-														))}
-													</>
-												) : null}
-											</Fragment>
-										);
-									})}
+															</>
+														) : null}
+													</Fragment>
+												);
+											})
+										: null}
 								</tbody>
 							</table>
 						</div>
-					</div>
-				) : (
-					<Table<RecurringCandidateRow>
-						columns={detailColumns}
-						data={sortedDetailRows}
-						rowKey="rowId"
-						header={{ sticky: true }}
-						loading={loading}
-						sortState={{
-							key: detailSort.key,
-							direction: detailSort.direction,
-						}}
-						onSortChange={handleDetailSortChange}
-						emptyStateMessage={
-							tableEmpty
-								? 'No repeat patterns found — lower “minimum occurrences” or add more history.'
-								: 'Loading…'
-						}
-					/>
-				)}
+					</section>
+				</div>
 			</div>
 		</PageShell>
 	);

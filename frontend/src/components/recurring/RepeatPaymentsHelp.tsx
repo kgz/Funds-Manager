@@ -1,5 +1,4 @@
-import { chartTooltipClass } from '@/graphs/theme';
-import { HelpCircle } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 import { useEffect, useRef, useState } from 'react';
 
 export function RepeatPaymentsHelp() {
@@ -25,36 +24,54 @@ export function RepeatPaymentsHelp() {
 		<div ref={rootRef} className="relative inline-flex items-center">
 			<button
 				type="button"
-				className="cursor-pointer text-paper-muted transition-colors hover:text-paper-muted"
+				className={cn(
+					'grid h-[22px] w-[22px] cursor-pointer place-items-center rounded-full border border-paper-border bg-paper-surface text-paper-muted transition-[background,color,border-color] duration-150 hover:border-[color-mix(in_oklch,var(--fg)_20%,var(--border))] hover:text-paper-fg',
+					open &&
+						'border-[color-mix(in_oklch,var(--accent)_40%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_6%,var(--surface))] text-secondary-default'
+				)}
 				aria-label="How repeat payments are detected"
 				aria-expanded={open}
 				onClick={() => setOpen((current) => !current)}
 			>
-				<HelpCircle className="h-4 w-4" />
+				<svg
+					width="13"
+					height="13"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="2"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+					aria-hidden="true"
+				>
+					<circle cx="12" cy="12" r="10" />
+					<path d="M9.1 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3" />
+					<path d="M12 17h.01" />
+				</svg>
 			</button>
 			{open ? (
 				<div
-					className={`${chartTooltipClass} absolute left-0 top-full z-50 mt-2 w-80 space-y-2 text-left text-sm`}
+					className="absolute left-0 top-[calc(100%+8px)] z-50 w-80 rounded-[10px] border border-paper-border bg-paper-surface p-3.5 text-[12.5px] leading-normal shadow-[0_16px_44px_color-mix(in_oklch,var(--fg)_16%,transparent)]"
 					role="dialog"
 					aria-label="Repeat payments help"
 				>
-					<p className="text-paper-fg">
+					<p className="m-0 mb-2 text-paper-muted">
 						We look for charges or deposits that show up more than once with a
 						similar amount and timing. Each row is an estimate from your imported
 						transactions.
 					</p>
-					<p className="text-paper-muted">
-						<strong className="font-medium text-paper-fg">
+					<p className="m-0 mb-2 text-paper-muted">
+						<strong className="font-semibold text-paper-fg">
 							Estimated monthly totals
 						</strong>{' '}
 						add up what each pattern would cost or earn per month, based on how
 						often it usually appears.
 					</p>
-					<p className="text-paper-muted">
-						<strong className="font-medium text-paper-fg">Match score</strong>{' '}
+					<p className="m-0 mb-2 text-paper-muted">
+						<strong className="font-semibold text-paper-fg">Match score</strong>{' '}
 						is higher when the amount and spacing are more consistent.
 					</p>
-					<p className="text-paper-muted">
+					<p className="m-0 text-paper-muted">
 						Lower &ldquo;minimum occurrences&rdquo; to surface weaker patterns.
 					</p>
 				</div>

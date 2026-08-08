@@ -13,10 +13,11 @@
 223	done	income OD port — merged to main
 224	done	living expenses OD port — merged to main
 225	done	report snapshots OD port — merged to main
-226	backlog	repeat payments — no OD HTML
+226	in-progress	repeat payments — no OD HTML
 227	backlog	planned spending — no OD HTML
 228	backlog	accounts — no OD HTML
 229	backlog	assets — no OD HTML
 230	backlog	liabilities — no OD HTML
 231	backlog	settings — no OD HTML
-232	in-progress	login — OD HTML only
+232	backlog	parked — AI demo, not active delivery
+254	backlog	multi-select account filter — all pages (#254)

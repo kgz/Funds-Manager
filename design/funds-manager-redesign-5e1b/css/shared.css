@@ -209,6 +209,13 @@ img { display: block; max-width: 100%; }
   flex-wrap: wrap;
 }
 
+/* Filter menus opened from the page header sit near the right edge —
+   right-align them so they don't clip off the viewport. */
+.page-actions .acct-multi-menu {
+  left: auto;
+  right: 0;
+}
+
 .page-body {
   padding: 24px 32px 48px;
   display: flex;

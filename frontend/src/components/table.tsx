@@ -240,7 +240,7 @@ export const Table = <T extends BaseDataItem>(
 				<td
 					key={`${getRowKey(row, rowIndex)}-${String(column.key)}`}
 					className={cn(
-						"px-4 py-3 whitespace-nowrap text-sm text-paper-fg",
+						"px-3 py-2.5 whitespace-nowrap text-[13px] text-paper-fg",
 						column.cellClassName
 					)}
 				>
@@ -269,7 +269,7 @@ export const Table = <T extends BaseDataItem>(
 								<th
 									key={`header-${index}`}
 									className={cn(
-										"px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-paper-muted",
+										"px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-[0.08em] text-paper-muted",
 										header?.sticky && "sticky top-0 z-10 bg-paper-surface",
 										column.sortable && onSortChange && "cursor-pointer hover:bg-paper hover:text-secondary-default",
 										column.headerClassName

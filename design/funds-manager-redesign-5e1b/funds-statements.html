@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FUNDS — Statements</title>
   <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/transactions.css" />
 </head>
 <body>
   <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
@@ -13,18 +14,34 @@
     <header class="page-header" data-od-id="page-header">
       <div>
         <h1 class="page-title" data-od-id="page-title">Statements</h1>
-        <p class="page-sub">Import bank PDF statements · People's Choice & CBA</p>
+        <p class="page-sub" id="page-sub">Import bank PDF statements · All accounts</p>
       </div>
       <div class="page-actions">
+        <div class="acct-multi" id="stmt-account-multi" data-od-id="filter-account">
+          <button type="button" class="acct-multi-trigger" id="stmt-account-trigger" aria-haspopup="listbox" aria-expanded="false" aria-label="Filter by account">
+            <span class="acct-multi-label" id="stmt-account-label">All accounts</span>
+            <svg class="acct-multi-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="acct-multi-menu" id="stmt-account-menu" hidden role="listbox" aria-multiselectable="true" aria-label="Select accounts">
+            <input type="text" class="input acct-multi-search" id="stmt-account-search" placeholder="Search accounts…" aria-label="Search accounts" />
+            <label class="acct-multi-option">
+              <input type="checkbox" id="stmt-acct-all" value="all" />
+              <span>All accounts</span>
+            </label>
+            <div class="acct-multi-divider" aria-hidden="true"></div>
+            <div id="stmt-acct-options"></div>
+            <p class="acct-multi-empty" id="stmt-acct-empty" hidden>No accounts match "<span id="stmt-acct-empty-q"></span>"</p>
+          </div>
+        </div>
         <button type="button" class="btn btn-primary" id="btn-upload" data-od-id="btn-upload">Upload PDF</button>
         <input type="file" id="file-input" accept="application/pdf" hidden multiple />
       </div>
     </header>
 
     <div class="page-body">
-      <div class="alert" role="status" data-od-id="missing-periods">
+      <div class="alert" role="status" data-od-id="missing-periods" id="missing-periods">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 9v4m0 4h.01M10.3 3.9L2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-        <div>
+        <div id="missing-periods-body">
           <strong>Missing periods detected.</strong>
           People's Choice 9120 has no statement covering <span class="mono">Mar 2026</span> or <span class="mono">May 2026</span>. Upload those PDFs to close the gaps.
         </div>
@@ -47,7 +64,7 @@
       <section class="panel" data-od-id="statement-list">
         <div class="panel-head">
           <h2 class="panel-title">Imported statements</h2>
-          <p class="panel-hint">8 on file</p>
+          <p class="panel-hint" id="stmt-count">8 on file</p>
         </div>
         <div class="table-wrap">
           <table class="data">
@@ -63,7 +80,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr data-od-id="stmt-jul">
+              <tr data-od-id="stmt-jul" data-account-id="pc-9120">
                 <td class="mono">01–18 Jul 2026</td>
                 <td>People's Choice 9120</td>
                 <td>PC_9120_Jul2026.pdf</td>
@@ -72,7 +89,7 @@
                 <td><span class="pill ok">Parsed</span></td>
                 <td><button type="button" class="btn btn-ghost">View</button></td>
               </tr>
-              <tr data-od-id="stmt-jun">
+              <tr data-od-id="stmt-jun" data-account-id="pc-9120">
                 <td class="mono">01–30 Jun 2026</td>
                 <td>People's Choice 9120</td>
                 <td>PC_9120_Jun2026.pdf</td>
@@ -81,7 +98,7 @@
                 <td><span class="pill ok">Parsed</span></td>
                 <td><button type="button" class="btn btn-ghost">View</button></td>
               </tr>
-              <tr data-od-id="stmt-apr">
+              <tr data-od-id="stmt-apr" data-account-id="pc-9120">
                 <td class="mono">01–30 Apr 2026</td>
                 <td>People's Choice 9120</td>
                 <td>PC_9120_Apr2026.pdf</td>
@@ -90,7 +107,7 @@
                 <td><span class="pill ok">Parsed</span></td>
                 <td><button type="button" class="btn btn-ghost">View</button></td>
               </tr>
-              <tr data-od-id="stmt-feb">
+              <tr data-od-id="stmt-feb" data-account-id="pc-9120">
                 <td class="mono">01–28 Feb 2026</td>
                 <td>People's Choice 9120</td>
                 <td>PC_9120_Feb2026.pdf</td>
@@ -99,7 +116,7 @@
                 <td><span class="pill ok">Parsed</span></td>
                 <td><button type="button" class="btn btn-ghost">View</button></td>
               </tr>
-              <tr data-od-id="stmt-gap-mar" style="background:color-mix(in oklch, var(--warn) 6%, var(--surface))">
+              <tr data-od-id="stmt-gap-mar" data-account-id="pc-9120" style="background:color-mix(in oklch, var(--warn) 6%, var(--surface))">
                 <td class="mono">Mar 2026</td>
                 <td>People's Choice 9120</td>
                 <td>—</td>
@@ -108,7 +125,7 @@
                 <td><span class="pill warn">Missing</span></td>
                 <td><button type="button" class="btn">Upload</button></td>
               </tr>
-              <tr data-od-id="stmt-gap-may" style="background:color-mix(in oklch, var(--warn) 6%, var(--surface))">
+              <tr data-od-id="stmt-gap-may" data-account-id="pc-9120" style="background:color-mix(in oklch, var(--warn) 6%, var(--surface))">
                 <td class="mono">May 2026</td>
                 <td>People's Choice 9120</td>
                 <td>—</td>
@@ -117,7 +134,7 @@
                 <td><span class="pill warn">Missing</span></td>
                 <td><button type="button" class="btn">Upload</button></td>
               </tr>
-              <tr data-od-id="stmt-cba">
+              <tr data-od-id="stmt-cba" data-account-id="cba-offset">
                 <td class="mono">01–30 Jun 2026</td>
                 <td>CBA Offset 4412</td>
                 <td>CBA_Offset_Jun2026.pdf</td>
@@ -126,7 +143,7 @@
                 <td><span class="pill ok">Parsed</span></td>
                 <td><button type="button" class="btn btn-ghost">View</button></td>
               </tr>
-              <tr data-od-id="stmt-sav">
+              <tr data-od-id="stmt-sav" data-account-id="pc-savings">
                 <td class="mono">01–30 Jun 2026</td>
                 <td>People's Choice Savings</td>
                 <td>PC_Sav_Jun2026.pdf</td>
@@ -145,6 +162,172 @@
   <script src="js/shared.js"></script>
   <script>
     FUNDS.renderSidebar('statements');
+
+    const missingPeriods = {
+      'pc-9120': ['Mar 2026', 'May 2026'],
+    };
+
+    const selectedAccts = new Set(FUNDS.accounts.map((a) => a.id));
+
+    function allAccountsSelected() {
+      return selectedAccts.size === FUNDS.accounts.length;
+    }
+
+    function accountFilterLabel() {
+      if (allAccountsSelected()) return 'All accounts';
+      if (selectedAccts.size === 1) {
+        const id = [...selectedAccts][0];
+        return FUNDS.accountLabel(id);
+      }
+      return `${selectedAccts.size} accounts`;
+    }
+
+    function updateSubtitle() {
+      document.getElementById('page-sub').textContent = `Import bank PDF statements · ${accountFilterLabel()}`;
+    }
+
+    function updateMissingAlert() {
+      const alert = document.getElementById('missing-periods');
+      const entries = Object.entries(missingPeriods).filter(([id]) => selectedAccts.has(id));
+      if (!entries.length) {
+        alert.hidden = true;
+        return;
+      }
+      alert.hidden = false;
+      const sentences = entries.map(([id, periods]) => {
+        const label = FUNDS.accountLabel(id);
+        const periodsHtml = periods.map((p) => `<span class="mono">${p}</span>`).join(' or ');
+        return `${label} has no statement covering ${periodsHtml}.`;
+      });
+      document.getElementById('missing-periods-body').innerHTML =
+        `<strong>Missing periods detected.</strong> ${sentences.join(' ')} Upload those PDFs to close the gaps.`;
+    }
+
+    function filterRows() {
+      const rows = document.querySelectorAll('#statement-list tbody tr');
+      let visible = 0;
+      rows.forEach((tr) => {
+        const show = selectedAccts.has(tr.dataset.accountId);
+        tr.classList.toggle('is-hidden', !show);
+        if (show) visible += 1;
+      });
+      document.getElementById('stmt-count').textContent = visible === 1 ? '1 on file' : `${visible} on file`;
+    }
+
+    function applyAccountFilter() {
+      updateSubtitle();
+      updateMissingAlert();
+      filterRows();
+    }
+
+    function syncAccountMenu() {
+      const allBox = document.getElementById('stmt-acct-all');
+      const allOn = allAccountsSelected();
+      allBox.checked = allOn;
+      allBox.indeterminate = !allOn && selectedAccts.size > 0;
+      document.querySelectorAll('#stmt-acct-options input[type=checkbox]').forEach((box) => {
+        box.checked = selectedAccts.has(box.value);
+      });
+      document.getElementById('stmt-account-label').textContent = accountFilterLabel();
+    }
+
+    function initAccountMulti() {
+      const menu = document.getElementById('stmt-account-menu');
+      const trigger = document.getElementById('stmt-account-trigger');
+      const options = document.getElementById('stmt-acct-options');
+      const search = document.getElementById('stmt-account-search');
+      const empty = document.getElementById('stmt-acct-empty');
+      const emptyQ = document.getElementById('stmt-acct-empty-q');
+
+      options.innerHTML = FUNDS.accounts.map((acct) => `
+        <label class="acct-multi-option" data-label="${acct.label.toLowerCase()}">
+          <input type="checkbox" value="${acct.id}" />
+          <span>${acct.label}</span>
+        </label>
+      `).join('');
+
+      function resetSearch() {
+        search.value = '';
+        options.querySelectorAll('.acct-multi-option').forEach((opt) => opt.classList.remove('is-hidden'));
+        empty.hidden = true;
+      }
+
+      function openMenu() {
+        menu.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+        search.focus();
+      }
+
+      function closeMenu() {
+        menu.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+        resetSearch();
+      }
+
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (menu.hidden) {
+          syncAccountMenu();
+          openMenu();
+        } else {
+          closeMenu();
+        }
+      });
+
+      search.addEventListener('click', (e) => e.stopPropagation());
+      search.addEventListener('input', () => {
+        const q = search.value.trim().toLowerCase();
+        let anyVisible = false;
+        options.querySelectorAll('.acct-multi-option').forEach((opt) => {
+          const match = !q || opt.dataset.label.includes(q);
+          opt.classList.toggle('is-hidden', !match);
+          if (match) anyVisible = true;
+        });
+        emptyQ.textContent = search.value.trim();
+        empty.hidden = anyVisible || !q;
+      });
+
+      document.getElementById('stmt-acct-all').addEventListener('change', (e) => {
+        if (e.target.checked) {
+          FUNDS.accounts.forEach((a) => selectedAccts.add(a.id));
+        } else {
+          selectedAccts.clear();
+          selectedAccts.add(FUNDS.accounts[0].id);
+        }
+        syncAccountMenu();
+        applyAccountFilter();
+      });
+
+      options.addEventListener('change', (e) => {
+        const box = e.target.closest('input[type=checkbox]');
+        if (!box) return;
+        if (box.checked) {
+          selectedAccts.add(box.value);
+        } else if (selectedAccts.size > 1) {
+          selectedAccts.delete(box.value);
+        } else {
+          box.checked = true;
+          return;
+        }
+        syncAccountMenu();
+        applyAccountFilter();
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!document.getElementById('stmt-account-multi').contains(e.target)) {
+          closeMenu();
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !menu.hidden) closeMenu();
+      });
+
+      syncAccountMenu();
+    }
+
+    initAccountMulti();
+    applyAccountFilter();
 
     const dz = document.getElementById('dropzone');
     const input = document.getElementById('file-input');

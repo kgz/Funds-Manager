@@ -218,7 +218,7 @@ function renderSidebar(active) {
         { id: 'living', href: 'funds-living-expenses.html', label: 'Living expenses', icon: 'home' },
         { id: 'serviceability', href: 'funds-serviceability.html', label: 'Serviceability', icon: 'calc' },
         { id: 'snapshots', href: 'funds-report-snapshots.html', label: 'Report snapshots', icon: 'snap' },
-        { id: 'repeat', href: '#', label: 'Repeat payments', icon: 'repeat', stub: true },
+        { id: 'repeat', href: 'funds-repeat-payments.html', label: 'Repeat payments', icon: 'repeat' },
         { id: 'planned', href: '#', label: 'Planned spending', icon: 'plan', badge: 3, stub: true },
       ],
     },

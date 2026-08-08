@@ -33,19 +33,20 @@ import {
 	COMPARISON_LABELS,
 	DASHBOARD_PERIOD_STORAGE_KEY,
 	PERIOD_LABELS,
+	PERIOD_ACTIVITY_LABELS,
 	periodDateRange,
 	previousPeriodDateRange,
 	readStoredPeriod,
 	type DashboardPeriod,
 } from '@/components/dashboard/period';
 import type { KpiComparison, DashboardKpiMetrics } from '@/components/dashboard/KpiCards';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Area, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { TooltipContentProps } from 'recharts';
 import { Drawer } from '@/components/layout/Drawer';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { ErrorState } from '@/components/layout/ErrorState';
-import { PageHeader } from '@/components/layout/PageHeader';
-import { buttonAccentClass, buttonOutlineClass, glassCardClass } from '@/components/layout/tokens';
+import { PageShell } from '@/components/layout/PageShell';
+import { buttonAccentClass, buttonOutlineClass, pageActionsClass, pageBodyClass, pageHeaderClass, pageSubtitleClass, pageTitleClass, selectDarkClass } from '@/components/layout/tokens';
 import { FileArchive, Loader2 } from "lucide-react";
 import { Link } from "react-router";
 import { cn } from '@/lib/utils/cn';
@@ -56,6 +57,7 @@ import {
 	formatMonthLabel,
 	formatTransactionDate,
 } from '@/lib/utils/dates';
+import { formatChartAxisCompactMoney } from '@/lib/utils/chartMoney';
 import {
 	applyPortfolioTrendToRows,
 	buildAccountOnboardingEvents,
@@ -78,6 +80,7 @@ type BalanceChartRow = {
 };
 
 const BALANCE_CHART_MODE_KEY = 'dashboardBalanceChartMode';
+const DASHBOARD_CHART_HEIGHT = 200;
 
 type BalanceChartMode = 'stacked' | 'combined';
 
@@ -163,7 +166,7 @@ function toPieItems(rows: DashboardAnalytics['spendingByCategory']): PieChartDat
 	return rows.map((row) => ({
 		name: row.name,
 		value: row.value,
-		color: chartSeriesColorForKey(row.groupKey),
+		color: row.colour ?? chartSeriesColorForKey(row.groupKey),
 		percent: row.percent,
 		categoryId: row.categoryId,
 		groupKey: row.groupKey,
@@ -172,27 +175,25 @@ function toPieItems(rows: DashboardAnalytics['spendingByCategory']): PieChartDat
 
 function DashboardSkeleton() {
 	return (
-		<div className="p-4 md:p-6 space-y-8 animate-pulse">
-			<div className="sticky top-0 z-30 -mx-4 mb-6 border-b border-paper-border bg-paper-surface px-4 py-4 backdrop-blur-md md:-mx-6 md:px-6">
-				<div className={cn(glassCardClass, 'px-4 py-3')}>
-					<div className="flex flex-wrap justify-between items-center gap-4">
-						<div className="h-8 w-56 rounded-md bg-paper" />
-						<div className="h-9 w-72 rounded-md bg-paper" />
+		<PageShell variant="table">
+			<header className={pageHeaderClass}>
+				<div className="h-7 w-64 animate-pulse rounded bg-paper" />
+			</header>
+			<div className={pageBodyClass}>
+				<div className="flex animate-pulse flex-col gap-6">
+					<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+						{Array.from({ length: 4 }, (_, i) => (
+							<div key={i} className="h-24 rounded-lg border border-paper-border bg-paper-surface" />
+						))}
+					</div>
+					<div className="h-[320px] rounded-lg border border-paper-border bg-paper-surface" />
+					<div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+						<div className="h-[220px] rounded-lg border border-paper-border bg-paper-surface" />
+						<div className="h-[220px] rounded-lg border border-paper-border bg-paper-surface" />
 					</div>
 				</div>
 			</div>
-			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-				{Array.from({ length: 4 }, (_, i) => (
-					<div key={i} className={cn(glassCardClass, 'h-24')} />
-				))}
-			</div>
-			<div className={cn(glassCardClass, 'h-[400px]')} />
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-				<div className={cn(glassCardClass, 'h-[360px]')} />
-				<div className={cn(glassCardClass, 'h-[360px]')} />
-			</div>
-			<div className={cn(glassCardClass, 'h-[340px]')} />
-		</div>
+		</PageShell>
 	);
 }
 
@@ -208,7 +209,7 @@ type ActiveBreakdown = {
 export const Dashboard = () => {
 	const dispatch = useAppDispatch();
 	const { categoriesLoading, categoriesError } = useAppSelector(state => state.CategoryReducer);
-	const { accountIdNumber } = useAccountFilter();
+	const { accountIdNumber, selectedLabel } = useAccountFilter();
 
 	const [period, setPeriod] = useState<DashboardPeriod>(() => readStoredPeriod());
 	const [balanceChartMode, setBalanceChartMode] = useState<BalanceChartMode>(() =>
@@ -231,6 +232,7 @@ export const Dashboard = () => {
 
 	const DRILLDOWN_PER_PAGE = 50;
 	const periodLabel = PERIOD_LABELS[period];
+	const pageSubtitle = `${selectedLabel} · ${PERIOD_ACTIVITY_LABELS[period]}`;
 	const comparisonLabel = period !== 'all' ? COMPARISON_LABELS[period] : undefined;
 	const dateRange = useMemo(
 		() => ({ ...periodDateRange(period), accountId: accountIdNumber }),
@@ -483,12 +485,6 @@ export const Dashboard = () => {
 		return portfolioBalanceChangeDetail(totals, [{ startIndex: 0, label: 'Balance' }]);
 	}, [balanceStackData, balanceChartData]);
 
-	const balanceChartSubtitle = showStackedBalance
-		? 'Stacked by account — dashed lines show trend per onboarding period'
-		: balanceChartMode === 'stacked'
-			? 'Per-account stack unavailable — showing combined view (restart server if needed)'
-			: 'Combined balance — dashed lines show trend per onboarding period';
-
 	const balanceTrendHeader =
 		balanceTrendDetail === null ? null : (
 			<BalanceTrendHelp detail={balanceTrendDetail} />
@@ -511,7 +507,7 @@ export const Dashboard = () => {
 	const showFilteredEmpty = analytics !== null && !hasChartData;
 
 	return (
-		<div className="p-4 md:p-6 space-y-8">
+		<PageShell variant="table">
 			<Drawer
 				open={activeBreakdown !== null}
 				onClose={() => setActiveBreakdown(null)}
@@ -659,26 +655,36 @@ export const Dashboard = () => {
 				)}
 			</Drawer>
 
-			<PageHeader
-				title="Spending & Income Overview"
-				sticky
-				pending={isRefreshing}
-				actions={
-					<div className="flex flex-wrap items-center gap-2">
-						<AccountFilter />
+			<header className={pageHeaderClass}>
+				<div className="flex flex-wrap items-start justify-between gap-4">
+					<div className="min-w-0">
+						<div className="flex flex-wrap items-center gap-2">
+							<h1 className={pageTitleClass}>Spending & Income Overview</h1>
+							{isRefreshing ? (
+								<Loader2
+									className="h-4 w-4 animate-spin text-secondary-default"
+									aria-label="Loading"
+								/>
+							) : null}
+						</div>
+						<p className={pageSubtitleClass}>{pageSubtitle}</p>
+					</div>
+					<div className={pageActionsClass}>
+						<AccountFilter className={cn(selectDarkClass, 'h-8 min-w-[10rem] px-2.5')} />
 						<PeriodFilter
 							value={period}
 							onChange={setPeriod}
 							pending={isRefreshing}
+							className="flex-nowrap"
 						/>
 					</div>
-				}
-			/>
+				</div>
+			</header>
 
-			<div className="relative">
+			<div className={pageBodyClass}>
 				<div
 					className={cn(
-						'space-y-8 transition-opacity duration-300 ease-out',
+						'flex flex-col gap-6 transition-opacity duration-300 ease-out',
 						isRefreshing && 'opacity-55'
 					)}
 					aria-busy={isRefreshing}
@@ -693,7 +699,6 @@ export const Dashboard = () => {
 					{loadError === null && kpiMetrics !== null ? (
 						<KpiCards
 							metrics={kpiMetrics}
-							periodLabel={periodLabel}
 							comparisonLabel={comparisonLabel}
 							previousMetrics={previousKpis}
 							isRefreshing={isRefreshing}
@@ -727,60 +732,71 @@ export const Dashboard = () => {
 					{loadError === null && hasChartData ? (
 						<div
 							className={cn(
-								'space-y-8 transition-opacity duration-300 ease-out',
+								'flex flex-col gap-6 transition-opacity duration-300 ease-out',
 								isRefreshing && 'pointer-events-none'
 							)}
 						>
-							<ChartCard title="Monthly Profit / Loss">
-								<MonthlyBarGraph data={monthlySummary} />
-							</ChartCard>
+							<div className="@container/charts">
+								<div className="grid grid-cols-1 gap-3 lg:grid-cols-2 @min-[80rem]/charts:grid-cols-[1.4fr_1fr_1fr]">
+									<ChartCard
+										className="min-w-0 lg:col-span-2 @min-[80rem]/charts:col-span-1"
+										title="Receiving vs Spending"
+										subtitle="Monthly totals · AUD"
+										subtitleAlign="end"
+									>
+										<MonthlyBarGraph data={monthlySummary} compactInRow />
+									</ChartCard>
 
-							<div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-								<ChartCard
-									title="Spending by Category"
-									subtitle="Click a slice to see transactions"
-								>
-									<CategoryPieChart
-										data={spendingByCategory}
-										chartLabel="Spending by Category"
-										variant="donut"
-										showRankedList
-										onSliceClick={(item) => {
-											setActiveBreakdown({
-												flow: 'spending',
-												groupKey: item.groupKey,
-												title: item.name,
-												total: item.value,
-											});
-										}}
-									/>
-								</ChartCard>
+									<ChartCard
+										className="min-w-0"
+										title="Spending by Category"
+										subtitle="Click a slice to see transactions"
+									>
+										<CategoryPieChart
+											data={spendingByCategory}
+											chartLabel="Spending by Category"
+											variant="donut"
+											showRankedList
+											onSliceClick={(item) => {
+												setActiveBreakdown({
+													flow: 'spending',
+													groupKey: item.groupKey,
+													title: item.name,
+													total: item.value,
+												});
+											}}
+										/>
+									</ChartCard>
 
-								<ChartCard
-									title="Income by Category"
-									subtitle="Click a slice to see transactions"
-								>
-									<CategoryPieChart
-										data={incomeByCategory}
-										chartLabel="Income by Category"
-										variant="donut"
-										showRankedList
-										onSliceClick={(item) => {
-											setActiveBreakdown({
-												flow: 'income',
-												groupKey: item.groupKey,
-												title: item.name,
-												total: item.value,
-											});
-										}}
-									/>
-								</ChartCard>
+									<ChartCard
+										className="min-w-0"
+										title="Income by Category"
+										subtitle="Click a slice to see transactions"
+									>
+										<CategoryPieChart
+											data={incomeByCategory}
+											chartLabel="Income by Category"
+											variant="donut"
+											showRankedList
+											onSliceClick={(item) => {
+												setActiveBreakdown({
+													flow: 'income',
+													groupKey: item.groupKey,
+													title: item.name,
+													total: item.value,
+												});
+											}}
+										/>
+									</ChartCard>
+								</div>
 							</div>
 
+							<div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.2fr_1fr]">
 							<ChartCard
-								title="Balance Over Time"
+								title="Balance over time"
 								titleExtra={balanceTrendHeader}
-								subtitle={balanceChartSubtitle}
+								subtitle={selectedLabel}
+								subtitleAlign="end"
 								actions={
 									<SegmentedControl
 										ariaLabel="Balance chart mode"
@@ -798,31 +814,45 @@ export const Dashboard = () => {
 										data={balanceStackData}
 										dateSpanDays={balanceDateSpanDays}
 										isRefreshing={isRefreshing}
+										height={DASHBOARD_CHART_HEIGHT}
 									/>
 								) : (
-									<ResponsiveContainer width="100%" height={300}>
-										<LineChart data={balanceChartData}>
+									<ResponsiveContainer width="100%" height={DASHBOARD_CHART_HEIGHT}>
+										<LineChart
+											data={balanceChartData}
+											margin={{ top: 16, right: 12, bottom: 36, left: 4 }}
+										>
 											<CartesianGrid
 												stroke={chartTheme.grid.stroke}
 												strokeDasharray={chartTheme.grid.strokeDasharray}
+												vertical={false}
 											/>
 											<XAxis
 												dataKey="date"
 												stroke={chartTheme.axis.stroke}
-												tick={chartTheme.axis.tick}
+												tick={{ ...chartTheme.axis.tick, fontSize: 11 }}
+												tickLine={false}
+												axisLine={false}
 												tickFormatter={(iso) =>
 													formatChartAxisDate(iso, balanceDateSpanDays)
 												}
 												interval="preserveStartEnd"
 												minTickGap={40}
+												dy={8}
 											/>
 											<YAxis
 												dataKey="val"
 												domain={balanceYDomain}
 												stroke={chartTheme.axis.stroke}
-												tick={chartTheme.axis.tick}
-												tickFormatter={formatCurrencyWithCommas}
-												width={88}
+												tick={{
+													...chartTheme.axis.tick,
+													fontFamily: 'var(--font-mono)',
+													fontSize: 11,
+												}}
+												tickLine={false}
+												axisLine={false}
+												tickFormatter={formatChartAxisCompactMoney}
+												width={48}
 											/>
 											<Tooltip
 												wrapperStyle={
@@ -837,12 +867,22 @@ export const Dashboard = () => {
 													return balanceTooltip(props);
 												}}
 											/>
+											<Area
+												type="monotone"
+												dataKey="val"
+												stroke="none"
+												fill={chartColors.dashboardBalanceFill}
+												dot={false}
+												isAnimationActive={!isRefreshing}
+												animationDuration={400}
+												legendType="none"
+											/>
 											<Line
 												type="monotone"
 												dataKey="val"
 												name="Balance"
-												stroke={chartColors.netWorth}
-												strokeWidth={2}
+												stroke={chartColors.dashboardBalanceStroke}
+												strokeWidth={1.75}
 												dot={false}
 												isAnimationActive={!isRefreshing}
 												animationDuration={400}
@@ -852,7 +892,7 @@ export const Dashboard = () => {
 												dataKey="trend"
 												name="Trend"
 												stroke={chartColors.trend}
-												strokeWidth={2}
+												strokeWidth={1.5}
 												strokeDasharray="8 4"
 												dot={false}
 												connectNulls={false}
@@ -870,11 +910,12 @@ export const Dashboard = () => {
 								)}
 							</ChartCard>
 
-							<NetWorthChart dateRange={dateRange} />
+							<NetWorthChart dateRange={dateRange} variant="dashboard" />
+							</div>
 						</div>
 					) : null}
 				</div>
 			</div>
-		</div>
+		</PageShell>
 	);
 };

@@ -9,6 +9,7 @@
     "build:embed": "vite build",
     "typecheck": "tsc -b",
     "lint": "eslint .",
+    "check:money-colors": "bash scripts/check-money-colors.sh",
     "preview": "vite preview",
     "test:e2e": "playwright test"
   },

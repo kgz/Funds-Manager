@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Repeat payments</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/recurring.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <div class="title-row">
+          <h1 class="page-title" data-od-id="page-title">Repeat payments</h1>
+          <div class="help-wrap" data-od-id="help-wrap">
+            <button type="button" class="help-btn" id="help-btn" aria-haspopup="dialog" aria-expanded="false" aria-label="How repeat payments are detected" data-od-id="help-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+            </button>
+            <div class="help-popover" id="help-popover" role="dialog" aria-label="Repeat payments help" hidden data-od-id="help-popover">
+              <p>We look for charges or deposits that show up more than once with a similar amount and timing. Each row is an estimate from your imported transactions.</p>
+              <p><strong>Estimated monthly totals</strong> add up what each pattern would cost or earn per month, based on how often it usually appears.</p>
+              <p><strong>Match score</strong> is higher when the amount and spacing are more consistent.</p>
+              <p>Lower “minimum occurrences” to surface weaker patterns.</p>
+            </div>
+          </div>
+        </div>
+        <p class="page-sub" data-od-id="page-sub">Recurring debits and credits detected from statement history — refreshed as new statements import.</p>
+      </div>
+
+      <div class="page-actions" data-od-id="repeat-filters">
+        <label class="sr" for="rp-account">Account</label>
+        <select class="select" id="rp-account" data-od-id="filter-account" aria-label="Account filter">
+          <option value="all" selected>All accounts</option>
+          <option value="pc-9120">People's Choice 9120</option>
+          <option value="pc-savings">People's Choice Savings</option>
+          <option value="cba-offset">CBA Offset 4412</option>
+        </select>
+
+        <div class="segmented" role="group" aria-label="Repeat payments view" data-od-id="filter-view" id="view-mode">
+          <button type="button" data-value="pattern" class="is-on" aria-pressed="true">By pattern</button>
+          <button type="button" data-value="category" aria-pressed="false">By category</button>
+        </div>
+
+        <label class="min-occ-field" for="rp-min-occ" data-od-id="filter-min-occ">
+          <span>Minimum occurrences</span>
+          <select class="select" id="rp-min-occ" aria-label="Minimum occurrences">
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <section class="kpi-grid cols-2" id="kpi-row" data-od-id="kpi-row" aria-label="Repeat payment summary">
+        <article class="kpi" id="kpi-spend" data-od-id="kpi-spend">
+          <p class="kpi-label">Estimated monthly spending</p>
+          <p class="kpi-value is-danger money" id="kpi-spend-value">$0.00</p>
+          <p class="kpi-hint" id="kpi-spend-hint">0 spending patterns</p>
+        </article>
+        <article class="kpi" id="kpi-income" data-od-id="kpi-income">
+          <p class="kpi-label">Estimated monthly income</p>
+          <p class="kpi-value is-success money" id="kpi-income-value">$0.00</p>
+          <p class="kpi-hint" id="kpi-income-hint">0 income patterns</p>
+        </article>
+      </section>
+
+      <section class="panel" data-od-id="repeat-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title" id="panel-title" data-od-id="panel-title">By pattern</h2>
+            <p class="panel-hint" id="table-hint">All accounts · min 3 occurrences</p>
+          </div>
+        </div>
+        <p class="category-hint" id="category-hint" hidden data-od-id="category-hint">Grouped by category — click a row to see the individual payments behind it.</p>
+        <div class="table-wrap">
+          <table class="data" data-od-id="repeat-table">
+            <thead id="repeat-head"></thead>
+            <tbody id="repeat-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('repeat');
+
+    const CHEVRON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+    const SORT_ICON = '<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span>';
+
+    const CATS = {
+      housing:  { name: 'Housing',    color: '#8b6b4a' },
+      utilities:{ name: 'Utilities',  color: '#6b7a8b' },
+      transport:{ name: 'Transport',  color: '#4a6fa5' },
+      salary:   { name: 'Salary',     color: '#2f7d5a' },
+      other:    { name: 'Other',      color: '#b8b8b8' },
+      uncat:    { name: 'Uncategorised', color: '#b0b0b0', uncat: true },
+    };
+
+    /* rowId, key, acctId, categoryId, flow, cadenceLabel, medianGapDays,
+       typicalAmountDollars, estimatedMonthlyDollars, minAmountDollars,
+       maxAmountDollars, occurrences, firstDate, lastDate, confidence */
+    const ROWS = [
+      { rowId: 'p1',  key: 'Rent payment J & K Trust',      acctId: 'pc-9120',    categoryId: 'housing',   flow: 'expense', cadenceLabel: 'Monthly',    medianGapDays: 30, typicalAmountDollars: 1850.00, estimatedMonthlyDollars: 1850.00, minAmountDollars: 1850.00, maxAmountDollars: 1850.00, occurrences: 7,  firstDate: '2026-01-01', lastDate: '2026-07-01', confidence: 97 },
+      { rowId: 'p2',  key: 'CBA Home Loan — BPAY',           acctId: 'cba-offset', categoryId: 'housing',   flow: 'expense', cadenceLabel: 'Fortnightly', medianGapDays: 14, typicalAmountDollars: 969.23,  estimatedMonthlyDollars: 2100.17, minAmountDollars: 952.10,  maxAmountDollars: 986.40,  occurrences: 14, firstDate: '2026-01-03', lastDate: '2026-07-18', confidence: 94 },
+      { rowId: 'p3',  key: 'Contents Insurance NRMA',        acctId: 'pc-9120',    categoryId: 'housing',   flow: 'expense', cadenceLabel: 'Monthly',    medianGapDays: 30, typicalAmountDollars: 48.00,   estimatedMonthlyDollars: 48.00,   minAmountDollars: 46.00,   maxAmountDollars: 52.00,   occurrences: 6,  firstDate: '2026-02-05', lastDate: '2026-07-05', confidence: 88 },
+      { rowId: 'p4',  key: 'Netflix.com',                    acctId: 'pc-9120',    categoryId: 'utilities', flow: 'expense', cadenceLabel: 'Monthly',    medianGapDays: 30, typicalAmountDollars: 22.99,   estimatedMonthlyDollars: 22.99,   minAmountDollars: 22.99,   maxAmountDollars: 22.99,   occurrences: 9,  firstDate: '2025-11-14', lastDate: '2026-07-14', confidence: 96 },
+      { rowId: 'p5',  key: 'Spotify P0A8X',                  acctId: 'pc-9120',    categoryId: 'utilities', flow: 'expense', cadenceLabel: 'Monthly',    medianGapDays: 30, typicalAmountDollars: 12.99,   estimatedMonthlyDollars: 12.99,   minAmountDollars: 12.99,   maxAmountDollars: 12.99,   occurrences: 11, firstDate: '2025-09-09', lastDate: '2026-07-09', confidence: 95 },
+      { rowId: 'p6',  key: 'Origin Energy BPAY',             acctId: 'pc-9120',    categoryId: 'utilities', flow: 'expense', cadenceLabel: 'Bi-monthly', medianGapDays: 61, typicalAmountDollars: 214.80,  estimatedMonthlyDollars: 105.60,  minAmountDollars: 178.40,  maxAmountDollars: 268.90,  occurrences: 5,  firstDate: '2025-11-01', lastDate: '2026-06-30', confidence: 71 },
+      { rowId: 'p7',  key: 'iiNet Broadband',                acctId: 'pc-9120',    categoryId: 'utilities', flow: 'expense', cadenceLabel: 'Monthly',    medianGapDays: 30, typicalAmountDollars: 89.99,   estimatedMonthlyDollars: 89.99,   minAmountDollars: 89.99,   maxAmountDollars: 89.99,   occurrences: 8,  firstDate: '2025-12-05', lastDate: '2026-07-05', confidence: 97 },
+      { rowId: 'p8',  key: 'Telstra Mobile Plan',            acctId: 'pc-9120',    categoryId: 'utilities', flow: 'expense', cadenceLabel: 'Monthly',    medianGapDays: 30, typicalAmountDollars: 65.00,   estimatedMonthlyDollars: 65.00,   minAmountDollars: 65.00,   maxAmountDollars: 65.00,   occurrences: 10, firstDate: '2025-10-12', lastDate: '2026-07-12', confidence: 96 },
+      { rowId: 'p9',  key: 'Adelaide Metro Tap',             acctId: 'pc-9120',    categoryId: 'transport', flow: 'expense', cadenceLabel: 'Weekly',     medianGapDays: 7,  typicalAmountDollars: 42.50,   estimatedMonthlyDollars: 184.30,  minAmountDollars: 28.00,   maxAmountDollars: 58.00,   occurrences: 16, firstDate: '2026-03-30', lastDate: '2026-07-20', confidence: 62 },
+      { rowId: 'p10', key: 'Anytime Fitness Membership',     acctId: 'pc-9120',    categoryId: 'other',     flow: 'expense', cadenceLabel: 'Monthly',    medianGapDays: 30, typicalAmountDollars: 59.95,   estimatedMonthlyDollars: 59.95,   minAmountDollars: 59.95,   maxAmountDollars: 59.95,   occurrences: 6,  firstDate: '2026-02-28', lastDate: '2026-06-28', confidence: 93 },
+      { rowId: 'p11', key: 'Toyota Finance Car Loan',        acctId: 'cba-offset', categoryId: 'other',     flow: 'expense', cadenceLabel: 'Monthly',    medianGapDays: 30, typicalAmountDollars: 412.00,  estimatedMonthlyDollars: 412.00,  minAmountDollars: 412.00,  maxAmountDollars: 412.00,  occurrences: 12, firstDate: '2025-08-03', lastDate: '2026-07-03', confidence: 98 },
+      { rowId: 'p12', key: 'Afterpay Instalment',            acctId: 'pc-savings', categoryId: 'uncat',     flow: 'expense', cadenceLabel: 'Fortnightly', medianGapDays: 15, typicalAmountDollars: 85.00,   estimatedMonthlyDollars: 170.00,  minAmountDollars: 60.00,   maxAmountDollars: 120.00,  occurrences: 5,  firstDate: '2026-05-08', lastDate: '2026-07-08', confidence: 48 },
+      { rowId: 'p13', key: 'Salary Acme Pty Ltd',            acctId: 'pc-9120',    categoryId: 'salary',    flow: 'income',  cadenceLabel: 'Fortnightly', medianGapDays: 14, typicalAmountDollars: 4320.00, estimatedMonthlyDollars: 9360.00, minAmountDollars: 4320.00, maxAmountDollars: 4320.00, occurrences: 14, firstDate: '2026-01-03', lastDate: '2026-07-18', confidence: 99 },
+      { rowId: 'p14', key: 'Interest — Savings',             acctId: 'pc-savings', categoryId: 'other',     flow: 'income',  cadenceLabel: 'Monthly',    medianGapDays: 30, typicalAmountDollars: 28.40,   estimatedMonthlyDollars: 28.40,   minAmountDollars: 14.20,   maxAmountDollars: 46.80,   occurrences: 7,  firstDate: '2025-12-01', lastDate: '2026-07-01', confidence: 58 },
+    ];
+
+    let accountFilter = 'all';
+    let minOccurrences = 3;
+    let viewMode = 'pattern';
+    const expandedSections = new Set();
+
+    let patternSort = { key: 'score', dir: 'desc' };
+    let sectionSort = { key: 'label', dir: 'asc' };
+    const subSortBySection = {};
+    const DEFAULT_PATTERN_SORT = { key: 'score', dir: 'desc' };
+
+    function scoreClass(v) {
+      if (v >= 70) return 'score-high';
+      if (v >= 45) return 'score-mid';
+      return 'score-low';
+    }
+
+    function catPill(categoryId) {
+      const cat = CATS[categoryId];
+      const cls = 'cat-pill' + (cat.uncat ? ' is-uncat' : '');
+      return `<span class="${cls}"><span class="cat-dot" style="background:${cat.color}"></span>${cat.name}</span>`;
+    }
+
+    function flowChip(flow) {
+      return `<span class="flow-chip ${flow}">${flow === 'income' ? 'Income' : 'Spending'}</span>`;
+    }
+
+    function filteredRows() {
+      return ROWS.filter((r) => (accountFilter === 'all' || r.acctId === accountFilter) && r.occurrences >= minOccurrences);
+    }
+
+    function patternSortValue(row, key) {
+      if (key === 'label') return row.key.toLowerCase();
+      if (key === 'freq') return row.cadenceLabel.toLowerCase();
+      if (key === 'amount') return row.estimatedMonthlyDollars;
+      if (key === 'range') return row.minAmountDollars;
+      if (key === 'seen') return row.occurrences;
+      if (key === 'first') return row.firstDate;
+      if (key === 'last') return row.lastDate;
+      if (key === 'score') return row.confidence;
+      return 0;
+    }
+
+    function compareValues(a, b, dir) {
+      if (typeof a === 'string' && typeof b === 'string') return a.localeCompare(b) * dir;
+      if (a === b) return 0;
+      return (a < b ? -1 : 1) * dir;
+    }
+
+    function sortPatterns(rows, key, dir) {
+      const mult = dir === 'asc' ? 1 : -1;
+      return [...rows].sort((a, b) => {
+        const cmp = compareValues(patternSortValue(a, key), patternSortValue(b, key), mult);
+        if (cmp !== 0) return cmp;
+        return a.key.localeCompare(b.key);
+      });
+    }
+
+    function buildSections(rows) {
+      const byCat = new Map();
+      for (const r of rows) {
+        const bucket = byCat.get(r.categoryId) || [];
+        bucket.push(r);
+        byCat.set(r.categoryId, bucket);
+      }
+      const sections = [];
+      for (const [categoryId, bucket] of byCat) {
+        let spendingMonthly = 0;
+        let incomeMonthly = 0;
+        let firstDate = bucket[0].firstDate;
+        let lastDate = bucket[0].lastDate;
+        let confidence = 0;
+        let occurrences = 0;
+        for (const r of bucket) {
+          if (r.flow === 'expense') spendingMonthly += r.estimatedMonthlyDollars;
+          else incomeMonthly += r.estimatedMonthlyDollars;
+          if (r.firstDate < firstDate) firstDate = r.firstDate;
+          if (r.lastDate > lastDate) lastDate = r.lastDate;
+          if (r.confidence > confidence) confidence = r.confidence;
+          occurrences += r.occurrences;
+        }
+        sections.push({
+          sectionKey: categoryId,
+          categoryId,
+          rows: bucket,
+          spendingMonthly: Math.round(spendingMonthly * 100) / 100,
+          incomeMonthly: Math.round(incomeMonthly * 100) / 100,
+          firstDate, lastDate, confidence, occurrences,
+        });
+      }
+      sections.sort((a, b) => {
+        if (a.categoryId === 'uncat' && b.categoryId !== 'uncat') return 1;
+        if (a.categoryId !== 'uncat' && b.categoryId === 'uncat') return -1;
+        return CATS[a.categoryId].name.localeCompare(CATS[b.categoryId].name);
+      });
+      return sections;
+    }
+
+    function sectionSortValue(section, key) {
+      if (key === 'label') return CATS[section.categoryId].name.toLowerCase();
+      if (key === 'amount') return section.spendingMonthly + section.incomeMonthly;
+      if (key === 'seen') return section.occurrences;
+      if (key === 'first') return section.firstDate;
+      if (key === 'last') return section.lastDate;
+      if (key === 'score') return section.confidence;
+      return 0;
+    }
+
+    function sortSections(sections, key, dir) {
+      const mult = dir === 'asc' ? 1 : -1;
+      return [...sections].sort((a, b) => {
+        if (a.categoryId === 'uncat' && b.categoryId !== 'uncat') return 1;
+        if (a.categoryId !== 'uncat' && b.categoryId === 'uncat') return -1;
+        return compareValues(sectionSortValue(a, key), sectionSortValue(b, key), mult);
+      });
+    }
+
+    function updateKpis(rows) {
+      const expenseRows = rows.filter((r) => r.flow === 'expense');
+      const incomeRows = rows.filter((r) => r.flow === 'income');
+      const spendTotal = Math.round(expenseRows.reduce((sum, r) => sum + r.estimatedMonthlyDollars, 0) * 100) / 100;
+      const incomeTotal = Math.round(incomeRows.reduce((sum, r) => sum + r.estimatedMonthlyDollars, 0) * 100) / 100;
+
+      const kpiSpend = document.getElementById('kpi-spend');
+      const kpiIncome = document.getElementById('kpi-income');
+      const kpiRow = document.getElementById('kpi-row');
+
+      kpiSpend.hidden = expenseRows.length === 0;
+      kpiIncome.hidden = incomeRows.length === 0;
+      kpiRow.hidden = expenseRows.length === 0 && incomeRows.length === 0;
+
+      document.getElementById('kpi-spend-value').textContent = FUNDS.money(spendTotal);
+      document.getElementById('kpi-spend-hint').textContent = `${expenseRows.length} spending pattern${expenseRows.length === 1 ? '' : 's'}`;
+      document.getElementById('kpi-income-value').textContent = FUNDS.money(incomeTotal);
+      document.getElementById('kpi-income-hint').textContent = `${incomeRows.length} income pattern${incomeRows.length === 1 ? '' : 's'}`;
+    }
+
+    function sortHeaderCell(label, key, activeKey, activeDir, extraClass) {
+      const isActive = key === activeKey;
+      const ariaSort = isActive ? (activeDir === 'asc' ? 'ascending' : 'descending') : 'none';
+      return `<th class="${extraClass || ''}" data-sort="${key}" aria-sort="${ariaSort}" scope="col">
+        <button type="button" class="th-sort" data-od-id="sort-${key}">${label}${SORT_ICON}</button>
+      </th>`;
+    }
+
+    function staticHeaderCell(label, extraClass) {
+      return `<th class="${extraClass || ''}" scope="col"><span class="th-sort">${label}</span></th>`;
+    }
+
+    function renderHead() {
+      const head = document.getElementById('repeat-head');
+      const expandTh = viewMode === 'category' ? '<th class="col-expand" scope="col"><span class="sr">Expand</span></th>' : '';
+      const activeKey = viewMode === 'category' ? sectionSort.key : patternSort.key;
+      const activeDir = viewMode === 'category' ? sectionSort.dir : patternSort.dir;
+
+      const descTh = sortHeaderCell(viewMode === 'category' ? 'Category' : 'Description', 'label', activeKey, activeDir, 'col-desc');
+      const freqTh = viewMode === 'category' ? staticHeaderCell('Frequency') : sortHeaderCell('Frequency', 'freq', activeKey, activeDir);
+      const amountTh = sortHeaderCell('Amount · per month', 'amount', activeKey, activeDir, 'is-numeric');
+      const rangeTh = viewMode === 'category' ? staticHeaderCell('Min / max', 'is-numeric') : sortHeaderCell('Min / max', 'range', activeKey, activeDir, 'is-numeric');
+      const seenTh = sortHeaderCell('Times seen', 'seen', activeKey, activeDir, 'is-numeric col-txns');
+      const firstTh = sortHeaderCell('First', 'first', activeKey, activeDir, 'col-date');
+      const lastTh = sortHeaderCell('Last', 'last', activeKey, activeDir, 'col-date');
+      const scoreTh = sortHeaderCell('Match score', 'score', activeKey, activeDir, 'is-numeric col-score');
+
+      head.innerHTML = `<tr id="repeat-head-row">${expandTh}${descTh}${freqTh}${amountTh}${rangeTh}${seenTh}${firstTh}${lastTh}${scoreTh}</tr>`;
+    }
+
+    function patternRowHtml(row, opts) {
+      const isChild = opts && opts.isChild;
+      const rowCls = isChild ? 'is-child' : '';
+      const descCell = isChild
+        ? `<td>
+            <div class="desc-cell">
+              <div class="desc-tags">${flowChip(row.flow)}</div>
+              <p class="desc-text" title="${row.key}">${row.key}</p>
+            </div>
+          </td>`
+        : `<td class="col-desc">
+            <div class="desc-cell">
+              <div class="desc-tags">${catPill(row.categoryId)}${flowChip(row.flow)}</div>
+              <p class="desc-text" title="${row.key}">${row.key}</p>
+            </div>
+          </td>`;
+      const flowCls = row.flow === 'income' ? 'flow-pos' : 'flow-neg';
+
+      return `<tr class="${rowCls}" data-od-id="${opts && opts.odId ? opts.odId : 'pattern-row-' + row.rowId}">
+        ${isChild ? '<td></td>' : ''}
+        ${descCell}
+        <td class="col-freq">
+          <div class="freq-stack">
+            <span>${row.cadenceLabel}</span>
+            ${row.cadenceLabel.startsWith('~every ') ? '' : `<span class="freq-sub mono">~${row.medianGapDays}d apart</span>`}
+          </div>
+        </td>
+        <td class="is-numeric">
+          <div class="amount-stack">
+            <span class="amount-main mono ${flowCls}">${FUNDS.money(row.typicalAmountDollars)}</span>
+            <span class="amount-sub mono">≈ ${FUNDS.money(row.estimatedMonthlyDollars)}/mo</span>
+          </div>
+        </td>
+        <td class="is-numeric range-cell mono ${flowCls}">${FUNDS.money(row.minAmountDollars)} – ${FUNDS.money(row.maxAmountDollars)}</td>
+        <td class="col-txns is-numeric mono">${row.occurrences}</td>
+        <td class="col-date mono">${FUNDS.formatDate(row.firstDate)}</td>
+        <td class="col-date mono">${FUNDS.formatDate(row.lastDate)}</td>
+        <td class="col-score is-numeric"><span class="score-badge ${scoreClass(row.confidence)}">${row.confidence}</span></td>
+      </tr>`;
+    }
+
+    function childHeadRowHtml() {
+      return `<tr class="is-child-head">
+        <td></td>
+        <td>Description</td>
+        <td>Frequency</td>
+        <td class="is-numeric">Amount · per month</td>
+        <td class="is-numeric">Min / max</td>
+        <td class="is-numeric col-txns">Seen</td>
+        <td>First</td>
+        <td>Last</td>
+        <td class="is-numeric col-score">Score</td>
+      </tr>`;
+    }
+
+    function sectionRowHtml(section) {
+      const isOpen = expandedSections.has(section.sectionKey);
+      const cat = CATS[section.categoryId];
+      const amountLines = [];
+      if (section.spendingMonthly > 0) {
+        amountLines.push(`<span class="amount-main mono flow-neg">${FUNDS.money(section.spendingMonthly)}<span class="amount-sub" style="display:inline;margin-left:4px;">spend/mo</span></span>`);
+      }
+      if (section.incomeMonthly > 0) {
+        amountLines.push(`<span class="amount-main mono flow-pos">${FUNDS.money(section.incomeMonthly)}<span class="amount-sub" style="display:inline;margin-left:4px;">income/mo</span></span>`);
+      }
+      if (amountLines.length === 0) amountLines.push('<span class="dim">—</span>');
+
+      let html = `<tr class="is-parent${isOpen ? ' is-open' : ''}" data-od-id="cat-row-${section.categoryId}">
+        <td class="col-expand">
+          <button type="button" class="row-toggle" aria-expanded="${isOpen}" aria-label="${isOpen ? 'Collapse' : 'Expand'} ${cat.name}" data-toggle="${section.sectionKey}">${CHEVRON}</button>
+        </td>
+        <td class="col-desc">
+          <div class="desc-cell">
+            ${catPill(section.categoryId)}
+            <p class="agg-sub">${section.rows.length} pattern${section.rows.length === 1 ? '' : 's'} · click to expand</p>
+          </div>
+        </td>
+        <td class="col-freq"><span class="dim">—</span></td>
+        <td class="is-numeric"><div class="amount-stack">${amountLines.join('')}</div></td>
+        <td class="is-numeric range-cell"><span class="dim">—</span></td>
+        <td class="col-txns is-numeric mono">${section.occurrences}</td>
+        <td class="col-date mono">${FUNDS.formatDate(section.firstDate)}</td>
+        <td class="col-date mono">${FUNDS.formatDate(section.lastDate)}</td>
+        <td class="col-score is-numeric"><span class="score-badge ${scoreClass(section.confidence)}">${section.confidence}</span></td>
+      </tr>`;
+
+      if (isOpen) {
+        const subSort = subSortBySection[section.sectionKey] || DEFAULT_PATTERN_SORT;
+        const patterns = sortPatterns(section.rows, subSort.key, subSort.dir);
+        html += childHeadRowHtml();
+        for (const p of patterns) {
+          html += patternRowHtml(p, { isChild: true, odId: `cat-child-${section.categoryId}-${p.rowId}` });
+        }
+      }
+
+      return html;
+    }
+
+    function renderBody() {
+      const body = document.getElementById('repeat-body');
+      const rows = filteredRows();
+      const colCount = viewMode === 'category' ? 9 : 8;
+
+      if (viewMode === 'pattern') {
+        if (rows.length === 0) {
+          body.innerHTML = `<tr class="table-empty"><td colspan="${colCount}">No repeat patterns found — lower “minimum occurrences” or add more history.</td></tr>`;
+        } else {
+          const sorted = sortPatterns(rows, patternSort.key, patternSort.dir);
+          body.innerHTML = sorted.map((r) => patternRowHtml(r)).join('');
+        }
+      } else {
+        const sections = sortSections(buildSections(rows), sectionSort.key, sectionSort.dir);
+        if (sections.length === 0) {
+          body.innerHTML = `<tr class="table-empty"><td colspan="${colCount}">No repeat patterns found — lower “minimum occurrences” or add more history.</td></tr>`;
+        } else {
+          body.innerHTML = sections.map((s) => sectionRowHtml(s)).join('');
+        }
+      }
+
+      updateKpis(rows);
+    }
+
+    function acctLabel(id) {
+      if (id === 'all') return 'All accounts';
+      return FUNDS.accountLabel(id);
+    }
+
+    function renderChrome() {
+      document.getElementById('panel-title').textContent = viewMode === 'category' ? 'By category' : 'By pattern';
+      document.getElementById('category-hint').hidden = viewMode !== 'category';
+      document.getElementById('table-hint').textContent = `${acctLabel(accountFilter)} · min ${minOccurrences} occurrences`;
+    }
+
+    function paint() {
+      renderChrome();
+      renderHead();
+      renderBody();
+    }
+
+    document.getElementById('repeat-head').addEventListener('click', (e) => {
+      const btn = e.target.closest('.th-sort');
+      if (!btn) return;
+      const th = btn.closest('[data-sort]');
+      if (!th) return;
+      const key = th.getAttribute('data-sort');
+
+      if (viewMode === 'pattern') {
+        if (patternSort.key === key) {
+          patternSort.dir = patternSort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          patternSort = { key, dir: key === 'label' || key === 'freq' ? 'asc' : 'desc' };
+        }
+      } else {
+        if (sectionSort.key === key) {
+          sectionSort.dir = sectionSort.dir === 'asc' ? 'desc' : 'asc';
+        } else {
+          sectionSort = { key, dir: key === 'label' ? 'asc' : 'desc' };
+        }
+      }
+      paint();
+    });
+
+    document.getElementById('repeat-body').addEventListener('click', (e) => {
+      const toggle = e.target.closest('[data-toggle]');
+      if (!toggle) return;
+      const key = toggle.getAttribute('data-toggle');
+      if (expandedSections.has(key)) expandedSections.delete(key);
+      else expandedSections.add(key);
+      renderBody();
+    });
+
+    document.getElementById('rp-account').addEventListener('change', (e) => {
+      accountFilter = e.target.value;
+      paint();
+    });
+
+    document.getElementById('rp-min-occ').addEventListener('change', (e) => {
+      minOccurrences = Number(e.target.value);
+      paint();
+    });
+
+    FUNDS.wireSegmented('#view-mode', (val) => {
+      viewMode = val;
+      paint();
+    });
+
+    const helpBtn = document.getElementById('help-btn');
+    const helpPopover = document.getElementById('help-popover');
+    helpBtn.addEventListener('click', () => {
+      const willOpen = helpPopover.hidden;
+      helpPopover.hidden = !willOpen;
+      helpBtn.setAttribute('aria-expanded', String(willOpen));
+    });
+    document.addEventListener('pointerdown', (e) => {
+      if (helpPopover.hidden) return;
+      if (e.target === helpBtn || helpBtn.contains(e.target) || helpPopover.contains(e.target)) return;
+      helpPopover.hidden = true;
+      helpBtn.setAttribute('aria-expanded', 'false');
+    });
+
+    paint();
+  </script>
+</body>
+</html>

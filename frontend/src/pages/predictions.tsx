@@ -68,6 +68,7 @@ import {
 	useSavingsGoalMarkerState,
 } from '@/graphs/savings-goal-markers';
 import { cn } from '@/lib/utils/cn';
+import { moneyDangerClass, moneySuccessClass } from '@/lib/utils/moneySemantics';
 import { readThunkRejectMessage } from '@/lib/utils/thunkError';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import { getPlannedSpending } from '@/store/thunks/plannedSpending';
@@ -989,19 +990,13 @@ export default function PredictionsPage() {
 														</span>
 													</p>
 													{gap.gap_cents > 0 ? (
-														<p
-															className="font-mono tabular-nums"
-															style={{ color: chartColors.spending }}
-														>
+														<p className={cn('font-mono tabular-nums', moneyDangerClass)}>
 															Shortfall {formatMoneyFromCents(gap.gap_cents)} · save ~
 															{formatMoneyFromCents(gap.suggested_monthly_cents)}
 															/mo
 														</p>
 													) : (
-														<p
-															className="font-mono tabular-nums"
-															style={{ color: chartColors.receiving }}
-														>
+														<p className={cn('font-mono tabular-nums', moneySuccessClass)}>
 															On track
 														</p>
 													)}

@@ -25,7 +25,7 @@ export function TransferSuggestionCallout({
 	onDismiss,
 }: TransferSuggestionCalloutProps) {
 	return (
-		<div className="mx-4 mb-3 flex flex-col gap-3 rounded-paper border border-[color-mix(in_oklch,var(--warn)_32%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_7%,var(--surface))] p-3.5 sm:flex-row sm:items-start sm:justify-between">
+		<div className="mx-4 mt-4 mb-3 flex flex-col gap-3 rounded-paper border border-[color-mix(in_oklch,var(--warn)_32%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_7%,var(--surface))] p-3.5 sm:flex-row sm:items-start sm:justify-between">
 			<div className="flex min-w-0 items-start gap-2.5">
 				<span
 					className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[color-mix(in_oklch,var(--warn)_28%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_14%,var(--surface))] text-[oklch(45%_0.12_75)]"
