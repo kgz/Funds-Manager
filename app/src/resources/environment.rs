@@ -1,6 +1,18 @@
-use rustls::{Certificate, PrivateKey, ServerConfig};
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::ServerConfig;
 use rustls_pemfile::{certs, pkcs8_private_keys};
+use std::sync::Once;
 use std::{fs::File, io::BufReader, path::PathBuf};
+
+static RUSTLS_PROVIDER_INIT: Once = Once::new();
+
+fn ensure_rustls_provider() {
+    RUSTLS_PROVIDER_INIT.call_once(|| {
+        rustls::crypto::ring::default_provider()
+            .install_default()
+            .expect("failed to install rustls ring crypto provider");
+    });
+}
 
 #[derive(PartialEq, Debug)]
 pub enum Environments {
@@ -42,28 +54,27 @@ pub const SCOPE: &str = match APP_ENV.env {
 };
 
 pub fn load_certs(cert: PathBuf, key: PathBuf) -> Result<ServerConfig, String> {
+    ensure_rustls_provider();
+
     let cert_file = &mut BufReader::new(File::open(&cert).map_err(|e| e.to_string())?);
     let key_file = &mut BufReader::new(File::open(&key).map_err(|e| e.to_string())?);
 
-    let cert_chain = certs(cert_file)
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .map(Certificate)
-        .collect();
-    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(key_file)
-        .map_err(|e| e.to_string())?
-        .into_iter()
-        .map(PrivateKey)
-        .collect();
+    let cert_chain: Vec<CertificateDer<'static>> = certs(cert_file)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
+    let mut keys = pkcs8_private_keys(key_file)
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     if keys.is_empty() {
         return Err("Could not locate PKCS 8 private keys.".to_string());
     }
 
-    let config = ServerConfig::builder()
-        .with_safe_defaults()
-        .with_no_client_auth();
-    config
-        .with_single_cert(cert_chain, keys.remove(0))
+    let private_key = PrivateKeyDer::Pkcs8(keys.remove(0));
+
+    ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(cert_chain, private_key)
         .map_err(|e| e.to_string())
 }

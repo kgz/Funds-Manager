@@ -19,8 +19,8 @@ path = "src/bin/migrate.rs"
 argon2 = "0.5.3"
 automod = "1.0.14"
 chrono = { version = "0.4.38", features = ["serde"] }
-diesel = { version = "2.2.4", features = ["chrono", "postgres", "r2d2", "time"] }
-diesel_migrations = "2.2.0"
+diesel = { version = "2.3", features = ["chrono", "postgres", "r2d2", "time"] }
+diesel_migrations = "2.3"
 dotenv = "0.15.0"
 enum-iterator = "2.1.0"
 hmac = "0.13.0"
@@ -33,7 +33,7 @@ strum = "0.26.3"
 strum_macros = "0.26.4"
 uuid = "1.10.0"
 fake = { version = "5.1.0", features = ["chrono", "derive", "dummy"] }
-time = "0.3.36"
+time = "0.3.47"
 utoipa = { version = "5.2.0", features = ["actix_extras", "chrono", "macros", "time"] }
 serde_json = "1.0.138"
 regex = "1.11.1"
