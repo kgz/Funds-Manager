@@ -27,7 +27,7 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-paper font-sans text-paper-fg antialiased">
       <Sidebar />
-      <div className="ml-16 min-w-0 lg:ml-64">
+      <div className="ml-16 min-w-0 lg:ml-[250px]">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/settings" element={<Settings />} />

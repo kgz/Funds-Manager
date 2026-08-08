@@ -170,9 +170,9 @@ function money(n, opts) {
   return formatted;
 }
 
-function icon(name) {
+function icon(name, size = 15) {
   const svgOpen =
-    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+    `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">`;
   const svgClose = '</svg>';
 
   if (name === 'income') {
@@ -195,76 +195,274 @@ function icon(name) {
     file: 'M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm7 0v5h5',
     tag: 'M20.6 11.4l-9.2 9.2a2 2 0 0 1-2.8 0L3 15l8.6-8.6a2 2 0 0 1 1.4-.6H19a2 2 0 0 1 2 2v5.2a2 2 0 0 1-.4 1.4zM7.5 8.5h.01',
     gear: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.6.9 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+    search: 'M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14zm5-2 5 5',
+    close: 'M6 6l12 12M18 6L6 18',
+    chevron: 'M8 10l4 4 4-4',
   };
   const d = paths[name] || paths.dash;
-  return `${svgOpen}<path d="${d}"/>${svgClose}`;
+  let svg = `${svgOpen}<path d="${d}"/>${svgClose}`;
+  if (name === 'chevron') {
+    svg = svg.replace('<svg', '<svg class="chevron"');
+  }
+  return svg;
+}
+
+const COLLAPSED_GROUPS_KEY = 'funds-sidebar-collapsed-groups';
+
+const NAV_GROUPS = [
+  {
+    id: 'overview',
+    label: 'Overview',
+    items: [
+      { id: 'dashboard', href: 'funds-dashboard.html', label: 'Dashboard', icon: 'dash' },
+      { id: 'breakdown', href: 'funds-breakdown.html', label: 'Breakdown', icon: 'chart' },
+      { id: 'future', href: 'funds-predictions.html', label: 'Future predictions', icon: 'future' },
+    ],
+  },
+  {
+    id: 'cash-flow',
+    label: 'Cash flow',
+    items: [
+      { id: 'transactions', href: 'funds-transactions.html', label: 'Transactions', icon: 'list', badge: 12 },
+      { id: 'income', href: 'funds-income.html', label: 'Income', icon: 'income' },
+      { id: 'living', href: 'funds-living-expenses.html', label: 'Living expenses', icon: 'home' },
+      { id: 'serviceability', href: 'funds-serviceability.html', label: 'Serviceability', icon: 'calc' },
+      { id: 'snapshots', href: 'funds-report-snapshots.html', label: 'Report snapshots', icon: 'snap' },
+      { id: 'repeat', href: 'funds-repeat-payments.html', label: 'Repeat payments', icon: 'repeat' },
+      { id: 'planned', href: 'funds-planned-spending.html', label: 'Planned spending', icon: 'plan', badge: 2 },
+    ],
+  },
+  {
+    id: 'net-worth',
+    label: 'Net worth',
+    items: [
+      { id: 'accounts', href: '#', label: 'Accounts', icon: 'wallet', stub: true },
+      { id: 'assets', href: '#', label: 'Assets', icon: 'asset', stub: true },
+      { id: 'liabilities', href: '#', label: 'Liabilities', icon: 'liability', stub: true },
+    ],
+  },
+  {
+    id: 'data-setup',
+    label: 'Data & setup',
+    items: [
+      { id: 'statements', href: 'funds-statements.html', label: 'Statements', icon: 'file' },
+      { id: 'categories', href: 'funds-categories.html', label: 'Categories', icon: 'tag' },
+      { id: 'settings', href: 'index.html#settings', label: 'Settings', icon: 'gear' },
+    ],
+  },
+];
+
+const COMMAND_ACTIONS = [
+  {
+    id: 'upload-statement',
+    label: 'Upload a statement',
+    detail: 'Import without leaving the current page',
+    icon: 'file',
+    href: 'funds-statements.html?upload=1',
+  },
+  {
+    id: 'add-transaction',
+    label: 'Add a transaction',
+    detail: 'Record income or spending',
+    icon: 'income',
+    href: 'funds-transactions.html',
+  },
+  {
+    id: 'create-snapshot',
+    label: 'Create report snapshot',
+    detail: 'Save the current reporting period',
+    icon: 'snap',
+    href: 'funds-report-snapshots.html',
+  },
+  {
+    id: 'plan-spending',
+    label: 'Plan spending',
+    detail: 'Add a future expense',
+    icon: 'plan',
+    href: 'funds-planned-spending.html?add=1',
+  },
+];
+
+const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((group) =>
+  group.items.map((item) => ({ ...item, group: group.label }))
+);
+
+function readCollapsedGroups() {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_GROUPS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function writeCollapsedGroups(collapsed) {
+  localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify([...collapsed]));
+}
+
+function navBadge(item, subtle) {
+  if (!item.badge) return '';
+  const cls = subtle ? 'nav-badge subtle' : 'nav-badge';
+  return `<span class="${cls}" aria-label="${item.badge} items needing attention">${item.badge}</span>`;
+}
+
+function navLinkHtml(item, active, subtleBadge) {
+  const isActive = item.id === active;
+  const cls = 'nav-link' + (isActive ? ' is-active' : '');
+  const title = item.stub ? ' title="Prototype stub — not in priority set"' : '';
+  return `<a class="${cls}" href="${item.href}" data-od-id="nav-${item.id}"${title}>${icon(item.icon)}<span>${item.label}</span>${navBadge(item, subtleBadge)}</a>`;
+}
+
+function groupBlock(group, collapsed, active) {
+  const collapsedClass = collapsed ? ' is-collapsed' : '';
+  const items = group.items.map((item) => navLinkHtml(item, active, true)).join('');
+  return `<section class="nav-group${collapsedClass}" data-group="${group.id}" data-od-id="nav-group-${group.id}">
+    <button class="group-toggle nav-label" type="button" aria-expanded="${collapsed ? 'false' : 'true'}">
+      <span>${group.label}</span>${icon('chevron', 14)}
+    </button>
+    <div class="nav-list"><div class="nav-list-inner">${items}</div></div>
+  </section>`;
+}
+
+function ensureCommandDialog() {
+  let dialog = document.querySelector('[data-command-dialog]');
+  if (dialog) return dialog;
+  dialog = document.createElement('div');
+  dialog.className = 'command-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-label', 'Find or do anything');
+  dialog.dataset.commandDialog = 'true';
+  dialog.innerHTML = `<div class="command-box">
+    <div class="command-input-wrap" data-od-id="command-input-bar">
+      ${icon('search', 18)}
+      <input class="command-input" type="search" enterkeyhint="go" autocomplete="off" spellcheck="false" placeholder="Find a page or run an action…" aria-label="Find a page or run an action">
+      <kbd>Esc</kbd>
+      <button class="command-close" type="button" aria-label="Close search">${icon('close')}</button>
+    </div>
+    <div class="command-results"></div>
+  </div>`;
+  document.body.appendChild(dialog);
+  return dialog;
+}
+
+function renderCommandResults(query) {
+  const dialog = ensureCommandDialog();
+  const normalized = query.trim().toLowerCase();
+  const destinations = ALL_NAV_ITEMS.filter((item) =>
+    `${item.label} ${item.group}`.toLowerCase().includes(normalized)
+  );
+  const actions = COMMAND_ACTIONS.filter((action) =>
+    `${action.label} ${action.detail}`.toLowerCase().includes(normalized)
+  );
+  const actionHtml = actions.length
+    ? `<p class="command-section-label">Actions</p>${actions
+        .map(
+          (action, index) =>
+            `<button class="command-result command-action${index === 0 ? ' is-selected' : ''}" type="button" data-command-href="${action.href}">${icon(action.icon)}<span><strong>${action.label}</strong><small>${action.detail}</small></span><span class="command-kind">Run</span></button>`
+        )
+        .join('')}`
+    : '';
+  const destinationHtml = destinations.length
+    ? `<p class="command-section-label">Destinations</p>${destinations
+        .map(
+          (item, index) =>
+            `<a class="command-result${!actions.length && index === 0 ? ' is-selected' : ''}" href="${item.href}">${icon(item.icon)}<span>${item.label}</span><small>${item.group}</small>${navBadge(item, true)}</a>`
+        )
+        .join('')}`
+    : '';
+  dialog.querySelector('.command-results').innerHTML =
+    actionHtml || destinationHtml
+      ? `${actionHtml}${destinationHtml}`
+      : '<div class="command-empty">No matching action or destination.</div>';
+}
+
+function openCommand() {
+  const dialog = ensureCommandDialog();
+  dialog.classList.add('is-open');
+  renderCommandResults('');
+  const input = dialog.querySelector('.command-input');
+  input.value = '';
+  input.focus();
+}
+
+function closeCommand() {
+  const dialog = document.querySelector('[data-command-dialog]');
+  if (dialog) dialog.classList.remove('is-open');
+}
+
+let sidebarChromeWired = false;
+
+function wireSidebarChrome() {
+  if (sidebarChromeWired) return;
+  sidebarChromeWired = true;
+
+  document.addEventListener('click', (event) => {
+    const toggle = event.target.closest('.group-toggle');
+    if (toggle) {
+      const group = toggle.closest('.nav-group');
+      const id = group.dataset.group;
+      const collapsed = group.classList.toggle('is-collapsed');
+      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      const stored = readCollapsedGroups();
+      if (collapsed) stored.add(id);
+      else stored.delete(id);
+      writeCollapsedGroups(stored);
+      return;
+    }
+    if (event.target.closest('[data-command-open]')) {
+      event.preventDefault();
+      openCommand();
+      return;
+    }
+    if (
+      event.target.closest('.command-close') ||
+      event.target.matches('[data-command-dialog]')
+    ) {
+      closeCommand();
+      return;
+    }
+    const action = event.target.closest('[data-command-href]');
+    if (action) {
+      window.location.href = action.dataset.commandHref;
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      openCommand();
+    }
+    if (event.key === 'Escape') closeCommand();
+  });
+
+  const dialog = ensureCommandDialog();
+  dialog.querySelector('.command-input').addEventListener('input', (event) => {
+    renderCommandResults(event.target.value);
+  });
 }
 
 function renderSidebar(active) {
-  const groups = [
-    {
-      label: 'Overview',
-      items: [
-        { id: 'dashboard', href: 'funds-dashboard.html', label: 'Dashboard', icon: 'dash' },
-        { id: 'breakdown', href: 'funds-breakdown.html', label: 'Breakdown', icon: 'chart' },
-        { id: 'future', href: 'funds-predictions.html', label: 'Future predictions', icon: 'future' },
-      ],
-    },
-    {
-      label: 'Cash flow',
-      items: [
-        { id: 'transactions', href: 'funds-transactions.html', label: 'Transactions', icon: 'list', badge: 12 },
-        { id: 'income', href: 'funds-income.html', label: 'Income', icon: 'income' },
-        { id: 'living', href: 'funds-living-expenses.html', label: 'Living expenses', icon: 'home' },
-        { id: 'serviceability', href: 'funds-serviceability.html', label: 'Serviceability', icon: 'calc' },
-        { id: 'snapshots', href: 'funds-report-snapshots.html', label: 'Report snapshots', icon: 'snap' },
-        { id: 'repeat', href: 'funds-repeat-payments.html', label: 'Repeat payments', icon: 'repeat' },
-        { id: 'planned', href: 'funds-planned-spending.html', label: 'Planned spending', icon: 'plan', badge: 2 },
-      ],
-    },
-    {
-      label: 'Net worth',
-      items: [
-        { id: 'accounts', href: '#', label: 'Accounts', icon: 'wallet', stub: true },
-        { id: 'assets', href: '#', label: 'Assets', icon: 'asset', stub: true },
-        { id: 'liabilities', href: '#', label: 'Liabilities', icon: 'liability', stub: true },
-      ],
-    },
-    {
-      label: 'Data & setup',
-      items: [
-        { id: 'statements', href: 'funds-statements.html', label: 'Statements', icon: 'file' },
-        { id: 'categories', href: 'funds-categories.html', label: 'Categories', icon: 'tag' },
-        { id: 'settings', href: 'index.html#settings', label: 'Settings', icon: 'gear' },
-      ],
-    },
-  ];
+  const collapsed = readCollapsedGroups();
+  const groupsHtml = NAV_GROUPS.map((group) =>
+    groupBlock(group, collapsed.has(group.id), active)
+  ).join('');
 
-  let html = `
+  const html = `
     <div class="brand" data-od-id="sidebar-brand" data-tour="welcome">
       <div class="brand-mark">F</div>
       <div class="brand-name">Funds</div>
-    </div>`;
-
-  for (const g of groups) {
-    html += `<div class="nav-group" data-od-id="nav-${g.label.toLowerCase().replace(/\s+/g, '-')}">
-      <span class="nav-label">${g.label}</span>`;
-    for (const item of g.items) {
-      const isActive = item.id === active;
-      const cls = 'nav-link' + (isActive ? ' is-active' : '');
-      const badge = item.badge
-        ? `<span class="nav-badge" aria-label="${item.badge} items needing attention">${item.badge}</span>`
-        : '';
-      const title = item.stub ? ' title="Prototype stub — not in priority set"' : '';
-      html += `<a class="${cls}" href="${item.href}" data-od-id="nav-${item.id}"${title}>${icon(item.icon)}<span>${item.label}</span>${badge}</a>`;
-    }
-    html += `</div>`;
-  }
-
-  html += `<div class="sidebar-foot" data-od-id="sidebar-foot">Self-hosted · AUD</div>`;
+    </div>
+    <button class="search-launcher" type="button" data-command-open data-od-id="command-action-launcher">${icon('search')}<span>Find or do anything</span><kbd>⌘ K</kbd></button>
+    <div class="nav-groups">${groupsHtml}</div>
+    <div class="sidebar-foot" data-od-id="sidebar-foot">Browse all 16 · act without leaving<br>Self-hosted · AUD</div>`;
 
   const el = document.getElementById('sidebar');
   if (el) el.innerHTML = html;
+  ensureCommandDialog();
+  wireSidebarChrome();
 }
 
 function wireSegmented(root, onChange) {

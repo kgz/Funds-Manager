@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "sidebar-icon-rail.html",
+  "entry": "sidebar-icon-rail.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-18T08:40:59.905Z",
+  "updatedAt": "2026-07-18T08:40:59.905Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

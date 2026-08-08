@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Funds — Sidebar design exploration</title>
+  <link rel="stylesheet" href="exploration.css">
+</head>
+<body>
+  <main class="board" data-od-id="comparison-board">
+    <header class="board-head">
+      <div>
+        <p class="eyebrow">Funds Manager · Navigation study</p>
+        <h1 data-od-id="board-title">Six ways to make sixteen destinations feel lighter.</h1>
+        <p class="board-lede">A side-by-side information-architecture exploration using the current Funds dashboard, visual system, labels, badges, and destination set. Select an approach to test it below.</p>
+      </div>
+      <aside class="legend-key" aria-label="Evaluation principles">
+        <span>Destinations preserved <strong>16 / 16</strong></span>
+        <span>Primary evaluation <strong>Desktop</strong></span>
+        <span>Narrow behaviour <strong>Drawer</strong></span>
+        <span>Recommendation lens <strong>Self-hosted</strong></span>
+      </aside>
+    </header>
+
+    <section class="option-grid" aria-label="Sidebar options" data-od-id="option-selector">
+      <button class="option-card is-active" type="button" data-option-card data-href="sidebar-progressive.html" data-title="01 · Progressive disclosure" data-summary="Primary tasks stay visible; coherent groups open only when needed." aria-pressed="true">
+        <span class="option-number">01</span>
+        <h2>Progressive disclosure</h2>
+        <p><strong>Pro:</strong> Calm default with familiar labels.<br><strong>Con:</strong> One extra click for secondary tools.<br><strong>Best for:</strong> Broad, mixed-frequency use.</p>
+        <span class="mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      </button>
+      <button class="option-card" type="button" data-option-card data-href="sidebar-icon-rail.html" data-title="02 · Icon rail + contextual panel" data-summary="Major areas stay in a narrow rail; each reveals a focused second level." aria-pressed="false">
+        <span class="option-number">02</span>
+        <h2>Rail + context</h2>
+        <p><strong>Pro:</strong> Strong hierarchy and local focus.<br><strong>Con:</strong> Area switching costs attention.<br><strong>Best for:</strong> Users with stable mental models.</p>
+        <span class="mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      </button>
+      <button class="option-card" type="button" data-option-card data-href="sidebar-command-first.html" data-title="03 · Search / command-first" data-summary="Five favourites remain visible; every feature is one searchable launcher away." aria-pressed="false">
+        <span class="option-number">03</span>
+        <h2>Command-first</h2>
+        <p><strong>Pro:</strong> Fastest for repeat users.<br><strong>Con:</strong> Weakest passive discoverability.<br><strong>Best for:</strong> Keyboard-heavy expert use.</p>
+        <span class="mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      </button>
+      <button class="option-card" type="button" data-option-card data-href="sidebar-collapsible-groups.html" data-title="04 · Collapsible grouped sidebar" data-summary="The existing grouping remains intact, with top tasks lifted and groups folded." aria-pressed="false">
+        <span class="option-number">04</span>
+        <h2>Collapsed groups</h2>
+        <p><strong>Pro:</strong> Lowest implementation risk.<br><strong>Con:</strong> Clutter returns when groups open.<br><strong>Best for:</strong> Conservative incremental change.</p>
+        <span class="mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      </button>
+      <button class="option-card" type="button" data-option-card data-href="sidebar-hybrid-more.html" data-title="05 · Hybrid core + More" data-summary="Three core areas remain visible; thirteen lower-frequency destinations live in More." aria-pressed="false">
+        <span class="option-number">05</span>
+        <h2>Core + More</h2>
+        <p><strong>Pro:</strong> Smallest persistent footprint.<br><strong>Con:</strong> More carries a heavy IA burden.<br><strong>Best for:</strong> Task-focused daily workflows.</p>
+        <span class="mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      </button>
+      <button class="option-card" type="button" data-option-card data-href="sidebar-progressive-command.html" data-title="06 · Progressive groups + command actions" data-summary="Every destination remains browsable while ⌘K runs common tasks in place." aria-pressed="false">
+        <span class="option-number">06</span>
+        <h2>Groups + commands</h2>
+        <p><strong>Pro:</strong> Browse by recognition, act by search.<br><strong>Con:</strong> Richer interaction to implement.<br><strong>Best for:</strong> Mixed novice and expert use.</p>
+        <span class="mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+      </button>
+    </section>
+
+    <section class="preview-panel" data-od-id="interactive-preview">
+      <div class="preview-bar">
+        <div class="preview-meta">
+          <strong data-preview-title>01 · Progressive disclosure</strong>
+          <span data-preview-description>Primary tasks stay visible; coherent groups open only when needed.</span>
+        </div>
+        <div class="preview-actions">
+          <a class="board-btn primary" href="sidebar-progressive.html" data-preview-open>Open full size ↗</a>
+        </div>
+      </div>
+      <iframe class="preview-frame" src="sidebar-progressive.html" title="Interactive sidebar option preview" data-preview-frame></iframe>
+    </section>
+
+    <section class="decision" data-od-id="final-recommendation">
+      <div>
+        <p class="card-kicker">Final recommendation</p>
+        <h2>Use progressive groups with command actions.</h2>
+        <p>This combination preserves the complete, readable navigation for recognition and discovery, while giving frequent users a faster path to both destinations and direct actions. “Upload a statement” can open an in-place workflow instead of forcing a page transition. It adds more implementation work than disclosure alone, but best supports a self-hosted personal-finance app where users alternate between browsing, checking, and importing.</p>
+      </div>
+      <div>
+        <table class="score-table">
+          <thead>
+            <tr><th>Approach</th><th>Scanability</th><th>Discoverability</th><th>Complexity</th><th>Personal-finance fit</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Progressive disclosure</td><td class="score">5 / 5</td><td class="score">5 / 5</td><td class="score">3 / 5</td><td class="score">5 / 5</td></tr>
+            <tr><td>Rail + context</td><td class="score">4 / 5</td><td class="score">3 / 5</td><td class="score">2 / 5</td><td class="score">4 / 5</td></tr>
+            <tr><td>Command-first</td><td class="score">5 / 5</td><td class="score">2 / 5</td><td class="score">3 / 5</td><td class="score">3 / 5</td></tr>
+            <tr><td>Collapsed groups</td><td class="score">3 / 5</td><td class="score">4 / 5</td><td class="score">5 / 5</td><td class="score">4 / 5</td></tr>
+            <tr><td>Core + More</td><td class="score">5 / 5</td><td class="score">3 / 5</td><td class="score">4 / 5</td><td class="score">4 / 5</td></tr>
+            <tr class="recommended"><td>Groups + commands</td><td class="score">5 / 5</td><td class="score">5 / 5</td><td class="score">2 / 5</td><td class="score">5 / 5</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="exploration.js"></script>
+</body>
+</html>

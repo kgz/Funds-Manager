@@ -36,6 +36,7 @@ import {
 	type DragEvent,
 } from 'react';
 import { DateTime } from 'luxon';
+import { useSearchParams } from 'react-router';
 
 const PER_PAGE = 50;
 const CLIENT_FETCH_PER_PAGE = 200;
@@ -133,6 +134,7 @@ function buildMissingAlertBody(periods: MissingStatementPeriod[]): string {
 }
 
 export const Statements = () => {
+	const [searchParams, setSearchParams] = useSearchParams();
 	const {
 		accounts,
 		accountsLoading,
@@ -261,6 +263,16 @@ export const Statements = () => {
 			fileInputRef.current?.click();
 		}
 	};
+
+	useEffect(() => {
+		if (searchParams.get('upload') !== '1' || isUploading) {
+			return;
+		}
+		openFilePicker();
+		const next = new URLSearchParams(searchParams);
+		next.delete('upload');
+		setSearchParams(next, { replace: true });
+	}, [isUploading, searchParams, setSearchParams]);
 
 	const commitUpload = async (pdfFiles: File[], replace: boolean) => {
 		setIsUploading(true);

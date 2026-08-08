@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "sidebar-hybrid-more.html",
+  "entry": "sidebar-hybrid-more.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-18T08:41:09.856Z",
+  "updatedAt": "2026-07-18T08:41:09.856Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}
