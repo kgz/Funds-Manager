@@ -13,8 +13,8 @@
 223	done	income OD port — merged to main
 224	done	living expenses OD port — merged to main
 225	done	report snapshots OD port — merged to main
-226	in-progress	repeat payments — no OD HTML
-227	backlog	planned spending — no OD HTML
+226	done	repeat payments OD port — merged to main
+227	in-progress	planned spending — OD design run
 228	backlog	accounts — no OD HTML
 229	backlog	assets — no OD HTML
 230	backlog	liabilities — no OD HTML

@@ -7,6 +7,7 @@ use database::models::category::Category;
 use database::models::financial_account::FinancialAccount;
 use database::models::liabilities::{Liability, LiabilityInput};
 use database::models::planned_spending::PlannedSpending;
+use database::models::planned_spending_match;
 use database::models::prediction_goal::PredictionGoal;
 use database::models::prediction_scenario::{PredictionScenario, ScenarioLineInput};
 use database::models::statement::Statement;
@@ -361,6 +362,179 @@ fn seed_transfer_pairs(
     eprintln!("  transfer pair for suggestions: out={out_id} in={in_id}");
 }
 
+fn insert_demo_transaction(
+    conn: &mut DbConn,
+    account: &ResolvedSeedAccount,
+    amount: i32,
+    transaction_date: NaiveDate,
+    description: &str,
+    category_id: Option<i32>,
+    now: chrono::NaiveDateTime,
+) -> i64 {
+    let statement = Statement::insert(
+        month_start(transaction_date.year(), transaction_date.month()),
+        account.spec.account_number.to_string(),
+        account.balance_cents,
+        account.financial_account_id,
+        transaction_date,
+        transaction_date,
+    )
+    .expect("demo txn statement");
+
+    diesel::insert_into(transaction_data::table)
+        .values(&NewTransaction {
+            statement_id: i32::try_from(statement.id).unwrap(),
+            category_id,
+            description: description.to_string(),
+            amount,
+            transaction_date: transaction_date.and_hms_opt(10, 0, 0).unwrap_or(now),
+            last_updated: now,
+            deleted_at: None,
+            created_at: now,
+            status: "parsed".to_string(),
+            balance: account.balance_cents + amount,
+        })
+        .returning(transaction_data::id)
+        .get_result::<i64>(conn)
+        .expect("demo txn")
+}
+
+fn category_i32(categories: &HashMap<String, i64>, key: &str) -> Option<i32> {
+    categories
+        .get(key)
+        .and_then(|id| i32::try_from(*id).ok())
+}
+
+fn seed_planned_spending(
+    conn: &mut DbConn,
+    accounts: &[ResolvedSeedAccount],
+    now: chrono::NaiveDateTime,
+    categories: &HashMap<String, i64>,
+) {
+    let today = now.date();
+    let everyday = &accounts[0];
+
+    let transport = categories.get("transport").copied();
+    let housing = categories.get("housing").copied();
+    let health = categories.get("health").copied();
+    let entertainment = categories.get("entertainment").copied();
+
+    let transport_i32 = category_i32(categories, "transport");
+    let housing_i32 = category_i32(categories, "housing");
+    let health_i32 = category_i32(categories, "health");
+
+    // Suggested match — exact amount and close date
+    let rego_date = today.checked_add_days(Days::new(14)).unwrap_or(today);
+    PlannedSpending::insert(
+        "Annual car rego",
+        -850_00,
+        rego_date,
+        None,
+        transport,
+        Some("Due mid-month"),
+    )
+    .expect("car rego");
+    insert_demo_transaction(
+        conn,
+        everyday,
+        -850_00,
+        rego_date.checked_sub_days(Days::new(2)).unwrap_or(rego_date),
+        "TRANSPORT DEPT REGO RENEWAL",
+        transport_i32,
+        now,
+    );
+
+    // Partially linked — one payment linked, second txn should surface as a suggestion
+    let fees_date = today.checked_add_days(Days::new(30)).unwrap_or(today);
+    let fees_planned = PlannedSpending::insert(
+        "School fees — term 3",
+        -2_400_00,
+        fees_date,
+        None,
+        housing,
+        Some("St Joseph's invoice #4421"),
+    )
+    .expect("school fees");
+    let fees_txn1 = insert_demo_transaction(
+        conn,
+        everyday,
+        -1_200_00,
+        fees_date.checked_sub_days(Days::new(1)).unwrap_or(fees_date),
+        "ST JOSEPH COLLEGE FEES TERM3",
+        housing_i32,
+        now,
+    );
+    planned_spending_match::link_transaction(fees_planned.id, fees_txn1).expect("link school fees");
+    insert_demo_transaction(
+        conn,
+        everyday,
+        -1_200_00,
+        fees_date,
+        "ST JOSEPH COLLEGE FEES BALANCE",
+        housing_i32,
+        now,
+    );
+
+    // Fully linked — shows linked progress subline, no match suggestion
+    let kitchen_date = today.checked_add_days(Days::new(90)).unwrap_or(today);
+    let kitchen_planned = PlannedSpending::insert(
+        "Kitchen renovation deposit",
+        -8_000_00,
+        kitchen_date,
+        None,
+        housing,
+        Some("Builder quote accepted"),
+    )
+    .expect("kitchen renovation");
+    let kitchen_txn = insert_demo_transaction(
+        conn,
+        everyday,
+        -8_000_00,
+        kitchen_date.checked_sub_days(Days::new(3)).unwrap_or(kitchen_date),
+        "SMITH BUILDERS KITCHEN DEPOSIT",
+        housing_i32,
+        now,
+    );
+    planned_spending_match::link_transaction(kitchen_planned.id, kitchen_txn)
+        .expect("link kitchen deposit");
+
+    // Suggested match — amount within tolerance, date within tolerance
+    let dentist_date = today.checked_add_days(Days::new(7)).unwrap_or(today);
+    PlannedSpending::insert(
+        "Dentist visit",
+        -285_00,
+        dentist_date,
+        None,
+        health,
+        Some("Check-up and clean"),
+    )
+    .expect("dentist");
+    insert_demo_transaction(
+        conn,
+        everyday,
+        -290_00,
+        dentist_date.checked_add_days(Days::new(2)).unwrap_or(dentist_date),
+        "ADELAIDE DENTAL CARE CHECKUP",
+        health_i32,
+        now,
+    );
+
+    // No nearby transaction — table row only
+    PlannedSpending::insert(
+        "Holiday spending money",
+        -3_500_00,
+        today.checked_add_days(Days::new(45)).unwrap_or(today),
+        None,
+        entertainment,
+        None,
+    )
+    .expect("holiday");
+
+    eprintln!(
+        "  planned spending: 3 match suggestions, 1 partial link, 1 full link, 1 unmatched"
+    );
+}
+
 fn seed_liabilities_and_assets(accounts: &[ResolvedSeedAccount]) {
     let offset = accounts
         .iter()
@@ -532,40 +706,6 @@ fn seed_predictions(categories: &HashMap<String, i64>) {
     .expect("europe trip goal");
 }
 
-fn seed_planned_spending(categories: &HashMap<String, i64>) {
-    let today = Utc::now().date_naive();
-
-    PlannedSpending::insert(
-        "Annual car rego",
-        850_00,
-        today.checked_add_days(Days::new(14)).unwrap_or(today),
-        None,
-        categories.get("transport").copied(),
-        Some("Due mid-month"),
-    )
-    .expect("car rego");
-
-    PlannedSpending::insert(
-        "School fees — term 3",
-        2_400_00,
-        today.checked_add_months(Months::new(1)).unwrap_or(today),
-        Some(today.checked_add_months(Months::new(4)).unwrap_or(today)),
-        categories.get("housing").copied(),
-        None,
-    )
-    .expect("school fees");
-
-    PlannedSpending::insert(
-        "Kitchen renovation deposit",
-        8_000_00,
-        today.checked_add_months(Months::new(3)).unwrap_or(today),
-        None,
-        categories.get("housing").copied(),
-        Some("Builder quote accepted"),
-    )
-    .expect("kitchen renovation");
-}
-
 fn main() {
     let cfg = parse_args();
     let mut rng = StdRng::seed_from_u64(cfg.seed);
@@ -628,7 +768,7 @@ fn main() {
     seed_predictions(&categories);
 
     eprintln!("=== Demo seed: planned spending ===");
-    seed_planned_spending(&categories);
+    seed_planned_spending(conn, &accounts, now, &categories);
 
     eprintln!(
         "Done: {total_txns} transactions, {} accounts, full feature coverage",
