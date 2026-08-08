@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-repeat-payments.html",
+  "entry": "funds-repeat-payments.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-08-04T09:54:02.542Z",
+  "updatedAt": "2026-08-04T09:54:02.542Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}
