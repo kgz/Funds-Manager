@@ -17,6 +17,14 @@ const formatDollars = (dollars: number): string => {
 	return `${dollars < 0 ? '-' : ''}$${abs}`;
 };
 
+const formatCompactDollars = (dollars: number): string => {
+	const abs = Math.abs(dollars);
+	if (abs >= 1000) {
+		return `${dollars < 0 ? '-' : ''}$${Math.round(abs / 1000)}k`;
+	}
+	return formatDollars(dollars);
+};
+
 function isPieChartDataItem(value: unknown): value is PieChartDataItem {
 	if (typeof value !== 'object' || value === null) return false;
 	if (!('name' in value && 'value' in value && 'groupKey' in value)) return false;
@@ -185,6 +193,15 @@ export const CategoryPieChart = ({
 				: { innerRadius: 62, outerRadius: 100 }
 			: { innerRadius: 0, outerRadius: 100 };
 	const chartHeight = showRankedList ? 160 : 300;
+	const hoveredItem =
+		hoveredSliceName === null
+			? null
+			: chartData.find((row) => row.name === hoveredSliceName) ?? null;
+	const centerPrimary = hoveredItem?.name.split(' ')[0] ?? 'Total';
+	const centerSecondary =
+		hoveredItem !== null && total > 0
+			? `${((hoveredItem.value / total) * 100).toFixed(0)}%`
+			: formatCompactDollars(total);
 
 	return (
 		<div
@@ -243,19 +260,26 @@ export const CategoryPieChart = ({
 							);
 						})}
 					</Pie>
-					{variant === 'donut' && !showRankedList ? (
+					{variant === 'donut' ? (
 						<text
 							x="50%"
 							y="50%"
 							textAnchor="middle"
 							dominantBaseline="middle"
-							className="fill-paper-fg"
 						>
-							<tspan x="50%" dy="-0.4em" className="text-[11px] fill-paper-muted">
-								Total
+							<tspan
+								x="50%"
+								dy="-0.35em"
+								className="fill-paper-fg text-[13px] font-semibold"
+							>
+								{centerPrimary}
 							</tspan>
-							<tspan x="50%" dy="1.4em" className="text-base font-semibold">
-								{formatDollars(total)}
+							<tspan
+								x="50%"
+								dy="1.35em"
+								className="fill-paper-muted font-mono text-[11px] font-medium tabular-nums"
+							>
+								{centerSecondary}
 							</tspan>
 						</text>
 					) : null}
