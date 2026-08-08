@@ -18,6 +18,6 @@
 228	backlog	accounts — no OD HTML
 229	backlog	assets — no OD HTML
 230	backlog	liabilities — no OD HTML
-231	in-review	settings — saved connections + OD port
+231	done	settings — saved connections + OD port (#272)
 232	backlog	parked — AI demo, not active delivery
 254	backlog	multi-select account filter — all pages (#254)
