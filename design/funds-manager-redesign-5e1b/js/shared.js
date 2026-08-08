@@ -247,7 +247,7 @@ const NAV_GROUPS = [
     items: [
       { id: 'statements', href: 'funds-statements.html', label: 'Statements', icon: 'file' },
       { id: 'categories', href: 'funds-categories.html', label: 'Categories', icon: 'tag' },
-      { id: 'settings', href: 'index.html#settings', label: 'Settings', icon: 'gear' },
+      { id: 'settings', href: 'funds-settings.html', label: 'Settings', icon: 'gear' },
     ],
   },
 ];

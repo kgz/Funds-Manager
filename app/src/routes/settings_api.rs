@@ -1,8 +1,9 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use database::modules::app_config::{
-    active_database_url_source, build_postgres_url_from_fields, config_file_path,
-    current_postgres_parts, local_storage_backend_available, mask_database_url,
-    runtime_storage_mode, test_postgres_connection, AppConfig, DatabaseUrlSource, StorageMode,
+    active_database_url_source, build_postgres_url_from_fields_with_fallback, config_file_path,
+    current_postgres_parts, local_storage_backend_available, mask_database_url, parse_postgres_url,
+    runtime_storage_mode, test_postgres_connection, AppConfig, DatabaseUrlSource, SavedConnection,
+    StorageMode,
 };
 use database::modules::database::{
     active_database_url, list_migration_status, run_pending_migrations_now, swap_postgres_pool,
@@ -49,7 +50,35 @@ impl PostgresFields {
     }
 
     fn build_url(&self) -> Result<String, String> {
-        build_postgres_url_from_fields(
+        let config = AppConfig::load();
+        self.build_url_with_config(&config)
+    }
+
+    fn build_url_with_config(&self, config: &AppConfig) -> Result<String, String> {
+        self.build_url_with_connection(config, None)
+    }
+
+    fn build_url_with_connection(
+        &self,
+        config: &AppConfig,
+        connection_id: Option<&str>,
+    ) -> Result<String, String> {
+        let fallback = connection_id
+            .and_then(|id| config.connection_by_id(id).map(SavedConnection::to_parts))
+            .or_else(|| config.password_fallback_parts());
+        build_postgres_url_from_fields_with_fallback(
+            fallback.as_ref(),
+            self.pg_host.as_deref(),
+            self.pg_port.as_deref(),
+            self.pg_database.as_deref(),
+            self.pg_user.as_deref(),
+            self.pg_password.as_deref(),
+        )
+    }
+
+    fn build_url_from_form_only(&self) -> Result<String, String> {
+        build_postgres_url_from_fields_with_fallback(
+            None,
             self.pg_host.as_deref(),
             self.pg_port.as_deref(),
             self.pg_database.as_deref(),
@@ -64,6 +93,7 @@ impl PostgresFields {
 struct StorageUpdatePayload {
     storage_mode: Option<String>,
     database_url: Option<String>,
+    connection_id: Option<String>,
     #[serde(flatten)]
     postgres: PostgresFields,
     sqlite_path: Option<String>,
@@ -73,6 +103,7 @@ struct StorageUpdatePayload {
 #[serde(rename_all = "camelCase")]
 struct StorageTestPayload {
     database_url: Option<String>,
+    connection_id: Option<String>,
     #[serde(flatten)]
     postgres: PostgresFields,
 }
@@ -81,8 +112,70 @@ struct StorageTestPayload {
 #[serde(rename_all = "camelCase")]
 struct StorageConnectPayload {
     database_url: Option<String>,
+    connection_id: Option<String>,
     #[serde(flatten)]
     postgres: PostgresFields,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SavedConnectionResponse {
+    id: String,
+    name: String,
+    host: String,
+    port: Option<u16>,
+    database: String,
+    user: String,
+    has_password: bool,
+    active: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateConnectionPayload {
+    name: String,
+    #[serde(flatten)]
+    postgres: PostgresFields,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ConnectionsListResponse {
+    items: Vec<SavedConnectionResponse>,
+}
+
+fn connection_response(connection: &SavedConnection, active_id: Option<&str>) -> SavedConnectionResponse {
+    SavedConnectionResponse {
+        id: connection.id.clone(),
+        name: connection.name.clone(),
+        host: connection.host.clone(),
+        port: connection.port,
+        database: connection.database.clone(),
+        user: connection.user.clone(),
+        has_password: connection.has_password(),
+        active: active_id == Some(connection.id.as_str()),
+    }
+}
+
+fn sync_connection_from_postgres_fields(
+    config: &mut AppConfig,
+    connection_id: Option<&str>,
+    postgres: &PostgresFields,
+) -> Result<(), String> {
+    let target_id = connection_id
+        .map(str::to_string)
+        .or_else(|| config.postgres.active_connection_id.clone());
+    let Some(target_id) = target_id else {
+        return Ok(());
+    };
+    config.update_connection_from_fields(
+        &target_id,
+        postgres.pg_host.as_deref(),
+        postgres.pg_port.as_deref(),
+        postgres.pg_database.as_deref(),
+        postgres.pg_user.as_deref(),
+        postgres.pg_password.as_deref(),
+    )
 }
 
 #[derive(Serialize)]
@@ -178,9 +271,14 @@ async fn update_storage_settings(payload: web::Json<StorageUpdatePayload>) -> Re
             postgres_changed = true;
         }
     } else if !payload.postgres.is_empty() {
+        if let Some(connection_id) = payload.connection_id.as_deref() {
+            config.set_active_connection(connection_id).map_err(error::ErrorBadRequest)?;
+        }
+        sync_connection_from_postgres_fields(&mut config, payload.connection_id.as_deref(), &payload.postgres)
+            .map_err(error::ErrorBadRequest)?;
         let url = payload
             .postgres
-            .build_url()
+            .build_url_with_connection(&config, payload.connection_id.as_deref())
             .map_err(error::ErrorBadRequest)?;
         config.postgres.url = Some(url);
         config.storage_mode = StorageMode::Postgres;
@@ -224,9 +322,10 @@ async fn test_storage_connection(payload: web::Json<StorageTestPayload>) -> Resu
     {
         url
     } else if !payload.postgres.is_empty() {
+        let config = AppConfig::load();
         payload
             .postgres
-            .build_url()
+            .build_url_with_connection(&config, payload.connection_id.as_deref())
             .map_err(error::ErrorBadRequest)?
     } else {
         let config = AppConfig::load();
@@ -259,10 +358,15 @@ async fn connect_storage(payload: web::Json<StorageConnectPayload>) -> Result<im
     {
         Some(url)
     } else if !payload.postgres.is_empty() {
+        if let Some(connection_id) = payload.connection_id.as_deref() {
+            config.set_active_connection(connection_id).map_err(error::ErrorBadRequest)?;
+        }
+        sync_connection_from_postgres_fields(&mut config, payload.connection_id.as_deref(), &payload.postgres)
+            .map_err(error::ErrorBadRequest)?;
         Some(
             payload
                 .postgres
-                .build_url()
+                .build_url_with_connection(&config, payload.connection_id.as_deref())
                 .map_err(error::ErrorBadRequest)?,
         )
     } else {
@@ -286,7 +390,7 @@ async fn connect_storage(payload: web::Json<StorageConnectPayload>) -> Result<im
     match web::block(move || swap_postgres_pool(&url)).await {
         Ok(Ok(())) => Ok(HttpResponse::Ok().json(StorageConnectResponse {
             ok: true,
-            message: "Connected. The app is now using this database.".to_string(),
+            message: "Saved and connected. The app is now using this database.".to_string(),
         })),
         Ok(Err(message)) => Ok(HttpResponse::Ok().json(StorageConnectResponse {
             ok: false,
@@ -348,12 +452,57 @@ async fn run_migrations() -> Result<impl Responder> {
     }
 }
 
+async fn list_connections() -> impl Responder {
+    let config = AppConfig::load();
+    let active_id = config.postgres.active_connection_id.as_deref();
+    let items = config
+        .postgres
+        .connections
+        .iter()
+        .map(|connection| connection_response(connection, active_id))
+        .collect();
+    HttpResponse::Ok().json(ConnectionsListResponse { items })
+}
+
+async fn create_connection(payload: web::Json<CreateConnectionPayload>) -> Result<impl Responder> {
+    let mut config = AppConfig::load();
+    let url = payload
+        .postgres
+        .build_url_from_form_only()
+        .map_err(error::ErrorBadRequest)?;
+    let parts = parse_postgres_url(&url).ok_or_else(|| {
+        error::ErrorBadRequest("Could not parse connection details")
+    })?;
+    let connection = config
+        .create_connection(&payload.name, &parts)
+        .map_err(error::ErrorBadRequest)?;
+    config
+        .save()
+        .map_err(|message| error::ErrorInternalServerError(message))?;
+    let active_id = config.postgres.active_connection_id.as_deref();
+    Ok(HttpResponse::Ok().json(connection_response(&connection, active_id)))
+}
+
+async fn delete_connection(path: web::Path<String>) -> Result<impl Responder> {
+    let mut config = AppConfig::load();
+    config
+        .delete_connection(&path.into_inner())
+        .map_err(error::ErrorBadRequest)?;
+    config
+        .save()
+        .map_err(|message| error::ErrorInternalServerError(message))?;
+    Ok(HttpResponse::Ok().json(serde_json::json!({ "ok": true })))
+}
+
 pub fn settings_service() -> Scope {
     web::scope("/settings")
         .route("/storage", web::get().to(get_storage_settings))
         .route("/storage", web::put().to(update_storage_settings))
         .route("/storage/test", web::post().to(test_storage_connection))
         .route("/storage/connect", web::post().to(connect_storage))
+        .route("/connections", web::get().to(list_connections))
+        .route("/connections", web::post().to(create_connection))
+        .route("/connections/{id}", web::delete().to(delete_connection))
         .route("/migrations", web::get().to(get_migrations_status))
         .route("/migrations/run", web::post().to(run_migrations))
 }

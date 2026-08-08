@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Route, Routes } from "react-router";
 import { Sidebar } from "./components/sidebar";
 import { Dashboard } from "./components/dashboard";
-import { Settings } from "./components/settings";
+import { Settings } from "./pages/settings";
 import "./App.css"
 import { Statements } from "./pages/statements";
 import { CategoriesPage } from "./pages/categories";

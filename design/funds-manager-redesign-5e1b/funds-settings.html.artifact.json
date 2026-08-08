@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-settings.html",
+  "entry": "funds-settings.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-08-08T05:37:13.017Z",
+  "updatedAt": "2026-08-08T05:37:13.017Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

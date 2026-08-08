@@ -29,10 +29,22 @@ export type PostgresConnectionInput = {
 	password: string;
 };
 
+export type SavedConnection = {
+	id: string;
+	name: string;
+	host: string;
+	port: number | null;
+	database: string;
+	user: string;
+	has_password: boolean;
+	active: boolean;
+};
+
 export type StorageSettingsUpdate = {
 	storage_mode?: StorageMode;
 	postgres?: PostgresConnectionInput;
 	sqlite_path?: string;
+	connection_id?: string;
 };
 
 export type StorageSettingsUpdateResult = {
@@ -292,6 +304,88 @@ function postgresPayload(input: PostgresConnectionInput): Record<string, string>
 	};
 }
 
+function normalizeSavedConnection(raw: unknown): SavedConnection | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const id = readString(Reflect.get(raw, 'id'));
+	const name = readString(Reflect.get(raw, 'name'));
+	const host = readString(Reflect.get(raw, 'host'));
+	const port = readOptionalNumber(raw, 'port', 'port');
+	const database = readString(Reflect.get(raw, 'database'));
+	const user = readString(Reflect.get(raw, 'user'));
+	const hasPassword =
+		readBoolean(Reflect.get(raw, 'hasPassword') ?? Reflect.get(raw, 'has_password')) ??
+		false;
+	const active = readBoolean(Reflect.get(raw, 'active')) ?? false;
+	if (
+		id === null ||
+		name === null ||
+		host === null ||
+		database === null ||
+		user === null
+	) {
+		return null;
+	}
+	return {
+		id,
+		name,
+		host,
+		port,
+		database,
+		user,
+		has_password: hasPassword,
+		active,
+	};
+}
+
+function normalizeConnectionsList(raw: unknown): SavedConnection[] | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	const itemsRaw = Reflect.get(raw, 'items');
+	if (!Array.isArray(itemsRaw)) {
+		return null;
+	}
+	const items: SavedConnection[] = [];
+	for (const item of itemsRaw) {
+		const normalized = normalizeSavedConnection(item);
+		if (normalized === null) {
+			return null;
+		}
+		items.push(normalized);
+	}
+	return items;
+}
+
+export async function fetchSavedConnections(): Promise<SavedConnection[]> {
+	const response = await axios.get('/api/settings/connections');
+	const items = normalizeConnectionsList(response.data);
+	if (items === null) {
+		throw new Error('Invalid connections response');
+	}
+	return items;
+}
+
+export async function createSavedConnection(
+	name: string,
+	postgres: PostgresConnectionInput
+): Promise<SavedConnection> {
+	const response = await axios.post('/api/settings/connections', {
+		name,
+		...postgresPayload(postgres),
+	});
+	const connection = normalizeSavedConnection(response.data);
+	if (connection === null) {
+		throw new Error('Invalid create connection response');
+	}
+	return connection;
+}
+
+export async function deleteSavedConnection(id: string): Promise<void> {
+	await axios.delete(`/api/settings/connections/${encodeURIComponent(id)}`);
+}
+
 export async function updateStorageSettings(
 	payload: StorageSettingsUpdate
 ): Promise<StorageSettingsUpdateResult> {
@@ -301,6 +395,9 @@ export async function updateStorageSettings(
 	}
 	if (payload.postgres !== undefined) {
 		Object.assign(body, postgresPayload(payload.postgres));
+	}
+	if (payload.connection_id !== undefined) {
+		body.connectionId = payload.connection_id;
 	}
 	if (payload.sqlite_path !== undefined) {
 		body.sqlitePath = payload.sqlite_path;
@@ -314,12 +411,14 @@ export async function updateStorageSettings(
 }
 
 export async function testStorageConnection(
-	input?: PostgresConnectionInput
+	input?: PostgresConnectionInput,
+	connectionId?: string
 ): Promise<StorageTestResult> {
-	const response = await axios.post(
-		'/api/settings/storage/test',
-		input ? postgresPayload(input) : {}
-	);
+	const body: Record<string, string> = input ? postgresPayload(input) : {};
+	if (connectionId !== undefined) {
+		body.connectionId = connectionId;
+	}
+	const response = await axios.post('/api/settings/storage/test', body);
 	const result = normalizeStorageTestResult(response.data);
 	if (result === null) {
 		throw new Error('Invalid storage test response');
@@ -328,12 +427,14 @@ export async function testStorageConnection(
 }
 
 export async function connectStorage(
-	input?: PostgresConnectionInput
+	input?: PostgresConnectionInput,
+	connectionId?: string
 ): Promise<StorageConnectResult> {
-	const response = await axios.post(
-		'/api/settings/storage/connect',
-		input ? postgresPayload(input) : {}
-	);
+	const body: Record<string, string> = input ? postgresPayload(input) : {};
+	if (connectionId !== undefined) {
+		body.connectionId = connectionId;
+	}
+	const response = await axios.post('/api/settings/storage/connect', body);
 	const result = normalizeStorageConnectResult(response.data);
 	if (result === null) {
 		throw new Error('Invalid storage connect response');
