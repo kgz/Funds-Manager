@@ -6,4 +6,8 @@ members = [
     "crates/statement-parser",
     "crates/statement-parser-cli",
 ]
+exclude = [
+    "crates/category-predict-cli",
+    "crates/patches/tktax-3p",
+]
 resolver = "2"
