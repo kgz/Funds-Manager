@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "sidebar-command-first.html",
+  "entry": "sidebar-command-first.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-18T08:41:03.738Z",
+  "updatedAt": "2026-07-18T08:41:03.738Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

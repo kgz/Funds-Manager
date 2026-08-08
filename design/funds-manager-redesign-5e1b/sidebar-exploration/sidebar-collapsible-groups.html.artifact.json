@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "sidebar-collapsible-groups.html",
+  "entry": "sidebar-collapsible-groups.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-07-18T08:41:06.787Z",
+  "updatedAt": "2026-07-18T08:41:06.787Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

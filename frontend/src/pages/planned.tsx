@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
+import { useSearchParams } from 'react-router';
 import {
 	CalendarRange,
 	Check,
@@ -315,6 +316,7 @@ function defaultLinkSearch(item: PlannedSpendingItem): string {
 }
 
 export default function PlannedSpendingPage() {
+	const [searchParams, setSearchParams] = useSearchParams();
 	const dispatch = useAppDispatch();
 	const { items, totalCents, loading, error } = useAppSelector(
 		(state) => state.PlannedReducer
@@ -645,6 +647,16 @@ export default function PlannedSpendingPage() {
 		setModalError(null);
 		setModalOpen(true);
 	};
+
+	useEffect(() => {
+		if (searchParams.get('add') !== '1') {
+			return;
+		}
+		openAddModal();
+		const next = new URLSearchParams(searchParams);
+		next.delete('add');
+		setSearchParams(next, { replace: true });
+	}, [searchParams, setSearchParams]);
 
 	const openEditModal = (item: PlannedSpendingItem) => {
 		setModalMode('edit');
