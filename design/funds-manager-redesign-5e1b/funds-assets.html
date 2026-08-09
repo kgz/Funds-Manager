@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Assets</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/assets.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Assets</h1>
+        <p class="page-sub" data-od-id="page-sub">What you own — property, vehicles, super, and external balances for net worth</p>
+      </div>
+      <div class="page-actions" data-od-id="page-actions">
+        <div class="header-total" data-od-id="header-total-kpi" aria-live="polite">
+          <span class="header-total-label">Total value</span>
+          <strong class="header-total-value money" id="total-value">$0.00</strong>
+        </div>
+        <button type="button" class="btn btn-primary" id="btn-add-asset" data-od-id="btn-add-asset">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Add asset
+        </button>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <section class="panel" data-od-id="assets-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Your assets</h2>
+            <p class="panel-hint" id="asset-count" data-od-id="asset-count">4 assets</p>
+          </div>
+        </div>
+
+        <div class="empty-state" id="empty-state" data-od-id="empty-state" hidden>
+          <div class="empty-state-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V7l8-4z"/></svg>
+          </div>
+          <h3>No assets yet</h3>
+          <p>Add property, super, vehicles, or external balances to track what you own.</p>
+          <div class="empty-state-action">
+            <button type="button" class="btn btn-primary" id="btn-add-empty" data-od-id="btn-add-empty">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Add asset
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap" id="table-wrap" data-od-id="assets-table-wrap">
+          <table class="data" data-od-id="assets-table">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col" class="col-type">Type</th>
+                <th scope="col" class="col-value is-numeric">Value</th>
+                <th scope="col" class="col-valued">Valued</th>
+                <th scope="col" class="col-source">Source</th>
+                <th scope="col" class="col-actions"><span class="sr">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="assets-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Add asset -->
+  <dialog class="modal-dialog" id="add-dialog" data-od-id="add-dialog" aria-labelledby="add-dialog-title">
+    <form class="modal-shell" id="add-form" data-od-id="add-form">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Assets</span>
+          <h2 id="add-dialog-title">Add asset</h2>
+          <p>Record what you own and its current valuation.</p>
+        </div>
+        <button class="dialog-close" type="button" id="add-close" aria-label="Close" data-od-id="add-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="form-error" id="add-error" data-od-id="add-error" hidden></p>
+
+        <label class="modal-field">
+          <span>Name</span>
+          <input class="input" type="text" id="add-name" placeholder="e.g. Family home, AustralianSuper" required data-od-id="add-name" autocomplete="off" />
+        </label>
+
+        <label class="modal-field">
+          <span>Type</span>
+          <select class="select" id="add-type" required data-od-id="add-type">
+            <option value="property">Property</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="super">Super</option>
+            <option value="shares">Shares</option>
+            <option value="cash">Cash</option>
+            <option value="other">Other</option>
+          </select>
+        </label>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Current value ($)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="add-value" placeholder="0.00" required data-od-id="add-value" />
+          </label>
+          <label class="modal-field">
+            <span>Valued as at</span>
+            <input class="input date" type="date" id="add-valued-date" required data-od-id="add-valued-date" />
+          </label>
+        </div>
+
+        <label class="modal-field">
+          <span>Valuation source</span>
+          <input class="input" type="text" id="add-source" placeholder="e.g. Bank valuation, member statement" required data-od-id="add-source" />
+        </label>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Purchase price ($)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="add-purchase-price" placeholder="Optional" data-od-id="add-purchase-price" />
+            <p class="field-hint">Optional — for cost base tracking.</p>
+          </label>
+          <label class="modal-field">
+            <span>Purchase date</span>
+            <input class="input date" type="date" id="add-purchase-date" data-od-id="add-purchase-date" />
+          </label>
+        </div>
+
+        <label class="modal-field loan-field" id="add-loan-wrap" data-od-id="add-loan-wrap">
+          <span>Linked loan</span>
+          <select class="select" id="add-loan" data-od-id="add-loan">
+            <option value="">None</option>
+          </select>
+          <p class="field-hint">Link a liability when this asset secures a loan.</p>
+        </label>
+
+        <label class="modal-field">
+          <span>Notes</span>
+          <textarea id="add-notes" placeholder="Optional context" data-od-id="add-notes"></textarea>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="add-cancel" data-od-id="add-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="add-save" data-od-id="add-save">Add asset</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Edit asset -->
+  <dialog class="modal-dialog is-wide" id="edit-dialog" data-od-id="edit-dialog" aria-labelledby="edit-dialog-title">
+    <form class="modal-shell" id="edit-form" data-od-id="edit-form">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Assets</span>
+          <h2 id="edit-dialog-title">Edit asset</h2>
+          <p>Update metadata here — change values via valuation history below.</p>
+        </div>
+        <button class="dialog-close" type="button" id="edit-close" aria-label="Close" data-od-id="edit-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="edit-dialog-body" data-od-id="edit-dialog-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="edit-cancel" data-od-id="edit-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="edit-save" data-od-id="edit-save">Save changes</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Delete confirm -->
+  <dialog class="modal-dialog" id="delete-dialog" data-od-id="delete-dialog" aria-labelledby="delete-dialog-title">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Assets</span>
+          <h2 id="delete-dialog-title">Delete asset</h2>
+          <p id="delete-dialog-desc" data-od-id="delete-dialog-desc"></p>
+        </div>
+        <button class="dialog-close" type="button" id="delete-close" aria-label="Close" data-od-id="delete-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="delete-cancel" data-od-id="delete-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="delete-confirm" data-od-id="delete-confirm">Delete</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" data-od-id="toast">
+    <span class="toast-icon" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </span>
+    <span id="toast-text"></span>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('assets');
+
+    const TODAY_ISO = '2026-08-08';
+    const STALE_MONTHS = 12;
+
+    const ICON_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+    const ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+
+    const TYPE_LABELS = {
+      property: 'Property',
+      vehicle: 'Vehicle',
+      super: 'Super',
+      shares: 'Shares',
+      cash: 'Cash',
+      other: 'Other',
+    };
+
+    const DEMO_LOANS = [
+      { id: 'loan-cba-home', label: 'Home loan (CBA)' },
+      { id: 'loan-car', label: 'Car loan' },
+    ];
+
+    const DEMO_ASSETS = [
+      {
+        id: 'ppor',
+        name: 'Family home — Unley Park',
+        type: 'property',
+        purchase_price: 620000,
+        purchase_date: '2018-03-15',
+        linked_loan_id: 'loan-cba-home',
+        notes: 'Principal place of residence',
+        valuations: [
+          { id: 'v-ppor-2', date: '2026-06-30', value: 892000, source: 'CoreLogic estimate' },
+          { id: 'v-ppor-1', date: '2025-01-15', value: 865000, source: 'Bank valuation' },
+        ],
+      },
+      {
+        id: 'cba-offset',
+        name: 'CBA Offset 4412',
+        type: 'cash',
+        purchase_price: null,
+        purchase_date: null,
+        linked_loan_id: null,
+        notes: 'Offset balance — mirrors linked account',
+        valuations: [
+          { id: 'v-offset-1', date: '2026-07-01', value: 184320.5, source: 'Statement balance' },
+        ],
+      },
+      {
+        id: 'ausuper',
+        name: 'AustralianSuper — Accumulation',
+        type: 'super',
+        purchase_price: null,
+        purchase_date: null,
+        linked_loan_id: null,
+        notes: 'Employer SG + salary sacrifice',
+        valuations: [
+          { id: 'v-super-1', date: '2024-06-30', value: 198450, source: 'Member statement' },
+        ],
+      },
+      {
+        id: 'camry',
+        name: '2021 Toyota Camry Ascent',
+        type: 'vehicle',
+        purchase_price: 32990,
+        purchase_date: '2021-08-12',
+        linked_loan_id: 'loan-car',
+        notes: '60k service due Sep 2026',
+        valuations: [
+          { id: 'v-car-1', date: '2026-03-15', value: 24800, source: 'RedBook guide' },
+        ],
+      },
+    ];
+
+    const params = new URLSearchParams(window.location.search);
+    let assets = params.get('empty') === '1' ? [] : DEMO_ASSETS.map((a) => ({
+      ...a,
+      valuations: a.valuations.map((v) => ({ ...v })),
+    }));
+
+    let nextAssetSeq = 5;
+    let nextValSeq = 100;
+    let editTargetId = null;
+    let deleteTargetId = null;
+    let toastTimer = null;
+
+    function escapeAttr(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function parseIsoDate(iso) {
+      return new Date(iso + 'T12:00:00');
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      return parseIsoDate(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function monthsBetween(fromIso, toIso) {
+      const from = parseIsoDate(fromIso);
+      const to = parseIsoDate(toIso);
+      return (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+    }
+
+    function isStale(valuedIso) {
+      return monthsBetween(valuedIso, TODAY_ISO) > STALE_MONTHS;
+    }
+
+    function latestValuation(asset) {
+      if (!asset.valuations.length) return null;
+      return [...asset.valuations].sort((a, b) => b.date.localeCompare(a.date))[0];
+    }
+
+    function currentValue(asset) {
+      const latest = latestValuation(asset);
+      return latest ? latest.value : null;
+    }
+
+    function totalValue() {
+      return assets.reduce((sum, asset) => {
+        const v = currentValue(asset);
+        return sum + (v == null ? 0 : v);
+      }, 0);
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = text;
+      toast.classList.add('is-visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 3200);
+    }
+
+    function kindPill(type) {
+      const label = TYPE_LABELS[type] || type;
+      return `<span class="kind-pill ${escapeAttr(type)}" data-od-id="kind-${escapeAttr(type)}">${escapeHtml(label)}</span>`;
+    }
+
+    function valuedCell(asset) {
+      const latest = latestValuation(asset);
+      if (!latest) {
+        return '<span style="color:var(--muted)">—</span>';
+      }
+      const stale = isStale(latest.date);
+      const staleBadge = stale
+        ? ' <span class="pill stale" data-od-id="stale-badge">Stale</span>'
+        : '';
+      return `<span class="valued-cell"><span class="mono">${formatDate(latest.date)}</span>${staleBadge}</span>`;
+    }
+
+    function valueCell(asset) {
+      const value = currentValue(asset);
+      if (value == null) {
+        return '<span class="mono" style="color:var(--muted)">—</span>';
+      }
+      return `<span class="amount pos mono">${FUNDS.money(value)}</span>`;
+    }
+
+    function sourceCell(asset) {
+      const latest = latestValuation(asset);
+      return latest ? escapeHtml(latest.source) : '—';
+    }
+
+    function renderSummary() {
+      document.getElementById('total-value').textContent = FUNDS.money(totalValue());
+      const empty = assets.length === 0;
+      document.getElementById('asset-count').textContent = empty
+        ? 'No assets recorded'
+        : `${assets.length} asset${assets.length === 1 ? '' : 's'}`;
+    }
+
+    function renderTable() {
+      const empty = assets.length === 0;
+      document.getElementById('empty-state').hidden = !empty;
+      document.getElementById('table-wrap').hidden = empty;
+
+      const tbody = document.getElementById('assets-body');
+      if (empty) {
+        tbody.innerHTML = '';
+        renderSummary();
+        return;
+      }
+
+      tbody.innerHTML = assets.map((asset) => `
+        <tr data-od-id="asset-row-${asset.id}" data-asset-id="${asset.id}">
+          <td>${escapeHtml(asset.name)}</td>
+          <td class="col-type">${kindPill(asset.type)}</td>
+          <td class="col-value">${valueCell(asset)}</td>
+          <td class="col-valued">${valuedCell(asset)}</td>
+          <td class="col-source">${sourceCell(asset)}</td>
+          <td class="col-actions">
+            <div class="actions-cell">
+              <button type="button" class="btn btn-ghost" data-action="edit" data-id="${asset.id}" data-od-id="edit-${asset.id}" aria-label="Edit ${escapeAttr(asset.name)}">
+                ${ICON_EDIT} Edit
+              </button>
+              <button type="button" class="btn btn-ghost" data-action="delete" data-id="${asset.id}" data-od-id="delete-${asset.id}" aria-label="Delete ${escapeAttr(asset.name)}">
+                ${ICON_TRASH} Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      renderSummary();
+    }
+
+    function populateLoanSelect(selectEl, selectedId) {
+      const options = ['<option value="">None</option>'].concat(
+        DEMO_LOANS.map((loan) => {
+          const sel = loan.id === selectedId ? ' selected' : '';
+          return `<option value="${loan.id}"${sel}>${escapeHtml(loan.label)}</option>`;
+        })
+      );
+      selectEl.innerHTML = options.join('');
+    }
+
+    function toggleLoanField(wrapEl, type) {
+      wrapEl.hidden = type !== 'property';
+    }
+
+    function resetAddForm() {
+      document.getElementById('add-form').reset();
+      document.getElementById('add-error').hidden = true;
+      document.getElementById('add-valued-date').value = TODAY_ISO;
+      toggleLoanField(document.getElementById('add-loan-wrap'), 'property');
+    }
+
+    function openAddModal() {
+      resetAddForm();
+      document.getElementById('add-dialog').showModal();
+      document.getElementById('add-name').focus();
+    }
+
+    function closeAddModal() {
+      document.getElementById('add-dialog').close();
+    }
+
+    function confirmAdd(event) {
+      event.preventDefault();
+      const errorEl = document.getElementById('add-error');
+
+      const name = document.getElementById('add-name').value.trim();
+      const type = document.getElementById('add-type').value;
+      const value = Number(document.getElementById('add-value').value);
+      const valuedDate = document.getElementById('add-valued-date').value;
+      const source = document.getElementById('add-source').value.trim();
+      const purchasePriceRaw = document.getElementById('add-purchase-price').value;
+      const purchaseDate = document.getElementById('add-purchase-date').value || null;
+      const linkedLoanId = type === 'property'
+        ? (document.getElementById('add-loan').value || null)
+        : null;
+      const notes = document.getElementById('add-notes').value.trim() || null;
+
+      if (!name) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Name is required.';
+        document.getElementById('add-name').focus();
+        return;
+      }
+      if (!Number.isFinite(value) || value < 0) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Enter a valid current value.';
+        document.getElementById('add-value').focus();
+        return;
+      }
+      if (!valuedDate) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Valuation date is required.';
+        return;
+      }
+      if (!source) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Valuation source is required.';
+        document.getElementById('add-source').focus();
+        return;
+      }
+
+      errorEl.hidden = true;
+
+      const id = `asset-${nextAssetSeq++}`;
+      assets.push({
+        id,
+        name,
+        type,
+        purchase_price: purchasePriceRaw ? Number(purchasePriceRaw) : null,
+        purchase_date: purchaseDate,
+        linked_loan_id: linkedLoanId,
+        notes,
+        valuations: [{
+          id: `v-${nextValSeq++}`,
+          date: valuedDate,
+          value,
+          source,
+        }],
+      });
+
+      closeAddModal();
+      renderTable();
+      showToast(`“${name}” added.`);
+    }
+
+    function renderValuationList(asset) {
+      const latest = latestValuation(asset);
+      const sorted = [...asset.valuations].sort((a, b) => b.date.localeCompare(a.date));
+
+      return sorted.map((val) => {
+        const isCurrent = latest && val.id === latest.id;
+        const canRemove = asset.valuations.length > 1;
+        return `
+          <div class="val-row${isCurrent ? ' is-current' : ''}" data-val-id="${val.id}" data-od-id="val-row-${val.id}">
+            <div class="val-row-meta">
+              <span class="val-row-date">${formatDate(val.date)}${isCurrent ? ' · current' : ''}</span>
+              ${canRemove
+                ? `<button type="button" class="btn btn-ghost val-row-remove" data-action="remove-val" data-val-id="${val.id}" data-od-id="remove-val-${val.id}">Remove</button>`
+                : ''}
+            </div>
+            <span class="val-row-value">${FUNDS.money(val.value)}</span>
+            <span class="val-row-source">${escapeHtml(val.source)}</span>
+          </div>`;
+      }).join('');
+    }
+
+    function renderEditBody(asset) {
+      const typeOptions = Object.entries(TYPE_LABELS).map(([value, label]) => {
+        const sel = value === asset.type ? ' selected' : '';
+        return `<option value="${value}"${sel}>${label}</option>`;
+      }).join('');
+
+      document.getElementById('edit-dialog-body').innerHTML = `
+        <p class="form-error" id="edit-error" data-od-id="edit-error" hidden></p>
+
+        <label class="modal-field">
+          <span>Name</span>
+          <input class="input" type="text" id="edit-name" value="${escapeAttr(asset.name)}" required data-od-id="edit-name" />
+        </label>
+
+        <label class="modal-field">
+          <span>Type</span>
+          <select class="select" id="edit-type" required data-od-id="edit-type">${typeOptions}</select>
+        </label>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Purchase price ($)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="edit-purchase-price" value="${asset.purchase_price != null ? asset.purchase_price : ''}" data-od-id="edit-purchase-price" />
+            <p class="field-hint">Optional.</p>
+          </label>
+          <label class="modal-field">
+            <span>Purchase date</span>
+            <input class="input date" type="date" id="edit-purchase-date" value="${asset.purchase_date || ''}" data-od-id="edit-purchase-date" />
+          </label>
+        </div>
+
+        <label class="modal-field loan-field" id="edit-loan-wrap" data-od-id="edit-loan-wrap">
+          <span>Linked loan</span>
+          <select class="select" id="edit-loan" data-od-id="edit-loan"></select>
+        </label>
+
+        <label class="modal-field">
+          <span>Notes</span>
+          <textarea id="edit-notes" data-od-id="edit-notes">${asset.notes ? escapeHtml(asset.notes) : ''}</textarea>
+        </label>
+
+        <div class="val-section" data-od-id="valuation-history">
+          <div class="val-section-head">
+            <div>
+              <h3>Valuation history</h3>
+              <p>Add or remove past valuations — the newest date sets the table value.</p>
+            </div>
+          </div>
+          <div class="val-list" id="val-list" data-od-id="val-list">${renderValuationList(asset)}</div>
+          <div class="val-add" data-od-id="val-add-row">
+            <label class="modal-field">
+              <span>Date</span>
+              <input class="input date" type="date" id="val-add-date" value="${TODAY_ISO}" data-od-id="val-add-date" />
+            </label>
+            <label class="modal-field">
+              <span>Value ($)</span>
+              <input class="input mono" type="number" min="0" step="0.01" id="val-add-value" placeholder="0.00" data-od-id="val-add-value" />
+            </label>
+            <label class="modal-field" style="grid-column:1/-1">
+              <span>Source</span>
+              <input class="input" type="text" id="val-add-source" placeholder="e.g. Agent appraisal" data-od-id="val-add-source" />
+            </label>
+            <div class="val-add-actions">
+              <button type="button" class="btn btn-accent" id="val-add-btn" data-od-id="val-add-btn">Add valuation</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      populateLoanSelect(document.getElementById('edit-loan'), asset.linked_loan_id);
+      toggleLoanField(document.getElementById('edit-loan-wrap'), asset.type);
+
+      document.getElementById('edit-type').addEventListener('change', (e) => {
+        toggleLoanField(document.getElementById('edit-loan-wrap'), e.target.value);
+      });
+    }
+
+    function openEditModal(id) {
+      const asset = assets.find((a) => a.id === id);
+      if (!asset) return;
+      editTargetId = id;
+      renderEditBody(asset);
+      document.getElementById('edit-dialog').showModal();
+      document.getElementById('edit-name').focus();
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-dialog').close();
+      editTargetId = null;
+    }
+
+    function refreshEditValuations() {
+      const asset = assets.find((a) => a.id === editTargetId);
+      if (!asset) return;
+      document.getElementById('val-list').innerHTML = renderValuationList(asset);
+    }
+
+    function addValuation() {
+      const asset = assets.find((a) => a.id === editTargetId);
+      if (!asset) return;
+
+      const date = document.getElementById('val-add-date').value;
+      const value = Number(document.getElementById('val-add-value').value);
+      const source = document.getElementById('val-add-source').value.trim();
+      const errorEl = document.getElementById('edit-error');
+
+      if (!date) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Valuation date is required.';
+        return;
+      }
+      if (!Number.isFinite(value) || value < 0) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Enter a valid valuation amount.';
+        return;
+      }
+      if (!source) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Valuation source is required.';
+        return;
+      }
+
+      errorEl.hidden = true;
+      asset.valuations.push({
+        id: `v-${nextValSeq++}`,
+        date,
+        value,
+        source,
+      });
+
+      document.getElementById('val-add-value').value = '';
+      document.getElementById('val-add-source').value = '';
+      refreshEditValuations();
+      renderTable();
+      showToast('Valuation added.');
+    }
+
+    function removeValuation(valId) {
+      const asset = assets.find((a) => a.id === editTargetId);
+      if (!asset || asset.valuations.length <= 1) return;
+
+      asset.valuations = asset.valuations.filter((v) => v.id !== valId);
+      refreshEditValuations();
+      renderTable();
+      showToast('Valuation removed.');
+    }
+
+    function confirmEdit(event) {
+      event.preventDefault();
+      const asset = assets.find((a) => a.id === editTargetId);
+      if (!asset) return;
+
+      const errorEl = document.getElementById('edit-error');
+      const name = document.getElementById('edit-name').value.trim();
+      const type = document.getElementById('edit-type').value;
+      const purchasePriceRaw = document.getElementById('edit-purchase-price').value;
+      const purchaseDate = document.getElementById('edit-purchase-date').value || null;
+      const linkedLoanId = type === 'property'
+        ? (document.getElementById('edit-loan').value || null)
+        : null;
+      const notes = document.getElementById('edit-notes').value.trim() || null;
+
+      if (!name) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Name is required.';
+        document.getElementById('edit-name').focus();
+        return;
+      }
+
+      errorEl.hidden = true;
+
+      asset.name = name;
+      asset.type = type;
+      asset.purchase_price = purchasePriceRaw ? Number(purchasePriceRaw) : null;
+      asset.purchase_date = purchaseDate;
+      asset.linked_loan_id = linkedLoanId;
+      asset.notes = notes;
+
+      closeEditModal();
+      renderTable();
+      showToast(`“${name}” updated.`);
+    }
+
+    function openDeleteModal(id) {
+      const asset = assets.find((a) => a.id === id);
+      if (!asset) return;
+      deleteTargetId = id;
+      document.getElementById('delete-dialog-desc').textContent =
+        `Remove “${asset.name}” and its valuation history? This cannot be undone.`;
+      document.getElementById('delete-dialog').showModal();
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-dialog').close();
+      deleteTargetId = null;
+    }
+
+    function confirmDelete() {
+      if (!deleteTargetId) return;
+      const asset = assets.find((a) => a.id === deleteTargetId);
+      const name = asset ? asset.name : 'Asset';
+      assets = assets.filter((a) => a.id !== deleteTargetId);
+      closeDeleteModal();
+      renderTable();
+      showToast(`“${name}” deleted.`);
+    }
+
+    populateLoanSelect(document.getElementById('add-loan'), null);
+    document.getElementById('add-valued-date').value = TODAY_ISO;
+
+    document.getElementById('btn-add-asset').addEventListener('click', openAddModal);
+    document.getElementById('btn-add-empty').addEventListener('click', openAddModal);
+    document.getElementById('add-close').addEventListener('click', closeAddModal);
+    document.getElementById('add-cancel').addEventListener('click', closeAddModal);
+    document.getElementById('add-form').addEventListener('submit', confirmAdd);
+    document.getElementById('add-type').addEventListener('change', (e) => {
+      toggleLoanField(document.getElementById('add-loan-wrap'), e.target.value);
+    });
+
+    document.getElementById('assets-body').addEventListener('click', (e) => {
+      const editBtn = e.target.closest('[data-action="edit"]');
+      if (editBtn) {
+        openEditModal(editBtn.dataset.id);
+        return;
+      }
+      const delBtn = e.target.closest('[data-action="delete"]');
+      if (delBtn) openDeleteModal(delBtn.dataset.id);
+    });
+
+    document.getElementById('edit-close').addEventListener('click', closeEditModal);
+    document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
+    document.getElementById('edit-form').addEventListener('submit', confirmEdit);
+    document.getElementById('edit-dialog').addEventListener('click', (e) => {
+      if (e.target.id === 'val-add-btn' || e.target.closest('#val-add-btn')) {
+        addValuation();
+        return;
+      }
+      const removeBtn = e.target.closest('[data-action="remove-val"]');
+      if (removeBtn) removeValuation(removeBtn.dataset.valId);
+    });
+
+    document.getElementById('delete-close').addEventListener('click', closeDeleteModal);
+    document.getElementById('delete-cancel').addEventListener('click', closeDeleteModal);
+    document.getElementById('delete-confirm').addEventListener('click', confirmDelete);
+
+    renderTable();
+  </script>
+</body>
+</html>
