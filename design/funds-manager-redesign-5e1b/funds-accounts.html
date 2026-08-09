@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Accounts</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/accounts.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Accounts</h1>
+        <p class="page-sub" data-od-id="page-sub">Bank accounts created when you import statements · Edit display names used in filters and reports</p>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <section class="panel" data-od-id="accounts-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Bank accounts</h2>
+            <p class="panel-hint" id="acct-count" data-od-id="acct-count">4 linked</p>
+          </div>
+        </div>
+
+        <div class="empty-state" id="empty-state" data-od-id="empty-state" hidden>
+          <div class="empty-state-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>
+          </div>
+          <h3>No accounts yet</h3>
+          <p>Import a statement to create your first financial account. <a href="funds-statements.html" data-od-id="empty-link-statements">Go to Statements</a></p>
+        </div>
+
+        <div class="table-wrap" id="table-wrap" data-od-id="accounts-table-wrap">
+          <table class="data" data-od-id="accounts-table">
+            <thead>
+              <tr>
+                <th scope="col">Display name</th>
+                <th scope="col">Bank</th>
+                <th scope="col">Account number</th>
+                <th scope="col" class="col-stmts">Statements</th>
+                <th scope="col" class="col-balance is-numeric">Last balance</th>
+                <th scope="col" class="col-as-at">As at</th>
+                <th scope="col" class="col-actions"><span class="sr">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="accounts-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <dialog class="modal-dialog" id="edit-dialog" data-od-id="edit-dialog" aria-labelledby="edit-dialog-title">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Accounts</span>
+          <h2 id="edit-dialog-title">Edit account</h2>
+          <p>Update bank and display names — account number and parser are set at import.</p>
+        </div>
+        <button class="dialog-close" type="button" id="edit-close" aria-label="Close" data-od-id="edit-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <form id="edit-form" data-od-id="edit-form">
+        <div class="modal-body" id="edit-dialog-body" data-od-id="edit-dialog-body"></div>
+        <div class="modal-actions" data-od-id="edit-dialog-actions">
+          <button type="button" class="btn" id="edit-cancel-btn" data-od-id="edit-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="edit-save-btn" data-od-id="edit-save">Save changes</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" data-od-id="toast">
+    <span class="toast-icon" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </span>
+    <span id="toast-text"></span>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('accounts');
+
+    const ICON_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+
+    const DEMO_ACCOUNTS = [
+      {
+        id: 'pc-9120',
+        bank_name: "People's Choice",
+        display_name: "People's Choice 9120",
+        account_number: '06990123456',
+        parser_name: 'peopleschoice',
+        statement_count: 4,
+        last_balance: 12847.32,
+        as_at: '2026-07-18',
+      },
+      {
+        id: 'pc-savings',
+        bank_name: "People's Choice",
+        display_name: "People's Choice Savings",
+        account_number: '06990987654',
+        parser_name: 'peopleschoice',
+        statement_count: 1,
+        last_balance: 28450.0,
+        as_at: '2026-07-02',
+      },
+      {
+        id: 'cba-offset',
+        bank_name: 'Commonwealth Bank',
+        display_name: 'CBA Offset 4412',
+        account_number: '062-111 004412',
+        parser_name: 'heritage',
+        statement_count: 1,
+        last_balance: 184320.5,
+        as_at: '2026-07-01',
+      },
+      {
+        id: 'banksa-everyday',
+        bank_name: 'BankSA',
+        display_name: 'BankSA Everyday 7761',
+        account_number: '105-879 456123',
+        parser_name: 'banksa',
+        statement_count: 2,
+        last_balance: 3218.45,
+        as_at: '2026-06-15',
+      },
+    ];
+
+    const params = new URLSearchParams(window.location.search);
+    let accounts = params.get('empty') === '1' ? [] : DEMO_ACCOUNTS.map((a) => ({ ...a }));
+
+    let editTargetId = null;
+    let toastTimer = null;
+
+    function escapeAttr(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function formatAsAt(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso + 'T12:00:00');
+      return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function balanceCell(value) {
+      if (value == null) {
+        return '<span class="mono" style="color:var(--muted)" title="No transactions yet">—</span>';
+      }
+      const cls = value < 0 ? 'amount neg' : 'amount pos';
+      return `<span class="${cls} mono">${FUNDS.money(value)}</span>`;
+    }
+
+    function syncSharedLabels() {
+      accounts.forEach((acct) => {
+        const shared = FUNDS.accounts.find((a) => a.id === acct.id);
+        if (shared) shared.label = acct.display_name;
+      });
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = text;
+      toast.classList.add('is-visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 3200);
+    }
+
+    function renderTable() {
+      const empty = accounts.length === 0;
+      document.getElementById('empty-state').hidden = !empty;
+      document.getElementById('table-wrap').hidden = empty;
+      document.getElementById('acct-count').textContent = empty
+        ? 'No accounts linked'
+        : `${accounts.length} linked`;
+
+      const tbody = document.getElementById('accounts-body');
+      if (empty) {
+        tbody.innerHTML = '';
+        return;
+      }
+
+      tbody.innerHTML = accounts.map((acct) => `
+        <tr data-od-id="acct-row-${acct.id}" data-account-id="${acct.id}">
+          <td>${escapeHtml(acct.display_name)}</td>
+          <td>${escapeHtml(acct.bank_name)}</td>
+          <td class="col-acct-no">${escapeHtml(acct.account_number)}</td>
+          <td class="col-stmts mono">${acct.statement_count}</td>
+          <td class="col-balance">${balanceCell(acct.last_balance)}</td>
+          <td class="col-as-at mono">${acct.as_at ? formatAsAt(acct.as_at) : '<span style="color:var(--muted)" title="No transactions yet">—</span>'}</td>
+          <td class="col-actions">
+            <button type="button" class="btn btn-ghost" data-action="edit" data-id="${acct.id}" data-od-id="edit-${acct.id}" aria-label="Edit ${escapeAttr(acct.display_name)}">
+              ${ICON_EDIT} Edit
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openEditModal(id) {
+      const acct = accounts.find((a) => a.id === id);
+      if (!acct) return;
+      editTargetId = id;
+
+      document.getElementById('edit-dialog-body').innerHTML = `
+        <dl class="readonly-grid" data-od-id="edit-readonly">
+          <dt>Account number</dt>
+          <dd class="mono" data-od-id="edit-account-number">${escapeHtml(acct.account_number)}</dd>
+          <dt>Parser</dt>
+          <dd class="mono" data-od-id="edit-parser">${escapeHtml(acct.parser_name)}</dd>
+        </dl>
+        <label class="modal-field">
+          <span>Bank</span>
+          <input class="input" type="text" id="edit-bank" value="${escapeAttr(acct.bank_name)}" required data-od-id="edit-bank" autocomplete="organization" />
+        </label>
+        <label class="modal-field">
+          <span>Display name</span>
+          <input class="input" type="text" id="edit-display-name" value="${escapeAttr(acct.display_name)}" required data-od-id="edit-display-name" autocomplete="off" />
+          <p class="field-hint">Shown in the account filter and missing-statement warnings.</p>
+        </label>
+        <p class="form-error" id="edit-form-error" hidden data-od-id="edit-form-error"></p>
+      `;
+
+      document.getElementById('edit-dialog').showModal();
+      document.getElementById('edit-bank').focus();
+      document.getElementById('edit-bank').select();
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-dialog').close();
+      editTargetId = null;
+    }
+
+    function confirmEdit(event) {
+      event.preventDefault();
+      if (!editTargetId) return;
+
+      const acct = accounts.find((a) => a.id === editTargetId);
+      if (!acct) return;
+
+      const bankInput = document.getElementById('edit-bank');
+      const nameInput = document.getElementById('edit-display-name');
+      const errorEl = document.getElementById('edit-form-error');
+      const bank = bankInput.value.trim();
+      const displayName = nameInput.value.trim();
+
+      if (!bank || !displayName) {
+        errorEl.hidden = false;
+        errorEl.textContent = !bank ? 'Bank name is required.' : 'Display name is required.';
+        (bank ? nameInput : bankInput).focus();
+        return;
+      }
+
+      acct.bank_name = bank;
+      acct.display_name = displayName;
+      syncSharedLabels();
+      closeEditModal();
+      renderTable();
+      showToast(`“${displayName}” updated.`);
+    }
+
+    document.getElementById('accounts-body').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action="edit"]');
+      if (btn) openEditModal(btn.dataset.id);
+    });
+
+    document.getElementById('edit-close').addEventListener('click', closeEditModal);
+    document.getElementById('edit-cancel-btn').addEventListener('click', closeEditModal);
+    document.getElementById('edit-dialog').addEventListener('cancel', () => { editTargetId = null; });
+    document.getElementById('edit-form').addEventListener('submit', confirmEdit);
+
+    syncSharedLabels();
+    renderTable();
+  </script>
+</body>
+</html>
