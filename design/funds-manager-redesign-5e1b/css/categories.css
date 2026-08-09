@@ -1,0 +1,282 @@
+/* Categories — edit, soft delete, deleted-state tree rows, restore, confirm dialogs */
+
+/* Row now ends in a single .row-actions group instead of two loose auto columns */
+.tree-item {
+  grid-template-columns: 20px 1fr auto;
+}
+
+/* ── Panel-head toggle (Show deleted) ── */
+.tree-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.deleted-count-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+}
+.deleted-count-badge[hidden] { display: none; }
+
+/* ── Tree row actions ── */
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+.icon-btn:hover { background: color-mix(in oklch, var(--fg) 4%, transparent); color: var(--fg); }
+.icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.icon-btn.icon-btn-danger:hover {
+  background: color-mix(in oklch, var(--danger) 10%, transparent);
+  color: var(--danger);
+}
+.icon-btn.is-locked {
+  color: color-mix(in oklch, var(--muted) 70%, transparent);
+  cursor: default;
+}
+.icon-btn.is-locked:hover { background: transparent; color: color-mix(in oklch, var(--muted) 70%, transparent); }
+
+/* ── Deleted tree rows ── */
+.tree-item.is-deleted {
+  background: color-mix(in oklch, var(--fg) 1.5%, transparent);
+  opacity: 0.72;
+}
+.tree-item.is-deleted:hover {
+  background: color-mix(in oklch, var(--fg) 2.5%, transparent);
+  border-color: var(--border);
+}
+.tree-item.is-deleted .cat-name {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in oklch, var(--muted) 55%, transparent);
+  text-decoration-thickness: 1px;
+}
+.tree-item.is-deleted .color-swatch {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tree-item.is-deleted .drag-handle {
+  visibility: hidden;
+}
+
+.deleted-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--danger) 30%, var(--border));
+  background: color-mix(in oklch, var(--danger) 7%, var(--surface));
+  color: var(--danger);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.deleted-meta {
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.btn-restore {
+  height: 26px;
+  padding: 0 10px;
+  gap: 5px;
+  font-size: 12px;
+  border-color: color-mix(in oklch, var(--success) 35%, var(--border));
+  background: color-mix(in oklch, var(--success) 7%, var(--surface));
+  color: var(--success);
+}
+.btn-restore:hover { background: color-mix(in oklch, var(--success) 14%, var(--surface)); }
+
+/* ── Delete confirm dialog (shared modal shell, page-scoped since no global modal css) ── */
+.modal-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: min(560px, calc(100vh - 48px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 16px 48px color-mix(in oklch, var(--fg) 12%, transparent);
+}
+.modal-dialog::backdrop {
+  background: color-mix(in oklch, var(--fg) 32%, transparent);
+  backdrop-filter: blur(2px);
+}
+.modal-dialog[open] { animation: modal-in 180ms var(--ease); }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-shell { display: flex; flex-direction: column; min-height: 0; max-height: inherit; }
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 0;
+  flex-shrink: 0;
+}
+.modal-head .eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.modal-head h2 { margin: 0; font-size: 17px; letter-spacing: -0.02em; }
+
+.modal-body {
+  padding: 14px 22px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  font-size: 13px;
+  color: var(--fg);
+}
+.modal-body p { margin: 0; line-height: 1.55; }
+.modal-body .cat-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-weight: 500;
+}
+.modal-body ul.child-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.modal-body ul.child-list li { margin-bottom: 3px; }
+
+.modal-note {
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklch, var(--warn) 35%, var(--border));
+  background: color-mix(in oklch, var(--warn) 8%, var(--surface));
+  font-size: 12px;
+}
+
+.modal-field { display: flex; flex-direction: column; gap: 6px; }
+.modal-field > span {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.modal-field .input,
+.modal-field .select { width: 100%; }
+
+.form-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklch, var(--danger) 30%, var(--border));
+  background: color-mix(in oklch, var(--danger) 7%, var(--surface));
+  color: var(--danger);
+  font-size: 12px;
+}
+.form-error[hidden] { display: none; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dialog-close {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+.dialog-close:hover { background: color-mix(in oklch, var(--fg) 4%, transparent); color: var(--fg); }
+
+/* ── Toast ── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 32px color-mix(in oklch, var(--fg) 24%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 10px);
+  transition: opacity 200ms var(--ease), transform 200ms var(--ease);
+}
+.toast.is-visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast-icon { display: inline-flex; color: var(--success); flex-shrink: 0; }
+.toast .toast-undo {
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .tree-head-actions { flex-wrap: wrap; }
+}

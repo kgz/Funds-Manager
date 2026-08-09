@@ -1,40 +1,44 @@
-import { useState, useEffect, FormEvent, DragEvent, ReactNode } from 'react';
+import { useState, useEffect, FormEvent, DragEvent, ReactNode, useRef } from 'react';
 import {
-	Plus,
-	Edit2,
-	Trash2,
 	Loader2,
 	ChevronDown,
 	ChevronRight,
-	AlertCircle,
-	RotateCcw,
-	Eye,
-	EyeOff,
-	ArrowRight,
-	GripVertical,
+	AlertTriangle,
 	GitMerge,
 	FolderOpen,
+	Pencil,
+	Trash2,
+	Lock,
+	RotateCcw,
+	Check,
+	X,
 } from 'lucide-react';
 import { EmptyState } from '@/components/layout/EmptyState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
 import { SearchInput } from '@/components/layout/SearchInput';
 import { Modal } from '@/components/layout/Modal';
+import { ToggleSwitch } from '@/components/layout/ToggleSwitch';
 import { AccountFilter } from '@/components/account-filter';
 import { useAccountFilter } from '@/hooks/useAccountFilter';
 import {
-	buttonDangerClass,
 	buttonOutlineClass,
-	buttonPrimaryClass,
 	buttonWarningClass,
 	glassCardClass,
 	inputDarkClass,
+	pageActionsClass,
+	pageBodyClass,
+	pageHeaderClass,
+	pageSubtitleClass,
+	pageTitleClass,
+	panelHintClass,
+	panelTitleClass,
+	eyebrowClass,
 } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
-import { ToggleSwitch } from '@/components/toggleSwitch';
-import { NavLink } from 'react-router';
+import { normalizeCategoryColour } from '@/lib/contrastTextColor';
+import { CategoryPill } from '@/components/CategoryPill';
 import { useAppDispatch, useAppSelector } from '@/store/store';
 import { getAllCategories, type Category } from '@/store/thunks/category.get.all';
 import { createCategory } from '@/store/thunks/category.create.single';
@@ -44,12 +48,7 @@ import { restoreCategory } from '@/store/thunks/category.restore.single';
 import { mergeCategory } from '@/store/thunks/category.merge.single';
 import { reorderCategories } from '@/store/thunks/category.reorder';
 import { readThunkRejectMessage } from '@/lib/utils/thunkError';
-import {
-	categoryDeleteUsageWarning,
-	categoryUsageLabel,
-	categoryUsageTitle,
-	uncategorizedBannerText,
-} from '@/lib/utils/categoryUsage';
+import { uncategorizedBannerText } from '@/lib/utils/categoryUsage';
 import {
 	readExpandedCategoryIds,
 	writeExpandedCategoryIds,
@@ -59,8 +58,145 @@ import {
 	visibleMainCategories,
 	visibleSubcategories,
 } from '@/lib/utils/categoryFilter';
-import { CategoryPill } from '@/components/CategoryPill';
 import { randomCategoryColour } from '@/lib/categoryColour';
+import {
+	formatDeletedLabel,
+	isSystemCategory,
+	sortCategoriesDeletedLast,
+} from '@/lib/utils/categorySystem';
+import { NavLink } from 'react-router';
+
+type CategoryToast = {
+	message: string;
+	icon?: 'check' | 'restore';
+	onUndo?: () => void;
+};
+
+const catBtnClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-border bg-paper-surface px-3 text-[13px] font-medium tracking-[0.02em] text-paper-fg transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_3%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
+
+const catBtnPrimaryClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-fg bg-paper-fg px-3 text-[13px] font-medium tracking-[0.02em] !text-white transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_88%,white)] disabled:cursor-not-allowed disabled:opacity-50';
+
+const catBtnGhostClass =
+	'inline-flex h-7 cursor-pointer items-center justify-center rounded-paper border border-transparent bg-transparent px-2 text-xs font-medium text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:cursor-not-allowed disabled:opacity-50';
+
+const dragHandleClass =
+	'cursor-grab select-none text-sm leading-none tracking-tighter text-paper-muted active:cursor-grabbing';
+
+const treeItemClass =
+	'grid grid-cols-[20px_1fr_auto] items-center gap-2 rounded-paper border border-transparent px-2.5 py-2 transition-colors hover:border-paper-border hover:bg-[color-mix(in_oklch,var(--fg)_2.5%,transparent)]';
+
+const treeItemDeletedClass =
+	'bg-[color-mix(in_oklch,var(--fg)_1.5%,transparent)] opacity-[0.72]';
+
+const iconBtnClass =
+	'inline-grid h-7 w-7 shrink-0 place-items-center rounded-paper border-0 bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:cursor-default disabled:opacity-70';
+
+const iconBtnDangerClass =
+	'hover:bg-[color-mix(in_oklch,var(--danger)_10%,transparent)] hover:text-[var(--danger)]';
+
+const restoreBtnClass =
+	'inline-flex h-[26px] cursor-pointer items-center gap-1 rounded-paper border border-[color-mix(in_oklch,var(--success)_35%,var(--border))] bg-[color-mix(in_oklch,var(--success)_7%,var(--surface))] px-2.5 text-xs font-medium text-[var(--success)] transition-colors hover:bg-[color-mix(in_oklch,var(--success)_14%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
+
+const deletedPillClass =
+	'inline-flex h-[18px] shrink-0 items-center rounded-full border border-[color-mix(in_oklch,var(--danger)_30%,var(--border))] bg-[color-mix(in_oklch,var(--danger)_7%,var(--surface))] px-1.5 text-[9.5px] font-semibold uppercase tracking-wider text-[var(--danger)]';
+
+const deletedCountBadgeClass =
+	'inline-grid min-h-[17px] min-w-[17px] place-items-center rounded-full border border-paper-border bg-paper px-1 font-mono text-[10.5px] font-medium text-paper-muted';
+
+const categoryDialogClass =
+	'fixed inset-0 m-auto h-fit w-[min(440px,calc(100vw-32px))] max-h-[min(560px,calc(100vh-48px))] overflow-hidden rounded-[10px] border border-paper-border bg-paper-surface p-0 shadow-[0_16px_48px_color-mix(in_oklch,var(--fg)_12%,transparent)] backdrop:bg-paper-fg/35 backdrop:backdrop-blur-sm [&:not([open])]:hidden';
+
+const categoryDialogBtnDangerClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-[color-mix(in_oklch,var(--danger)_38%,var(--border))] bg-[color-mix(in_oklch,var(--danger)_6%,var(--surface))] px-3 text-[13px] font-medium tracking-[0.02em] text-[var(--danger)] transition-colors hover:bg-[color-mix(in_oklch,var(--danger)_14%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
+
+const categoryModalBodyClass =
+	'flex flex-col gap-3 px-[22px] pb-[18px] pt-3.5 text-[13px] leading-[1.55] text-paper-fg [&_p]:m-0';
+
+const categoryModalNoteClass =
+	'rounded-paper border border-[color-mix(in_oklch,var(--warn)_35%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_8%,var(--surface))] px-2.5 py-2 text-xs leading-normal text-paper-fg';
+
+const categoryChildListClass =
+	'm-0 list-disc pl-[18px] text-[12.5px] text-paper-muted [&_li]:mb-[3px]';
+
+const categoryModalFieldClass = 'flex flex-col gap-1.5';
+
+const categoryModalFieldLabelClass =
+	'text-[11px] font-medium uppercase tracking-[0.04em] text-paper-muted';
+
+const categoryFormErrorClass =
+	'm-0 rounded-paper border border-[color-mix(in_oklch,var(--danger)_30%,var(--border))] bg-[color-mix(in_oklch,var(--danger)_7%,var(--surface))] px-2.5 py-2 text-xs text-[var(--danger)]';
+
+function isCategoryRowChromeTarget(target: EventTarget | null): boolean {
+	if (!(target instanceof HTMLElement)) {
+		return false;
+	}
+	return Boolean(
+		target.closest('[data-category-checkbox]') ||
+			target.closest('[data-category-row-action]') ||
+			target.closest('[data-category-drag-handle]')
+	);
+}
+
+type CategoryPreviewProps = {
+	name: string;
+	colour: string;
+};
+
+function CategoryPreview({ name, colour }: CategoryPreviewProps) {
+	return (
+		<div className="flex items-center gap-2 rounded-paper border border-paper-border bg-paper px-2.5 py-2 font-medium text-paper-fg">
+			<span
+				className="h-2 w-2 shrink-0 rounded-full"
+				style={{ backgroundColor: normalizeCategoryColour(colour) }}
+				aria-hidden
+			/>
+			{name}
+		</div>
+	);
+}
+
+const colorSwatchClass =
+	'h-[18px] w-[18px] shrink-0 cursor-pointer rounded border border-[color-mix(in_oklch,var(--fg)_10%,transparent)] p-0';
+
+type CategoryColorSwatchProps = {
+	value: string;
+	label: string;
+	disabled?: boolean;
+	onChange: (colour: string) => void;
+};
+
+function CategoryColorSwatch({
+	value,
+	label,
+	disabled = false,
+	onChange,
+}: CategoryColorSwatchProps) {
+	const inputRef = useRef<HTMLInputElement>(null);
+	const displayColour = normalizeCategoryColour(value);
+
+	return (
+		<>
+			<button
+				type="button"
+				disabled={disabled}
+				className={colorSwatchClass}
+				style={{ backgroundColor: displayColour }}
+				aria-label={label}
+				onClick={() => inputRef.current?.click()}
+			/>
+			<input
+				ref={inputRef}
+				type="color"
+				className="sr-only"
+				value={displayColour}
+				disabled={disabled}
+				onChange={(event) => onChange(event.target.value)}
+			/>
+		</>
+	);
+}
 
 // --- Component ---
 
@@ -76,21 +212,25 @@ export const CategoriesPage = () => {
     const [currentItem, setCurrentItem] = useState<Category | null>(null);
     const [parentCategory, setParentCategory] = useState<Category | null>(null);
     const [inputValue, setInputValue] = useState('');
-    const [inputDescription, setInputDescription] = useState('');
     const [inputColour, setInputColour] = useState<string>(randomCategoryColour());
 
     const [searchQuery, setSearchQuery] = useState('');
     const [draggingId, setDraggingId] = useState<string | null>(null);
-
-    // Merge Modal State
-    const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
-    const [itemToMerge, setItemToMerge] = useState<Category | null>(null);
-    const [mergeTargetId, setMergeTargetId] = useState('');
+    const [selectedCategoryIds, setSelectedCategoryIds] = useState<Set<string>>(new Set());
+    const [bulkMergeTargetId, setBulkMergeTargetId] = useState('');
+    const [isBulkMergeOpen, setIsBulkMergeOpen] = useState(false);
 
     // Delete Modal State
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState<Category | null>(null);
-    const [isMainCategoryDelete, setIsMainCategoryDelete] = useState(false);
+    const [deleteBlockedChildren, setDeleteBlockedChildren] = useState<Category[]>([]);
+    const [editParentId, setEditParentId] = useState('');
+    const [toast, setToast] = useState<CategoryToast | null>(null);
+    const [showEditNameError, setShowEditNameError] = useState(false);
+    const deleteDialogRef = useRef<HTMLDialogElement>(null);
+    const editDialogRef = useRef<HTMLDialogElement>(null);
+    const addDialogRef = useRef<HTMLDialogElement>(null);
+    const editNameInputRef = useRef<HTMLInputElement>(null);
 
     // View State
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
@@ -111,25 +251,77 @@ export const CategoriesPage = () => {
         reloadCategories();
     }, [accountIdNumber]);
 
+    useEffect(() => {
+        if (!toast) {
+            return;
+        }
+        const timer = window.setTimeout(() => setToast(null), 4200);
+        return () => window.clearTimeout(timer);
+    }, [toast]);
+
+    useEffect(() => {
+        const dialog = deleteDialogRef.current;
+        if (dialog === null) {
+            return;
+        }
+        if (isDeleteModalOpen && itemToDelete !== null && !dialog.open) {
+            dialog.showModal();
+        } else if ((!isDeleteModalOpen || itemToDelete === null) && dialog.open) {
+            dialog.close();
+        }
+    }, [isDeleteModalOpen, itemToDelete]);
+
+    const isEditModal = modalMode === 'editMain' || modalMode === 'editSub';
+    const isAddModal = modalMode === 'addMain' || modalMode === 'addSub';
+
+    useEffect(() => {
+        const dialog = editDialogRef.current;
+        if (dialog === null) {
+            return;
+        }
+        if (isModalOpen && isEditModal && !dialog.open) {
+            dialog.showModal();
+            requestAnimationFrame(() => {
+                editNameInputRef.current?.focus();
+                editNameInputRef.current?.select();
+            });
+        } else if ((!isModalOpen || !isEditModal) && dialog.open) {
+            dialog.close();
+        }
+    }, [isModalOpen, isEditModal]);
+
+    useEffect(() => {
+        const dialog = addDialogRef.current;
+        if (dialog === null) {
+            return;
+        }
+        if (isModalOpen && isAddModal && !dialog.open) {
+            dialog.showModal();
+        } else if ((!isModalOpen || !isAddModal) && dialog.open) {
+            dialog.close();
+        }
+    }, [isModalOpen, isAddModal]);
+
+    const showToast = (next: CategoryToast) => {
+        setToast(next);
+    };
+
     // --- Modal Handling ---
     const openModal = (mode: ModalMode, item?: Category, parent?: Category) => {
         setModalMode(mode);
         setCurrentItem(item || null);
         setParentCategory(parent || null);
         setInputValue((mode === 'editMain' || mode === 'editSub') && item ? item.name : '');
-        setInputDescription(
-            (mode === 'editMain' || mode === 'editSub') && item?.description
-                ? item.description
-                : ''
-        );
         if ((mode === 'editMain' || mode === 'editSub') && item && 'colour' in item) {
-            setInputColour(item.colour || randomCategoryColour()); // Use existing or generate if null/undefined
+            setInputColour(item.colour || randomCategoryColour());
+            setEditParentId(item.parent_category_id ?? '');
         } else if (mode === 'addMain' || mode === 'addSub') {
-            setInputColour(randomCategoryColour()); // Set a random default for add mode
+            setInputColour(randomCategoryColour());
         } else {
             setInputColour('#ffffff'); // Fallback default (shouldn't be reached often)
         }
         setModalError(null);
+        setShowEditNameError(false);
         setIsModalOpen(true);
     };
 
@@ -137,18 +329,22 @@ export const CategoriesPage = () => {
         if (isSubmitting) return;
         setIsModalOpen(false);
         setInputValue('');
-        setInputDescription('');
         setCurrentItem(null);
         setParentCategory(null);
+        setEditParentId('');
         setInputColour('#ffffff');
         setModalError(null);
+        setShowEditNameError(false);
     };
 
     // --- Delete Modal Handling ---
     const openDeleteModal = (item: Category) => {
-        const isMain = categories.some(cat => cat.id === item.id);
+        const activeChildren = categories.filter(
+            (category) =>
+                category.parent_category_id === item.id && !category.deleted_at
+        );
         setItemToDelete(item);
-        setIsMainCategoryDelete(isMain);
+        setDeleteBlockedChildren(activeChildren);
         setIsDeleteModalOpen(true);
     };
 
@@ -156,43 +352,37 @@ export const CategoriesPage = () => {
         if (isSubmitting) return;
         setIsDeleteModalOpen(false);
         setItemToDelete(null);
+        setDeleteBlockedChildren([]);
     };
 
     // --- CRUD Handlers ---
-    const handleModalSubmit = async (event: FormEvent) => {
+    const handleAddSubmit = async (event: FormEvent) => {
         event.preventDefault();
         const trimmedValue = inputValue.trim();
         if (!trimmedValue) {
-            setModalError("Name cannot be empty.");
+            setModalError('Name cannot be empty.');
             return;
         }
         setIsSubmitting(true);
         setModalError(null);
         try {
-            const trimmedDescription = inputDescription.trim();
-            const descriptionPayload =
-                trimmedDescription.length > 0 ? trimmedDescription : null;
-
             if (modalMode === 'addMain') {
-				await dispatch(createCategory({
-					name: trimmedValue,
-                    description: descriptionPayload,
-                    colour: inputColour,
-				})).unwrap();
+                await dispatch(
+                    createCategory({
+                        name: trimmedValue,
+                        description: null,
+                        colour: inputColour,
+                    })
+                ).unwrap();
             } else if (modalMode === 'addSub' && parentCategory) {
-                await dispatch(createCategory({
-					name: trimmedValue,
-                    description: descriptionPayload,
-					parent_category_id: parentCategory.id,
-                    colour: inputColour,
-				})).unwrap();
-            } else if ((modalMode === 'editMain' || modalMode === 'editSub') && currentItem && 'colour' in currentItem) {
-				await dispatch(updateCategory({
-					id: currentItem.id,
-					name: trimmedValue,
-                    description: descriptionPayload,
-                    colour: inputColour,
-				})).unwrap();
+                await dispatch(
+                    createCategory({
+                        name: trimmedValue,
+                        description: null,
+                        parent_category_id: parentCategory.id,
+                        colour: inputColour,
+                    })
+                ).unwrap();
             }
             closeModal();
             reloadCategories();
@@ -203,18 +393,67 @@ export const CategoriesPage = () => {
         }
     };
 
-    const requestDelete = (itemToDelete: Category) => {
-        openDeleteModal(itemToDelete);
+    const handleEditSubmit = async (event: FormEvent) => {
+        event.preventDefault();
+        const trimmedValue = inputValue.trim();
+        if (!trimmedValue) {
+            setShowEditNameError(true);
+            return;
+        }
+        if (!currentItem) {
+            return;
+        }
+        setIsSubmitting(true);
+        setModalError(null);
+        setShowEditNameError(false);
+        try {
+            const updatePayload: Partial<Category> & { id: Category['id'] } = {
+                id: currentItem.id,
+                name: trimmedValue,
+                description: currentItem.description ?? null,
+                colour: currentItem.colour ?? randomCategoryColour(),
+            };
+            if (modalMode === 'editSub' && editParentId) {
+                updatePayload.parent_category_id = editParentId;
+            }
+            await dispatch(updateCategory(updatePayload)).unwrap();
+            closeModal();
+            reloadCategories();
+            showToast({ message: `“${trimmedValue}” updated.` });
+        } catch (err) {
+            setModalError(readThunkRejectMessage(err, 'Failed to save category'));
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const confirmDelete = async () => {
-        if (!itemToDelete) return;
+        if (!itemToDelete || deleteBlockedChildren.length > 0) return;
+        const deletedName = itemToDelete.name;
+        const deletedId = itemToDelete.id;
         setIsSubmitting(true);
         setError(null);
         try {
-			await dispatch(deleteCategory(Number(itemToDelete.id))).unwrap();
+			await dispatch(deleteCategory(Number(deletedId))).unwrap();
             closeDeleteModal();
             reloadCategories();
+            showToast({
+                message: `“${deletedName}” deleted — moved to Deleted categories.`,
+                onUndo: () => {
+                    void dispatch(restoreCategory(Number(deletedId)))
+                        .unwrap()
+                        .then(() => {
+                            reloadCategories();
+                            showToast({
+                                message: `“${deletedName}” restored.`,
+                                icon: 'restore',
+                            });
+                        })
+                        .catch((err: unknown) => {
+                            setError(readThunkRejectMessage(err, 'Failed to restore category'));
+                        });
+                },
+            });
         } catch (err) {
             setError(readThunkRejectMessage(err, 'Failed to delete category'));
         } finally {
@@ -228,6 +467,10 @@ export const CategoriesPage = () => {
         try {
 			await dispatch(restoreCategory(Number(itemToRestore.id))).unwrap();
             reloadCategories();
+            showToast({
+                message: `“${itemToRestore.name}” restored.`,
+                icon: 'restore',
+            });
         } catch (err) {
             setError(readThunkRejectMessage(err, 'Failed to restore category'));
         } finally {
@@ -249,34 +492,78 @@ export const CategoriesPage = () => {
         });
     };
 
-    const openMergeModal = (item: Category) => {
-        setItemToMerge(item);
-        setMergeTargetId('');
-        setModalError(null);
-        setIsMergeModalOpen(true);
+    const toggleCategorySelected = (categoryId: string) => {
+        setSelectedCategoryIds((previous) => {
+            const next = new Set(previous);
+            if (next.has(categoryId)) {
+                next.delete(categoryId);
+            } else {
+                next.add(categoryId);
+            }
+            return next;
+        });
     };
 
-    const closeMergeModal = () => {
+    const openBulkMergeModal = () => {
+        if (selectedCategoryIds.size < 2) {
+            setError('Select at least two categories to merge.');
+            return;
+        }
+        setBulkMergeTargetId('');
+        setModalError(null);
+        setIsBulkMergeOpen(true);
+    };
+
+    const closeBulkMergeModal = () => {
         if (isSubmitting) return;
-        setIsMergeModalOpen(false);
-        setItemToMerge(null);
-        setMergeTargetId('');
+        setIsBulkMergeOpen(false);
+        setBulkMergeTargetId('');
         setModalError(null);
     };
 
-    const confirmMerge = async () => {
-        if (!itemToMerge || !mergeTargetId) return;
+    const confirmBulkMerge = async () => {
+        if (!bulkMergeTargetId || selectedCategoryIds.size < 2) return;
+        const sources = [...selectedCategoryIds].filter((id) => id !== bulkMergeTargetId);
+        if (sources.length === 0) return;
+
         setIsSubmitting(true);
         setModalError(null);
+        setError(null);
         try {
-            await dispatch(mergeCategory({
-                sourceId: itemToMerge.id,
-                targetCategoryId: mergeTargetId,
-            })).unwrap();
-            closeMergeModal();
+            for (const sourceId of sources) {
+                await dispatch(
+                    mergeCategory({
+                        sourceId,
+                        targetCategoryId: bulkMergeTargetId,
+                    })
+                ).unwrap();
+            }
+            setSelectedCategoryIds(new Set());
+            closeBulkMergeModal();
             reloadCategories();
         } catch (err) {
             setModalError(readThunkRejectMessage(err, 'Failed to merge categories'));
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleInlineColourChange = async (category: Category, colour: string) => {
+        if (isSubmitting || category.deleted_at) return;
+        setIsSubmitting(true);
+        setError(null);
+        try {
+            await dispatch(
+                updateCategory({
+                    id: category.id,
+                    name: category.name,
+                    description: category.description ?? null,
+                    colour,
+                })
+            ).unwrap();
+            reloadCategories();
+        } catch (err) {
+            setError(readThunkRejectMessage(err, 'Failed to update colour'));
         } finally {
             setIsSubmitting(false);
         }
@@ -340,528 +627,902 @@ export const CategoriesPage = () => {
         setDraggingId(null);
     };
 
-    const mergeTargetOptions = categories.filter((cat) => {
-        if (!itemToMerge || cat.id === itemToMerge.id || cat.deleted_at) {
-            return false;
-        }
-        return true;
-    });
+    const mainCategories = sortCategoriesDeletedLast(
+        visibleMainCategories(categories, searchQuery, showDeleted)
+    );
 
-    const mainCategories = visibleMainCategories(categories, searchQuery, showDeleted);
+    const topLevelParentOptions = categories.filter(
+        (category) =>
+            !category.parent_category_id &&
+            !category.deleted_at &&
+            !isSystemCategory(category)
+    );
+
+    const bulkMergeTargetOptions = categories.filter(
+        (cat) => !cat.deleted_at && !selectedCategoryIds.has(cat.id)
+    );
+
+    const activeCategoryCount = categories.filter((category) => !category.deleted_at).length;
+    const deletedCategoryCount = categories.filter((category) => category.deleted_at).length;
+
+    const renderRowActions = (
+        category: Category,
+        isMain: boolean,
+        parent?: Category | null
+    ) => {
+        if (category.deleted_at) {
+            if (!showDeleted) {
+                return <span aria-hidden />;
+            }
+            return (
+                <button
+                    type="button"
+                    data-category-row-action
+                    onClick={() => void handleRestore(category)}
+                    disabled={isSubmitting}
+                    className={restoreBtnClass}
+                >
+                    {isSubmitting ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                        <RotateCcw size={14} />
+                    )}
+                    Restore
+                </button>
+            );
+        }
+
+        const system = isSystemCategory(category);
+
+        return (
+            <div className="flex items-center gap-1" data-category-row-action>
+                <CategoryColorSwatch
+                    value={category.colour ?? '#888888'}
+                    label={`Colour for ${category.name}`}
+                    disabled={isSubmitting}
+                    onChange={(colour) => void handleInlineColourChange(category, colour)}
+                />
+                {isMain ? (
+                    <button
+                        type="button"
+                        className={catBtnGhostClass}
+                        onClick={() => openModal('addSub', undefined, category)}
+                        disabled={isSubmitting}
+                    >
+                        + Sub
+                    </button>
+                ) : null}
+                {!system ? (
+                    <button
+                        type="button"
+                        className={iconBtnClass}
+                        title="Edit category"
+                        aria-label={`Edit ${category.name}`}
+                        onClick={() => openEditModal(category, parent)}
+                        disabled={isSubmitting}
+                    >
+                        <Pencil size={14} />
+                    </button>
+                ) : null}
+                {system ? (
+                    <button
+                        type="button"
+                        className={cn(iconBtnClass, 'cursor-default hover:bg-transparent hover:text-paper-muted')}
+                        title="System category — can't be deleted"
+                        aria-label="System category, cannot be deleted"
+                        disabled
+                    >
+                        <Lock size={14} />
+                    </button>
+                ) : (
+                    <button
+                        type="button"
+                        className={cn(iconBtnClass, iconBtnDangerClass)}
+                        title="Delete category"
+                        aria-label={`Delete ${category.name}`}
+                        onClick={() => openDeleteModal(category)}
+                        disabled={isSubmitting}
+                    >
+                        <Trash2 size={15} />
+                    </button>
+                )}
+            </div>
+        );
+    };
+
+    const renderDeletedLabel = (category: Category) => (
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+            <span
+                className="h-[18px] w-[18px] shrink-0 rounded border border-[color-mix(in_oklch,var(--fg)_10%,transparent)] opacity-50"
+                style={{ backgroundColor: normalizeCategoryColour(category.colour ?? '#888888') }}
+                aria-hidden
+            />
+            <span className="min-w-0 truncate text-[13px] text-paper-muted line-through decoration-paper-muted/55">
+                {category.name}
+            </span>
+            <span className={deletedPillClass}>Deleted</span>
+            {category.deleted_at ? (
+                <span className="shrink-0 text-[11px] text-paper-muted">
+                    {formatDeletedLabel(category.deleted_at)}
+                </span>
+            ) : null}
+        </div>
+    );
+
+    const openEditModal = (category: Category, parent?: Category | null) => {
+        if (category.deleted_at) {
+            return;
+        }
+        const isMain = !category.parent_category_id;
+        openModal(
+            isMain ? 'editMain' : 'editSub',
+            category,
+            parent ?? undefined
+        );
+    };
 
     const renderSubcategoryRows = (
         parentId: string,
-        depth: number,
         mainCategory: Category
-    ): ReactNode[] => {
-        const subs = visibleSubcategories(
-            categories,
-            parentId,
-            searchQuery,
-            showDeleted
+    ): ReactNode => {
+        const subs = sortCategoriesDeletedLast(
+            visibleSubcategories(categories, parentId, searchQuery, showDeleted)
         );
 
-        return subs.flatMap((sub) => {
+        return subs.map((sub) => {
             const isSubDeleted = !!sub.deleted_at;
-            const subUsage = categoryUsageLabel(sub);
-            const subUsageHint = categoryUsageTitle(sub);
             const parent = categories.find((item) => item.id === sub.parent_category_id);
-            const row = (
-                <li
-                    key={sub.id}
-                    className={cn(
-                        'group flex items-center justify-between px-3 py-1.5 transition-opacity',
-                        !isSubDeleted && 'hover:bg-paper',
-                        isSubDeleted && 'opacity-60',
-                        draggingId === sub.id && 'opacity-50'
-                    )}
-                    style={{ paddingLeft: `${12 + depth * 16}px` }}
-                    onDragOver={(e) => {
-                        if (!isSubDeleted) e.preventDefault();
-                    }}
-                    onDrop={(e) => {
-                        e.preventDefault();
-                        if (!isSubDeleted && sub.parent_category_id) {
-                            handleSubDrop(sub.parent_category_id, sub.id);
-                        }
-                    }}
-                >
-                    <span className="flex items-center min-w-0">
-                        {!isSubDeleted && (
+            const childCategories = sortCategoriesDeletedLast(
+                visibleSubcategories(categories, sub.id, searchQuery, showDeleted)
+            );
+            const hasChildren = childCategories.length > 0;
+            const isExpanded =
+                expandedCategories.has(sub.id) ||
+                shouldExpandForSearch(categories, sub.id, searchQuery, showDeleted);
+
+            return (
+                <li key={sub.id} role="none">
+                    <div
+                        role="treeitem"
+                        className={cn(
+                            treeItemClass,
+                            isSubDeleted && treeItemDeletedClass,
+                            draggingId === sub.id && 'opacity-50',
+                            hasChildren && !isSubDeleted && 'cursor-pointer'
+                        )}
+                        onClick={(event) => {
+                            if (isSubDeleted || !hasChildren) {
+                                return;
+                            }
+                            if (isCategoryRowChromeTarget(event.target)) {
+                                return;
+                            }
+                            toggleExpand(sub.id);
+                        }}
+                        onDragOver={(event) => {
+                            if (!isSubDeleted) event.preventDefault();
+                        }}
+                        onDrop={(event) => {
+                            event.preventDefault();
+                            if (!isSubDeleted && sub.parent_category_id) {
+                                handleSubDrop(sub.parent_category_id, sub.id);
+                            }
+                        }}
+                    >
+                        {!isSubDeleted ? (
                             <button
                                 type="button"
+                                data-category-drag-handle
                                 draggable
-                                onDragStart={(e) => onDragStart(e, sub.id)}
+                                onDragStart={(event) => onDragStart(event, sub.id)}
                                 onDragEnd={onDragEnd}
-                                className="p-1 text-paper-muted hover:text-paper-muted cursor-grab active:cursor-grabbing"
+                                className={dragHandleClass}
                                 title="Drag to reorder"
+                                aria-hidden
                             >
-                                <GripVertical size={14} />
-                            </button>
-                        )}
-                        {!isSubDeleted && sub.colour && (
-                            <div
-                                className="w-2.5 h-2.5 rounded-full flex-shrink-0 ml-2 mr-2 relative"
-                                style={{ backgroundColor: sub.colour }}
-                                title={`Colour: ${sub.colour}`}
-                            />
-                        )}
-                        <span
-                            className={cn(
-                                'text-paper-fg text-sm truncate',
-                                isSubDeleted && 'line-through text-paper-muted'
-                            )}
-                        >
-                            {sub.name}
-                        </span>
-                        {subUsage && (
-                            <span
-                                className="text-xs text-paper-muted ml-2 flex-shrink-0"
-                                title={subUsageHint ?? undefined}
-                            >
-                                {subUsage}
-                            </span>
-                        )}
-                    </span>
-                    <div
-                        className={cn(
-                            'flex items-center gap-1 flex-shrink-0 ml-2 transition-opacity duration-150',
-                            isSubDeleted ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                        )}
-                    >
-                        {isSubDeleted ? (
-                            <button
-                                title="Restore Subcategory"
-                                onClick={() => handleRestore(sub)}
-                                disabled={isSubmitting}
-                                className="p-1 rounded text-secondary-default/50 hover:bg-paper hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                            >
-                                {isSubmitting ? (
-                                    <Loader2 className="animate-spin h-3.5 w-3.5" />
-                                ) : (
-                                    <RotateCcw size={14} />
-                                )}
+                                ⋮⋮
                             </button>
                         ) : (
-                            <>
-                                <button
-                                    title="Edit Subcategory"
-                                    onClick={() => openModal('editSub', sub, parent ?? mainCategory)}
-                                    disabled={isSubmitting}
-                                    className="p-1 rounded text-secondary-default/50 hover:bg-paper hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                >
-                                    <Edit2 size={14} />
-                                </button>
-                                <button
-                                    title="Merge into another category"
-                                    onClick={() => openMergeModal(sub)}
-                                    disabled={isSubmitting}
-                                    className="p-1 rounded text-secondary-default/50 hover:bg-paper hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                >
-                                    <GitMerge size={14} />
-                                </button>
-                                <button
-                                    title="Delete Subcategory"
-                                    onClick={() => requestDelete(sub)}
-                                    disabled={isSubmitting}
-                                    className="p-1 rounded text-secondary-default/50 hover:bg-paper hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            </>
+                            <span className={cn(dragHandleClass, 'invisible')} aria-hidden>
+                                ⋮⋮
+                            </span>
                         )}
+                        {isSubDeleted ? (
+                            renderDeletedLabel(sub)
+                        ) : (
+                            <div className="flex min-w-0 items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    data-category-checkbox
+                                    checked={selectedCategoryIds.has(sub.id)}
+                                    onChange={() => toggleCategorySelected(sub.id)}
+                                    onClick={(event) => event.stopPropagation()}
+                                    aria-label={`Select ${sub.name}`}
+                                    className="shrink-0"
+                                />
+                                <span className="flex min-w-0 items-center gap-1">
+                                    {hasChildren ? (
+                                        <span className="shrink-0 text-paper-muted" aria-hidden>
+                                            {isExpanded ? (
+                                                <ChevronDown size={16} />
+                                            ) : (
+                                                <ChevronRight size={16} />
+                                            )}
+                                        </span>
+                                    ) : (
+                                        <span className="inline-block w-4 shrink-0" />
+                                    )}
+                                    <span className="min-w-0 truncate text-[13px] text-paper-fg">
+                                        {sub.name}
+                                    </span>
+                                    {hasChildren ? (
+                                        <span className="shrink-0 text-xs font-normal text-paper-muted">
+                                            ({childCategories.length} sub)
+                                        </span>
+                                    ) : null}
+                                </span>
+                            </div>
+                        )}
+                        {renderRowActions(sub, false, parent ?? mainCategory)}
                     </div>
+                    {hasChildren && isExpanded ? (
+                        <ul
+                            className="m-0 mb-1 ml-7 list-none border-l border-paper-border p-0"
+                            role="group"
+                        >
+                            {renderSubcategoryRows(sub.id, mainCategory)}
+                        </ul>
+                    ) : null}
                 </li>
             );
-
-            return [row, ...renderSubcategoryRows(sub.id, depth + 1, mainCategory)];
         });
     };
 
     // --- Render Logic ---
     const listError = error ?? categoriesError;
 
+    if (categoriesLoading && categories.length === 0) {
+        return <PageLoadingState label="Loading categories…" />;
+    }
+
     return (
-        <PageShell>
-            <PageHeader
-                title="Categories"
-                subtitle="Organize spending and income into parent and sub categories."
-                actions={
-                    <>
+        <PageShell variant="table">
+            <header className={pageHeaderClass}>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className={pageTitleClass}>Categories</h1>
+                            {categoriesLoading ? (
+                                <Loader2
+                                    className="h-4 w-4 animate-spin text-secondary-default"
+                                    aria-label="Loading"
+                                />
+                            ) : null}
+                        </div>
+                        <p className={pageSubtitleClass}>
+                            Parent / sub tree · drag to reorder · merge duplicates
+                        </p>
+                    </div>
+                    <div className={pageActionsClass}>
+                        <button
+                            type="button"
+                            className={catBtnClass}
+                            disabled={isSubmitting || selectedCategoryIds.size < 2}
+                            onClick={openBulkMergeModal}
+                        >
+                            {selectedCategoryIds.size >= 2
+                                ? `Merge selected (${selectedCategoryIds.size})`
+                                : 'Merge selected'}
+                        </button>
+                        <button
+                            type="button"
+                            className={catBtnPrimaryClass}
+                            disabled={isSubmitting}
+                            onClick={() => openModal('addMain')}
+                        >
+                            New category
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <div className={pageBodyClass}>
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-wrap items-center gap-2.5">
                         <AccountFilter />
-                        <ToggleSwitch
-                            checked={showDeleted}
-                            onChange={setShowDeleted}
-                            label="Show Deleted"
-                            icons={{
-                                on: <Eye size={16} />,
-                                off: <EyeOff size={16} />,
-                            }}
-                        />
                         <SearchInput
                             value={searchQuery}
                             onChange={setSearchQuery}
                             placeholder="Search categories…"
-                            className="w-full sm:max-w-xs"
+                            className="w-full min-w-[12rem] sm:max-w-xs"
                         />
-                        <button
-                            onClick={() => openModal('addMain')}
-                            disabled={isSubmitting}
-                            className={buttonOutlineClass}
-                        >
-                            <Plus size={18} className="mr-2" />
-                            Add main category
-                        </button>
-                    </>
-                }
-            />
-
-            {categoriesLoading && categories.length === 0 ? (
-                <PageLoadingState
-                    label="Loading categories…"
-                    fullScreen={false}
-                />
-            ) : null}
-
-            {uncategorized !== null && uncategorized.line_count > 0 ? (
-                <InlineAlert variant="warning" className="mb-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <span title="Individual lines imported from your bank statements">
-                            {uncategorizedBannerText(uncategorized)}
-                        </span>
-                        <NavLink
-                            to="/transactions?uncategorized=1"
-                            className="inline-flex items-center gap-1 whitespace-nowrap text-sm text-amber-200 hover:text-paper-fg"
-                        >
-                            Review on Transactions
-                            <ArrowRight size={14} />
-                        </NavLink>
                     </div>
-                </InlineAlert>
-            ) : null}
 
-            {listError ? (
-                <InlineAlert
-                    variant="error"
-                    className="mb-4"
-                    onDismiss={() => setError(null)}
-                >
-                    {listError}
-                </InlineAlert>
-            ) : null}
-
-            {!categoriesLoading && categories.length === 0 && !listError ? (
-                <EmptyState
-                    icon={FolderOpen}
-                    title={
-                        showDeleted
-                            ? 'No categories found'
-                            : 'No categories yet'
-                    }
-                    description={
-                        showDeleted
-                            ? 'No categories (including deleted) match.'
-                            : 'Add a main category to get started.'
-                    }
-                    compact
-                />
-            ) : null}
-
-            {!categoriesLoading && categories.length > 0 && mainCategories.length === 0 ? (
-                <EmptyState
-                    icon={FolderOpen}
-                    title="No matches"
-                    description="No categories match your search."
-                    compact
-                />
-            ) : null}
-
-            <div className="space-y-1">
-                {mainCategories.map((category) => {
-                    const isDeleted = !!category.deleted_at;
-                    const categoryUsage = categoryUsageLabel(category);
-                    const categoryUsageHint = categoryUsageTitle(category);
-                    const isExpanded =
-                        expandedCategories.has(category.id) ||
-                        shouldExpandForSearch(
-                            categories,
-                            category.id,
-                            searchQuery,
-                            showDeleted
-                        );
-
-					const sub_categories = visibleSubcategories(
-                        categories,
-                        category.id,
-                        searchQuery,
-                        showDeleted
-                    );
-
-                    return (
+                    {uncategorized !== null && uncategorized.line_count > 0 ? (
                         <div
-                            key={category.id}
-                            className={cn(
-                                glassCardClass,
-                                "overflow-hidden transition-opacity",
-                                isDeleted && "opacity-60 border-red-500/30 bg-red-900/10",
-                                draggingId === category.id && "opacity-50"
-                            )}
-                            onDragOver={(e) => {
-                                if (!isDeleted) e.preventDefault();
-                            }}
-                            onDrop={(e) => {
-                                e.preventDefault();
-                                if (!isDeleted) handleMainDrop(category.id);
-                            }}
+                            role="status"
+                            className="flex items-start gap-2.5 rounded-paper border border-[color-mix(in_oklch,var(--warn)_35%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_8%,var(--surface))] px-3.5 py-3 text-[13px] text-paper-fg"
                         >
-                            <div className={cn(
-                                "group flex items-center justify-between p-3 transition-colors duration-150",
-                                !isDeleted && "hover:bg-paper"
-                            )}
-                            >
-                                <div className="flex items-center gap-2 flex-grow min-w-0">
-                                    {!isDeleted && (
-                                        <button
-                                            type="button"
-                                            draggable
-                                            onDragStart={(e) => onDragStart(e, category.id)}
-                                            onDragEnd={onDragEnd}
-                                            onClick={(e) => e.stopPropagation()}
-                                            className="p-1 text-paper-muted hover:text-paper-muted cursor-grab active:cursor-grabbing"
-                                            title="Drag to reorder"
-                                        >
-                                            <GripVertical size={16} />
-                                        </button>
-                                    )}
-                                    <button
-                                        type="button"
-                                        className={cn(
-                                            "flex items-center gap-2 flex-grow min-w-0 text-left",
-                                            !isDeleted && "cursor-pointer"
-                                        )}
-                                        onClick={() => !isDeleted && toggleExpand(category.id)}
-                                    >
-                                    <span
-                                        className={cn("p-1 text-secondary-default/60 disabled:opacity-30", !isDeleted && "group-hover:text-secondary-default")}
-                                        aria-hidden="true"
-                                    >
-                                        {sub_categories.length > 0 ? (
-                                            isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />
-                                        ) : (
-                                            <span className="inline-block w-[18px] h-[18px]"></span>
-                                        )}
-                                    </span>
-                                    {/* Colour Indicator */}
-                                    {!isDeleted && category.colour && (
-                                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: category.colour }} title={`Colour: ${category.colour}`}></span>
-                                    )}
-                                    {/* Category Name */}
-                                    <span className={cn(
-                                        "font-medium text-paper-fg truncate",
-                                        isDeleted && "line-through text-paper-muted"
-                                    )}>{category.name}</span>
-                                    {sub_categories.length > 0 && (
-                                        <span className="text-xs text-paper-muted ml-1 flex-shrink-0">({sub_categories.length} sub)</span>
-                                    )}
-                                    {categoryUsage && (
-                                        <span
-                                            className="text-xs text-paper-muted ml-1 flex-shrink-0"
-                                            title={categoryUsageHint ?? undefined}
-                                        >
-                                            {categoryUsage}
-                                        </span>
-                                    )}
-                                    </button>
-                                </div>
-                                {/* Action Buttons */}
-                                <div className={cn(
-                                    "flex items-center gap-1 flex-shrink-0 ml-2 transition-opacity duration-150",
-                                    isDeleted ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                                )}
-                                    onClick={(e) => e.stopPropagation()}
+                            <AlertTriangle
+                                className="mt-0.5 h-4 w-4 shrink-0 text-[color-mix(in_oklch,var(--warn)_80%,var(--fg))]"
+                                strokeWidth={1.8}
+                                aria-hidden
+                            />
+                            <div>
+                                <strong className="font-semibold">Uncategorized transactions.</strong>{' '}
+                                {uncategorizedBannerText(uncategorized)}{' '}
+                                <NavLink
+                                    to="/transactions?uncategorized=1"
+                                    className="font-medium text-paper-fg underline decoration-paper-border hover:decoration-paper-fg"
                                 >
-                                    {isDeleted ? (
-                                        <button
-                                            title="Restore Category"
-                                            onClick={() => handleRestore(category)}
-                                            disabled={isSubmitting}
-                                            className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                        >
-                                            {isSubmitting ? <Loader2 className="animate-spin h-4 w-4" /> : <RotateCcw size={16} />}
-                                        </button>
-                                    ) : (
-                                        <>
-                                            <button
-                                                title="Add Subcategory"
-                                                onClick={() => openModal('addSub', undefined, category)}
-                                                disabled={isSubmitting}
-                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                            >
-                                                <Plus size={16} />
-                                            </button>
-                                            <button
-                                                title="Edit Category"
-                                                onClick={() => openModal('editMain', category)}
-                                                disabled={isSubmitting}
-                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-green-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                title="Merge into another category"
-                                                onClick={() => openMergeModal(category)}
-                                                disabled={isSubmitting}
-                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-amber-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                            >
-                                                <GitMerge size={16} />
-                                            </button>
-                                            <button
-                                                title="Delete Category"
-                                                onClick={() => requestDelete(category)}
-                                                disabled={isSubmitting}
-                                                className="p-1.5 rounded text-secondary-default/60 hover:bg-paper hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
+                                    Review on Transactions
+                                </NavLink>
                             </div>
-
-                            {/* Subcategory List */}
-                            {isExpanded && !isDeleted && (
-                                <div className="border-t border-paper-border bg-black/20">
-                                    {sub_categories.length > 0 ? (
-                                        <ul className="py-2">
-                                            {renderSubcategoryRows(category.id, 0, category)}
-                                        </ul>
-                                    ) : (
-                                        <p className="px-3 py-2 text-sm text-paper-muted pl-14">No subcategories defined.</p>
-                                    )}
-                                </div>
-                            )}
                         </div>
-                    );
-                })}
+                    ) : null}
+
+                    {listError ? (
+                        <InlineAlert variant="error" onDismiss={() => setError(null)}>
+                            {listError}
+                        </InlineAlert>
+                    ) : null}
+
+                    {!categoriesLoading && categories.length === 0 && !listError ? (
+                        <EmptyState
+                            icon={FolderOpen}
+                            title={showDeleted ? 'No categories found' : 'No categories yet'}
+                            description={
+                                showDeleted
+                                    ? 'No categories (including deleted) match.'
+                                    : 'Add a main category to get started.'
+                            }
+                            compact
+                        />
+                    ) : null}
+
+                    {!categoriesLoading && categories.length > 0 && mainCategories.length === 0 ? (
+                        <EmptyState
+                            icon={FolderOpen}
+                            title="No matches"
+                            description="No categories match your search."
+                            compact
+                        />
+                    ) : null}
+
+                    {mainCategories.length > 0 ? (
+                        <section className={cn(glassCardClass, 'overflow-hidden p-0')}>
+                            <div className="flex items-center justify-between gap-3 border-b border-paper-border px-4 py-3.5">
+                                <div className="min-w-0">
+                                    <h2 className={panelTitleClass}>Category tree</h2>
+                                    <p className={panelHintClass}>
+                                        {activeCategoryCount} active{' '}
+                                        {activeCategoryCount === 1 ? 'category' : 'categories'} ·
+                                        colour chips drive transaction dots
+                                    </p>
+                                </div>
+                                <label className="flex shrink-0 items-center gap-2 text-[13px] text-paper-muted">
+                                    <ToggleSwitch
+                                        checked={showDeleted}
+                                        onChange={setShowDeleted}
+                                        ariaLabel="Show deleted categories"
+                                    />
+                                    Show deleted
+                                    {deletedCategoryCount > 0 ? (
+                                        <span className={deletedCountBadgeClass}>
+                                            {deletedCategoryCount}
+                                        </span>
+                                    ) : null}
+                                </label>
+                            </div>
+                            <div className="px-2.5 py-2 pb-4">
+                                <ul className="m-0 list-none p-0" role="tree" aria-label="Categories">
+                                    {mainCategories.map((category) => {
+                                        const isDeleted = !!category.deleted_at;
+                                        const isExpanded =
+                                            expandedCategories.has(category.id) ||
+                                            shouldExpandForSearch(
+                                                categories,
+                                                category.id,
+                                                searchQuery,
+                                                showDeleted
+                                            );
+                                        const sub_categories = sortCategoriesDeletedLast(
+                                            visibleSubcategories(
+                                                categories,
+                                                category.id,
+                                                searchQuery,
+                                                showDeleted
+                                            )
+                                        );
+
+                                        return (
+                                            <li key={category.id} role="none">
+                                                <div
+                                                    role="treeitem"
+                                                    className={cn(
+                                                        treeItemClass,
+                                                        'font-medium',
+                                                        isDeleted && treeItemDeletedClass,
+                                                        draggingId === category.id && 'opacity-50',
+                                                        sub_categories.length > 0 &&
+                                                            !isDeleted &&
+                                                            'cursor-pointer'
+                                                    )}
+                                                    onClick={(event) => {
+                                                        if (
+                                                            isDeleted ||
+                                                            sub_categories.length === 0
+                                                        ) {
+                                                            return;
+                                                        }
+                                                        if (isCategoryRowChromeTarget(event.target)) {
+                                                            return;
+                                                        }
+                                                        toggleExpand(category.id);
+                                                    }}
+                                                    onDragOver={(event) => {
+                                                        if (!isDeleted) event.preventDefault();
+                                                    }}
+                                                    onDrop={(event) => {
+                                                        event.preventDefault();
+                                                        if (!isDeleted) handleMainDrop(category.id);
+                                                    }}
+                                                >
+                                                    {!isDeleted ? (
+                                                        <button
+                                                            type="button"
+                                                            data-category-drag-handle
+                                                            draggable
+                                                            onDragStart={(event) =>
+                                                                onDragStart(event, category.id)
+                                                            }
+                                                            onDragEnd={onDragEnd}
+                                                            className={dragHandleClass}
+                                                            title="Drag to reorder"
+                                                            aria-hidden
+                                                        >
+                                                            ⋮⋮
+                                                        </button>
+                                                    ) : (
+                                                        <span className={cn(dragHandleClass, 'invisible')} aria-hidden>
+                                                            ⋮⋮
+                                                        </span>
+                                                    )}
+                                                    {isDeleted ? (
+                                                        renderDeletedLabel(category)
+                                                    ) : (
+                                                        <div className="flex min-w-0 items-center gap-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                data-category-checkbox
+                                                                checked={selectedCategoryIds.has(
+                                                                    category.id
+                                                                )}
+                                                                onChange={() =>
+                                                                    toggleCategorySelected(
+                                                                        category.id
+                                                                    )
+                                                                }
+                                                                onClick={(event) =>
+                                                                    event.stopPropagation()
+                                                                }
+                                                                aria-label={`Select ${category.name}`}
+                                                                className="shrink-0"
+                                                            />
+                                                            <span className="flex min-w-0 items-center gap-1">
+                                                                {sub_categories.length > 0 ? (
+                                                                    <span
+                                                                        className="shrink-0 text-paper-muted"
+                                                                        aria-hidden
+                                                                    >
+                                                                        {isExpanded ? (
+                                                                            <ChevronDown size={16} />
+                                                                        ) : (
+                                                                            <ChevronRight size={16} />
+                                                                        )}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-block w-4 shrink-0" />
+                                                                )}
+                                                                <span className="min-w-0 truncate text-[13px] font-medium text-paper-fg">
+                                                                    {category.name}
+                                                                </span>
+                                                                {sub_categories.length > 0 ? (
+                                                                    <span className="shrink-0 text-xs font-normal text-paper-muted">
+                                                                        ({sub_categories.length} sub)
+                                                                    </span>
+                                                                ) : null}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {renderRowActions(category, true)}
+                                                </div>
+                                                {isExpanded && sub_categories.length > 0 ? (
+                                                    <ul
+                                                        className="m-0 mb-1 ml-7 list-none border-l border-paper-border p-0"
+                                                        role="group"
+                                                    >
+                                                        {renderSubcategoryRows(
+                                                            category.id,
+                                                            category
+                                                        )}
+                                                    </ul>
+                                                ) : null}
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            </div>
+                        </section>
+                    ) : null}
+                </div>
             </div>
 
-
-            <Modal
-                open={isModalOpen}
+            <dialog
+                ref={editDialogRef}
+                className={categoryDialogClass}
+                aria-labelledby="edit-category-title"
+                onCancel={(event) => {
+                    event.preventDefault();
+                    if (!isSubmitting) {
+                        closeModal();
+                    }
+                }}
                 onClose={closeModal}
-                closeDisabled={isSubmitting}
-                title={
-                    modalMode === 'addMain'
-                        ? 'Add New Main Category'
-                        : modalMode === 'editMain'
-                          ? 'Edit Main Category'
-                          : modalMode === 'addSub'
-                            ? `Add Subcategory to "${parentCategory?.name}"`
-                            : 'Edit Subcategory'
-                }
             >
-                {modalError ? (
-                    <InlineAlert variant="error" className="mb-4">
-                        {modalError}
-                    </InlineAlert>
-                ) : null}
-                <form onSubmit={handleModalSubmit}>
-                    <div className="mb-4">
-                        <label htmlFor="categoryNameInput" className="mb-1 block text-sm font-medium text-paper-fg">
-                            {modalMode === 'addSub' || modalMode === 'editSub' ? 'Subcategory Name' : 'Category Name'}
-                        </label>
-                        <input
-                            type="text"
-                            id="categoryNameInput"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            required
-                            className={cn(inputDarkClass, 'w-full px-3 py-2')}
-                            placeholder={modalMode === 'addSub' || modalMode === 'editSub' ? 'Enter subcategory name' : 'Enter category name'}
-                            disabled={isSubmitting}
-                        />
-                    </div>
-                    <div className="mb-4">
-                        <label htmlFor="categoryDescriptionInput" className="mb-1 block text-sm font-medium text-paper-fg">
-                            Description (optional)
-                        </label>
-                        <textarea
-                            id="categoryDescriptionInput"
-                            value={inputDescription}
-                            onChange={(e) => setInputDescription(e.target.value)}
-                            rows={3}
-                            className={cn(inputDarkClass, 'min-h-[4.5rem] w-full resize-y px-3 py-2')}
-                            placeholder="What kinds of transactions belong here?"
-                            disabled={isSubmitting}
-                        />
-                    </div>
-                    <div className="mb-4">
-                        <label htmlFor="categoryColourInput" className="mb-1 block text-sm font-medium text-paper-fg">
-                            Category Colour
-                        </label>
-                        <div className="flex flex-wrap items-center gap-3">
-                            <input
-                                type="color"
-                                id="categoryColourInput"
-                                value={inputColour}
-                                onChange={(e) => setInputColour(e.target.value)}
-                                className={cn(inputDarkClass, 'h-10 w-24 cursor-pointer px-1 py-1')}
-                                disabled={isSubmitting}
-                            />
-                            <CategoryPill
-                                name={inputValue.trim() || 'Preview'}
-                                colour={inputColour}
-                            />
+                <form className="flex min-h-0 flex-col" onSubmit={handleEditSubmit}>
+                    <div className="flex items-start justify-between gap-3 px-[22px] pt-[18px]">
+                        <div className="min-w-0">
+                            <span className={cn(eyebrowClass, 'mb-1 block')}>Categories</span>
+                            <h2
+                                id="edit-category-title"
+                                className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-paper-fg"
+                            >
+                                Edit category
+                            </h2>
                         </div>
-                        <p className="mt-1.5 text-xs text-paper-muted">
-                            Defaults are dark enough for white labels. Custom colours may need
-                            higher contrast.
-                        </p>
+                        <button
+                            type="button"
+                            onClick={closeModal}
+                            disabled={isSubmitting}
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-paper border border-transparent bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:opacity-50"
+                            aria-label="Close"
+                        >
+                            <X className="h-4 w-4" strokeWidth={2} />
+                        </button>
                     </div>
-                    <div className="flex justify-end gap-3">
-                        <button type="button" onClick={closeModal} disabled={isSubmitting} className={buttonOutlineClass}>
+
+                    {currentItem ? (
+                        <div className={categoryModalBodyClass}>
+                            <CategoryPreview
+                                name={currentItem.name}
+                                colour={currentItem.colour ?? '#888888'}
+                            />
+                            <label className={categoryModalFieldClass}>
+                                <span className={categoryModalFieldLabelClass}>Name</span>
+                                <input
+                                    ref={editNameInputRef}
+                                    id="editCategoryNameInput"
+                                    type="text"
+                                    value={inputValue}
+                                    onChange={(event) => {
+                                        setInputValue(event.target.value);
+                                        if (showEditNameError && event.target.value.trim()) {
+                                            setShowEditNameError(false);
+                                        }
+                                    }}
+                                    disabled={isSubmitting}
+                                    className={cn(inputDarkClass, 'h-8 w-full px-2.5')}
+                                />
+                            </label>
+                            {modalMode === 'editSub' ? (
+                                <label className={categoryModalFieldClass}>
+                                    <span className={categoryModalFieldLabelClass}>
+                                        Parent category
+                                    </span>
+                                    <select
+                                        id="editCategoryParentSelect"
+                                        value={editParentId}
+                                        onChange={(event) => setEditParentId(event.target.value)}
+                                        disabled={isSubmitting}
+                                        className={cn(inputDarkClass, 'h-8 w-full cursor-pointer px-2.5')}
+                                    >
+                                        {topLevelParentOptions.map((parent) => (
+                                            <option key={parent.id} value={parent.id}>
+                                                {parent.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            ) : (
+                                <p className={categoryModalNoteClass}>
+                                    Top-level category — move sub-categories into it from their own
+                                    edit screen.
+                                </p>
+                            )}
+                            {showEditNameError ? (
+                                <p className={categoryFormErrorClass}>Name can&apos;t be empty.</p>
+                            ) : null}
+                            {modalError ? (
+                                <p className={categoryFormErrorClass}>{modalError}</p>
+                            ) : null}
+                        </div>
+                    ) : null}
+
+                    <div className="flex justify-end gap-2 border-t border-paper-border px-[22px] py-3.5">
+                        <button
+                            type="button"
+                            onClick={closeModal}
+                            disabled={isSubmitting}
+                            className={catBtnClass}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isSubmitting}
+                            className={catBtnPrimaryClass}
+                        >
+                            {isSubmitting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                'Save changes'
+                            )}
+                        </button>
+                    </div>
+                </form>
+            </dialog>
+
+            <dialog
+                ref={addDialogRef}
+                className={categoryDialogClass}
+                aria-labelledby="add-category-title"
+                onCancel={(event) => {
+                    event.preventDefault();
+                    if (!isSubmitting) {
+                        closeModal();
+                    }
+                }}
+                onClose={closeModal}
+            >
+                <form className="flex min-h-0 flex-col" onSubmit={handleAddSubmit}>
+                    <div className="flex items-start justify-between gap-3 px-[22px] pt-[18px]">
+                        <div className="min-w-0">
+                            <span className={cn(eyebrowClass, 'mb-1 block')}>Categories</span>
+                            <h2
+                                id="add-category-title"
+                                className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-paper-fg"
+                            >
+                                {modalMode === 'addSub'
+                                    ? 'New subcategory'
+                                    : 'New category'}
+                            </h2>
+                            {modalMode === 'addSub' && parentCategory ? (
+                                <p className="m-0 mt-1 text-[12.5px] text-paper-muted">
+                                    Under &ldquo;{parentCategory.name}&rdquo;
+                                </p>
+                            ) : null}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={closeModal}
+                            disabled={isSubmitting}
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-paper border border-transparent bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:opacity-50"
+                            aria-label="Close"
+                        >
+                            <X className="h-4 w-4" strokeWidth={2} />
+                        </button>
+                    </div>
+
+                    <div className={categoryModalBodyClass}>
+                        <label className={categoryModalFieldClass}>
+                            <span className={categoryModalFieldLabelClass}>Name</span>
+                            <input
+                                id="addCategoryNameInput"
+                                type="text"
+                                value={inputValue}
+                                onChange={(event) => setInputValue(event.target.value)}
+                                disabled={isSubmitting}
+                                required
+                                className={cn(inputDarkClass, 'h-8 w-full px-2.5')}
+                                placeholder={
+                                    modalMode === 'addSub'
+                                        ? 'Enter subcategory name'
+                                        : 'Enter category name'
+                                }
+                            />
+                        </label>
+                        <label className={categoryModalFieldClass}>
+                            <span className={categoryModalFieldLabelClass}>Colour</span>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="color"
+                                    id="addCategoryColourInput"
+                                    value={inputColour}
+                                    onChange={(event) => setInputColour(event.target.value)}
+                                    className={cn(inputDarkClass, 'h-8 w-16 cursor-pointer px-1')}
+                                    disabled={isSubmitting}
+                                />
+                                <CategoryPill
+                                    name={inputValue.trim() || 'Preview'}
+                                    colour={inputColour}
+                                />
+                            </div>
+                        </label>
+                        {modalError ? (
+                            <p className={categoryFormErrorClass}>{modalError}</p>
+                        ) : null}
+                    </div>
+
+                    <div className="flex justify-end gap-2 border-t border-paper-border px-[22px] py-3.5">
+                        <button
+                            type="button"
+                            onClick={closeModal}
+                            disabled={isSubmitting}
+                            className={catBtnClass}
+                        >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={isSubmitting || !inputValue.trim()}
-                            className={cn(buttonPrimaryClass, 'min-w-[80px]')}
+                            className={catBtnPrimaryClass}
                         >
                             {isSubmitting ? (
-                                <Loader2 className="h-5 w-5 animate-spin" />
-                            ) : (modalMode === 'addMain' || modalMode === 'addSub') ? (
-                                'Add'
+                                <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                                'Save'
+                                'Add'
                             )}
                         </button>
                     </div>
                 </form>
-            </Modal>
+            </dialog>
+
+            <dialog
+                ref={deleteDialogRef}
+                className={categoryDialogClass}
+                aria-labelledby="delete-category-title"
+                onCancel={(event) => {
+                    event.preventDefault();
+                    if (!isSubmitting) {
+                        closeDeleteModal();
+                    }
+                }}
+                onClose={closeDeleteModal}
+            >
+                <div className="flex min-h-0 flex-col">
+                    <div className="flex items-start justify-between gap-3 px-[22px] pt-[18px]">
+                        <div className="min-w-0">
+                            <span className={cn(eyebrowClass, 'mb-1 block')}>Categories</span>
+                            <h2
+                                id="delete-category-title"
+                                className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-paper-fg"
+                            >
+                                Delete category
+                            </h2>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={closeDeleteModal}
+                            disabled={isSubmitting}
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-paper border border-transparent bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:opacity-50"
+                            aria-label="Close"
+                        >
+                            <X className="h-4 w-4" strokeWidth={2} />
+                        </button>
+                    </div>
+
+                    {itemToDelete ? (
+                        <div className={categoryModalBodyClass}>
+                            <CategoryPreview
+                                name={itemToDelete.name}
+                                colour={itemToDelete.colour ?? '#888888'}
+                            />
+                            {deleteBlockedChildren.length > 0 ? (
+                                <>
+                                    <p>
+                                        This category has {deleteBlockedChildren.length}{' '}
+                                        sub-categor
+                                        {deleteBlockedChildren.length === 1 ? 'y' : 'ies'}. Delete
+                                        or move {deleteBlockedChildren.length === 1 ? 'it' : 'them'}{' '}
+                                        first:
+                                    </p>
+                                    <ul className={categoryChildListClass}>
+                                        {deleteBlockedChildren.map((child) => (
+                                            <li key={child.id}>{child.name}</li>
+                                        ))}
+                                    </ul>
+                                </>
+                            ) : (
+                                <>
+                                    <p>
+                                        Transactions keep this category assignment — it&apos;s just
+                                        hidden from category pickers and reports while deleted.
+                                    </p>
+                                    <p className={categoryModalNoteClass}>
+                                        Restore anytime from &ldquo;Show deleted&rdquo; — nothing is
+                                        changed until you do.
+                                    </p>
+                                </>
+                            )}
+                            {error ? (
+                                <InlineAlert variant="error" onDismiss={() => setError(null)}>
+                                    {error}
+                                </InlineAlert>
+                            ) : null}
+                        </div>
+                    ) : null}
+
+                    <div className="flex justify-end gap-2 border-t border-paper-border px-[22px] py-3.5">
+                        {deleteBlockedChildren.length > 0 ? (
+                            <button
+                                type="button"
+                                onClick={closeDeleteModal}
+                                disabled={isSubmitting}
+                                className={catBtnClass}
+                            >
+                                Close
+                            </button>
+                        ) : (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={closeDeleteModal}
+                                    disabled={isSubmitting}
+                                    className={catBtnClass}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void confirmDelete()}
+                                    disabled={isSubmitting}
+                                    className={categoryDialogBtnDangerClass}
+                                >
+                                    {isSubmitting ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        'Delete category'
+                                    )}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </dialog>
 
             <Modal
-                open={isMergeModalOpen && itemToMerge !== null}
-                onClose={closeMergeModal}
+                open={isBulkMergeOpen}
+                onClose={closeBulkMergeModal}
                 closeDisabled={isSubmitting}
                 title={
                     <span className="inline-flex items-center gap-2">
                         <GitMerge size={20} />
-                        Merge &quot;{itemToMerge?.name}&quot;
+                        Merge {selectedCategoryIds.size} categories
                     </span>
                 }
-                description="All transactions assigned to this category will move to the target. This category will be soft-deleted."
+                description="All selected categories except the target will be merged into it and soft-deleted."
                 footer={
                     <>
-                        <button type="button" onClick={closeMergeModal} disabled={isSubmitting} className={buttonOutlineClass}>
+                        <button
+                            type="button"
+                            onClick={closeBulkMergeModal}
+                            disabled={isSubmitting}
+                            className={buttonOutlineClass}
+                        >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            onClick={confirmMerge}
-                            disabled={isSubmitting || !mergeTargetId}
+                            onClick={() => void confirmBulkMerge()}
+                            disabled={isSubmitting || !bulkMergeTargetId}
                             className={cn(buttonWarningClass, 'min-w-[100px]')}
                         >
-                            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Merge'}
+                            {isSubmitting ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                            ) : (
+                                'Merge'
+                            )}
                         </button>
                     </>
                 }
@@ -871,79 +1532,57 @@ export const CategoriesPage = () => {
                         {modalError}
                     </InlineAlert>
                 ) : null}
-                <label htmlFor="mergeTargetSelect" className="mb-1 block text-sm font-medium text-paper-fg">
+                <label
+                    htmlFor="bulkMergeTargetSelect"
+                    className="mb-1 block text-sm font-medium text-paper-fg"
+                >
                     Merge into
                 </label>
                 <select
-                    id="mergeTargetSelect"
-                    value={mergeTargetId}
-                    onChange={(e) => setMergeTargetId(e.target.value)}
+                    id="bulkMergeTargetSelect"
+                    value={bulkMergeTargetId}
+                    onChange={(event) => setBulkMergeTargetId(event.target.value)}
                     disabled={isSubmitting}
                     className={cn(inputDarkClass, 'w-full cursor-pointer px-3 py-2')}
                 >
-                    <option value="">Select a category...</option>
-                    {mergeTargetOptions.map((cat) => (
+                    <option value="">Select a category…</option>
+                    {bulkMergeTargetOptions.map((cat) => (
                         <option key={cat.id} value={cat.id}>
                             {cat.parent_category_id
-                                ? `${categories.find((p) => p.id === cat.parent_category_id)?.name ?? 'Parent'} › ${cat.name}`
+                                ? `${categories.find((parent) => parent.id === cat.parent_category_id)?.name ?? 'Parent'} › ${cat.name}`
                                 : cat.name}
                         </option>
                     ))}
                 </select>
             </Modal>
 
-            <Modal
-                open={isDeleteModalOpen && itemToDelete !== null}
-                onClose={closeDeleteModal}
-                closeDisabled={isSubmitting}
-                title={
-                    <span className="inline-flex items-center gap-2 text-red-400">
-                        <AlertCircle size={20} />
-                        Confirm Deletion
+            {toast ? (
+                <div
+                    role="status"
+                    className="pointer-events-auto fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-paper-fg px-4 py-2.5 text-[13px] font-medium text-paper-surface shadow-2xl shadow-paper-fg/25"
+                >
+                    <span className="text-[var(--success)]">
+                        {toast.icon === 'restore' ? (
+                            <RotateCcw size={15} />
+                        ) : (
+                            <Check size={15} />
+                        )}
                     </span>
-                }
-                footer={
-                    <>
-                        <button type="button" onClick={closeDeleteModal} disabled={isSubmitting} className={buttonOutlineClass}>
-                            Cancel
-                        </button>
+                    <span>{toast.message}</span>
+                    {toast.onUndo ? (
                         <button
                             type="button"
-                            onClick={confirmDelete}
-                            disabled={isSubmitting}
-                            className={cn(buttonDangerClass, 'min-w-[120px]')}
+                            className="ml-1 border-0 bg-transparent font-semibold text-paper-surface underline underline-offset-2"
+                            onClick={() => {
+                                toast.onUndo?.();
+                                setToast(null);
+                            }}
                         >
-                            {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Confirm Delete'}
+                            Undo
                         </button>
-                    </>
-                }
-            >
-                <p className="text-paper-fg">
-                    Are you sure you want to delete the category{' '}
-                    <strong className="text-paper-fg">&quot;{itemToDelete?.name}&quot;</strong>?
-                    {itemToDelete ? (() => {
-                        const deleteWarning = categoryDeleteUsageWarning(itemToDelete);
-                        return deleteWarning ? (
-                            <span className="mt-2 block text-sm text-yellow-400">
-                                {deleteWarning}
-                            </span>
-                        ) : null;
-                    })() : null}
-                    {isMainCategoryDelete ? (
-                        <span className="mt-2 block text-sm text-paper-muted">
-                            Active subcategories will also be soft-deleted.
-                        </span>
                     ) : null}
-                    <span className="mt-3 block text-sm text-paper-muted">
-                        This is a soft delete. Turn on Show Deleted to restore it later.
-                    </span>
-                </p>
-                {error ? (
-                    <InlineAlert variant="error" className="mt-4">
-                        {error}
-                    </InlineAlert>
-                ) : null}
-            </Modal>
+                </div>
+            ) : null}
 
         </PageShell>
     );
