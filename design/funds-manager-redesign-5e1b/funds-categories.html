@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FUNDS — Categories</title>
   <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/categories.css" />
 </head>
 <body>
   <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
@@ -24,32 +25,77 @@
     <div class="page-body">
       <section class="panel" data-od-id="category-tree">
         <div class="panel-head">
-          <h2 class="panel-title">Category tree</h2>
-          <p class="panel-hint">12 categories · colour chips drive transaction dots</p>
+          <div>
+            <h2 class="panel-title">Category tree</h2>
+            <p class="panel-hint" id="tree-hint">12 categories · colour chips drive transaction dots</p>
+          </div>
+          <div class="tree-head-actions" data-od-id="show-deleted-wrap">
+            <label class="switch-row">
+              <button type="button" class="switch" id="show-deleted-toggle" role="switch" aria-checked="false" data-od-id="show-deleted-toggle"></button>
+              Show deleted
+              <span class="deleted-count-badge" id="deleted-count-badge">0</span>
+            </label>
+          </div>
         </div>
         <div class="panel-body" style="padding:8px 10px 16px">
           <ul class="tree" id="tree" role="tree" aria-label="Categories"></ul>
         </div>
       </section>
-
-      <section class="panel" data-od-id="merge-hint">
-        <div class="panel-body" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
-          <div style="flex:1;min-width:220px">
-            <h2 class="panel-title" style="margin-bottom:6px">Merge & reorder</h2>
-            <p class="panel-hint" style="max-width:52ch">
-              Select two or more categories with the checkboxes, then Merge. Drag the handle to reorder siblings.
-              Sub-categories nest under parents for reporting roll-ups.
-            </p>
-          </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap" id="palette" data-od-id="colour-palette"></div>
-        </div>
-      </section>
     </div>
+  </div>
+
+  <!-- Edit category -->
+  <dialog class="modal-dialog" id="edit-dialog" data-od-id="edit-dialog" aria-labelledby="edit-dialog-title">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Categories</span>
+          <h2 id="edit-dialog-title">Edit category</h2>
+        </div>
+        <button class="dialog-close" type="button" id="edit-close" aria-label="Close" data-od-id="edit-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="edit-dialog-body" data-od-id="edit-dialog-body"></div>
+      <div class="modal-actions" id="edit-dialog-actions" data-od-id="edit-dialog-actions"></div>
+    </div>
+  </dialog>
+
+  <!-- Delete confirm / blocked -->
+  <dialog class="modal-dialog" id="delete-dialog" data-od-id="delete-dialog" aria-labelledby="delete-dialog-title">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Categories</span>
+          <h2 id="delete-dialog-title">Delete category</h2>
+        </div>
+        <button class="dialog-close" type="button" id="delete-close" aria-label="Close" data-od-id="delete-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="delete-dialog-body" data-od-id="delete-dialog-body"></div>
+      <div class="modal-actions" id="delete-dialog-actions" data-od-id="delete-dialog-actions"></div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" data-od-id="toast">
+    <span class="toast-icon" id="toast-icon" aria-hidden="true"></span>
+    <span id="toast-text"></span>
   </div>
 
   <script src="js/shared.js"></script>
   <script>
     FUNDS.renderSidebar('categories');
+
+    const TODAY_ISO = '2026-08-08';
+
+    const ICON = {
+      edit: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+      trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
+      restore: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v6h6"/></svg>',
+      lock: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>',
+      check: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+    };
 
     const treeData = [
       {
@@ -73,38 +119,137 @@
           { id: 'transport-transit', name: 'Public transport', color: '#6a8ab8' },
         ],
       },
-      { id: 'dining', name: 'Dining out', color: '#c47a4a', children: [] },
+      {
+        id: 'dining', name: 'Dining out', color: '#c47a4a',
+        children: [
+          { id: 'dining-takeaway', name: 'Takeaway', color: '#d99a6a', deleted: true, deletedAt: '2026-08-04' },
+        ],
+      },
       { id: 'utilities', name: 'Utilities', color: '#6b7a8b', children: [] },
       { id: 'salary', name: 'Salary', color: '#2f7d5a', children: [] },
-      { id: 'transfer', name: 'Transfers', color: '#888888', children: [] },
-      { id: 'uncat', name: 'Uncategorized', color: '#b0b0b0', children: [] },
+      { id: 'transfer', name: 'Transfers', color: '#888888', children: [], system: true },
+      { id: 'uncat', name: 'Uncategorized', color: '#b0b0b0', children: [], system: true },
+      { id: 'subscriptions', name: 'Subscriptions', color: '#9a5b7a', children: [], deleted: true, deletedAt: '2026-07-24' },
+      { id: 'bank-fees', name: 'Bank fees', color: '#5b8a9a', children: [], deleted: true, deletedAt: '2026-08-05' },
     ];
 
-    const palette = ['#8b6b4a', '#3d8b6e', '#4a6fa5', '#c47a4a', '#6b7a8b', '#2f7d5a', '#888888', '#b0b0b0', '#9a5b7a', '#5b8a9a'];
+    let showDeleted = false;
+    let deleteTargetId = null;
+
+    function findNode(id) {
+      for (const p of treeData) {
+        if (p.id === id) return p;
+        for (const c of p.children) if (c.id === id) return c;
+      }
+      return null;
+    }
+
+    function isParentNode(id) {
+      return treeData.some((p) => p.id === id);
+    }
+
+    function findParentOf(id) {
+      return treeData.find((p) => p.children.some((c) => c.id === id)) || null;
+    }
+
+    function topLevelOptions() {
+      return treeData.filter((p) => !p.deleted && !p.system);
+    }
+
+    function escapeAttr(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
+
+    function deletedLabel(iso) {
+      const days = Math.round((new Date(TODAY_ISO) - new Date(iso)) / 86400000);
+      if (days <= 0) return 'Deleted today';
+      if (days === 1) return 'Deleted 1 day ago';
+      if (days < 14) return `Deleted ${days} days ago`;
+      const weeks = Math.round(days / 7);
+      return `Deleted ${weeks} week${weeks === 1 ? '' : 's'} ago`;
+    }
 
     function row(node, isParent) {
+      if (node.deleted) {
+        return `
+          <li class="tree-item ${isParent ? 'is-parent' : ''} is-deleted" data-id="${node.id}" data-od-id="cat-${node.id}" role="treeitem" draggable="false">
+            <span class="drag-handle" aria-hidden="true">⋮⋮</span>
+            <div style="display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden">
+              <input type="color" class="color-swatch" value="${node.color}" disabled aria-label="Colour for ${node.name}" />
+              <span class="cat-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1">${node.name}</span>
+              <span class="deleted-pill" data-od-id="deleted-pill-${node.id}">Deleted</span>
+              <span class="deleted-meta">${deletedLabel(node.deletedAt)}</span>
+            </div>
+            <div class="row-actions">
+              <button type="button" class="btn btn-restore" data-action="restore" data-id="${node.id}" data-od-id="restore-${node.id}">
+                ${ICON.restore} Restore
+              </button>
+            </div>
+          </li>`;
+      }
+
+      const editControl = node.system
+        ? ''
+        : `<button type="button" class="icon-btn" data-action="edit" data-id="${node.id}" aria-label="Edit ${node.name}" title="Edit category" data-od-id="edit-${node.id}">${ICON.edit}</button>`;
+
+      const deleteControl = node.system
+        ? `<button type="button" class="icon-btn is-locked" title="System category — can’t be deleted" aria-label="System category, cannot be deleted" disabled data-od-id="locked-${node.id}">${ICON.lock}</button>`
+        : `<button type="button" class="icon-btn icon-btn-danger" data-action="delete" data-id="${node.id}" aria-label="Delete ${node.name}" title="Delete category" data-od-id="delete-${node.id}">${ICON.trash}</button>`;
+
       return `
         <li class="tree-item ${isParent ? 'is-parent' : ''}" data-id="${node.id}" data-od-id="cat-${node.id}" role="treeitem" draggable="true">
           <span class="drag-handle" title="Drag to reorder" aria-hidden="true">⋮⋮</span>
           <label style="display:flex;align-items:center;gap:8px;min-width:0">
             <input type="checkbox" class="cat-check" value="${node.id}" aria-label="Select ${node.name}" />
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${node.name}</span>
+            <span class="cat-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${node.name}</span>
           </label>
-          <input type="color" class="color-swatch" value="${node.color}" aria-label="Colour for ${node.name}" data-id="${node.id}" />
-          <button type="button" class="btn btn-ghost" style="height:28px;padding:0 8px" data-action="add-sub" data-parent="${node.id}">+ Sub</button>
+          <div class="row-actions">
+            <input type="color" class="color-swatch" value="${node.color}" aria-label="Colour for ${node.name}" data-id="${node.id}" />
+            <button type="button" class="btn btn-ghost" style="height:28px;padding:0 8px" data-action="add-sub" data-parent="${node.id}">+ Sub</button>
+            ${editControl}
+            ${deleteControl}
+          </div>
         </li>`;
     }
 
-    function renderTree() {
-      const root = document.getElementById('tree');
-      root.innerHTML = treeData.map((p) => {
-        const kids = p.children.length
-          ? `<ul class="tree-children" role="group">${p.children.map((c) => row(c, false)).join('')}</ul>`
-          : '';
-        return `<div>${row(p, true)}${kids}</div>`;
-      }).join('');
+    function countCategories() {
+      let active = 0;
+      let deleted = 0;
+      treeData.forEach((p) => {
+        p.deleted ? deleted++ : active++;
+        p.children.forEach((c) => (c.deleted ? deleted++ : active++));
+      });
+      return { active, deleted };
+    }
 
-      root.querySelectorAll('.color-swatch').forEach((input) => {
+    function renderTree() {
+      const { active, deleted } = countCategories();
+      document.getElementById('tree-hint').textContent =
+        `${active} active categor${active === 1 ? 'y' : 'ies'} · colour chips drive transaction dots`;
+      const badge = document.getElementById('deleted-count-badge');
+      badge.textContent = deleted;
+      badge.hidden = deleted === 0;
+
+      const orderedParents = treeData
+        .map((p, i) => ({ p, i }))
+        .sort((a, b) => (a.p.deleted ? 1 : 0) - (b.p.deleted ? 1 : 0) || a.i - b.i)
+        .map(({ p }) => p);
+
+      const root = document.getElementById('tree');
+      root.innerHTML = orderedParents
+        .filter((p) => showDeleted || !p.deleted)
+        .map((p) => {
+          const kids = p.children
+            .filter((c) => showDeleted || !c.deleted)
+            .sort((a, b) => (a.deleted ? 1 : 0) - (b.deleted ? 1 : 0));
+          const kidsHtml = kids.length
+            ? `<ul class="tree-children" role="group">${kids.map((c) => row(c, false)).join('')}</ul>`
+            : '';
+          return `<div>${row(p, true)}${kidsHtml}</div>`;
+        })
+        .join('');
+
+      root.querySelectorAll('.color-swatch:not([disabled])').forEach((input) => {
         input.addEventListener('input', () => {
           const id = input.dataset.id;
           const node = findNode(id);
@@ -112,7 +257,7 @@
         });
       });
 
-      root.querySelectorAll('[draggable]').forEach((el) => {
+      root.querySelectorAll('[draggable="true"]').forEach((el) => {
         el.addEventListener('dragstart', (e) => {
           e.dataTransfer.setData('text/plain', el.dataset.id);
           el.style.opacity = '0.5';
@@ -130,14 +275,6 @@
       });
     }
 
-    function findNode(id) {
-      for (const p of treeData) {
-        if (p.id === id) return p;
-        for (const c of p.children) if (c.id === id) return c;
-      }
-      return null;
-    }
-
     function reorderHint(from, to) {
       const status = document.getElementById('reorder-status');
       if (!status) {
@@ -151,9 +288,180 @@
         `Reorder affordance: move “${findNode(from)?.name}” relative to “${findNode(to)?.name}” (prototype — order persisted in product).`;
     }
 
-    document.getElementById('palette').innerHTML = palette.map((c) =>
-      `<button type="button" class="color-swatch" style="background:${c};width:28px;height:28px" aria-label="Swatch ${c}" title="${c}"></button>`
-    ).join('');
+    /* ── Toast ── */
+    let toastTimer = null;
+    function showToast(text, opts) {
+      opts = opts || {};
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-icon').innerHTML = opts.icon === 'restore' ? ICON.restore : ICON.check;
+      document.getElementById('toast-text').textContent = text;
+
+      const existingUndo = toast.querySelector('.toast-undo');
+      if (existingUndo) existingUndo.remove();
+      if (opts.onUndo) {
+        const undoBtn = document.createElement('button');
+        undoBtn.type = 'button';
+        undoBtn.className = 'toast-undo';
+        undoBtn.textContent = 'Undo';
+        undoBtn.addEventListener('click', () => {
+          opts.onUndo();
+          toast.classList.remove('is-visible');
+        });
+        toast.appendChild(undoBtn);
+      }
+
+      toast.classList.add('is-visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 4200);
+    }
+
+    /* ── Edit dialog ── */
+    let editTargetId = null;
+
+    function openEditModal(id) {
+      const node = findNode(id);
+      if (!node || node.system || node.deleted) return;
+      editTargetId = id;
+      const parent = findParentOf(id);
+      const body = document.getElementById('edit-dialog-body');
+      const actions = document.getElementById('edit-dialog-actions');
+
+      body.innerHTML = `
+        <div class="cat-preview"><span class="cat-dot" style="background:${node.color}"></span>${node.name}</div>
+        <label class="modal-field">
+          <span>Name</span>
+          <input class="input" type="text" id="edit-name" value="${escapeAttr(node.name)}" data-od-id="edit-name" />
+        </label>
+        ${parent
+          ? `<label class="modal-field">
+              <span>Parent category</span>
+              <select class="select" id="edit-parent" data-od-id="edit-parent">
+                ${topLevelOptions().map((p) => `<option value="${p.id}" ${p.id === parent.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+              </select>
+            </label>`
+          : `<p class="modal-note">Top-level category — move sub-categories into it from their own edit screen.</p>`}
+        <p class="form-error" id="edit-name-error" hidden data-od-id="edit-name-error">Name can’t be empty.</p>
+      `;
+      actions.innerHTML = `
+        <button type="button" class="btn" id="edit-cancel-btn">Cancel</button>
+        <button type="button" class="btn btn-primary" id="edit-save-btn">Save changes</button>
+      `;
+      document.getElementById('edit-cancel-btn').addEventListener('click', closeEditModal);
+      document.getElementById('edit-save-btn').addEventListener('click', confirmEdit);
+      const nameInput = document.getElementById('edit-name');
+      nameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); confirmEdit(); }
+      });
+      document.getElementById('edit-dialog').showModal();
+      nameInput.focus();
+      nameInput.select();
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-dialog').close();
+      editTargetId = null;
+    }
+
+    function confirmEdit() {
+      if (!editTargetId) return;
+      const node = findNode(editTargetId);
+      if (!node) return;
+
+      const nameInput = document.getElementById('edit-name');
+      const newName = nameInput.value.trim();
+      if (!newName) {
+        document.getElementById('edit-name-error').hidden = false;
+        nameInput.focus();
+        return;
+      }
+      node.name = newName;
+
+      const parentSelect = document.getElementById('edit-parent');
+      if (parentSelect) {
+        const currentParent = findParentOf(node.id);
+        const newParent = treeData.find((p) => p.id === parentSelect.value);
+        if (currentParent && newParent && currentParent.id !== newParent.id) {
+          currentParent.children = currentParent.children.filter((c) => c.id !== node.id);
+          newParent.children.push(node);
+        }
+      }
+
+      closeEditModal();
+      renderTree();
+      showToast(`“${node.name}” updated.`);
+    }
+
+    /* ── Delete dialog ── */
+    function openDeleteModal(id) {
+      const node = findNode(id);
+      if (!node || node.system) return;
+      deleteTargetId = id;
+      const body = document.getElementById('delete-dialog-body');
+      const actions = document.getElementById('delete-dialog-actions');
+      const activeKids = isParentNode(id) ? node.children.filter((c) => !c.deleted) : [];
+
+      if (activeKids.length > 0) {
+        body.innerHTML = `
+          <div class="cat-preview"><span class="cat-dot" style="background:${node.color}"></span>${node.name}</div>
+          <p>This category has ${activeKids.length} sub-categor${activeKids.length === 1 ? 'y' : 'ies'}. Delete or move ${activeKids.length === 1 ? 'it' : 'them'} first:</p>
+          <ul class="child-list">${activeKids.map((c) => `<li>${c.name}</li>`).join('')}</ul>
+        `;
+        actions.innerHTML = `<button type="button" class="btn" id="delete-dismiss">Close</button>`;
+        document.getElementById('delete-dismiss').addEventListener('click', closeDeleteModal);
+      } else {
+        body.innerHTML = `
+          <div class="cat-preview"><span class="cat-dot" style="background:${node.color}"></span>${node.name}</div>
+          <p>Transactions keep this category assignment — it's just hidden from category pickers and reports while deleted.</p>
+          <p class="modal-note">Restore anytime from “Show deleted” — nothing is changed until you do.</p>
+        `;
+        actions.innerHTML = `
+          <button type="button" class="btn" id="delete-cancel-btn">Cancel</button>
+          <button type="button" class="btn btn-danger" id="delete-confirm-btn">Delete category</button>
+        `;
+        document.getElementById('delete-cancel-btn').addEventListener('click', closeDeleteModal);
+        document.getElementById('delete-confirm-btn').addEventListener('click', confirmDelete);
+      }
+      document.getElementById('delete-dialog').showModal();
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-dialog').close();
+      deleteTargetId = null;
+    }
+
+    function confirmDelete() {
+      if (!deleteTargetId) return;
+      const node = findNode(deleteTargetId);
+      if (!node) return;
+      node.deleted = true;
+      node.deletedAt = TODAY_ISO;
+      closeDeleteModal();
+      renderTree();
+      showToast(`“${node.name}” deleted — moved to Deleted categories.`, {
+        onUndo: () => restoreCategory(node.id),
+      });
+    }
+
+    function restoreCategory(id) {
+      const node = findNode(id);
+      if (!node) return;
+      node.deleted = false;
+      delete node.deletedAt;
+      renderTree();
+      showToast(`“${node.name}” restored.`, { icon: 'restore' });
+    }
+
+    document.getElementById('edit-close').addEventListener('click', closeEditModal);
+    document.getElementById('edit-dialog').addEventListener('cancel', () => { editTargetId = null; });
+
+    document.getElementById('delete-close').addEventListener('click', closeDeleteModal);
+    document.getElementById('delete-dialog').addEventListener('cancel', () => { deleteTargetId = null; });
+
+    document.getElementById('show-deleted-toggle').addEventListener('click', (e) => {
+      showDeleted = e.currentTarget.classList.toggle('is-on');
+      e.currentTarget.setAttribute('aria-checked', showDeleted ? 'true' : 'false');
+      renderTree();
+    });
 
     document.getElementById('btn-merge').addEventListener('click', () => {
       const selected = Array.from(document.querySelectorAll('.cat-check:checked')).map((c) => c.value);
@@ -167,6 +475,7 @@
     document.getElementById('btn-add').addEventListener('click', () => {
       const name = prompt('New category name');
       if (!name) return;
+      const palette = ['#8b6b4a', '#3d8b6e', '#4a6fa5', '#c47a4a', '#6b7a8b', '#2f7d5a', '#888888', '#b0b0b0', '#9a5b7a', '#5b8a9a'];
       treeData.push({
         id: 'cat-' + Date.now(),
         name,
@@ -177,18 +486,38 @@
     });
 
     document.getElementById('tree').addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-action="add-sub"]');
-      if (!btn) return;
-      const parent = treeData.find((p) => p.id === btn.dataset.parent);
-      if (!parent) return;
-      const name = prompt('Sub-category under ' + parent.name);
-      if (!name) return;
-      parent.children.push({
-        id: 'sub-' + Date.now(),
-        name,
-        color: parent.color,
-      });
-      renderTree();
+      const addBtn = e.target.closest('[data-action="add-sub"]');
+      if (addBtn) {
+        const parent = treeData.find((p) => p.id === addBtn.dataset.parent);
+        if (!parent) return;
+        const name = prompt('Sub-category under ' + parent.name);
+        if (!name) return;
+        parent.children.push({
+          id: 'sub-' + Date.now(),
+          name,
+          color: parent.color,
+        });
+        renderTree();
+        return;
+      }
+
+      const editBtn = e.target.closest('[data-action="edit"]');
+      if (editBtn) {
+        openEditModal(editBtn.dataset.id);
+        return;
+      }
+
+      const delBtn = e.target.closest('[data-action="delete"]');
+      if (delBtn) {
+        openDeleteModal(delBtn.dataset.id);
+        return;
+      }
+
+      const restoreBtn = e.target.closest('[data-action="restore"]');
+      if (restoreBtn) {
+        restoreCategory(restoreBtn.dataset.id);
+        return;
+      }
     });
 
     renderTree();
