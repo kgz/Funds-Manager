@@ -12,6 +12,7 @@
 #   OD_DAEMON_URL       default: http://127.0.0.1:7456
 #   OD_WEB_URL          default: http://127.0.0.1:7456
 #   OD_AGENT_ID         default: cursor-agent
+#   OD_MODEL            default: auto (Cursor CLI model for cursor-agent runs)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -20,6 +21,7 @@ CONVERSATION="${OD_CONVERSATION:-66c8b7e4-40d6-4a43-b0bd-346a3ee68e4b}"
 DAEMON="${OD_DAEMON_URL:-http://127.0.0.1:7456}"
 WEB="${OD_WEB_URL:-http://127.0.0.1:7456}"
 AGENT="${OD_AGENT_ID:-cursor-agent}"
+MODEL="${OD_MODEL:-auto}"
 
 ISSUE=""
 NEW_CONV_TITLE=""
@@ -91,7 +93,7 @@ fi
 # POST /api/runs alone does not populate chat when conversationId is explicit —
 # assistantMessageId must be set and messages PUT first (see OD batch-design-system-test.ts).
 response="$(
-	PROMPT="$PROMPT" PROJECT="$PROJECT" CONVERSATION="$CONVERSATION" AGENT="$AGENT" DAEMON="$DAEMON" python3 <<'PY'
+	PROMPT="$PROMPT" PROJECT="$PROJECT" CONVERSATION="$CONVERSATION" AGENT="$AGENT" MODEL="$MODEL" DAEMON="$DAEMON" python3 <<'PY'
 import json
 import os
 import time
@@ -102,6 +104,7 @@ prompt = os.environ["PROMPT"]
 project = os.environ["PROJECT"]
 conversation = os.environ["CONVERSATION"]
 agent = os.environ["AGENT"]
+model = os.environ.get("MODEL", "").strip()
 daemon = os.environ["DAEMON"]
 now = int(time.time() * 1000)
 
@@ -138,17 +141,21 @@ api(
     },
 )
 
+run_body = {
+    "projectId": project,
+    "conversationId": conversation,
+    "assistantMessageId": assistant_message_id,
+    "message": prompt,
+    "currentPrompt": prompt,
+    "agentId": agent,
+}
+if model:
+    run_body["model"] = model
+
 run = api(
     "POST",
     "/api/runs",
-    {
-        "projectId": project,
-        "conversationId": conversation,
-        "assistantMessageId": assistant_message_id,
-        "message": prompt,
-        "currentPrompt": prompt,
-        "agentId": agent,
-    },
+    run_body,
 )
 
 api(
@@ -172,6 +179,7 @@ conv_id="$(echo "$response" | python3 -c 'import json,sys; print(json.load(sys.s
 watch_url="$WEB/projects/$PROJECT/conversations/${conv_id:-$CONVERSATION}"
 
 echo "Run started: $run_id"
+echo "Model:       $MODEL"
 echo "Watch live:  $watch_url"
 echo "Project:     $PROJECT"
 echo "Conversation: ${conv_id:-$CONVERSATION}"

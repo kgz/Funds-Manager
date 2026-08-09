@@ -5,6 +5,7 @@ window.FUNDS = {
     { id: 'pc-9120', label: "People's Choice 9120" },
     { id: 'pc-savings', label: "People's Choice Savings" },
     { id: 'cba-offset', label: 'CBA Offset 4412' },
+    { id: 'banksa-everyday', label: 'BankSA Everyday 7761' },
   ],
   snapshotPeriods: {
     '1m': 'This month',
@@ -236,7 +237,7 @@ const NAV_GROUPS = [
     id: 'net-worth',
     label: 'Net worth',
     items: [
-      { id: 'accounts', href: '#', label: 'Accounts', icon: 'wallet', stub: true },
+      { id: 'accounts', href: 'funds-accounts.html', label: 'Accounts', icon: 'wallet' },
       { id: 'assets', href: '#', label: 'Assets', icon: 'asset', stub: true },
       { id: 'liabilities', href: '#', label: 'Liabilities', icon: 'liability', stub: true },
     ],
