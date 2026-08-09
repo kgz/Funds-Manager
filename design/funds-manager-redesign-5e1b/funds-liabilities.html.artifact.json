@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-liabilities.html",
+  "entry": "funds-liabilities.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-08-09T04:43:49.363Z",
+  "updatedAt": "2026-08-09T04:43:49.363Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

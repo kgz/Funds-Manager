@@ -1,7 +1,7 @@
 # issue	expected_board	notes
 # expected_board: backlog | ready | in-progress | in-review | done
 # Update this when code status changes; run ./bin/board-audit.sh --apply to sync the GitHub board.
-214	in-progress	epic: warm-paper theme on branch; not all pages ported
+214	done	warm-paper OD redesign — all pages ported
 215	done	sidebar + command palette (#270)
 216	done	breakdown OD port — merged to main
 217	done	predictions OD port — merged to main
@@ -17,7 +17,7 @@
 227	done	planned spending OD port — merged to main
 228	done	accounts — OD design + port
 229	done	assets — OD design + port
-230	backlog	liabilities — no OD HTML
+230	done	liabilities — OD design + port
 231	done	settings — saved connections + OD port (#272)
 232	backlog	parked — AI demo, not active delivery
 254	backlog	multi-select account filter — all pages (#254)
