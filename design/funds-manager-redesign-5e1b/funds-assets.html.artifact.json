@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-assets.html",
+  "entry": "funds-assets.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-08-09T04:33:10.772Z",
+  "updatedAt": "2026-08-09T04:33:10.772Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

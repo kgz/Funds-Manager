@@ -238,7 +238,7 @@ const NAV_GROUPS = [
     label: 'Net worth',
     items: [
       { id: 'accounts', href: 'funds-accounts.html', label: 'Accounts', icon: 'wallet' },
-      { id: 'assets', href: '#', label: 'Assets', icon: 'asset', stub: true },
+      { id: 'assets', href: 'funds-assets.html', label: 'Assets', icon: 'asset' },
       { id: 'liabilities', href: '#', label: 'Liabilities', icon: 'liability', stub: true },
     ],
   },

@@ -1,0 +1,405 @@
+/* Assets — net worth holdings, valuations, modals */
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Header total KPI ── */
+.header-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--success) 4%, var(--surface));
+}
+.header-total-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.header-total-value {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--success);
+  white-space: nowrap;
+}
+
+/* ── Table ── */
+table.data .col-value { text-align: right; width: 128px; }
+table.data .col-valued { width: 148px; }
+table.data .col-type { width: 108px; }
+table.data .col-source { color: var(--muted); max-width: 180px; }
+table.data .col-actions { width: 1%; white-space: nowrap; text-align: right; }
+
+table.data .amount.pos { color: var(--success); }
+
+.valued-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kind-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.kind-pill.property {
+  color: oklch(42% 0.08 55);
+  border-color: color-mix(in oklch, oklch(55% 0.1 55) 28%, var(--border));
+  background: color-mix(in oklch, oklch(55% 0.1 55) 8%, var(--surface));
+}
+.kind-pill.vehicle {
+  color: oklch(42% 0.08 250);
+  border-color: color-mix(in oklch, oklch(55% 0.1 250) 28%, var(--border));
+  background: color-mix(in oklch, oklch(55% 0.1 250) 8%, var(--surface));
+}
+.kind-pill.super {
+  color: oklch(40% 0.1 155);
+  border-color: color-mix(in oklch, var(--success) 28%, var(--border));
+  background: color-mix(in oklch, var(--success) 8%, var(--surface));
+}
+.kind-pill.shares {
+  color: oklch(42% 0.1 290);
+  border-color: color-mix(in oklch, oklch(55% 0.12 290) 28%, var(--border));
+  background: color-mix(in oklch, oklch(55% 0.12 290) 8%, var(--surface));
+}
+.kind-pill.cash {
+  color: oklch(42% 0.06 230);
+  border-color: color-mix(in oklch, var(--accent) 28%, var(--border));
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+}
+.kind-pill.other {
+  color: var(--muted);
+}
+
+.pill.stale {
+  color: oklch(45% 0.12 75);
+  border-color: color-mix(in oklch, var(--warn) 35%, var(--border));
+  background: color-mix(in oklch, var(--warn) 10%, var(--surface));
+  font-size: 10px;
+  height: 18px;
+  padding: 0 6px;
+}
+
+.actions-cell {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.table-wrap[hidden] { display: none; }
+
+/* ── Empty state ── */
+.empty-state {
+  padding: 48px 24px;
+  text-align: center;
+}
+.empty-state[hidden] { display: none; }
+
+.empty-state-icon {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto 14px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.empty-state h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.empty-state p {
+  margin: 0 auto;
+  max-width: 40ch;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.empty-state-action { margin-top: 16px; }
+
+/* ── Modals ── */
+.modal-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 48px));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 16px 48px color-mix(in oklch, var(--fg) 12%, transparent);
+}
+.modal-dialog.is-wide {
+  width: min(560px, calc(100vw - 32px));
+}
+.modal-dialog::backdrop {
+  background: color-mix(in oklch, var(--fg) 32%, transparent);
+  backdrop-filter: blur(2px);
+}
+.modal-dialog[open] { animation: modal-in 180ms var(--ease); }
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modal-shell { display: flex; flex-direction: column; min-height: 0; max-height: inherit; }
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 0;
+  flex-shrink: 0;
+}
+.modal-head .eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.modal-head h2 { margin: 0; font-size: 17px; letter-spacing: -0.02em; }
+.modal-head p { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); }
+
+.modal-body {
+  padding: 14px 22px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  font-size: 13px;
+}
+
+.modal-field { display: flex; flex-direction: column; gap: 6px; }
+.modal-field > span {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.modal-field .input,
+.modal-field .select { width: 100%; }
+.modal-field .field-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+.modal-field textarea {
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font: inherit;
+  resize: vertical;
+}
+.modal-field textarea:focus {
+  outline: none;
+  border-color: color-mix(in oklch, var(--accent) 50%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 12%, transparent);
+}
+
+.modal-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklch, var(--danger) 30%, var(--border));
+  background: color-mix(in oklch, var(--danger) 7%, var(--surface));
+  color: var(--danger);
+  font-size: 12px;
+}
+.form-error[hidden] { display: none; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.dialog-close {
+  display: grid;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+.dialog-close:hover { background: color-mix(in oklch, var(--fg) 4%, transparent); color: var(--fg); }
+
+.btn-danger {
+  border-color: color-mix(in oklch, var(--danger) 38%, var(--border));
+  background: color-mix(in oklch, var(--danger) 6%, var(--surface));
+  color: var(--danger);
+}
+.btn-danger:hover { background: color-mix(in oklch, var(--danger) 14%, var(--surface)); }
+
+.btn-accent {
+  border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
+  background: color-mix(in oklch, var(--accent) 10%, var(--surface));
+  color: var(--accent);
+}
+.btn-accent:hover { background: color-mix(in oklch, var(--accent) 18%, var(--surface)); }
+
+/* ── Valuation history (edit modal) ── */
+.val-section {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.val-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.val-section-head h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.val-section-head p {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.val-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.val-list:empty { display: none; }
+
+.val-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 12.5px;
+}
+.val-row.is-current {
+  border-color: color-mix(in oklch, var(--success) 30%, var(--border));
+  background: color-mix(in oklch, var(--success) 5%, var(--surface));
+}
+.val-row-date { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.val-row-value { font-family: var(--font-mono); font-weight: 500; color: var(--success); text-align: right; }
+.val-row-source { color: var(--muted); font-size: 11.5px; }
+.val-row-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.val-row-remove {
+  height: 26px;
+  padding: 0 8px;
+  font-size: 11.5px;
+}
+
+.val-add {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--fg) 2%, var(--surface));
+}
+.val-add .modal-field { gap: 4px; }
+.val-add-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.loan-field[hidden] { display: none; }
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 32px color-mix(in oklch, var(--fg) 24%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 10px);
+  transition: opacity 200ms var(--ease), transform 200ms var(--ease);
+}
+.toast.is-visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.toast-icon { display: inline-flex; color: var(--success); flex-shrink: 0; }
+
+@media (max-width: 720px) {
+  .header-total { display: none; }
+  .modal-field-row,
+  .val-add { grid-template-columns: 1fr; }
+}

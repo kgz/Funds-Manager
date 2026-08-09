@@ -1,28 +1,22 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { DateTime } from 'luxon';
-import {
-	Building2,
-	Edit2,
-	Loader2,
-	Plus,
-	Trash2,
-	TriangleAlert,
-} from 'lucide-react';
-import { EmptyState } from '@/components/layout/EmptyState';
+import { Check, Loader2, Pencil, Plus, Shield, Trash2, X } from 'lucide-react';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { InlineAlert } from '@/components/layout/InlineAlert';
-import { Modal } from '@/components/layout/Modal';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
-import { StatCard } from '@/components/layout/StatCard';
 import {
-	buttonDangerClass,
-	buttonOutlineClass,
-	buttonPrimaryClass,
 	dateInputClass,
+	eyebrowClass,
 	glassCardClass,
 	inputDarkClass,
+	pageActionsClass,
+	pageBodyClass,
+	pageHeaderClass,
+	pageSubtitleClass,
+	pageTitleClass,
+	panelHintClass,
+	panelTitleClass,
 	selectDarkClass,
 } from '@/components/layout/tokens';
 import { cn } from '@/lib/utils/cn';
@@ -49,9 +43,48 @@ import {
 	type AssetValuation,
 } from '@/types/assets';
 
-type ModalMode = 'add' | 'edit';
+type AssetFormMode = 'add' | 'edit' | null;
 
-const ASSET_FORM_ID = 'asset-form';
+const assetBtnClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-border bg-paper-surface px-3 text-[13px] font-medium tracking-[0.02em] text-paper-fg transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_3%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
+
+const assetBtnPrimaryClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-paper-fg bg-paper-fg px-3 text-[13px] font-medium tracking-[0.02em] !text-white transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_88%,white)] disabled:cursor-not-allowed disabled:opacity-50';
+
+const assetBtnGhostClass =
+	'inline-flex h-7 cursor-pointer items-center justify-center gap-1 rounded-paper border border-transparent bg-transparent px-2 text-xs font-medium text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:cursor-not-allowed disabled:opacity-50';
+
+const assetBtnAccentClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-secondary-default/45 bg-secondary-default/10 px-3 text-[13px] font-medium tracking-[0.02em] text-secondary-default transition-colors hover:bg-secondary-default/20 disabled:cursor-not-allowed disabled:opacity-50';
+
+const assetBtnDangerClass =
+	'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-paper border border-[color-mix(in_oklch,var(--danger)_38%,var(--border))] bg-[color-mix(in_oklch,var(--danger)_6%,var(--surface))] px-3 text-[13px] font-medium tracking-[0.02em] text-[var(--danger)] transition-colors hover:bg-[color-mix(in_oklch,var(--danger)_14%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50';
+
+const assetDialogClass =
+	'fixed inset-0 m-auto flex w-[min(480px,calc(100vw-32px))] max-h-[min(680px,calc(100vh-48px))] flex-col overflow-hidden rounded-[10px] border border-paper-border bg-paper-surface p-0 shadow-[0_16px_48px_color-mix(in_oklch,var(--fg)_12%,transparent)] backdrop:bg-paper-fg/35 backdrop:backdrop-blur-sm [&:not([open])]:hidden';
+
+const assetDialogWideClass =
+	'fixed inset-0 m-auto flex w-[min(560px,calc(100vw-32px))] max-h-[min(680px,calc(100vh-48px))] flex-col overflow-hidden rounded-[10px] border border-paper-border bg-paper-surface p-0 shadow-[0_16px_48px_color-mix(in_oklch,var(--fg)_12%,transparent)] backdrop:bg-paper-fg/35 backdrop:backdrop-blur-sm [&:not([open])]:hidden';
+
+const assetModalBodyClass =
+	'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-[22px] pb-[18px] pt-3.5 text-[13px] leading-[1.55] text-paper-fg [&_p]:m-0';
+
+const assetModalFieldClass = 'flex flex-col gap-1.5';
+
+const assetModalFieldLabelClass =
+	'text-[11px] font-medium uppercase tracking-[0.04em] text-paper-muted';
+
+const assetFormErrorClass =
+	'm-0 rounded-paper border border-[color-mix(in_oklch,var(--danger)_30%,var(--border))] bg-[color-mix(in_oklch,var(--danger)_7%,var(--surface))] px-2.5 py-2 text-xs text-[var(--danger)]';
+
+const tableThClass =
+	'sticky top-0 whitespace-nowrap border-b border-paper-border bg-paper px-3 py-2.5 text-left text-[11px] font-medium uppercase tracking-[0.06em] text-paper-muted';
+
+const tableTdClass =
+	'border-b border-paper-border px-3 py-2.5 align-middle text-[13px] text-paper-fg';
+
+const headerTotalClass =
+	'hidden flex-col items-end gap-0.5 rounded-paper border border-paper-border bg-[color-mix(in_oklch,var(--success)_4%,var(--surface))] px-3.5 py-2 sm:flex';
 
 const formatMoney = (cents: number) =>
 	`$${Math.abs(cents / 100).toLocaleString('en-AU', {
@@ -72,6 +105,54 @@ function formatValuedAt(valuedAt: string | null): string {
 	return parsed.isValid ? parsed.toFormat('d MMM yyyy') : '—';
 }
 
+function assetCountLabel(count: number): string {
+	if (count === 0) {
+		return 'No assets recorded';
+	}
+	return `${count} asset${count === 1 ? '' : 's'}`;
+}
+
+function kindPillClass(kind: AssetKind): string {
+	switch (kind) {
+		case 'property':
+			return 'border-[color-mix(in_oklch,oklch(55%_0.1_55)_28%,var(--border))] bg-[color-mix(in_oklch,oklch(55%_0.1_55)_8%,var(--surface))] text-[oklch(42%_0.08_55)]';
+		case 'vehicle':
+			return 'border-[color-mix(in_oklch,oklch(55%_0.1_250)_28%,var(--border))] bg-[color-mix(in_oklch,oklch(55%_0.1_250)_8%,var(--surface))] text-[oklch(42%_0.08_250)]';
+		case 'super':
+			return 'border-[color-mix(in_oklch,var(--success)_28%,var(--border))] bg-[color-mix(in_oklch,var(--success)_8%,var(--surface))] text-[oklch(40%_0.1_155)]';
+		case 'savings':
+			return 'border-[color-mix(in_oklch,var(--accent)_28%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_8%,var(--surface))] text-[oklch(42%_0.06_230)]';
+		case 'investment':
+			return 'border-[color-mix(in_oklch,oklch(55%_0.12_290)_28%,var(--border))] bg-[color-mix(in_oklch,oklch(55%_0.12_290)_8%,var(--surface))] text-[oklch(42%_0.1_290)]';
+		default:
+			return 'border-paper-border bg-paper text-paper-muted';
+	}
+}
+
+function AssetKindPill({ kind }: { kind: AssetKind }) {
+	return (
+		<span
+			className={cn(
+				'inline-flex h-[22px] items-center rounded-full border px-2 text-[11px] font-medium tracking-[0.02em] whitespace-nowrap',
+				kindPillClass(kind)
+			)}
+		>
+			{assetKindLabel(kind)}
+		</span>
+	);
+}
+
+function StalePill() {
+	return (
+		<span
+			className="inline-flex h-[18px] items-center rounded-full border border-[color-mix(in_oklch,var(--warn)_35%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_10%,var(--surface))] px-1.5 text-[10px] font-medium text-[oklch(45%_0.12_75)]"
+			title="Valuation is missing or older than 12 months"
+		>
+			Stale
+		</span>
+	);
+}
+
 export default function AssetsPage() {
 	const dispatch = useAppDispatch();
 	const { items, totalValueCents, loading, error } = useAppSelector(
@@ -79,8 +160,7 @@ export default function AssetsPage() {
 	);
 	const liabilities = useAppSelector((state) => state.LiabilitiesReducer.items);
 
-	const [modalOpen, setModalOpen] = useState(false);
-	const [modalMode, setModalMode] = useState<ModalMode>('add');
+	const [formMode, setFormMode] = useState<AssetFormMode>(null);
 	const [editingItem, setEditingItem] = useState<Asset | null>(null);
 	const [name, setName] = useState('');
 	const [kind, setKind] = useState<AssetKind>('property');
@@ -102,11 +182,74 @@ export default function AssetsPage() {
 	const [valSubmitting, setValSubmitting] = useState(false);
 
 	const [deleteTarget, setDeleteTarget] = useState<Asset | null>(null);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+	const [toast, setToast] = useState<string | null>(null);
+
+	const addDialogRef = useRef<HTMLDialogElement>(null);
+	const editDialogRef = useRef<HTMLDialogElement>(null);
+	const deleteDialogRef = useRef<HTMLDialogElement>(null);
+	const nameInputRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		void dispatch(getAssets());
 		void dispatch(getLiabilities());
 	}, [dispatch]);
+
+	useEffect(() => {
+		if (!toast) {
+			return;
+		}
+		const timer = window.setTimeout(() => setToast(null), 3200);
+		return () => window.clearTimeout(timer);
+	}, [toast]);
+
+	useEffect(() => {
+		const dialog = addDialogRef.current;
+		if (dialog === null) {
+			return;
+		}
+		if (formMode === 'add' && !dialog.open) {
+			dialog.showModal();
+			requestAnimationFrame(() => nameInputRef.current?.focus());
+		} else if (formMode !== 'add' && dialog.open) {
+			dialog.close();
+		}
+	}, [formMode]);
+
+	useEffect(() => {
+		const dialog = editDialogRef.current;
+		if (dialog === null) {
+			return;
+		}
+		if (formMode === 'edit' && editingItem !== null && !dialog.open) {
+			dialog.showModal();
+			requestAnimationFrame(() => nameInputRef.current?.focus());
+		} else if ((formMode !== 'edit' || editingItem === null) && dialog.open) {
+			dialog.close();
+		}
+	}, [formMode, editingItem]);
+
+	useEffect(() => {
+		const dialog = deleteDialogRef.current;
+		if (dialog === null) {
+			return;
+		}
+		if (deleteTarget !== null && !dialog.open) {
+			dialog.showModal();
+		} else if (deleteTarget === null && dialog.open) {
+			dialog.close();
+		}
+	}, [deleteTarget]);
+
+	const sortedValuations = useMemo(
+		() =>
+			[...valuations].sort((left, right) =>
+				right.valued_at.localeCompare(left.valued_at)
+			),
+		[valuations]
+	);
+
+	const latestValuationId = sortedValuations[0]?.id ?? null;
 
 	const resetValuationForm = () => {
 		setValDate(DateTime.now().toISODate() ?? '');
@@ -125,9 +268,7 @@ export default function AssetsPage() {
 		}
 	};
 
-	const openAddModal = () => {
-		setModalMode('add');
-		setEditingItem(null);
+	const resetFormFields = () => {
 		setName('');
 		setKind('property');
 		setValue('');
@@ -139,11 +280,15 @@ export default function AssetsPage() {
 		setPurchaseDate('');
 		setValuations([]);
 		setModalError(null);
-		setModalOpen(true);
+	};
+
+	const openAddModal = () => {
+		setEditingItem(null);
+		resetFormFields();
+		setFormMode('add');
 	};
 
 	const openEditModal = (item: Asset) => {
-		setModalMode('edit');
 		setEditingItem(item);
 		setName(item.name);
 		setKind(item.kind);
@@ -152,18 +297,20 @@ export default function AssetsPage() {
 		setValueSource(item.value_source ?? '');
 		setLiabilityId(item.liability_id ?? '');
 		setNotes(item.notes ?? '');
+		setPurchasePrice('');
+		setPurchaseDate('');
 		setValuations([]);
 		resetValuationForm();
 		setModalError(null);
-		setModalOpen(true);
+		setFormMode('edit');
 		void loadValuations(item.id);
 	};
 
-	const closeModal = () => {
-		if (submitting) {
+	const closeFormModal = () => {
+		if (submitting || valSubmitting) {
 			return;
 		}
-		setModalOpen(false);
+		setFormMode(null);
 		setEditingItem(null);
 		setModalError(null);
 	};
@@ -173,13 +320,14 @@ export default function AssetsPage() {
 			return;
 		}
 		setDeleteTarget(null);
+		setDeleteError(null);
 	};
 
 	const onSubmit = async (event: FormEvent) => {
 		event.preventDefault();
 		const trimmedName = name.trim();
 		if (trimmedName.length === 0) {
-			setModalError('Name is required');
+			setModalError('Name is required.');
 			return;
 		}
 
@@ -187,8 +335,7 @@ export default function AssetsPage() {
 			kind === 'property' && liabilityId.length > 0 ? Number(liabilityId) : null;
 		const notesValue = notes.trim().length > 0 ? notes.trim() : null;
 
-		// Edit only touches metadata; value is managed through the valuation history.
-		if (modalMode === 'edit' && editingItem !== null) {
+		if (formMode === 'edit' && editingItem !== null) {
 			const payload = {
 				name: trimmedName,
 				kind,
@@ -206,14 +353,16 @@ export default function AssetsPage() {
 				setModalError(readThunkRejectMessage(result, 'Failed to save asset'));
 				return;
 			}
-			closeModal();
+			setToast(`“${trimmedName}” updated.`);
+			setFormMode(null);
+			setEditingItem(null);
 			void dispatch(getAssets());
 			return;
 		}
 
 		const valueCents = parsePositiveDollarsToCents(value);
 		if (valueCents === null) {
-			setModalError('Enter a value');
+			setModalError('Enter a valid current value.');
 			return;
 		}
 
@@ -221,11 +370,11 @@ export default function AssetsPage() {
 		if (purchasePrice.trim().length > 0) {
 			purchasePriceCents = parsePositiveDollarsToCents(purchasePrice);
 			if (purchasePriceCents === null) {
-				setModalError('Enter a valid purchase price');
+				setModalError('Enter a valid purchase price.');
 				return;
 			}
 			if (purchaseDate.length < 10) {
-				setModalError('Enter a purchase date');
+				setModalError('Enter a purchase date.');
 				return;
 			}
 		}
@@ -245,9 +394,7 @@ export default function AssetsPage() {
 
 		setSubmitting(true);
 		setModalError(null);
-
 		const result = await dispatch(createAssetThunk(payload));
-
 		setSubmitting(false);
 
 		if (createAssetThunk.rejected.match(result)) {
@@ -255,7 +402,8 @@ export default function AssetsPage() {
 			return;
 		}
 
-		closeModal();
+		setToast(`“${trimmedName}” added.`);
+		setFormMode(null);
 		void dispatch(getAssets());
 	};
 
@@ -265,11 +413,11 @@ export default function AssetsPage() {
 		}
 		const amountCents = parsePositiveDollarsToCents(valAmount);
 		if (amountCents === null) {
-			setModalError('Enter a valuation amount');
+			setModalError('Enter a valid valuation amount.');
 			return;
 		}
 		if (valDate.length < 10) {
-			setModalError('Enter a valuation date');
+			setModalError('Valuation date is required.');
 			return;
 		}
 		setValSubmitting(true);
@@ -283,6 +431,7 @@ export default function AssetsPage() {
 			resetValuationForm();
 			await loadValuations(editingItem.id);
 			void dispatch(getAssets());
+			setToast('Valuation added.');
 		} catch {
 			setModalError('Failed to add valuation');
 		} finally {
@@ -291,7 +440,7 @@ export default function AssetsPage() {
 	};
 
 	const onRemoveValuation = async (valuationId: string) => {
-		if (editingItem === null) {
+		if (editingItem === null || valuations.length <= 1) {
 			return;
 		}
 		setValSubmitting(true);
@@ -300,6 +449,7 @@ export default function AssetsPage() {
 			await deleteAssetValuation(editingItem.id, valuationId);
 			await loadValuations(editingItem.id);
 			void dispatch(getAssets());
+			setToast('Valuation removed.');
 		} catch {
 			setModalError('Failed to remove valuation');
 		} finally {
@@ -311,21 +461,24 @@ export default function AssetsPage() {
 		if (deleteTarget === null) {
 			return;
 		}
+		const deletedName = deleteTarget.name;
 		setSubmitting(true);
+		setDeleteError(null);
 		const result = await dispatch(deleteAssetThunk(deleteTarget.id));
 		setSubmitting(false);
 
 		if (deleteAssetThunk.rejected.match(result)) {
-			setModalError(readThunkRejectMessage(result, 'Failed to delete asset'));
+			setDeleteError(readThunkRejectMessage(result, 'Failed to delete asset'));
 			return;
 		}
 
-		closeDeleteModal();
+		setToast(`“${deletedName}” deleted.`);
+		setDeleteTarget(null);
+		void dispatch(getAssets());
 	};
 
 	const initialLoading = loading && items.length === 0 && error === null;
 	const isRefreshing = loading && items.length > 0;
-	const showEmpty = !loading && items.length === 0 && error === null;
 
 	if (initialLoading) {
 		return <PageLoadingState label="Loading assets…" />;
@@ -343,203 +496,447 @@ export default function AssetsPage() {
 
 	return (
 		<PageShell variant="table">
-			<div className="space-y-3 border-b border-paper-border p-4">
-				<PageHeader
-					title="Assets"
-					subtitle="What you own — property, vehicles, super, and balances held outside the app."
-					icon={<Building2 className="h-6 w-6 text-secondary-default" />}
-					className="mb-0"
-					pending={isRefreshing}
-					meta={
-						loading ? (
-							<Loader2
-								className="h-4 w-4 animate-spin text-secondary-default"
-								aria-label="Loading"
-							/>
-						) : null
-					}
-					actions={
-						<button type="button" className={buttonPrimaryClass} onClick={openAddModal}>
-							<Plus size="1rem" className="inline-block mr-1" />
+			<header className={pageHeaderClass}>
+				<div className="flex flex-wrap items-start justify-between gap-4">
+					<div className="min-w-0">
+						<div className="flex flex-wrap items-center gap-2">
+							<h1 className={pageTitleClass}>Assets</h1>
+							{isRefreshing ? (
+								<Loader2
+									className="h-4 w-4 animate-spin text-secondary-default"
+									aria-label="Loading"
+								/>
+							) : null}
+						</div>
+						<p className={pageSubtitleClass}>
+							What you own — property, vehicles, super, and external balances for
+							net worth
+						</p>
+					</div>
+					<div className={pageActionsClass}>
+						<div className={headerTotalClass} aria-live="polite">
+							<span className="text-[10px] font-medium uppercase tracking-[0.06em] text-paper-muted">
+								Total value
+							</span>
+							<strong className="font-mono text-lg font-medium tracking-[-0.01em] tabular-nums text-[var(--success)]">
+								{formatMoney(totalValueCents)}
+							</strong>
+						</div>
+						<button
+							type="button"
+							className={assetBtnPrimaryClass}
+							onClick={openAddModal}
+						>
+							<Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
 							Add asset
 						</button>
-					}
-				/>
-
-				<div className="flex justify-end">
-					<StatCard
-						label="Total value"
-						value={formatMoney(totalValueCents)}
-						valueClassName="text-green-300"
-						hint="Sum of all asset values."
-						align="right"
-					/>
+					</div>
 				</div>
+			</header>
 
+			<div className={pageBodyClass}>
 				{error !== null && items.length > 0 ? (
 					<InlineAlert variant="error">{error}</InlineAlert>
 				) : null}
+
+				<section className={cn(glassCardClass, 'overflow-hidden p-0')}>
+					<div className="flex items-center justify-between gap-3 border-b border-paper-border px-4 py-3.5">
+						<div className="min-w-0">
+							<h2 className={panelTitleClass}>Your assets</h2>
+							<p className={panelHintClass}>{assetCountLabel(items.length)}</p>
+						</div>
+					</div>
+
+					{items.length === 0 ? (
+						<div className="px-6 py-12 text-center">
+							<div
+								className="mx-auto mb-3.5 grid h-11 w-11 place-items-center rounded-[10px] border border-paper-border bg-paper text-paper-muted"
+								aria-hidden
+							>
+								<Shield className="h-[22px] w-[22px]" strokeWidth={1.6} />
+							</div>
+							<h3 className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-paper-fg">
+								No assets yet
+							</h3>
+							<p className="mx-auto mt-1.5 max-w-[40ch] text-[13px] leading-snug text-paper-muted">
+								Add property, super, vehicles, or external balances to track what
+								you own.
+							</p>
+							<div className="mt-4">
+								<button
+									type="button"
+									className={assetBtnPrimaryClass}
+									onClick={openAddModal}
+								>
+									<Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
+									Add asset
+								</button>
+							</div>
+						</div>
+					) : (
+						<div className="overflow-x-auto">
+							<table className="w-full border-collapse text-[13px]">
+								<thead>
+									<tr>
+										<th className={tableThClass}>Name</th>
+										<th className={cn(tableThClass, 'w-[108px]')}>Type</th>
+										<th className={cn(tableThClass, 'w-[128px] text-right')}>
+											Value
+										</th>
+										<th className={cn(tableThClass, 'w-[148px]')}>Valued</th>
+										<th className={tableThClass}>Source</th>
+										<th className={cn(tableThClass, 'text-right')}>
+											<span className="sr-only">Actions</span>
+										</th>
+									</tr>
+								</thead>
+								<tbody>
+									{items.map((item) => {
+										const stale = isValuationStale(item.valued_at);
+										return (
+											<tr key={item.id}>
+												<td className={cn(tableTdClass, 'font-medium')}>
+													{item.name}
+												</td>
+												<td className={tableTdClass}>
+													<AssetKindPill kind={item.kind} />
+												</td>
+												<td
+													className={cn(
+														tableTdClass,
+														'text-right font-mono tabular-nums text-[var(--success)]'
+													)}
+												>
+													{formatMoney(item.value_cents)}
+												</td>
+												<td className={tableTdClass}>
+													<span className="inline-flex flex-wrap items-center gap-1.5">
+														<span className="font-mono tabular-nums text-paper-fg">
+															{formatValuedAt(item.valued_at)}
+														</span>
+														{stale ? <StalePill /> : null}
+													</span>
+												</td>
+												<td
+													className={cn(
+														tableTdClass,
+														'max-w-[180px] truncate text-paper-muted'
+													)}
+												>
+													{item.value_source ?? '—'}
+												</td>
+												<td className={cn(tableTdClass, 'text-right')}>
+													<div className="flex justify-end gap-1.5">
+														<button
+															type="button"
+															className={assetBtnGhostClass}
+															onClick={() => openEditModal(item)}
+															aria-label={`Edit ${item.name}`}
+														>
+															<Pencil className="h-3.5 w-3.5" strokeWidth={2} />
+															Edit
+														</button>
+														<button
+															type="button"
+															className={assetBtnGhostClass}
+															onClick={() => {
+																setDeleteError(null);
+																setDeleteTarget(item);
+															}}
+															aria-label={`Delete ${item.name}`}
+														>
+															<Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+															Delete
+														</button>
+													</div>
+												</td>
+											</tr>
+										);
+									})}
+								</tbody>
+							</table>
+						</div>
+					)}
+				</section>
 			</div>
 
-			{showEmpty ? (
-				<EmptyState
-					icon={Building2}
-					title="No assets yet"
-					description="Add property, vehicles, super and external balances to build your net worth."
-					action={
-						<button type="button" className={buttonPrimaryClass} onClick={openAddModal}>
-							<Plus size="1rem" className="inline-block mr-1" />
-							Add asset
-						</button>
+			<dialog
+				ref={addDialogRef}
+				className={assetDialogClass}
+				aria-labelledby="add-asset-title"
+				onCancel={(event) => {
+					event.preventDefault();
+					closeFormModal();
+				}}
+				onClose={() => {
+					if (!submitting) {
+						setFormMode((mode) => (mode === 'add' ? null : mode));
 					}
-				/>
-			) : null}
-
-			{!loading && items.length > 0 ? (
-				<div className={glassCardClass}>
-					<table className="w-full text-sm">
-						<thead>
-							<tr className="border-b border-paper-border text-left text-paper-muted">
-								<th className="px-4 py-3 font-medium">Name</th>
-								<th className="px-4 py-3 font-medium">Type</th>
-								<th className="px-4 py-3 font-medium text-right">Value</th>
-								<th className="px-4 py-3 font-medium">Valued</th>
-								<th className="px-4 py-3 font-medium">Source</th>
-								<th className="px-4 py-3 font-medium" />
-							</tr>
-						</thead>
-						<tbody>
-							{items.map((item) => {
-								const stale = isValuationStale(item.valued_at);
-								return (
-									<tr key={item.id} className="border-b border-paper-border text-paper-fg">
-										<td className="px-4 py-3 font-medium">{item.name}</td>
-										<td className="px-4 py-3">
-											<span className="rounded-full border border-paper-border bg-paper px-2 py-0.5 text-xs text-paper-muted">
-												{assetKindLabel(item.kind)}
-											</span>
-										</td>
-										<td className="px-4 py-3 text-right font-mono tabular-nums text-green-300">
-											{formatMoney(item.value_cents)}
-										</td>
-										<td className="px-4 py-3 text-paper-muted">
-											<span className="inline-flex items-center gap-1.5">
-												{formatValuedAt(item.valued_at)}
-												{stale ? (
-													<span
-														className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[0.65rem] text-amber-300"
-														title="Valuation is missing or older than 12 months"
-													>
-														<TriangleAlert size="0.7rem" />
-														Stale
-													</span>
-												) : null}
-											</span>
-										</td>
-										<td className="max-w-[14rem] truncate px-4 py-3 text-paper-muted">
-											{item.value_source ?? '—'}
-										</td>
-										<td className="px-4 py-3 text-right whitespace-nowrap">
-											<button
-												type="button"
-												className={cn(buttonOutlineClass, 'mr-2')}
-												onClick={() => openEditModal(item)}
-											>
-												<Edit2 size="1rem" className="inline-block mr-1" />
-												Edit
-											</button>
-											<button
-												type="button"
-												className={buttonDangerClass}
-												onClick={() => setDeleteTarget(item)}
-											>
-												<Trash2 size="1rem" className="inline-block mr-1" />
-												Delete
-											</button>
-										</td>
-									</tr>
-								);
-							})}
-						</tbody>
-					</table>
-				</div>
-			) : null}
-
-			<Modal
-				open={modalOpen}
-				onClose={closeModal}
-				closeDisabled={submitting}
-				title={modalMode === 'add' ? 'Add asset' : 'Edit asset'}
-				description="Record what you own and how it was valued."
-				size="md"
-				footer={
-					<div className="flex justify-end gap-2">
+				}}
+			>
+				<form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={onSubmit}>
+					<div className="flex shrink-0 items-start justify-between gap-3 px-[22px] pt-[18px]">
+						<div className="min-w-0">
+							<span className={cn(eyebrowClass, 'mb-1 block')}>Assets</span>
+							<h2
+								id="add-asset-title"
+								className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-paper-fg"
+							>
+								Add asset
+							</h2>
+							<p className="mt-1 text-[12.5px] text-paper-muted">
+								Record what you own and its current valuation.
+							</p>
+						</div>
 						<button
 							type="button"
-							className={buttonOutlineClass}
-							onClick={closeModal}
+							onClick={closeFormModal}
 							disabled={submitting}
+							className="grid h-8 w-8 shrink-0 place-items-center rounded-paper border border-transparent bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:opacity-50"
+							aria-label="Close"
+						>
+							<X className="h-4 w-4" strokeWidth={2} />
+						</button>
+					</div>
+
+					<div className={assetModalBodyClass}>
+						{modalError !== null && formMode === 'add' ? (
+							<p className={assetFormErrorClass}>{modalError}</p>
+						) : null}
+
+						<label className={assetModalFieldClass}>
+							<span className={assetModalFieldLabelClass}>Name</span>
+							<input
+								ref={nameInputRef}
+								id="assetNameInput"
+								type="text"
+								value={name}
+								onChange={(event) => setName(event.target.value)}
+								className={cn(inputDarkClass, 'h-8 w-full px-2.5')}
+								placeholder="e.g. Family home, AustralianSuper"
+								disabled={submitting}
+								required
+							/>
+						</label>
+
+						<label className={assetModalFieldClass}>
+							<span className={assetModalFieldLabelClass}>Type</span>
+							<select
+								id="assetKindInput"
+								value={kind}
+								onChange={(event) => setKind(toKind(event.target.value))}
+								className={cn(selectDarkClass, 'h-8 w-full px-2.5')}
+								disabled={submitting}
+							>
+								{ASSET_KIND_OPTIONS.map((option) => (
+									<option key={option.value} value={option.value}>
+										{option.label}
+									</option>
+								))}
+							</select>
+						</label>
+
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+							<label className={assetModalFieldClass}>
+								<span className={assetModalFieldLabelClass}>Current value ($)</span>
+								<input
+									id="assetValueInput"
+									type="text"
+									inputMode="decimal"
+									value={value}
+									onChange={(event) => setValue(event.target.value)}
+									className={cn(inputDarkClass, 'h-8 w-full px-2.5 font-mono')}
+									placeholder="0.00"
+									disabled={submitting}
+									required
+								/>
+							</label>
+							<label className={assetModalFieldClass}>
+								<span className={assetModalFieldLabelClass}>Valued as at</span>
+								<input
+									id="assetValuedAtInput"
+									type="date"
+									value={valuedAt}
+									onChange={(event) => setValuedAt(event.target.value)}
+									className={cn(dateInputClass, 'h-8 w-full px-2.5')}
+									disabled={submitting}
+								/>
+							</label>
+						</div>
+
+						<label className={assetModalFieldClass}>
+							<span className={assetModalFieldLabelClass}>Valuation source</span>
+							<input
+								id="assetSourceInput"
+								type="text"
+								value={valueSource}
+								onChange={(event) => setValueSource(event.target.value)}
+								className={cn(inputDarkClass, 'h-8 w-full px-2.5')}
+								placeholder="e.g. Bank valuation, member statement"
+								disabled={submitting}
+							/>
+						</label>
+
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+							<label className={assetModalFieldClass}>
+								<span className={assetModalFieldLabelClass}>Purchase price ($)</span>
+								<input
+									id="assetPurchasePriceInput"
+									type="text"
+									inputMode="decimal"
+									value={purchasePrice}
+									onChange={(event) => setPurchasePrice(event.target.value)}
+									className={cn(inputDarkClass, 'h-8 w-full px-2.5 font-mono')}
+									placeholder="Optional"
+									disabled={submitting}
+								/>
+								<p className="text-xs leading-snug text-paper-muted">
+									Optional — for cost base tracking.
+								</p>
+							</label>
+							<label className={assetModalFieldClass}>
+								<span className={assetModalFieldLabelClass}>Purchase date</span>
+								<input
+									id="assetPurchaseDateInput"
+									type="date"
+									value={purchaseDate}
+									onChange={(event) => setPurchaseDate(event.target.value)}
+									className={cn(dateInputClass, 'h-8 w-full px-2.5')}
+									disabled={submitting}
+								/>
+							</label>
+						</div>
+
+						{kind === 'property' ? (
+							<label className={assetModalFieldClass}>
+								<span className={assetModalFieldLabelClass}>Linked loan</span>
+								<select
+									id="assetLiabilityInput"
+									value={liabilityId}
+									onChange={(event) => setLiabilityId(event.target.value)}
+									className={cn(selectDarkClass, 'h-8 w-full px-2.5')}
+									disabled={submitting}
+								>
+									<option value="">None</option>
+									{liabilities.map((liability) => (
+										<option key={liability.id} value={liability.id}>
+											{liability.name}
+										</option>
+									))}
+								</select>
+								<p className="text-xs leading-snug text-paper-muted">
+									Link a liability when this asset secures a loan.
+								</p>
+							</label>
+						) : null}
+
+						<label className={assetModalFieldClass}>
+							<span className={assetModalFieldLabelClass}>Notes</span>
+							<textarea
+								id="assetNotesInput"
+								value={notes}
+								onChange={(event) => setNotes(event.target.value)}
+								className={cn(
+									inputDarkClass,
+									'min-h-[72px] w-full resize-y px-2.5 py-2'
+								)}
+								placeholder="Optional context"
+								disabled={submitting}
+							/>
+						</label>
+					</div>
+
+					<div className="flex shrink-0 justify-end gap-2 border-t border-paper-border px-[22px] py-3.5">
+						<button
+							type="button"
+							onClick={closeFormModal}
+							disabled={submitting}
+							className={assetBtnClass}
 						>
 							Cancel
 						</button>
 						<button
 							type="submit"
-							form={ASSET_FORM_ID}
-							className={buttonPrimaryClass}
 							disabled={submitting}
+							className={assetBtnPrimaryClass}
 						>
 							{submitting ? (
-								<Loader2 className="inline-block h-4 w-4 animate-spin" />
-							) : modalMode === 'add' ? (
-								'Add'
+								<Loader2 className="h-4 w-4 animate-spin" />
 							) : (
-								'Save'
+								'Add asset'
 							)}
 						</button>
 					</div>
-				}
-			>
-				<form id={ASSET_FORM_ID} onSubmit={onSubmit}>
-					{modalError !== null ? (
-						<InlineAlert variant="error" className="mb-4">
-							{modalError}
-						</InlineAlert>
-					) : null}
+				</form>
+			</dialog>
 
-					<div className="space-y-4">
-						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-							<div>
-								<label
-									htmlFor="assetNameInput"
-									className="mb-1.5 block text-sm font-medium text-paper-fg"
-								>
-									Name
-								</label>
+			<dialog
+				ref={editDialogRef}
+				className={assetDialogWideClass}
+				aria-labelledby="edit-asset-title"
+				onCancel={(event) => {
+					event.preventDefault();
+					closeFormModal();
+				}}
+				onClose={() => {
+					if (!submitting && !valSubmitting) {
+						setFormMode((mode) => (mode === 'edit' ? null : mode));
+						setEditingItem(null);
+					}
+				}}
+			>
+				<form className="flex min-h-0 flex-1 flex-col overflow-hidden" onSubmit={onSubmit}>
+					<div className="flex shrink-0 items-start justify-between gap-3 px-[22px] pt-[18px]">
+						<div className="min-w-0">
+							<span className={cn(eyebrowClass, 'mb-1 block')}>Assets</span>
+							<h2
+								id="edit-asset-title"
+								className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-paper-fg"
+							>
+								Edit asset
+							</h2>
+							<p className="mt-1 text-[12.5px] text-paper-muted">
+								Update metadata here — change values via valuation history below.
+							</p>
+						</div>
+						<button
+							type="button"
+							onClick={closeFormModal}
+							disabled={submitting || valSubmitting}
+							className="grid h-8 w-8 shrink-0 place-items-center rounded-paper border border-transparent bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:opacity-50"
+							aria-label="Close"
+						>
+							<X className="h-4 w-4" strokeWidth={2} />
+						</button>
+					</div>
+
+					{editingItem !== null ? (
+						<div className={assetModalBodyClass}>
+							{modalError !== null && formMode === 'edit' ? (
+								<p className={assetFormErrorClass}>{modalError}</p>
+							) : null}
+
+							<label className={assetModalFieldClass}>
+								<span className={assetModalFieldLabelClass}>Name</span>
 								<input
-									id="assetNameInput"
+									ref={nameInputRef}
+									id="editAssetNameInput"
 									type="text"
 									value={name}
-									onChange={(e) => setName(e.target.value)}
-									className={cn(inputDarkClass, 'w-full px-3 py-2')}
-									placeholder="e.g. 123 Main St"
-									autoFocus
+									onChange={(event) => setName(event.target.value)}
+									className={cn(inputDarkClass, 'h-8 w-full px-2.5')}
 									disabled={submitting}
 									required
 								/>
-							</div>
+							</label>
 
-							<div>
-								<label
-									htmlFor="assetKindInput"
-									className="mb-1.5 block text-sm font-medium text-paper-fg"
-								>
-									Type
-								</label>
+							<label className={assetModalFieldClass}>
+								<span className={assetModalFieldLabelClass}>Type</span>
 								<select
-									id="assetKindInput"
+									id="editAssetKindInput"
 									value={kind}
-									onChange={(e) => setKind(toKind(e.target.value))}
-									className={cn(selectDarkClass, 'w-full')}
+									onChange={(event) => setKind(toKind(event.target.value))}
+									className={cn(selectDarkClass, 'h-8 w-full px-2.5')}
 									disabled={submitting}
 								>
 									{ASSET_KIND_OPTIONS.map((option) => (
@@ -548,116 +945,16 @@ export default function AssetsPage() {
 										</option>
 									))}
 								</select>
-							</div>
-
-							{modalMode === 'add' ? (
-								<>
-									<div>
-										<label
-											htmlFor="assetValueInput"
-											className="mb-1.5 block text-sm font-medium text-paper-fg"
-										>
-											Current value ($)
-										</label>
-										<input
-											id="assetValueInput"
-											type="text"
-											inputMode="decimal"
-											value={value}
-											onChange={(e) => setValue(e.target.value)}
-											className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
-											placeholder="0.00"
-											disabled={submitting}
-											required
-										/>
-									</div>
-
-									<div>
-										<label
-											htmlFor="assetValuedAtInput"
-											className="mb-1.5 block text-sm font-medium text-paper-fg"
-										>
-											Valued as at (optional)
-										</label>
-										<input
-											id="assetValuedAtInput"
-											type="date"
-											value={valuedAt}
-											onChange={(e) => setValuedAt(e.target.value)}
-											className={cn(dateInputClass, 'w-full px-3 py-2')}
-											disabled={submitting}
-										/>
-									</div>
-
-									<div className="sm:col-span-2">
-										<label
-											htmlFor="assetSourceInput"
-											className="mb-1.5 block text-sm font-medium text-paper-fg"
-										>
-											Valuation source (optional)
-										</label>
-										<input
-											id="assetSourceInput"
-											type="text"
-											value={valueSource}
-											onChange={(e) => setValueSource(e.target.value)}
-											className={cn(inputDarkClass, 'w-full px-3 py-2')}
-											placeholder="e.g. council rates notice, owner estimate"
-											disabled={submitting}
-										/>
-									</div>
-
-									<div>
-										<label
-											htmlFor="assetPurchasePriceInput"
-											className="mb-1.5 block text-sm font-medium text-paper-fg"
-										>
-											Bought at ($, optional)
-										</label>
-										<input
-											id="assetPurchasePriceInput"
-											type="text"
-											inputMode="decimal"
-											value={purchasePrice}
-											onChange={(e) => setPurchasePrice(e.target.value)}
-											className={cn(inputDarkClass, 'w-full px-3 py-2 font-mono')}
-											placeholder="0.00"
-											disabled={submitting}
-										/>
-									</div>
-
-									<div>
-										<label
-											htmlFor="assetPurchaseDateInput"
-											className="mb-1.5 block text-sm font-medium text-paper-fg"
-										>
-											Purchase date
-										</label>
-										<input
-											id="assetPurchaseDateInput"
-											type="date"
-											value={purchaseDate}
-											onChange={(e) => setPurchaseDate(e.target.value)}
-											className={cn(dateInputClass, 'w-full px-3 py-2')}
-											disabled={submitting}
-										/>
-									</div>
-								</>
-							) : null}
+							</label>
 
 							{kind === 'property' ? (
-								<div className="sm:col-span-2">
-									<label
-										htmlFor="assetLiabilityInput"
-										className="mb-1.5 block text-sm font-medium text-paper-fg"
-									>
-										Linked loan (optional)
-									</label>
+								<label className={assetModalFieldClass}>
+									<span className={assetModalFieldLabelClass}>Linked loan</span>
 									<select
-										id="assetLiabilityInput"
+										id="editAssetLiabilityInput"
 										value={liabilityId}
-										onChange={(e) => setLiabilityId(e.target.value)}
-										className={cn(selectDarkClass, 'w-full')}
+										onChange={(event) => setLiabilityId(event.target.value)}
+										className={cn(selectDarkClass, 'h-8 w-full px-2.5')}
 										disabled={submitting}
 									>
 										<option value="">None</option>
@@ -667,185 +964,255 @@ export default function AssetsPage() {
 											</option>
 										))}
 									</select>
-								</div>
+								</label>
 							) : null}
-						</div>
 
-						<div>
-							<label
-								htmlFor="assetNotesInput"
-								className="mb-1.5 block text-sm font-medium text-paper-fg"
-							>
-								Notes (optional)
+							<label className={assetModalFieldClass}>
+								<span className={assetModalFieldLabelClass}>Notes</span>
+								<textarea
+									id="editAssetNotesInput"
+									value={notes}
+									onChange={(event) => setNotes(event.target.value)}
+									className={cn(
+										inputDarkClass,
+										'min-h-[72px] w-full resize-y px-2.5 py-2'
+									)}
+									placeholder="Optional context"
+									disabled={submitting}
+								/>
 							</label>
-							<textarea
-								id="assetNotesInput"
-								value={notes}
-								onChange={(e) => setNotes(e.target.value)}
-								rows={3}
-								className={cn(
-									inputDarkClass,
-									'min-h-[4.5rem] w-full resize-y px-3 py-2'
-								)}
-								placeholder="Any extra context"
-								disabled={submitting}
-							/>
-						</div>
 
-						{modalMode === 'edit' ? (
-							<div className="rounded-lg border border-paper-border bg-paper p-3">
-								<div className="mb-2 flex items-center justify-between">
-									<span className="text-sm font-medium text-paper-fg">
+							<div className="mt-1 border-t border-paper-border pt-3.5">
+								<div className="mb-2.5">
+									<h3 className="m-0 text-xs font-semibold tracking-[0.02em] text-paper-fg">
 										Valuation history
-									</span>
-									{valuationsLoading ? (
-										<Loader2 className="h-4 w-4 animate-spin text-secondary-default" />
-									) : null}
+									</h3>
+									<p className="mt-0.5 text-[11.5px] text-paper-muted">
+										Add or remove past valuations — the newest date sets the table
+										value.
+									</p>
 								</div>
 
-								{!valuationsLoading && valuations.length === 0 ? (
-									<p className="text-xs text-paper-muted">No valuations recorded yet.</p>
+								{valuationsLoading ? (
+									<div className="mb-3 flex justify-center py-2">
+										<Loader2 className="h-4 w-4 animate-spin text-secondary-default" />
+									</div>
 								) : null}
 
-								{valuations.length > 0 ? (
-									<ul className="mb-3 space-y-1.5">
-										{valuations.map((entry) => (
-											<li
-												key={entry.id}
-												className="flex items-center justify-between gap-2 rounded-md bg-paper px-2.5 py-1.5 text-sm"
-											>
-												<span className="text-paper-muted">
-													{formatValuedAt(entry.valued_at)}
-												</span>
-												<span className="font-mono tabular-nums text-green-300">
-													{formatMoney(entry.value_cents)}
-												</span>
-												<span className="flex-1 truncate text-xs text-paper-muted">
-													{entry.source ?? ''}
-												</span>
-												<button
-													type="button"
-													className="text-paper-muted transition hover:text-red-300"
-													onClick={() => void onRemoveValuation(entry.id)}
-													disabled={valSubmitting}
-													aria-label="Remove valuation"
+								{!valuationsLoading && sortedValuations.length === 0 ? (
+									<p className="mb-3 text-xs text-paper-muted">
+										No valuations recorded yet.
+									</p>
+								) : null}
+
+								{sortedValuations.length > 0 ? (
+									<div className="mb-3 flex flex-col gap-1.5">
+										{sortedValuations.map((entry) => {
+											const isCurrent = entry.id === latestValuationId;
+											const canRemove = valuations.length > 1;
+											return (
+												<div
+													key={entry.id}
+													className={cn(
+														'rounded-paper border border-paper-border bg-paper px-2.5 py-2 text-[12.5px]',
+														isCurrent &&
+															'border-[color-mix(in_oklch,var(--success)_30%,var(--border))] bg-[color-mix(in_oklch,var(--success)_5%,var(--surface))]'
+													)}
 												>
-													<Trash2 size="0.9rem" />
-												</button>
-											</li>
-										))}
-									</ul>
+													<div className="mb-1 flex items-center justify-between gap-2">
+														<span className="font-mono tabular-nums text-paper-fg">
+															{formatValuedAt(entry.valued_at)}
+															{isCurrent ? ' · current' : ''}
+														</span>
+														{canRemove ? (
+															<button
+																type="button"
+																className={cn(assetBtnGhostClass, 'h-[26px]')}
+																onClick={() => void onRemoveValuation(entry.id)}
+																disabled={valSubmitting}
+															>
+																Remove
+															</button>
+														) : null}
+													</div>
+													<div className="flex items-center justify-between gap-2">
+														<span className="truncate text-[11.5px] text-paper-muted">
+															{entry.source ?? '—'}
+														</span>
+														<span className="font-mono font-medium tabular-nums text-[var(--success)]">
+															{formatMoney(entry.value_cents)}
+														</span>
+													</div>
+												</div>
+											);
+										})}
+									</div>
 								) : null}
 
-								<div className="grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_1fr_auto] sm:items-end">
-									<div>
-										<label
-											htmlFor="valDateInput"
-											className="mb-1 block text-xs text-paper-muted"
-										>
-											Date
-										</label>
+								<div className="grid grid-cols-1 gap-2.5 rounded-paper border border-dashed border-paper-border bg-[color-mix(in_oklch,var(--fg)_2%,var(--surface))] p-3 sm:grid-cols-2">
+									<label className={assetModalFieldClass}>
+										<span className={assetModalFieldLabelClass}>Date</span>
 										<input
 											id="valDateInput"
 											type="date"
 											value={valDate}
-											onChange={(e) => setValDate(e.target.value)}
-											className={cn(dateInputClass, 'w-full px-2 py-1.5 text-sm')}
+											onChange={(event) => setValDate(event.target.value)}
+											className={cn(dateInputClass, 'h-8 w-full px-2.5')}
 											disabled={valSubmitting}
 										/>
-									</div>
-									<div>
-										<label
-											htmlFor="valAmountInput"
-											className="mb-1 block text-xs text-paper-muted"
-										>
-											Value ($)
-										</label>
+									</label>
+									<label className={assetModalFieldClass}>
+										<span className={assetModalFieldLabelClass}>Value ($)</span>
 										<input
 											id="valAmountInput"
 											type="text"
 											inputMode="decimal"
 											value={valAmount}
-											onChange={(e) => setValAmount(e.target.value)}
-											className={cn(inputDarkClass, 'w-full px-2 py-1.5 font-mono text-sm')}
+											onChange={(event) => setValAmount(event.target.value)}
+											className={cn(
+												inputDarkClass,
+												'h-8 w-full px-2.5 font-mono'
+											)}
 											placeholder="0.00"
 											disabled={valSubmitting}
 										/>
-									</div>
-									<div>
-										<label
-											htmlFor="valSourceInput"
-											className="mb-1 block text-xs text-paper-muted"
-										>
-											Source (optional)
-										</label>
+									</label>
+									<label className={cn(assetModalFieldClass, 'sm:col-span-2')}>
+										<span className={assetModalFieldLabelClass}>Source</span>
 										<input
 											id="valSourceInput"
 											type="text"
 											value={valSource}
-											onChange={(e) => setValSource(e.target.value)}
-											className={cn(inputDarkClass, 'w-full px-2 py-1.5 text-sm')}
-											placeholder="e.g. agent appraisal"
+											onChange={(event) => setValSource(event.target.value)}
+											className={cn(inputDarkClass, 'h-8 w-full px-2.5')}
+											placeholder="e.g. Agent appraisal"
 											disabled={valSubmitting}
 										/>
+									</label>
+									<div className="flex justify-end sm:col-span-2">
+										<button
+											type="button"
+											className={assetBtnAccentClass}
+											onClick={() => void onAddValuation()}
+											disabled={valSubmitting}
+										>
+											{valSubmitting ? (
+												<Loader2 className="h-4 w-4 animate-spin" />
+											) : (
+												'Add valuation'
+											)}
+										</button>
 									</div>
-									<button
-										type="button"
-										className={cn(buttonOutlineClass, 'justify-center')}
-										onClick={() => void onAddValuation()}
-										disabled={valSubmitting}
-									>
-										{valSubmitting ? (
-											<Loader2 className="inline-block h-4 w-4 animate-spin" />
-										) : (
-											<>
-												<Plus size="0.9rem" className="mr-1 inline-block" />
-												Add
-											</>
-										)}
-									</button>
 								</div>
 							</div>
-						) : null}
-					</div>
-				</form>
-			</Modal>
+						</div>
+					) : null}
 
-			<Modal
-				open={deleteTarget !== null}
-				onClose={closeDeleteModal}
-				closeDisabled={submitting}
-				title="Delete asset"
-				description={
-					deleteTarget !== null
-						? `Remove “${deleteTarget.name}” from assets?`
-						: undefined
-				}
-				footer={
-					<div className="flex justify-end gap-2">
+					<div className="flex shrink-0 justify-end gap-2 border-t border-paper-border px-[22px] py-3.5">
 						<button
 							type="button"
-							className={buttonOutlineClass}
+							onClick={closeFormModal}
+							disabled={submitting || valSubmitting}
+							className={assetBtnClass}
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							disabled={submitting || valSubmitting}
+							className={assetBtnPrimaryClass}
+						>
+							{submitting ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								'Save changes'
+							)}
+						</button>
+					</div>
+				</form>
+			</dialog>
+
+			<dialog
+				ref={deleteDialogRef}
+				className={assetDialogClass}
+				aria-labelledby="delete-asset-title"
+				onCancel={(event) => {
+					event.preventDefault();
+					closeDeleteModal();
+				}}
+				onClose={() => {
+					if (!submitting) {
+						setDeleteTarget(null);
+						setDeleteError(null);
+					}
+				}}
+			>
+				<div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+					<div className="flex shrink-0 items-start justify-between gap-3 px-[22px] pt-[18px]">
+						<div className="min-w-0">
+							<span className={cn(eyebrowClass, 'mb-1 block')}>Assets</span>
+							<h2
+								id="delete-asset-title"
+								className="m-0 text-[17px] font-semibold tracking-[-0.02em] text-paper-fg"
+							>
+								Delete asset
+							</h2>
+							<p className="mt-1 text-[12.5px] text-paper-muted">
+								{deleteTarget !== null
+									? `Remove “${deleteTarget.name}” and its valuation history? This cannot be undone.`
+									: null}
+							</p>
+							{deleteError !== null ? (
+								<p className={cn(assetFormErrorClass, 'mt-3')}>{deleteError}</p>
+							) : null}
+						</div>
+						<button
+							type="button"
 							onClick={closeDeleteModal}
 							disabled={submitting}
+							className="grid h-8 w-8 shrink-0 place-items-center rounded-paper border border-transparent bg-transparent text-paper-muted transition-colors hover:bg-[color-mix(in_oklch,var(--fg)_4%,transparent)] hover:text-paper-fg disabled:opacity-50"
+							aria-label="Close"
+						>
+							<X className="h-4 w-4" strokeWidth={2} />
+						</button>
+					</div>
+
+					<div className="flex shrink-0 justify-end gap-2 border-t border-paper-border px-[22px] py-3.5">
+						<button
+							type="button"
+							onClick={closeDeleteModal}
+							disabled={submitting}
+							className={assetBtnClass}
 						>
 							Cancel
 						</button>
 						<button
 							type="button"
-							className={buttonDangerClass}
 							onClick={() => void onConfirmDelete()}
 							disabled={submitting}
+							className={assetBtnDangerClass}
 						>
 							{submitting ? (
-								<Loader2 className="inline-block h-4 w-4 animate-spin" />
+								<Loader2 className="h-4 w-4 animate-spin" />
 							) : (
 								'Delete'
 							)}
 						</button>
 					</div>
-				}
-			/>
+				</div>
+			</dialog>
+
+			{toast !== null ? (
+				<div
+					role="status"
+					className="pointer-events-auto fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-paper-fg px-4 py-2.5 text-[13px] font-medium text-paper-surface shadow-2xl shadow-paper-fg/25"
+				>
+					<span className="text-[var(--success)]">
+						<Check size={15} />
+					</span>
+					<span>{toast}</span>
+				</div>
+			) : null}
 		</PageShell>
 	);
 }
