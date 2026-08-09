@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FUNDS — Liabilities</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/liabilities.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">Liabilities</h1>
+        <p class="page-sub" data-od-id="page-sub">Loans and debts — home loan, car loan, credit cards, and other facilities</p>
+      </div>
+      <div class="page-actions" data-od-id="page-actions">
+        <div class="header-total" data-od-id="header-total-kpi" aria-live="polite">
+          <span class="header-total-label">Total owed</span>
+          <strong class="header-total-value money" id="total-owed">$0.00</strong>
+        </div>
+        <button type="button" class="btn btn-primary" id="btn-add-liability" data-od-id="btn-add-liability">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Add liability
+        </button>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <section class="panel" data-od-id="liabilities-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Your liabilities</h2>
+            <p class="panel-hint" id="liability-count" data-od-id="liability-count">4 liabilities</p>
+          </div>
+        </div>
+
+        <div class="empty-state" id="empty-state" data-od-id="empty-state" hidden>
+          <div class="empty-state-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M6 8h12M6 16h12"/></svg>
+          </div>
+          <h3>No liabilities yet</h3>
+          <p>Add home loans, car loans, credit cards, or other debts to track what you owe.</p>
+          <div class="empty-state-action">
+            <button type="button" class="btn btn-primary" id="btn-add-empty" data-od-id="btn-add-empty">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              Add liability
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrap" id="table-wrap" data-od-id="liabilities-table-wrap">
+          <table class="data" data-od-id="liabilities-table">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col" class="col-type">Type</th>
+                <th scope="col" class="col-lender">Lender</th>
+                <th scope="col" class="col-balance is-numeric">Balance</th>
+                <th scope="col" class="col-rate">Rate</th>
+                <th scope="col" class="col-repayment is-numeric">Repayment</th>
+                <th scope="col" class="col-actions"><span class="sr">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="liabilities-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Add liability -->
+  <dialog class="modal-dialog" id="add-dialog" data-od-id="add-dialog" aria-labelledby="add-dialog-title">
+    <form class="modal-shell" id="add-form" data-od-id="add-form">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Liabilities</span>
+          <h2 id="add-dialog-title">Add liability</h2>
+          <p>Record a loan or debt facility and its current balance.</p>
+        </div>
+        <button class="dialog-close" type="button" id="add-close" aria-label="Close" data-od-id="add-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="form-error" id="add-error" data-od-id="add-error" hidden></p>
+
+        <label class="modal-field">
+          <span>Name</span>
+          <input class="input" type="text" id="add-name" placeholder="e.g. Home loan — Unley Park" required data-od-id="add-name" autocomplete="off" />
+        </label>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Type</span>
+            <select class="select" id="add-type" required data-od-id="add-type">
+              <option value="home_loan">Home loan</option>
+              <option value="car_loan">Car loan</option>
+              <option value="personal_loan">Personal loan</option>
+              <option value="credit_card">Credit card</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="modal-field">
+            <span>Lender</span>
+            <input class="input" type="text" id="add-lender" placeholder="e.g. BankSA, CBA" required data-od-id="add-lender" />
+          </label>
+        </div>
+
+        <label class="modal-field">
+          <span>Current balance ($)</span>
+          <input class="input mono" type="number" min="0" step="0.01" id="add-balance" placeholder="0.00" required data-od-id="add-balance" />
+        </label>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Original amount ($)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="add-original" placeholder="Optional" data-od-id="add-original" />
+          </label>
+          <label class="modal-field">
+            <span>Start date</span>
+            <input class="input date" type="date" id="add-start-date" data-od-id="add-start-date" />
+          </label>
+        </div>
+
+        <label class="modal-field credit-limit-field" id="add-credit-limit-wrap" data-od-id="add-credit-limit-wrap" hidden>
+          <span>Credit limit ($)</span>
+          <input class="input mono" type="number" min="0" step="0.01" id="add-credit-limit" placeholder="Optional" data-od-id="add-credit-limit" />
+        </label>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Interest rate (%)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="add-rate" placeholder="e.g. 5.89" data-od-id="add-rate" />
+          </label>
+          <label class="modal-field">
+            <span>Rate type</span>
+            <select class="select" id="add-rate-type" data-od-id="add-rate-type">
+              <option value="variable">Variable</option>
+              <option value="fixed">Fixed</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Repayment ($)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="add-repayment" placeholder="0.00" data-od-id="add-repayment" />
+          </label>
+          <label class="modal-field">
+            <span>Frequency</span>
+            <select class="select" id="add-frequency" data-od-id="add-frequency">
+              <option value="weekly">Weekly</option>
+              <option value="fortnightly">Fortnightly</option>
+              <option value="monthly" selected>Monthly</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="modal-field">
+          <span>Term (months)</span>
+          <input class="input mono" type="number" min="1" step="1" id="add-term" placeholder="e.g. 360" data-od-id="add-term" />
+          <p class="field-hint">Optional — remaining or original term.</p>
+        </label>
+
+        <label class="modal-field">
+          <span>Linked account</span>
+          <select class="select" id="add-account" data-od-id="add-account">
+            <option value="">None</option>
+          </select>
+          <p class="field-hint">Offset or repayment account, if applicable.</p>
+        </label>
+
+        <label class="modal-field">
+          <span>Notes</span>
+          <textarea id="add-notes" placeholder="Optional context" data-od-id="add-notes"></textarea>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="add-cancel" data-od-id="add-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="add-save" data-od-id="add-save">Add liability</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Edit liability -->
+  <dialog class="modal-dialog is-wide" id="edit-dialog" data-od-id="edit-dialog" aria-labelledby="edit-dialog-title">
+    <form class="modal-shell" id="edit-form" data-od-id="edit-form">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Liabilities</span>
+          <h2 id="edit-dialog-title">Edit liability</h2>
+          <p>Update metadata here — change balances via balance history below.</p>
+        </div>
+        <button class="dialog-close" type="button" id="edit-close" aria-label="Close" data-od-id="edit-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body" id="edit-dialog-body" data-od-id="edit-dialog-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="edit-cancel" data-od-id="edit-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="edit-save" data-od-id="edit-save">Save changes</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Delete confirm -->
+  <dialog class="modal-dialog" id="delete-dialog" data-od-id="delete-dialog" aria-labelledby="delete-dialog-title">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Liabilities</span>
+          <h2 id="delete-dialog-title">Delete liability</h2>
+          <p id="delete-dialog-desc" data-od-id="delete-dialog-desc"></p>
+        </div>
+        <button class="dialog-close" type="button" id="delete-close" aria-label="Close" data-od-id="delete-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="delete-cancel" data-od-id="delete-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="delete-confirm" data-od-id="delete-confirm">Delete</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" data-od-id="toast">
+    <span class="toast-icon" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </span>
+    <span id="toast-text"></span>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('liabilities');
+
+    const TODAY_ISO = '2026-08-08';
+
+    const ICON_EDIT = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+    const ICON_TRASH = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+
+    const TYPE_LABELS = {
+      home_loan: 'Home loan',
+      car_loan: 'Car loan',
+      personal_loan: 'Personal loan',
+      credit_card: 'Credit card',
+      other: 'Other',
+    };
+
+    const FREQ_LABELS = {
+      weekly: '/wk',
+      fortnightly: '/fn',
+      monthly: '/mo',
+    };
+
+    const DEMO_LIABILITIES = [
+      {
+        id: 'loan-banksa-home',
+        name: 'Home loan — Unley Park',
+        type: 'home_loan',
+        lender: 'BankSA',
+        original_amount: 480000,
+        start_date: '2018-03-15',
+        credit_limit: null,
+        interest_rate: 5.89,
+        rate_type: 'variable',
+        repayment_amount: 2890,
+        repayment_frequency: 'monthly',
+        term_months: 300,
+        linked_account_id: 'cba-offset',
+        notes: 'P&I · offset linked to CBA 4412',
+        balances: [
+          { id: 'b-home-2', date: '2026-07-01', balance: 412850, source: 'Statement balance' },
+          { id: 'b-home-1', date: '2026-01-15', balance: 428200, source: 'Member portal' },
+        ],
+      },
+      {
+        id: 'loan-car',
+        name: '2021 Toyota Camry — secured',
+        type: 'car_loan',
+        lender: "People's Choice",
+        original_amount: 28000,
+        start_date: '2021-08-12',
+        credit_limit: null,
+        interest_rate: 6.49,
+        rate_type: 'fixed',
+        repayment_amount: 412,
+        repayment_frequency: 'monthly',
+        term_months: 60,
+        linked_account_id: 'pc-9120',
+        notes: '28 months remaining',
+        balances: [
+          { id: 'b-car-1', date: '2026-07-18', balance: 11480, source: 'Loan statement' },
+        ],
+      },
+      {
+        id: 'loan-visa',
+        name: 'BankSA Visa Platinum',
+        type: 'credit_card',
+        lender: 'BankSA',
+        original_amount: null,
+        start_date: null,
+        credit_limit: 15000,
+        interest_rate: 20.99,
+        rate_type: 'variable',
+        repayment_amount: 180,
+        repayment_frequency: 'monthly',
+        term_months: null,
+        linked_account_id: 'banksa-everyday',
+        notes: 'Minimum payment assumption for serviceability',
+        balances: [
+          { id: 'b-visa-2', date: '2026-07-15', balance: 3240.5, source: 'Statement' },
+          { id: 'b-visa-1', date: '2026-06-15', balance: 2890, source: 'Statement' },
+        ],
+      },
+      {
+        id: 'loan-personal',
+        name: 'Renovation top-up',
+        type: 'personal_loan',
+        lender: 'CBA',
+        original_amount: 25000,
+        start_date: '2024-11-01',
+        credit_limit: null,
+        interest_rate: 8.99,
+        rate_type: 'fixed',
+        repayment_amount: 520,
+        repayment_frequency: 'fortnightly',
+        term_months: 48,
+        linked_account_id: null,
+        notes: 'Kitchen renovation — 18 months remaining',
+        balances: [
+          { id: 'b-pl-1', date: '2026-07-10', balance: 14280, source: 'Loan portal' },
+        ],
+      },
+    ];
+
+    const params = new URLSearchParams(window.location.search);
+    let liabilities = params.get('empty') === '1' ? [] : DEMO_LIABILITIES.map((l) => ({
+      ...l,
+      balances: l.balances.map((b) => ({ ...b })),
+    }));
+
+    let nextLiabilitySeq = 5;
+    let nextBalSeq = 100;
+    let editTargetId = null;
+    let deleteTargetId = null;
+    let toastTimer = null;
+
+    function escapeAttr(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function parseIsoDate(iso) {
+      return new Date(iso + 'T12:00:00');
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      return parseIsoDate(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function latestBalance(liability) {
+      if (!liability.balances.length) return null;
+      return [...liability.balances].sort((a, b) => b.date.localeCompare(a.date))[0];
+    }
+
+    function currentBalance(liability) {
+      const latest = latestBalance(liability);
+      return latest ? latest.balance : null;
+    }
+
+    function totalOwed() {
+      return liabilities.reduce((sum, l) => {
+        const b = currentBalance(l);
+        return sum + (b == null ? 0 : b);
+      }, 0);
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = text;
+      toast.classList.add('is-visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 3200);
+    }
+
+    function kindPill(type) {
+      const label = TYPE_LABELS[type] || type;
+      return `<span class="kind-pill ${escapeAttr(type)}" data-od-id="kind-${escapeAttr(type)}">${escapeHtml(label)}</span>`;
+    }
+
+    function formatRate(liability) {
+      if (liability.interest_rate == null) return '—';
+      const pct = liability.interest_rate.toFixed(2) + '%';
+      const typeLabel = liability.rate_type === 'fixed' ? 'Fixed' : 'Variable';
+      return `<span class="rate-cell"><span class="mono">${pct}</span><span class="rate-type">${typeLabel}</span></span>`;
+    }
+
+    function formatRepayment(liability) {
+      if (!liability.repayment_amount) return '<span style="color:var(--muted)">—</span>';
+      const freq = FREQ_LABELS[liability.repayment_frequency] || '';
+      return `<span class="mono">${FUNDS.money(liability.repayment_amount)}${freq}</span>`;
+    }
+
+    function balanceCell(liability) {
+      const balance = currentBalance(liability);
+      if (balance == null) {
+        return '<span class="mono" style="color:var(--muted)">—</span>';
+      }
+      return `<span class="amount neg mono">${FUNDS.money(balance)}</span>`;
+    }
+
+    function renderSummary() {
+      document.getElementById('total-owed').textContent = FUNDS.money(totalOwed());
+      const empty = liabilities.length === 0;
+      document.getElementById('liability-count').textContent = empty
+        ? 'No liabilities recorded'
+        : `${liabilities.length} liabilit${liabilities.length === 1 ? 'y' : 'ies'}`;
+    }
+
+    function renderTable() {
+      const empty = liabilities.length === 0;
+      document.getElementById('empty-state').hidden = !empty;
+      document.getElementById('table-wrap').hidden = empty;
+
+      const tbody = document.getElementById('liabilities-body');
+      if (empty) {
+        tbody.innerHTML = '';
+        renderSummary();
+        return;
+      }
+
+      tbody.innerHTML = liabilities.map((l) => `
+        <tr data-od-id="liability-row-${l.id}" data-liability-id="${l.id}">
+          <td>${escapeHtml(l.name)}</td>
+          <td class="col-type">${kindPill(l.type)}</td>
+          <td class="col-lender">${escapeHtml(l.lender)}</td>
+          <td class="col-balance">${balanceCell(l)}</td>
+          <td class="col-rate">${formatRate(l)}</td>
+          <td class="col-repayment">${formatRepayment(l)}</td>
+          <td class="col-actions">
+            <div class="actions-cell">
+              <button type="button" class="btn btn-ghost" data-action="edit" data-id="${l.id}" data-od-id="edit-${l.id}" aria-label="Edit ${escapeAttr(l.name)}">
+                ${ICON_EDIT} Edit
+              </button>
+              <button type="button" class="btn btn-ghost" data-action="delete" data-id="${l.id}" data-od-id="delete-${l.id}" aria-label="Delete ${escapeAttr(l.name)}">
+                ${ICON_TRASH} Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+
+      renderSummary();
+    }
+
+    function populateAccountSelect(selectEl, selectedId) {
+      const options = ['<option value="">None</option>'].concat(
+        FUNDS.accounts.map((acct) => {
+          const sel = acct.id === selectedId ? ' selected' : '';
+          return `<option value="${acct.id}"${sel}>${escapeHtml(acct.label)}</option>`;
+        })
+      );
+      selectEl.innerHTML = options.join('');
+    }
+
+    function toggleCreditLimitField(wrapEl, type) {
+      wrapEl.hidden = type !== 'credit_card';
+    }
+
+    function resetAddForm() {
+      document.getElementById('add-form').reset();
+      document.getElementById('add-error').hidden = true;
+      document.getElementById('add-frequency').value = 'monthly';
+      toggleCreditLimitField(document.getElementById('add-credit-limit-wrap'), 'home_loan');
+    }
+
+    function openAddModal() {
+      resetAddForm();
+      populateAccountSelect(document.getElementById('add-account'), null);
+      document.getElementById('add-dialog').showModal();
+      document.getElementById('add-name').focus();
+    }
+
+    function closeAddModal() {
+      document.getElementById('add-dialog').close();
+    }
+
+    function confirmAdd(event) {
+      event.preventDefault();
+      const errorEl = document.getElementById('add-error');
+
+      const name = document.getElementById('add-name').value.trim();
+      const type = document.getElementById('add-type').value;
+      const lender = document.getElementById('add-lender').value.trim();
+      const balance = Number(document.getElementById('add-balance').value);
+      const originalRaw = document.getElementById('add-original').value;
+      const startDate = document.getElementById('add-start-date').value || null;
+      const creditLimitRaw = document.getElementById('add-credit-limit').value;
+      const interestRateRaw = document.getElementById('add-rate').value;
+      const rateType = document.getElementById('add-rate-type').value;
+      const repaymentRaw = document.getElementById('add-repayment').value;
+      const frequency = document.getElementById('add-frequency').value;
+      const termRaw = document.getElementById('add-term').value;
+      const linkedAccountId = document.getElementById('add-account').value || null;
+      const notes = document.getElementById('add-notes').value.trim() || null;
+
+      if (!name) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Name is required.';
+        document.getElementById('add-name').focus();
+        return;
+      }
+      if (!lender) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Lender is required.';
+        document.getElementById('add-lender').focus();
+        return;
+      }
+      if (!Number.isFinite(balance) || balance < 0) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Enter a valid current balance.';
+        document.getElementById('add-balance').focus();
+        return;
+      }
+
+      errorEl.hidden = true;
+
+      const id = `liability-${nextLiabilitySeq++}`;
+      liabilities.push({
+        id,
+        name,
+        type,
+        lender,
+        original_amount: originalRaw ? Number(originalRaw) : null,
+        start_date: startDate,
+        credit_limit: type === 'credit_card' && creditLimitRaw ? Number(creditLimitRaw) : null,
+        interest_rate: interestRateRaw ? Number(interestRateRaw) : null,
+        rate_type: rateType,
+        repayment_amount: repaymentRaw ? Number(repaymentRaw) : null,
+        repayment_frequency: frequency,
+        term_months: termRaw ? Number(termRaw) : null,
+        linked_account_id: linkedAccountId,
+        notes,
+        balances: [{
+          id: `b-${nextBalSeq++}`,
+          date: TODAY_ISO,
+          balance,
+          source: 'Manual entry',
+        }],
+      });
+
+      closeAddModal();
+      renderTable();
+      showToast(`“${name}” added.`);
+    }
+
+    function renderBalanceList(liability) {
+      const latest = latestBalance(liability);
+      const sorted = [...liability.balances].sort((a, b) => b.date.localeCompare(a.date));
+
+      return sorted.map((bal) => {
+        const isCurrent = latest && bal.id === latest.id;
+        const canRemove = liability.balances.length > 1;
+        return `
+          <div class="bal-row${isCurrent ? ' is-current' : ''}" data-bal-id="${bal.id}" data-od-id="bal-row-${bal.id}">
+            <div class="bal-row-meta">
+              <span class="bal-row-date">${formatDate(bal.date)}${isCurrent ? ' · current' : ''}</span>
+              ${canRemove
+                ? `<button type="button" class="btn btn-ghost bal-row-remove" data-action="remove-bal" data-bal-id="${bal.id}" data-od-id="remove-bal-${bal.id}">Remove</button>`
+                : ''}
+            </div>
+            <span class="bal-row-value">${FUNDS.money(bal.balance)}</span>
+            <span class="bal-row-source">${escapeHtml(bal.source)}</span>
+          </div>`;
+      }).join('');
+    }
+
+    function renderEditBody(liability) {
+      const typeOptions = Object.entries(TYPE_LABELS).map(([value, label]) => {
+        const sel = value === liability.type ? ' selected' : '';
+        return `<option value="${value}"${sel}>${label}</option>`;
+      }).join('');
+
+      const balance = currentBalance(liability);
+
+      document.getElementById('edit-dialog-body').innerHTML = `
+        <p class="form-error" id="edit-error" data-od-id="edit-error" hidden></p>
+
+        <label class="modal-field">
+          <span>Name</span>
+          <input class="input" type="text" id="edit-name" value="${escapeAttr(liability.name)}" required data-od-id="edit-name" />
+        </label>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Type</span>
+            <select class="select" id="edit-type" required data-od-id="edit-type">${typeOptions}</select>
+          </label>
+          <label class="modal-field">
+            <span>Lender</span>
+            <input class="input" type="text" id="edit-lender" value="${escapeAttr(liability.lender)}" required data-od-id="edit-lender" />
+          </label>
+        </div>
+
+        <div class="readonly-balance" data-od-id="edit-balance-readonly">
+          <span class="readonly-balance-label">Current balance</span>
+          <span class="readonly-balance-value">${balance != null ? FUNDS.money(balance) : '—'}</span>
+        </div>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Original amount ($)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="edit-original" value="${liability.original_amount != null ? liability.original_amount : ''}" data-od-id="edit-original" />
+          </label>
+          <label class="modal-field">
+            <span>Start date</span>
+            <input class="input date" type="date" id="edit-start-date" value="${liability.start_date || ''}" data-od-id="edit-start-date" />
+          </label>
+        </div>
+
+        <label class="modal-field credit-limit-field" id="edit-credit-limit-wrap" data-od-id="edit-credit-limit-wrap">
+          <span>Credit limit ($)</span>
+          <input class="input mono" type="number" min="0" step="0.01" id="edit-credit-limit" value="${liability.credit_limit != null ? liability.credit_limit : ''}" data-od-id="edit-credit-limit" />
+        </label>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Interest rate (%)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="edit-rate" value="${liability.interest_rate != null ? liability.interest_rate : ''}" data-od-id="edit-rate" />
+          </label>
+          <label class="modal-field">
+            <span>Rate type</span>
+            <select class="select" id="edit-rate-type" data-od-id="edit-rate-type">
+              <option value="variable"${liability.rate_type === 'variable' ? ' selected' : ''}>Variable</option>
+              <option value="fixed"${liability.rate_type === 'fixed' ? ' selected' : ''}>Fixed</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="modal-field-row">
+          <label class="modal-field">
+            <span>Repayment ($)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="edit-repayment" value="${liability.repayment_amount != null ? liability.repayment_amount : ''}" data-od-id="edit-repayment" />
+          </label>
+          <label class="modal-field">
+            <span>Frequency</span>
+            <select class="select" id="edit-frequency" data-od-id="edit-frequency">
+              <option value="weekly"${liability.repayment_frequency === 'weekly' ? ' selected' : ''}>Weekly</option>
+              <option value="fortnightly"${liability.repayment_frequency === 'fortnightly' ? ' selected' : ''}>Fortnightly</option>
+              <option value="monthly"${liability.repayment_frequency === 'monthly' ? ' selected' : ''}>Monthly</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="modal-field">
+          <span>Term (months)</span>
+          <input class="input mono" type="number" min="1" step="1" id="edit-term" value="${liability.term_months != null ? liability.term_months : ''}" data-od-id="edit-term" />
+        </label>
+
+        <label class="modal-field">
+          <span>Linked account</span>
+          <select class="select" id="edit-account" data-od-id="edit-account"></select>
+        </label>
+
+        <label class="modal-field">
+          <span>Notes</span>
+          <textarea id="edit-notes" data-od-id="edit-notes">${liability.notes ? escapeHtml(liability.notes) : ''}</textarea>
+        </label>
+
+        <div class="bal-section" data-od-id="balance-history">
+          <div class="bal-section-head">
+            <div>
+              <h3>Balance history</h3>
+              <p>Add or remove past balances — the newest date sets the table balance.</p>
+            </div>
+          </div>
+          <div class="bal-list" id="bal-list" data-od-id="bal-list">${renderBalanceList(liability)}</div>
+          <div class="bal-add" data-od-id="bal-add-row">
+            <label class="modal-field">
+              <span>Date</span>
+              <input class="input date" type="date" id="bal-add-date" value="${TODAY_ISO}" data-od-id="bal-add-date" />
+            </label>
+            <label class="modal-field">
+              <span>Balance ($)</span>
+              <input class="input mono" type="number" min="0" step="0.01" id="bal-add-balance" placeholder="0.00" data-od-id="bal-add-balance" />
+            </label>
+            <label class="modal-field" style="grid-column:1/-1">
+              <span>Source</span>
+              <input class="input" type="text" id="bal-add-source" placeholder="e.g. Statement, loan portal" data-od-id="bal-add-source" />
+            </label>
+            <div class="bal-add-actions">
+              <button type="button" class="btn btn-accent" id="bal-add-btn" data-od-id="bal-add-btn">Add balance</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      populateAccountSelect(document.getElementById('edit-account'), liability.linked_account_id);
+      toggleCreditLimitField(document.getElementById('edit-credit-limit-wrap'), liability.type);
+
+      document.getElementById('edit-type').addEventListener('change', (e) => {
+        toggleCreditLimitField(document.getElementById('edit-credit-limit-wrap'), e.target.value);
+      });
+    }
+
+    function openEditModal(id) {
+      const liability = liabilities.find((l) => l.id === id);
+      if (!liability) return;
+      editTargetId = id;
+      renderEditBody(liability);
+      document.getElementById('edit-dialog').showModal();
+      document.getElementById('edit-name').focus();
+    }
+
+    function closeEditModal() {
+      document.getElementById('edit-dialog').close();
+      editTargetId = null;
+    }
+
+    function refreshEditBalances() {
+      const liability = liabilities.find((l) => l.id === editTargetId);
+      if (!liability) return;
+      document.getElementById('bal-list').innerHTML = renderBalanceList(liability);
+      const balance = currentBalance(liability);
+      const valueEl = document.querySelector('[data-od-id="edit-balance-readonly"] .readonly-balance-value');
+      if (valueEl) {
+        valueEl.textContent = balance != null ? FUNDS.money(balance) : '—';
+      }
+    }
+
+    function addBalance() {
+      const liability = liabilities.find((l) => l.id === editTargetId);
+      if (!liability) return;
+
+      const date = document.getElementById('bal-add-date').value;
+      const balance = Number(document.getElementById('bal-add-balance').value);
+      const source = document.getElementById('bal-add-source').value.trim();
+      const errorEl = document.getElementById('edit-error');
+
+      if (!date) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Balance date is required.';
+        return;
+      }
+      if (!Number.isFinite(balance) || balance < 0) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Enter a valid balance amount.';
+        return;
+      }
+      if (!source) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Balance source is required.';
+        return;
+      }
+
+      errorEl.hidden = true;
+      liability.balances.push({
+        id: `b-${nextBalSeq++}`,
+        date,
+        balance,
+        source,
+      });
+
+      document.getElementById('bal-add-balance').value = '';
+      document.getElementById('bal-add-source').value = '';
+      refreshEditBalances();
+      renderTable();
+      showToast('Balance added.');
+    }
+
+    function removeBalance(balId) {
+      const liability = liabilities.find((l) => l.id === editTargetId);
+      if (!liability || liability.balances.length <= 1) return;
+
+      liability.balances = liability.balances.filter((b) => b.id !== balId);
+      refreshEditBalances();
+      renderTable();
+      showToast('Balance removed.');
+    }
+
+    function confirmEdit(event) {
+      event.preventDefault();
+      const liability = liabilities.find((l) => l.id === editTargetId);
+      if (!liability) return;
+
+      const errorEl = document.getElementById('edit-error');
+      const name = document.getElementById('edit-name').value.trim();
+      const type = document.getElementById('edit-type').value;
+      const lender = document.getElementById('edit-lender').value.trim();
+      const originalRaw = document.getElementById('edit-original').value;
+      const startDate = document.getElementById('edit-start-date').value || null;
+      const creditLimitRaw = document.getElementById('edit-credit-limit').value;
+      const interestRateRaw = document.getElementById('edit-rate').value;
+      const rateType = document.getElementById('edit-rate-type').value;
+      const repaymentRaw = document.getElementById('edit-repayment').value;
+      const frequency = document.getElementById('edit-frequency').value;
+      const termRaw = document.getElementById('edit-term').value;
+      const linkedAccountId = document.getElementById('edit-account').value || null;
+      const notes = document.getElementById('edit-notes').value.trim() || null;
+
+      if (!name) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Name is required.';
+        document.getElementById('edit-name').focus();
+        return;
+      }
+      if (!lender) {
+        errorEl.hidden = false;
+        errorEl.textContent = 'Lender is required.';
+        document.getElementById('edit-lender').focus();
+        return;
+      }
+
+      errorEl.hidden = true;
+
+      liability.name = name;
+      liability.type = type;
+      liability.lender = lender;
+      liability.original_amount = originalRaw ? Number(originalRaw) : null;
+      liability.start_date = startDate;
+      liability.credit_limit = type === 'credit_card' && creditLimitRaw ? Number(creditLimitRaw) : null;
+      liability.interest_rate = interestRateRaw ? Number(interestRateRaw) : null;
+      liability.rate_type = rateType;
+      liability.repayment_amount = repaymentRaw ? Number(repaymentRaw) : null;
+      liability.repayment_frequency = frequency;
+      liability.term_months = termRaw ? Number(termRaw) : null;
+      liability.linked_account_id = linkedAccountId;
+      liability.notes = notes;
+
+      closeEditModal();
+      renderTable();
+      showToast(`“${name}” updated.`);
+    }
+
+    function openDeleteModal(id) {
+      const liability = liabilities.find((l) => l.id === id);
+      if (!liability) return;
+      deleteTargetId = id;
+      document.getElementById('delete-dialog-desc').textContent =
+        `Remove “${liability.name}” and its balance history? This cannot be undone.`;
+      document.getElementById('delete-dialog').showModal();
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-dialog').close();
+      deleteTargetId = null;
+    }
+
+    function confirmDelete() {
+      if (!deleteTargetId) return;
+      const liability = liabilities.find((l) => l.id === deleteTargetId);
+      const name = liability ? liability.name : 'Liability';
+      liabilities = liabilities.filter((l) => l.id !== deleteTargetId);
+      closeDeleteModal();
+      renderTable();
+      showToast(`“${name}” deleted.`);
+    }
+
+    populateAccountSelect(document.getElementById('add-account'), null);
+
+    document.getElementById('btn-add-liability').addEventListener('click', openAddModal);
+    document.getElementById('btn-add-empty').addEventListener('click', openAddModal);
+    document.getElementById('add-close').addEventListener('click', closeAddModal);
+    document.getElementById('add-cancel').addEventListener('click', closeAddModal);
+    document.getElementById('add-form').addEventListener('submit', confirmAdd);
+    document.getElementById('add-type').addEventListener('change', (e) => {
+      toggleCreditLimitField(document.getElementById('add-credit-limit-wrap'), e.target.value);
+    });
+
+    document.getElementById('liabilities-body').addEventListener('click', (e) => {
+      const editBtn = e.target.closest('[data-action="edit"]');
+      if (editBtn) {
+        openEditModal(editBtn.dataset.id);
+        return;
+      }
+      const delBtn = e.target.closest('[data-action="delete"]');
+      if (delBtn) openDeleteModal(delBtn.dataset.id);
+    });
+
+    document.getElementById('edit-close').addEventListener('click', closeEditModal);
+    document.getElementById('edit-cancel').addEventListener('click', closeEditModal);
+    document.getElementById('edit-form').addEventListener('submit', confirmEdit);
+    document.getElementById('edit-dialog').addEventListener('click', (e) => {
+      if (e.target.id === 'bal-add-btn' || e.target.closest('#bal-add-btn')) {
+        addBalance();
+        return;
+      }
+      const removeBtn = e.target.closest('[data-action="remove-bal"]');
+      if (removeBtn) removeBalance(removeBtn.dataset.balId);
+    });
+
+    document.getElementById('delete-close').addEventListener('click', closeDeleteModal);
+    document.getElementById('delete-cancel').addEventListener('click', closeDeleteModal);
+    document.getElementById('delete-confirm').addEventListener('click', confirmDelete);
+
+    renderTable();
+  </script>
+</body>
+</html>

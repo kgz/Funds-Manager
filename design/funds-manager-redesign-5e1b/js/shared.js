@@ -239,7 +239,7 @@ const NAV_GROUPS = [
     items: [
       { id: 'accounts', href: 'funds-accounts.html', label: 'Accounts', icon: 'wallet' },
       { id: 'assets', href: 'funds-assets.html', label: 'Assets', icon: 'asset' },
-      { id: 'liabilities', href: '#', label: 'Liabilities', icon: 'liability', stub: true },
+      { id: 'liabilities', href: 'funds-liabilities.html', label: 'Liabilities', icon: 'liability' },
     ],
   },
   {
