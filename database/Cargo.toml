@@ -37,4 +37,4 @@ time = "0.3.47"
 utoipa = { version = "5.2.0", features = ["actix_extras", "chrono", "macros", "time"] }
 serde_json = "1.0.138"
 regex = "1.11.1"
-toml = "0.8.19"
+toml = "0.9.12"
