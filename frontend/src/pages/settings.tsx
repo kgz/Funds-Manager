@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { AlertTriangle, Check, Eye, EyeOff, Info, Loader2 } from 'lucide-react';
 import { ErrorState } from '@/components/layout/ErrorState';
 import { PageLoadingState } from '@/components/layout/PageLoadingState';
 import { PageShell } from '@/components/layout/PageShell';
@@ -123,6 +123,9 @@ function SettingsBanner({ banner }: { banner: StorageBanner | null }) {
 				? 'border-[color-mix(in_oklch,var(--accent)_35%,var(--border))] bg-[color-mix(in_oklch,var(--accent)_7%,var(--surface))] text-[color-mix(in_oklch,var(--accent)_55%,var(--fg))]'
 				: 'border-[color-mix(in_oklch,var(--warn)_35%,var(--border))] bg-[color-mix(in_oklch,var(--warn)_9%,var(--surface))] text-[oklch(42%_0.12_75)]';
 
+	const Icon =
+		banner.kind === 'ok' ? Check : banner.kind === 'info' ? Info : AlertTriangle;
+
 	return (
 		<div
 			className={cn(
@@ -132,7 +135,7 @@ function SettingsBanner({ banner }: { banner: StorageBanner | null }) {
 			role="status"
 			aria-live="polite"
 		>
-			<Check className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+			<Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
 			<div>
 				<strong className="font-semibold">{banner.title}</strong>
 				{banner.detail !== undefined ? (
@@ -196,6 +199,8 @@ export function Settings() {
 	const [storageBanner, setStorageBanner] = useState<StorageBanner | null>(null);
 	const [migrations, setMigrations] = useState<MigrationStatusItem[]>([]);
 	const [pendingMigrationCount, setPendingMigrationCount] = useState(0);
+	const [migrationsTargetLabel, setMigrationsTargetLabel] = useState<string | null>(null);
+	const [migrationsUsingLivePool, setMigrationsUsingLivePool] = useState(true);
 	const [migrationsLoading, setMigrationsLoading] = useState(true);
 	const [migrationsError, setMigrationsError] = useState<string | null>(null);
 	const [runningMigrations, setRunningMigrations] = useState(false);
@@ -223,23 +228,38 @@ export function Settings() {
 		setHasSavedPassword(data.pg_has_password);
 	}, []);
 
+	const formInput = useCallback(
+		() => postgresInput(pgHost, pgPort, pgDatabase, pgUser, pgPassword),
+		[pgHost, pgPort, pgDatabase, pgUser, pgPassword]
+	);
+
 	const loadMigrations = useCallback(async () => {
 		setMigrationsLoading(true);
 		setMigrationsError(null);
 		try {
-			const data = await fetchMigrationsStatus();
+			const input = postgresInput(pgHost, pgPort, pgDatabase, pgUser, pgPassword);
+			const hasTarget =
+				input.host.length > 0 && input.database.length > 0 && input.user.length > 0;
+			const data = await fetchMigrationsStatus(
+				hasTarget ? input : undefined,
+				selectedConnectionId ?? undefined
+			);
 			setMigrations(data.items);
 			setPendingMigrationCount(data.pending_count);
+			setMigrationsTargetLabel(data.target_database);
+			setMigrationsUsingLivePool(data.using_live_pool);
 		} catch (err: unknown) {
 			setMigrationsError(
 				err instanceof Error ? err.message : 'Failed to load migrations'
 			);
 			setMigrations([]);
 			setPendingMigrationCount(0);
+			setMigrationsTargetLabel(null);
+			setMigrationsUsingLivePool(true);
 		} finally {
 			setMigrationsLoading(false);
 		}
-	}, []);
+	}, [pgHost, pgPort, pgDatabase, pgUser, pgPassword, selectedConnectionId]);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -277,11 +297,11 @@ export function Settings() {
 
 	useEffect(() => {
 		void load();
-		void loadMigrations();
-	}, [load, loadMigrations]);
+	}, [load]);
 
-	const formInput = () =>
-		postgresInput(pgHost, pgPort, pgDatabase, pgUser, pgPassword);
+	useEffect(() => {
+		void loadMigrations();
+	}, [selectedConnectionId, pgHost, pgDatabase, pgUser]);
 
 	const handleSelectConnection = (connection: SavedConnection) => {
 		const form = connectionToForm(connection);
@@ -388,10 +408,14 @@ export function Settings() {
 					detail: `“${connectionName}” is now active — no restart needed.`,
 				});
 			} else {
+				await loadMigrations();
+				const pendingHint = result.message.includes('migration')
+					? ' Use Run pending migrations below for this selected database, then try again.'
+					: '';
 				setStorageBanner({
 					kind: 'warn',
 					title: 'Could not connect',
-					detail: result.message,
+					detail: `${result.message}${pendingHint}`,
 				});
 			}
 		} catch (err: unknown) {
@@ -409,13 +433,16 @@ export function Settings() {
 		setRunningMigrations(true);
 		setMigrationBanner(null);
 		try {
-			const result = await runMigrations();
+			const result = await runMigrations(
+				formInput(),
+				selectedConnectionId ?? undefined
+			);
 			setMigrationBanner({
 				kind: result.ok ? 'ok' : 'warn',
 				title: result.ok ? result.message : 'Migration run failed',
 				detail: result.ok
 					? result.applied_count > 0
-						? 'Schema is now up to date.'
+						? 'Schema is now up to date. You can Save & connect.'
 						: undefined
 					: result.message,
 			});
@@ -647,14 +674,14 @@ export function Settings() {
 
 							<div className="flex flex-col gap-2 rounded-paper border border-paper-border bg-paper px-3.5 py-3">
 								<div className="flex flex-wrap items-baseline justify-between gap-3 text-xs">
-									<span className="font-medium text-paper-muted">Active source</span>
+									<span className="font-medium text-paper-muted">Config source</span>
 									<span className="min-w-0 text-right text-paper-fg">
 										{activeSourceLabel}
 									</span>
 								</div>
 								<div className="flex flex-wrap items-baseline justify-between gap-3 text-xs">
 									<span className="font-medium text-paper-muted">
-										Currently connected
+										Live database
 									</span>
 									<span className="min-w-0 break-all text-right font-mono text-paper-fg">
 										{runtimeUrl}
@@ -685,7 +712,13 @@ export function Settings() {
 					<section className={cn(glassCardClass, 'overflow-hidden p-0')}>
 						<div className="border-b border-paper-border px-4 py-3.5">
 							<h2 className={panelTitleClass}>Database migrations</h2>
-							<p className={panelHintClass}>Apply schema updates without the CLI</p>
+							<p className={panelHintClass}>
+								Apply schema updates for the selected connection
+								{migrationsTargetLabel !== null
+									? ` (${migrationsTargetLabel})`
+									: ''}
+								{migrationsUsingLivePool ? ' — live pool' : ''}
+							</p>
 						</div>
 
 						<div className="flex items-center gap-2.5 px-4 py-3 text-[13px]">
@@ -699,7 +732,7 @@ export function Settings() {
 							<p className="m-0 text-paper-muted">
 								{pendingMigrationCount === 0
 									? 'All migrations are applied — schema is up to date.'
-									: `${pendingMigrationCount} migration${pendingMigrationCount === 1 ? '' : 's'} pending — review and apply below.`}
+									: `${pendingMigrationCount} migration${pendingMigrationCount === 1 ? '' : 's'} pending — review and apply below, then Save & connect.`}
 							</p>
 						</div>
 

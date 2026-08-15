@@ -1,7 +1,6 @@
 -- Flatten Transport > Car > * to two-level Transport > * (OD model).
 -- Car was an intermediate parent from the 2026-06 category rejig.
-
-BEGIN;
+-- Diesel wraps each migration in a transaction — do not add BEGIN/COMMIT here.
 
 UPDATE transaction_data td
 SET category_id = servicing.id
@@ -83,5 +82,3 @@ WHERE car.name = 'Car'
   AND transport.parent_category_id IS NULL
   AND transport.deleted_at IS NULL
   AND car.parent_category_id = transport.id;
-
-COMMIT;
