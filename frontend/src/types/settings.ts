@@ -72,6 +72,8 @@ export type MigrationStatusItem = {
 export type MigrationsStatus = {
 	items: MigrationStatusItem[];
 	pending_count: number;
+	target_database: string | null;
+	using_live_pool: boolean;
 };
 
 export type MigrationsRunResult = {
@@ -256,7 +258,17 @@ function normalizeMigrationsStatus(raw: unknown): MigrationsStatus | null {
 		}
 		items.push(normalized);
 	}
-	return { items, pending_count: pendingCount };
+	const targetDatabase =
+		readOptionalString(raw, 'targetDatabase', 'target_database') ?? null;
+	const usingLivePool = readBoolean(
+		Reflect.get(raw, 'usingLivePool') ?? Reflect.get(raw, 'using_live_pool')
+	);
+	return {
+		items,
+		pending_count: pendingCount,
+		target_database: targetDatabase,
+		using_live_pool: usingLivePool ?? true,
+	};
 }
 
 function readPendingCount(raw: unknown): number | null {
@@ -442,8 +454,15 @@ export async function connectStorage(
 	return result;
 }
 
-export async function fetchMigrationsStatus(): Promise<MigrationsStatus> {
-	const response = await axios.get('/api/settings/migrations');
+export async function fetchMigrationsStatus(
+	input?: PostgresConnectionInput,
+	connectionId?: string
+): Promise<MigrationsStatus> {
+	const body: Record<string, string> = input ? postgresPayload(input) : {};
+	if (connectionId !== undefined) {
+		body.connectionId = connectionId;
+	}
+	const response = await axios.post('/api/settings/migrations/status', body);
 	const status = normalizeMigrationsStatus(response.data);
 	if (status === null) {
 		throw new Error('Invalid migrations status response');
@@ -451,8 +470,15 @@ export async function fetchMigrationsStatus(): Promise<MigrationsStatus> {
 	return status;
 }
 
-export async function runMigrations(): Promise<MigrationsRunResult> {
-	const response = await axios.post('/api/settings/migrations/run');
+export async function runMigrations(
+	input?: PostgresConnectionInput,
+	connectionId?: string
+): Promise<MigrationsRunResult> {
+	const body: Record<string, string> = input ? postgresPayload(input) : {};
+	if (connectionId !== undefined) {
+		body.connectionId = connectionId;
+	}
+	const response = await axios.post('/api/settings/migrations/run', body);
 	const result = normalizeMigrationsRunResult(response.data);
 	if (result === null) {
 		throw new Error('Invalid migrations run response');

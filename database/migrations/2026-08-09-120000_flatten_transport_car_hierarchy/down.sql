@@ -1,6 +1,5 @@
 -- Best-effort rollback: restore Car as intermediate parent (transaction categories are not reverted).
-
-BEGIN;
+-- Diesel wraps each migration in a transaction — do not add BEGIN/COMMIT here.
 
 UPDATE categories car
 SET deleted_at = NULL
@@ -46,5 +45,3 @@ WHERE pt.name = 'Public transport'
   AND transport.parent_category_id IS NULL
   AND transport.deleted_at IS NULL
   AND pt.parent_category_id = transport.id;
-
-COMMIT;

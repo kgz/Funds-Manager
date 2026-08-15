@@ -241,8 +241,7 @@ fn migration_description(name: &str) -> String {
         .replace('_', " ")
 }
 
-pub fn list_migration_status() -> Result<Vec<MigrationStatusItem>, String> {
-    let mut conn = get_dbo();
+fn list_migration_status_on(conn: &mut impl MigrationHarness<Pg>) -> Result<Vec<MigrationStatusItem>, String> {
     let applied = conn
         .applied_migrations()
         .map_err(|error| format!("failed to list applied migrations: {error}"))?;
@@ -265,8 +264,22 @@ pub fn list_migration_status() -> Result<Vec<MigrationStatusItem>, String> {
     Ok(items)
 }
 
-pub fn run_pending_migrations_now() -> Result<usize, String> {
+pub fn list_migration_status() -> Result<Vec<MigrationStatusItem>, String> {
     let mut conn = get_dbo();
+    list_migration_status_on(&mut *conn)
+}
+
+pub fn list_migration_status_for_url(database_url: &str) -> Result<Vec<MigrationStatusItem>, String> {
+    let url = database_url.trim();
+    if url.is_empty() {
+        return Err("Database URL is empty".to_string());
+    }
+    let mut conn =
+        PgConnection::establish(url).map_err(|error| format!("failed to connect: {error}"))?;
+    list_migration_status_on(&mut conn)
+}
+
+fn run_pending_migrations_on(conn: &mut impl MigrationHarness<Pg>) -> Result<usize, String> {
     let pending = conn
         .pending_migrations(MIGRATIONS)
         .map_err(|error| format!("failed to list pending migrations: {error}"))?;
@@ -274,8 +287,23 @@ pub fn run_pending_migrations_now() -> Result<usize, String> {
     if count == 0 {
         return Ok(0);
     }
-    run_pending_migrations(&mut conn).map_err(|error| format!("migration failed: {error}"))?;
+    run_pending_migrations(conn).map_err(|error| format!("migration failed: {error}"))?;
     Ok(count)
+}
+
+pub fn run_pending_migrations_now() -> Result<usize, String> {
+    let mut conn = get_dbo();
+    run_pending_migrations_on(&mut *conn)
+}
+
+pub fn run_pending_migrations_for_url(database_url: &str) -> Result<usize, String> {
+    let url = database_url.trim();
+    if url.is_empty() {
+        return Err("Database URL is empty".to_string());
+    }
+    let mut conn =
+        PgConnection::establish(url).map_err(|error| format!("failed to connect: {error}"))?;
+    run_pending_migrations_on(&mut conn)
 }
 
 fn get_file_creator(file_name: String) -> Vec<u8> {

@@ -6,7 +6,8 @@ use database::modules::app_config::{
     StorageMode,
 };
 use database::modules::database::{
-    active_database_url, list_migration_status, run_pending_migrations_now, swap_postgres_pool,
+    active_database_url, list_migration_status, list_migration_status_for_url,
+    run_pending_migrations_for_url, run_pending_migrations_now, swap_postgres_pool,
     MigrationStatusItem,
 };
 use serde::{Deserialize, Serialize};
@@ -348,50 +349,83 @@ async fn test_storage_connection(payload: web::Json<StorageTestPayload>) -> Resu
     }
 }
 
+fn resolve_target_database_url(
+    config: &AppConfig,
+    database_url: Option<&str>,
+    connection_id: Option<&str>,
+    postgres: &PostgresFields,
+) -> Result<String, actix_web::Error> {
+    if let Some(url) = database_url.map(str::trim).filter(|value| !value.is_empty()) {
+        return Ok(url.to_string());
+    }
+    if !postgres.is_empty() {
+        return postgres
+            .build_url_with_connection(config, connection_id)
+            .map_err(error::ErrorBadRequest);
+    }
+    if let Some(connection_id) = connection_id {
+        let connection = config
+            .connection_by_id(connection_id)
+            .ok_or_else(|| error::ErrorBadRequest("Unknown connection id"))?;
+        return Ok(database::modules::app_config::build_postgres_url(
+            &connection.to_parts(),
+        ));
+    }
+    config
+        .configured_postgres_url()
+        .or_else(|| std::env::var("DATABASE_URL").ok())
+        .ok_or_else(|| error::ErrorBadRequest("No database URL to use"))
+}
+
 async fn connect_storage(payload: web::Json<StorageConnectPayload>) -> Result<impl Responder> {
-    let mut config = AppConfig::load();
-    let provided_url = if let Some(url) = payload
-        .database_url
-        .as_ref()
-        .map(|value| value.trim().to_string())
-        .filter(|value| !value.is_empty())
-    {
-        Some(url)
-    } else if !payload.postgres.is_empty() {
-        if let Some(connection_id) = payload.connection_id.as_deref() {
-            config.set_active_connection(connection_id).map_err(error::ErrorBadRequest)?;
+    let config = AppConfig::load();
+    let url = resolve_target_database_url(
+        &config,
+        payload.database_url.as_deref(),
+        payload.connection_id.as_deref(),
+        &payload.postgres,
+    )?;
+    let connection_id = payload.connection_id.clone();
+    let postgres = PostgresFields {
+        pg_host: payload.postgres.pg_host.clone(),
+        pg_port: payload.postgres.pg_port.clone(),
+        pg_database: payload.postgres.pg_database.clone(),
+        pg_user: payload.postgres.pg_user.clone(),
+        pg_password: payload.postgres.pg_password.clone(),
+    };
+    let swap_url = url.clone();
+
+    match web::block(move || swap_postgres_pool(&swap_url)).await {
+        Ok(Ok(())) => {
+            let mut config = AppConfig::load();
+            if let Some(connection_id) = connection_id.as_deref() {
+                config
+                    .set_active_connection(connection_id)
+                    .map_err(error::ErrorBadRequest)?;
+            }
+            if !postgres.is_empty() {
+                sync_connection_from_postgres_fields(
+                    &mut config,
+                    connection_id.as_deref(),
+                    &postgres,
+                )
+                .map_err(error::ErrorBadRequest)?;
+                let saved_url = postgres
+                    .build_url_with_connection(&config, connection_id.as_deref())
+                    .map_err(error::ErrorBadRequest)?;
+                config.postgres.url = Some(saved_url);
+            } else {
+                config.postgres.url = Some(url);
+            }
+            config.storage_mode = StorageMode::Postgres;
+            config
+                .save()
+                .map_err(|message| error::ErrorInternalServerError(message))?;
+            Ok(HttpResponse::Ok().json(StorageConnectResponse {
+                ok: true,
+                message: "Saved and connected. The app is now using this database.".to_string(),
+            }))
         }
-        sync_connection_from_postgres_fields(&mut config, payload.connection_id.as_deref(), &payload.postgres)
-            .map_err(error::ErrorBadRequest)?;
-        Some(
-            payload
-                .postgres
-                .build_url_with_connection(&config, payload.connection_id.as_deref())
-                .map_err(error::ErrorBadRequest)?,
-        )
-    } else {
-        None
-    };
-
-    let url = if let Some(url) = provided_url {
-        config.postgres.url = Some(url.clone());
-        config.storage_mode = StorageMode::Postgres;
-        config
-            .save()
-            .map_err(|message| error::ErrorInternalServerError(message))?;
-        url
-    } else {
-        config
-            .configured_postgres_url()
-            .or_else(|| std::env::var("DATABASE_URL").ok())
-            .ok_or_else(|| error::ErrorBadRequest("No database URL to connect"))?
-    };
-
-    match web::block(move || swap_postgres_pool(&url)).await {
-        Ok(Ok(())) => Ok(HttpResponse::Ok().json(StorageConnectResponse {
-            ok: true,
-            message: "Saved and connected. The app is now using this database.".to_string(),
-        })),
         Ok(Err(message)) => Ok(HttpResponse::Ok().json(StorageConnectResponse {
             ok: false,
             message,
@@ -405,6 +439,8 @@ async fn connect_storage(payload: web::Json<StorageConnectPayload>) -> Result<im
 struct MigrationsStatusResponse {
     items: Vec<MigrationStatusItem>,
     pending_count: usize,
+    target_database: Option<String>,
+    using_live_pool: bool,
 }
 
 #[derive(Serialize)]
@@ -415,13 +451,44 @@ struct MigrationsRunResponse {
     message: String,
 }
 
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct MigrationsTargetPayload {
+    database_url: Option<String>,
+    connection_id: Option<String>,
+    #[serde(flatten)]
+    postgres: PostgresFields,
+}
+
+impl MigrationsTargetPayload {
+    fn has_target(&self) -> bool {
+        self.database_url
+            .as_ref()
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false)
+            || !self.postgres.is_empty()
+            || self.connection_id.is_some()
+    }
+}
+
+fn target_database_label(url: &str) -> Option<String> {
+    parse_postgres_url(url).map(|parts| {
+        let host = parts.host;
+        let port = parts.port.unwrap_or(5432);
+        format!("{host}:{port} / {}", parts.database)
+    })
+}
+
 async fn get_migrations_status() -> Result<impl Responder> {
     match web::block(list_migration_status).await {
         Ok(Ok(items)) => {
             let pending_count = items.iter().filter(|item| !item.applied).count();
+            let target_database = active_database_url().ok().as_deref().and_then(target_database_label);
             Ok(HttpResponse::Ok().json(MigrationsStatusResponse {
                 items,
                 pending_count,
+                target_database,
+                using_live_pool: true,
             }))
         }
         Ok(Err(message)) => Err(error::ErrorInternalServerError(message)),
@@ -429,8 +496,66 @@ async fn get_migrations_status() -> Result<impl Responder> {
     }
 }
 
-async fn run_migrations() -> Result<impl Responder> {
-    match web::block(run_pending_migrations_now).await {
+async fn post_migrations_status(
+    payload: web::Json<MigrationsTargetPayload>,
+) -> Result<impl Responder> {
+    if !payload.has_target() {
+        match web::block(list_migration_status).await {
+            Ok(Ok(items)) => {
+                let pending_count = items.iter().filter(|item| !item.applied).count();
+                let target_database =
+                    active_database_url().ok().as_deref().and_then(target_database_label);
+                return Ok(HttpResponse::Ok().json(MigrationsStatusResponse {
+                    items,
+                    pending_count,
+                    target_database,
+                    using_live_pool: true,
+                }));
+            }
+            Ok(Err(message)) => return Err(error::ErrorInternalServerError(message)),
+            Err(_) => {
+                return Err(error::ErrorInternalServerError("Failed to load migrations"));
+            }
+        }
+    }
+    let config = AppConfig::load();
+    let url = resolve_target_database_url(
+        &config,
+        payload.database_url.as_deref(),
+        payload.connection_id.as_deref(),
+        &payload.postgres,
+    )?;
+    let target_database = target_database_label(&url);
+    match web::block(move || list_migration_status_for_url(&url)).await {
+        Ok(Ok(items)) => {
+            let pending_count = items.iter().filter(|item| !item.applied).count();
+            Ok(HttpResponse::Ok().json(MigrationsStatusResponse {
+                items,
+                pending_count,
+                target_database,
+                using_live_pool: false,
+            }))
+        }
+        Ok(Err(message)) => Err(error::ErrorInternalServerError(message)),
+        Err(_) => Err(error::ErrorInternalServerError("Failed to load migrations")),
+    }
+}
+
+async fn run_migrations(payload: web::Json<MigrationsTargetPayload>) -> Result<impl Responder> {
+    let result = if payload.has_target() {
+        let config = AppConfig::load();
+        let url = resolve_target_database_url(
+            &config,
+            payload.database_url.as_deref(),
+            payload.connection_id.as_deref(),
+            &payload.postgres,
+        )?;
+        web::block(move || run_pending_migrations_for_url(&url)).await
+    } else {
+        web::block(run_pending_migrations_now).await
+    };
+
+    match result {
         Ok(Ok(applied_count)) => {
             let message = if applied_count == 0 {
                 "Database migrations are already up to date.".to_string()
@@ -504,5 +629,6 @@ pub fn settings_service() -> Scope {
         .route("/connections", web::post().to(create_connection))
         .route("/connections/{id}", web::delete().to(delete_connection))
         .route("/migrations", web::get().to(get_migrations_status))
+        .route("/migrations/status", web::post().to(post_migrations_status))
         .route("/migrations/run", web::post().to(run_migrations))
 }
