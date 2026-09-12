@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test';
 import { installPlanningMocks, type PlanningMockState } from './fixtures/planning-mocks';
 
 test.describe('Planning hub', () => {

@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const e2eCoverage = process.env.E2E_COVERAGE === '1';
+const port = e2eCoverage ? 3197 : 3000;
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
 	testDir: './e2e',
 	fullyParallel: false,
@@ -8,7 +12,7 @@ export default defineConfig({
 	workers: 1,
 	reporter: 'list',
 	use: {
-		baseURL: 'http://127.0.0.1:3000',
+		baseURL,
 		trace: 'on-first-retry',
 	},
 	projects: [
@@ -20,9 +24,14 @@ export default defineConfig({
 	webServer: [
 		{
 			command: 'pnpm dev',
-			url: 'http://127.0.0.1:3000',
-			reuseExistingServer: true,
+			url: baseURL,
+			reuseExistingServer: !e2eCoverage && !process.env.CI,
 			timeout: 120_000,
+			env: {
+				E2E_COVERAGE: e2eCoverage ? '1' : '',
+				VITE_DEV_HTTP: process.env.VITE_DEV_HTTP ?? 'true',
+				VITE_PORT: String(port),
+			},
 		},
 	],
 });

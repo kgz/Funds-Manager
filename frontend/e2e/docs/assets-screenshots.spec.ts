@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { installAssetsMocks } from '../fixtures/assets-mocks';

@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "check:money-colors": "bash scripts/check-money-colors.sh",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:coverage": "rm -rf .nyc_output coverage && E2E_COVERAGE=1 playwright test && nyc report --reporter=html --reporter=text-summary"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",
@@ -48,8 +49,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.9.0",
+    "nyc": "^18.0.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.66.0",
-    "vite": "^8.2.0"
+    "vite": "^8.2.0",
+    "vite-plugin-istanbul": "^9.0.1"
   }
 }
