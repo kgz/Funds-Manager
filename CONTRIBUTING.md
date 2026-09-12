@@ -6,7 +6,8 @@ Thanks for helping improve Funds Manager.
 
 1. Open or find a [GitHub issue](https://github.com/kgz/Funds-Manager/issues) — features and larger changes should be discussed first.
 2. For non-trivial work, read [docs/openspec.md](docs/openspec.md) and add a change under `openspec/changes/` before implementing.
-3. Set up the app locally: [docs/local-development.md](docs/local-development.md).
+3. Set up the app locally: [docs/local-development.md](docs/local-development.md) or the [docs site](https://kgz.github.io/Funds-Manager/guide/local-development).
+4. Product feature docs: VitePress under `docs-site/`. When an MVP lands, follow `.cursor/skills/document-feature/SKILL.md` (screenshots + alt manifest).
 
 ## Branch and PR flow
 

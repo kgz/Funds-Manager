@@ -42,11 +42,14 @@ Upload PDF bank statements, assign categories, and build a picture of spending, 
 
 | I want to… | Go to |
 |------------|--------|
-| Run with Docker | [Wiki → Installation](https://github.com/kgz/Funds-Manager/wiki/Installation) |
-| Develop locally | [Wiki → Development](https://github.com/kgz/Funds-Manager/wiki/Development) |
+| Read the docs site | [kgz.github.io/Funds-Manager](https://kgz.github.io/Funds-Manager/) |
+| Run with Docker | [Wiki → Installation](https://github.com/kgz/Funds-Manager/wiki/Installation) · [Guide → Docker](https://kgz.github.io/Funds-Manager/guide/docker) |
+| Develop locally | [Guide → Local development](https://kgz.github.io/Funds-Manager/guide/local-development) |
 | Build from source or cut a release | [docs/building.md](docs/building.md) · [docs/releasing.md](docs/releasing.md) |
 
 Published Docker image: `ghcr.io/kgz/funds-manager` (tagged per release).
+
+Product how-tos (with screenshots over time) live under **Features** on the docs site. Source: `docs-site/`.
 
 ## Contributing
 
