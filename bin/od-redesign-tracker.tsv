@@ -34,13 +34,13 @@
 304	backlog	docs+e2e Serviceability (#304)
 305	backlog	docs+e2e Report snapshots (#305)
 306	backlog	docs+e2e Repeat payments (#306)
-307	done	docs+e2e Planning covered in #143 PR
+307	done	docs+e2e Planning — merged with #143
 308	backlog	docs+e2e Accounts (#308)
 309	backlog	docs+e2e Assets (#309)
 310	backlog	docs+e2e Liabilities (#310)
 311	backlog	docs+e2e Statements (#311)
 312	backlog	docs+e2e Categories (#312)
 313	backlog	docs+e2e Settings (#313)
-314	done	docs: run from git clone (with docs-site PR)
-315	done	docs: run with Docker/GHCR (with docs-site PR)
-143	in-review	planning hub v1 (#143)
+314	done	docs: run from git clone — merged with #143
+315	done	docs: run with Docker/GHCR — merged with #143
+143	done	planning hub v1 — merged (#143 / PR #316)
