@@ -108,3 +108,4 @@ After completing all artifacts, summarize:
 - If context is critically unclear, ask the user - but prefer making reasonable decisions to keep momentum
 - If a change with that name already exists, ask if user wants to continue it or create a new one
 - Verify each artifact file exists after writing before proceeding to next
+- For user-facing UI/behaviour changes, `tasks.md` **must** end with a Docs + e2e section (User guide effects + cross-links, screenshots/manifest, Playwright happy path, dead-end review, `docs-site` build) — same PR as the code, not a follow-up by default

@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!--
+    Planning hub (#143) — prototype route /planning · API target /api/planning
+    Plan kinds + eng fields: see PLANNING.md
+  -->
+  <title>FUNDS — Planning</title>
+  <link rel="stylesheet" href="css/shared.css" />
+  <link rel="stylesheet" href="css/planned.css" />
+  <link rel="stylesheet" href="css/planning.css" />
+</head>
+<body>
+  <aside class="sidebar" id="sidebar" data-od-id="sidebar" aria-label="Primary"></aside>
+
+  <div class="main">
+    <header class="page-header" data-od-id="page-header">
+      <div>
+        <h1 class="page-title" data-od-id="page-title">
+          Planning
+          <span class="route-chip" data-od-id="route-chip" title="Prototype route concept">/planning</span>
+        </h1>
+        <p class="page-sub" data-od-id="page-sub">Upcoming cashflow and loan plans — redraws, refinances, and repayment changes.</p>
+      </div>
+      <div class="page-actions" data-od-id="page-actions">
+        <button type="button" class="btn btn-primary" id="btn-add-plan" data-od-id="btn-add-plan">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Add plan
+        </button>
+      </div>
+    </header>
+
+    <div class="page-body">
+      <div class="filters-row" data-od-id="planning-filters">
+        <div class="kind-tabs" role="tablist" aria-label="Plan kind" id="kind-filter" data-od-id="filter-kind">
+          <button type="button" role="tab" data-value="all" class="is-on" aria-selected="true">All</button>
+          <button type="button" role="tab" data-value="cashflow" aria-selected="false">Cashflow</button>
+          <button type="button" role="tab" data-value="loans" aria-selected="false">Loans</button>
+        </div>
+
+        <div class="account-filter-wrap is-context" id="account-filter-wrap" data-od-id="account-filter-wrap">
+          <label class="sr" for="pl-account">Account</label>
+          <select class="select" id="pl-account" data-od-id="filter-account" aria-label="Account filter">
+            <option value="all" selected>All accounts</option>
+            <option value="pc-9120">People's Choice 9120</option>
+            <option value="pc-savings">People's Choice Savings</option>
+            <option value="cba-offset">CBA Offset 4412</option>
+          </select>
+          <span class="context-note" data-od-id="account-context-note">context only</span>
+        </div>
+
+        <div class="segmented" role="group" aria-label="Date range mode" id="range-mode" data-od-id="filter-range-mode">
+          <button type="button" data-value="preset" class="is-on" aria-pressed="true">Presets</button>
+          <button type="button" data-value="custom" aria-pressed="false">Custom</button>
+        </div>
+
+        <div class="segmented" role="group" aria-label="Planning period" id="period" data-od-id="filter-period">
+          <button type="button" data-value="all" class="is-on" aria-pressed="true">All</button>
+          <button type="button" data-value="future" aria-pressed="false">Future</button>
+          <button type="button" data-value="this-year" aria-pressed="false">This year</button>
+          <button type="button" data-value="next-year" aria-pressed="false">Next year</button>
+          <button type="button" data-value="year-after-next" aria-pressed="false">+1 year</button>
+        </div>
+
+        <div class="custom-dates" id="custom-dates" data-od-id="filter-custom-dates">
+          <label class="sr" for="date-from">From</label>
+          <input class="input date" type="date" id="date-from" data-od-id="date-from" aria-label="From date" />
+          <span class="date-sep">to</span>
+          <label class="sr" for="date-to">To</label>
+          <input class="input date" type="date" id="date-to" data-od-id="date-to" aria-label="To date" />
+          <button type="button" class="btn btn-ghost" id="date-reset" data-od-id="date-reset">Reset</button>
+        </div>
+
+        <div class="planned-total" id="planned-total" data-od-id="kpi-planning-total">
+          <span class="pt-label">Cashflow total</span>
+          <strong class="pt-value money" id="pt-value">$0.00</strong>
+          <span class="pt-hint" id="pt-hint">Cashflow plans in this period.</span>
+        </div>
+      </div>
+
+      <div class="alert" id="range-invalid" data-od-id="range-invalid-alert" hidden>
+        <span>Choose a valid date range (from on or before to).</span>
+      </div>
+
+      <input class="input search-input" type="search" id="pl-search" placeholder="Search name, notes, category, liability…" aria-label="Search plans" data-od-id="search-input" hidden />
+
+      <div class="match-callout" id="match-callout" data-od-id="match-callout" hidden>
+        <div class="match-callout-head">
+          <div class="match-callout-heading">
+            <span class="match-badge" id="match-badge" data-od-id="match-badge">0</span>
+            <span class="match-callout-title" id="match-callout-title" data-od-id="match-callout-title"></span>
+          </div>
+          <p class="match-callout-sub">Review each pair and link manually — cashflow plans only. Nothing is applied until you confirm.</p>
+        </div>
+        <div class="match-list" id="match-list" data-od-id="match-list"></div>
+      </div>
+
+      <div class="empty-state is-education" id="empty-state" data-od-id="empty-state" hidden>
+        <div class="empty-state-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
+        </div>
+        <h3>No plans in this view</h3>
+        <p>Planning covers upcoming cashflow and loan events — redraws, refinances, and repayment changes — not expenses alone.</p>
+        <div class="empty-state-action">
+          <button type="button" class="btn btn-primary" id="btn-add-plan-empty" data-od-id="btn-add-plan-empty">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Add plan
+          </button>
+        </div>
+      </div>
+
+      <div class="empty-state" id="search-empty-state" data-od-id="search-empty-state" hidden>
+        <div class="empty-state-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </div>
+        <h3>No plans match your search</h3>
+        <p>Try clearing the search or using a different term.</p>
+      </div>
+
+      <section class="panel planned-panel planning-panel" id="planning-panel" data-od-id="planning-panel">
+        <div class="panel-head">
+          <div>
+            <h2 class="panel-title">Plans</h2>
+            <p class="panel-hint" id="panel-hint" data-od-id="panel-hint">0 plans</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data" data-od-id="planning-table">
+            <thead>
+              <tr id="planning-head">
+                <th class="col-kind" scope="col" data-sort="kind" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-kind">Kind<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-name" scope="col" data-sort="name" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-name">Name<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-amt is-numeric" scope="col" data-sort="amount" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-amount">Amount<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-date" scope="col" data-sort="date" aria-sort="ascending">
+                  <button type="button" class="th-sort" data-od-id="sort-date">Date<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-liability" scope="col" data-sort="liability" aria-sort="none">
+                  <button type="button" class="th-sort" data-od-id="sort-liability">Liability<span class="th-sort-icon" aria-hidden="true"><svg viewBox="0 0 10 12" fill="none" stroke="currentColor" stroke-width="1.6"><path class="caret-up" d="M2 4.2 5 1.5 8 4.2"/><path class="caret-down" d="M2 7.8 5 10.5 8 7.8"/></svg></span></button>
+                </th>
+                <th class="col-detail" scope="col">Detail</th>
+                <th class="col-actions" scope="col"><span class="sr">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="planning-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Add / edit plan -->
+  <dialog class="modal-dialog is-plan" id="item-dialog" data-od-id="item-dialog" aria-labelledby="item-dialog-title">
+    <form method="dialog" class="modal-shell" id="item-form" data-od-id="item-form">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Planning</span>
+          <h2 id="item-dialog-title">Add plan</h2>
+          <p id="item-dialog-sub">Choose a plan kind, then fill the fields that apply.</p>
+        </div>
+        <button class="dialog-close" type="button" id="item-close" aria-label="Close" data-od-id="item-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="form-error" id="item-error" data-od-id="item-error" hidden></p>
+
+        <div class="modal-field" id="kind-picker-wrap" data-od-id="kind-picker-wrap">
+          <span>Plan kind</span>
+          <div class="kind-picker" role="group" aria-label="Plan kind" id="kind-picker" data-od-id="kind-picker">
+            <button type="button" class="kind-option is-on" data-value="cashflow" aria-pressed="true">
+              <span class="kind-option-title">Cashflow</span>
+              <span class="kind-option-sub">Dated spend or income</span>
+            </button>
+            <button type="button" class="kind-option" data-value="loan_redraw" aria-pressed="false">
+              <span class="kind-option-title">Loan redraw</span>
+              <span class="kind-option-sub">Credit account · raise loan</span>
+            </button>
+            <button type="button" class="kind-option" data-value="loan_refinance" aria-pressed="false">
+              <span class="kind-option-title">Refinance</span>
+              <span class="kind-option-sub">Settle old · new terms</span>
+            </button>
+            <button type="button" class="kind-option" data-value="loan_repayment_change" aria-pressed="false">
+              <span class="kind-option-title">Repayment change</span>
+              <span class="kind-option-sub">New repayment or rate</span>
+            </button>
+          </div>
+        </div>
+
+        <label class="modal-field">
+          <span>Name</span>
+          <input class="input" type="text" id="item-name" placeholder="e.g. Holiday, Offset redraw" required data-od-id="item-name" />
+        </label>
+
+        <div class="modal-field" id="field-cashflow-amount" data-od-id="field-cashflow-amount">
+          <div class="field-row">
+            <span>Amount ($)</span>
+            <div class="segmented amount-type" role="group" aria-label="Cashflow amount type" id="item-amount-type" data-od-id="item-amount-type">
+              <button type="button" data-value="spending" class="is-on" aria-pressed="true">Spending</button>
+              <button type="button" data-value="income" aria-pressed="false">Income</button>
+            </div>
+          </div>
+          <input class="input mono" type="number" min="0" step="0.01" id="item-amount" placeholder="0.00" data-od-id="item-amount" />
+        </div>
+
+        <label class="modal-field" id="field-redraw-amount" data-od-id="field-redraw-amount" hidden>
+          <span>Redraw amount ($)</span>
+          <input class="input mono" type="number" min="0" step="0.01" id="item-redraw-amount" placeholder="50000.00" data-od-id="item-redraw-amount" />
+        </label>
+
+        <label class="modal-field">
+          <span>Date</span>
+          <input class="input date" type="date" id="item-date" required data-od-id="item-date" />
+        </label>
+
+        <label class="modal-field" id="field-category" data-od-id="field-category">
+          <span>Category (optional)</span>
+          <select class="select" id="item-category" data-od-id="item-category"></select>
+        </label>
+
+        <label class="modal-field" id="field-liability" data-od-id="field-liability" hidden>
+          <span id="field-liability-label">Liability</span>
+          <select class="select" id="item-liability" data-od-id="item-liability"></select>
+        </label>
+
+        <label class="modal-field" id="field-dest-account" data-od-id="field-dest-account" hidden>
+          <span>Destination account</span>
+          <select class="select" id="item-dest-account" data-od-id="item-dest-account">
+            <option value="cba-offset">CBA Offset 4412</option>
+            <option value="pc-9120">People's Choice 9120</option>
+            <option value="pc-savings">People's Choice Savings</option>
+          </select>
+        </label>
+
+        <label class="modal-field" id="field-new-liability" data-od-id="field-new-liability" hidden>
+          <span>New / linked liability name</span>
+          <input class="input" type="text" id="item-new-liability" placeholder="e.g. Home loan — refinance 2026" data-od-id="item-new-liability" />
+        </label>
+
+        <div class="modal-field-row" id="field-rate-terms" data-od-id="field-rate-terms" hidden>
+          <label class="modal-field">
+            <span>Rate (%)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="item-rate" placeholder="5.49" data-od-id="item-rate" />
+          </label>
+          <label class="modal-field">
+            <span>Repayment ($ / mo)</span>
+            <input class="input mono" type="number" min="0" step="0.01" id="item-repayment" placeholder="2640.00" data-od-id="item-repayment" />
+          </label>
+        </div>
+
+        <p class="not-income-callout" id="not-income-callout" data-od-id="not-income-callout" hidden>
+          <strong>Not income.</strong> A redraw credits the destination account and increases the loan balance by the same amount.
+        </p>
+
+        <div class="impact-preview" id="impact-preview" data-od-id="impact-preview" hidden>
+          <span class="impact-preview-label">Impact preview</span>
+          <p class="impact-preview-body" id="impact-preview-body"></p>
+          <p class="impact-preview-note" id="impact-preview-note"></p>
+        </div>
+
+        <label class="modal-field">
+          <span>Notes (optional)</span>
+          <textarea id="item-notes" placeholder="Any extra context" data-od-id="item-notes"></textarea>
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="item-cancel" data-od-id="item-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="item-save" data-od-id="item-save">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Link transactions (cashflow only) -->
+  <dialog class="modal-dialog is-wide" id="link-dialog" data-od-id="link-dialog" aria-labelledby="link-dialog-title">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Link transactions</span>
+          <h2 id="link-dialog-title">Link transactions</h2>
+          <p id="link-dialog-desc"></p>
+        </div>
+        <button class="dialog-close" type="button" id="link-close" aria-label="Close" data-od-id="link-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-body link-modal-body">
+        <label class="sr" for="link-search">Search transaction description</label>
+        <input class="input search-input" type="search" id="link-search" placeholder="Search transaction description…" data-od-id="link-search" />
+        <div class="link-candidates-wrap" data-od-id="link-candidates-wrap">
+          <table class="data" id="link-table" hidden>
+            <thead>
+              <tr>
+                <th class="col-check" scope="col"><span class="sr">Select</span></th>
+                <th class="col-date" scope="col">Date</th>
+                <th scope="col">Description</th>
+                <th scope="col">Account</th>
+                <th class="is-numeric" scope="col">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="link-body"></tbody>
+          </table>
+          <div class="link-empty" id="link-empty" data-od-id="link-empty">No transactions found nearby. Try a different search term.</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="link-cancel" data-od-id="link-cancel">Cancel</button>
+        <button type="button" class="btn btn-accent" id="link-confirm" data-od-id="link-confirm" disabled>Link selected</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Delete confirm -->
+  <dialog class="modal-dialog" id="delete-dialog" data-od-id="delete-dialog" aria-labelledby="delete-dialog-title">
+    <div class="modal-shell">
+      <div class="modal-head">
+        <div>
+          <span class="eyebrow">Planning</span>
+          <h2 id="delete-dialog-title">Delete plan</h2>
+          <p id="delete-dialog-desc"></p>
+        </div>
+        <button class="dialog-close" type="button" id="delete-close" aria-label="Close" data-od-id="delete-close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="delete-cancel" data-od-id="delete-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="delete-confirm" data-od-id="delete-confirm">Delete</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" data-od-id="toast">
+    <span class="toast-icon" aria-hidden="true">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg>
+    </span>
+    <span id="toast-text"></span>
+  </div>
+
+  <script src="js/shared.js"></script>
+  <script>
+    FUNDS.renderSidebar('planning');
+
+    const TODAY_ISO = '2026-08-08';
+
+    const LINK_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17H7a5 5 0 0 1 0-10h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+    const EDIT_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+    const DELETE_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+    const CHECK_ICON = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+    const KIND_META = {
+      cashflow: { label: 'Cashflow', badgeClass: 'is-cashflow', group: 'cashflow' },
+      loan_redraw: { label: 'Redraw', badgeClass: 'is-redraw', group: 'loans' },
+      loan_refinance: { label: 'Refinance', badgeClass: 'is-refinance', group: 'loans' },
+      loan_repayment_change: { label: 'Repayment', badgeClass: 'is-repayment', group: 'loans' },
+    };
+
+    const CATS = {
+      travel:       { name: 'Travel',                color: '#4a7d8b' },
+      transport:    { name: 'Transport',              color: '#4a6fa5' },
+      insurance:    { name: 'Insurance',               color: '#8b6b4a' },
+      salary:       { name: 'Salary',                 color: '#2f7d5a' },
+      gifts:        { name: 'Gifts & family',         color: '#a5527a' },
+      health:       { name: 'Health',                 color: '#3d8b6e' },
+      professional: { name: 'Professional services',  color: '#6b7a8b' },
+    };
+
+    const LIABILITIES = [
+      { id: 'loan-banksa-home', name: 'Home loan — Unley Park', balance: 412850, rate: 5.89, repayment: 2890 },
+      { id: 'loan-car', name: '2021 Toyota Camry — secured', balance: 11480, rate: 6.49, repayment: 412 },
+      { id: 'loan-personal', name: 'Renovation top-up', balance: 14280, rate: 8.99, repayment: 520 },
+    ];
+
+    const ACCOUNTS = {
+      'pc-9120': "People's Choice 9120",
+      'pc-savings': "People's Choice Savings",
+      'cba-offset': 'CBA Offset 4412',
+    };
+
+    let CANDIDATES = [
+      { id: 901, description: 'TOYOTA SERVICE CENTRE MARION', amount: -612.40, date: '2026-09-10', account: "People's Choice 9120" },
+      { id: 902, description: 'H&R BLOCK TAX AGENTS',          amount: -350.00, date: '2026-08-18', account: "People's Choice 9120" },
+      { id: 903, description: 'BALI FLIGHT CENTRE DEPOSIT',    amount: -450.00, date: '2026-08-02', account: "People's Choice 9120" },
+      { id: 904, description: 'NRMA INSURANCE BPAY',           amount: -580.00, date: '2026-09-28', account: "People's Choice 9120" },
+      { id: 905, description: 'KMART CHRISTMAS LAYBY',         amount: -120.00, date: '2026-11-20', account: "People's Choice Savings" },
+      { id: 906, description: 'RACV REGO RENEWAL',             amount: -890.00, date: '2026-11-04', account: 'CBA Offset 4412' },
+      { id: 907, description: 'ACME PTY LTD PAY ADJUSTMENT',   amount: 1850.00, date: '2026-08-03', account: "People's Choice 9120" },
+      { id: 908, description: 'WOOLWORTHS CHRISTMAS CATERING', amount: -85.40,  date: '2026-12-18', account: "People's Choice 9120" },
+    ];
+
+    let ITEMS = [
+      { id: 'p1', kind: 'cashflow', name: 'Bali family holiday', amount: -3200.00, date: '2026-12-10', categoryId: 'travel', notes: 'Flights + resort deposit paid — remainder due before departure', linked: [], liabilityId: null, destAccountId: null, newLiabilityName: null, rate: null, repayment: null },
+      { id: 'p2', kind: 'cashflow', name: 'Car service — Toyota Camry 60k', amount: -650.00, date: '2026-09-12', categoryId: 'transport', notes: 'Toyota dealership scheduled service', linked: [], liabilityId: null, destAccountId: null, newLiabilityName: null, rate: null, repayment: null },
+      { id: 'p3', kind: 'cashflow', name: 'Home & contents insurance renewal', amount: -1180.00, date: '2026-10-01', categoryId: 'insurance', notes: 'NRMA renewal — paying in full for the discount', linked: [
+        { id: 801, description: 'NRMA INSURANCE BPAY', amount: -600.00, date: '2026-08-05', account: "People's Choice 9120" },
+      ], liabilityId: null, destAccountId: null, newLiabilityName: null, rate: null, repayment: null },
+      { id: 'p4', kind: 'cashflow', name: 'EOFY salary adjustment', amount: 1850.00, date: '2026-08-01', categoryId: 'salary', notes: 'Annual increment lands with August pay', linked: [], liabilityId: null, destAccountId: null, newLiabilityName: null, rate: null, repayment: null },
+      { id: 'p5', kind: 'cashflow', name: 'Christmas gifts', amount: -600.00, date: '2026-12-15', categoryId: 'gifts', notes: null, linked: [], liabilityId: null, destAccountId: null, newLiabilityName: null, rate: null, repayment: null },
+      { id: 'p6', kind: 'loan_redraw', name: 'Offset redraw — kitchen deposit', amount: 50000, date: '2026-09-01', categoryId: null, notes: 'Redraw into offset for renovation deposit', linked: [], liabilityId: 'loan-banksa-home', destAccountId: 'cba-offset', newLiabilityName: null, rate: null, repayment: null },
+      { id: 'p7', kind: 'loan_refinance', name: 'Home loan refinance — BankSA to CBA', amount: 412850, date: '2026-11-15', categoryId: null, notes: 'Settle Unley Park facility; new P&I from settlement', linked: [], liabilityId: 'loan-banksa-home', destAccountId: null, newLiabilityName: 'Home loan — CBA refinance 2026', rate: 5.49, repayment: 2640 },
+      { id: 'p8', kind: 'loan_repayment_change', name: 'Home loan — step-up repayment', amount: 3200, date: '2026-10-01', categoryId: null, notes: 'Increase monthly P&I after bonus', linked: [], liabilityId: 'loan-banksa-home', destAccountId: null, newLiabilityName: null, rate: 5.89, repayment: 3200 },
+      { id: 'p9', kind: 'cashflow', name: 'Tax return — accountant fee', amount: -350.00, date: '2026-08-20', categoryId: 'professional', notes: 'H&R Block preparation fee', linked: [], liabilityId: null, destAccountId: null, newLiabilityName: null, rate: null, repayment: null },
+    ];
+    let nextItemSeq = 10;
+
+    let MATCH_SUGGESTIONS = [
+      { id: 'sg1', plannedId: 'p2', txnId: 901, dateVarianceDays: 2, amountVarianceDollars: 37.60, reasons: ['amount_within_tolerance', 'date_within_tolerance', 'category_match'] },
+      { id: 'sg2', plannedId: 'p9', txnId: 902, dateVarianceDays: 2, amountVarianceDollars: 0, reasons: ['exact_amount', 'date_within_tolerance', 'category_match'] },
+    ];
+
+    let kindFilter = 'all';
+    let accountFilter = 'all';
+    let rangeMode = 'preset';
+    let period = 'all';
+    let customRange = { start: TODAY_ISO, end: '2026-12-31' };
+    let searchQuery = '';
+    let sortKey = 'date';
+    let sortDir = 'asc';
+
+    let modalMode = 'add';
+    let editingId = null;
+    let planKind = 'cashflow';
+    let amountType = 'spending';
+
+    let linkTargetId = null;
+    let linkSearchQuery = '';
+    const selectedLinkIds = new Set();
+
+    let deleteTargetId = null;
+    let toastTimer = null;
+
+    function findItem(id) { return ITEMS.find((i) => i.id === id) || null; }
+    function findLiability(id) { return LIABILITIES.find((l) => l.id === id) || null; }
+
+    function isLoanKind(kind) {
+      return KIND_META[kind] && KIND_META[kind].group === 'loans';
+    }
+
+    function catLabel(categoryId) {
+      const cat = CATS[categoryId];
+      return cat ? cat.name : '';
+    }
+
+    function liabilityName(id) {
+      const l = findLiability(id);
+      return l ? l.name : '';
+    }
+
+    function accountName(id) {
+      return ACCOUNTS[id] || id || '';
+    }
+
+    function linkedTotal(item) {
+      return (item.linked || []).reduce((sum, t) => sum + t.amount, 0);
+    }
+
+    function kindBadge(kind) {
+      const meta = KIND_META[kind] || KIND_META.cashflow;
+      return `<span class="kind-badge ${meta.badgeClass}">${meta.label}</span>`;
+    }
+
+    function computeRange() {
+      if (rangeMode === 'custom') {
+        return { start: customRange.start, end: customRange.end, showAllItems: false, showFutureOnly: false };
+      }
+      if (period === 'all') return { start: '', end: '', showAllItems: true, showFutureOnly: false };
+      if (period === 'future') return { start: TODAY_ISO, end: '', showAllItems: false, showFutureOnly: true };
+      const offset = period === 'this-year' ? 0 : period === 'next-year' ? 1 : 2;
+      const year = Number(TODAY_ISO.slice(0, 4)) + offset;
+      return { start: `${year}-01-01`, end: `${year}-12-31`, showAllItems: false, showFutureOnly: false };
+    }
+
+    function isRangeInvalid(range) {
+      if (range.showAllItems) return false;
+      if (range.start.length < 10) return true;
+      if (range.showFutureOnly) return false;
+      return range.end.length < 10 || range.start > range.end;
+    }
+
+    function inRange(dateIso, range) {
+      if (range.showAllItems) return true;
+      if (range.showFutureOnly) return dateIso >= range.start;
+      return dateIso >= range.start && dateIso <= range.end;
+    }
+
+    function matchesKindFilter(item) {
+      if (kindFilter === 'all') return true;
+      if (kindFilter === 'cashflow') return item.kind === 'cashflow';
+      return isLoanKind(item.kind);
+    }
+
+    function matchesAccountFilter(item) {
+      if (accountFilter === 'all') return true;
+      if (!isLoanKind(item.kind)) return true;
+      if (item.kind === 'loan_redraw') return item.destAccountId === accountFilter;
+      return true;
+    }
+
+    function matchesSearch(item, query) {
+      const q = query.trim().toLowerCase();
+      if (!q) return true;
+      if (item.name.toLowerCase().includes(q)) return true;
+      if (item.notes && item.notes.toLowerCase().includes(q)) return true;
+      const catName = catLabel(item.categoryId);
+      if (catName && catName.toLowerCase().includes(q)) return true;
+      const liab = liabilityName(item.liabilityId);
+      if (liab && liab.toLowerCase().includes(q)) return true;
+      if (item.newLiabilityName && item.newLiabilityName.toLowerCase().includes(q)) return true;
+      const kindLabel = (KIND_META[item.kind] || {}).label || '';
+      if (kindLabel.toLowerCase().includes(q)) return true;
+      return false;
+    }
+
+    function displayAmount(item) {
+      if (item.kind === 'cashflow') return item.amount;
+      if (item.kind === 'loan_redraw') return Math.abs(item.amount);
+      if (item.kind === 'loan_refinance') return Math.abs(item.amount);
+      if (item.kind === 'loan_repayment_change') return Math.abs(item.repayment != null ? item.repayment : item.amount);
+      return item.amount;
+    }
+
+    function amountSignClass(item) {
+      if (item.kind === 'cashflow') return item.amount < 0 ? 'neg' : 'pos';
+      return '';
+    }
+
+    function detailText(item) {
+      if (item.kind === 'cashflow') {
+        const cat = catLabel(item.categoryId);
+        return cat || item.notes || '—';
+      }
+      if (item.kind === 'loan_redraw') {
+        return `→ ${accountName(item.destAccountId)} · not income`;
+      }
+      if (item.kind === 'loan_refinance') {
+        const rate = item.rate != null ? `${item.rate}%` : '—';
+        const rep = item.repayment != null ? FUNDS.money(item.repayment) + '/mo' : '—';
+        return `${item.newLiabilityName || 'New facility'} · ${rate} · ${rep}`;
+      }
+      if (item.kind === 'loan_repayment_change') {
+        const rate = item.rate != null ? `${item.rate}%` : '—';
+        const rep = item.repayment != null ? FUNDS.money(item.repayment) + '/mo' : '—';
+        return `${rep} · ${rate}`;
+      }
+      return item.notes || '—';
+    }
+
+    function sortValue(item, key) {
+      if (key === 'kind') return (KIND_META[item.kind] || {}).label || item.kind;
+      if (key === 'name') return item.name.toLowerCase();
+      if (key === 'amount') return displayAmount(item);
+      if (key === 'date') return item.date;
+      if (key === 'liability') return liabilityName(item.liabilityId).toLowerCase();
+      return 0;
+    }
+
+    function compareValues(a, b, dir) {
+      if (typeof a === 'string' && typeof b === 'string') {
+        return a.localeCompare(b) * dir;
+      }
+      if (a === b) return 0;
+      return (a < b ? -1 : 1) * dir;
+    }
+
+    function sortItems(items) {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      return [...items].sort((a, b) => {
+        const cmp = compareValues(sortValue(a, sortKey), sortValue(b, sortKey), dir);
+        if (cmp !== 0) return cmp;
+        return a.name.localeCompare(b.name);
+      });
+    }
+
+    function paintSortHeaders() {
+      document.querySelectorAll('#planning-head [data-sort]').forEach((th) => {
+        const key = th.getAttribute('data-sort');
+        th.setAttribute('aria-sort', key === sortKey ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+      });
+    }
+
+    function scopeHint(range, searchActive, dateCount, searchCount) {
+      if (searchActive) return `${searchCount} of ${dateCount} plan${dateCount === 1 ? '' : 's'} match search.`;
+      if (range.showAllItems) return 'All plans in this kind filter.';
+      if (range.showFutureOnly) return 'Plans dated today or later.';
+      return 'Plans dated in this period.';
+    }
+
+    function matchReasonLabel(reason) {
+      switch (reason) {
+        case 'exact_amount': return 'Same amount';
+        case 'amount_within_tolerance': return 'Close amount';
+        case 'exact_date': return 'Same date';
+        case 'date_within_tolerance': return 'Close date';
+        case 'category_match': return 'Category matches';
+        case 'description_match': return 'Description matches';
+        case 'partial_payment': return 'Partial payment';
+        default: return reason.replace(/_/g, ' ');
+      }
+    }
+
+    function formatVarianceLabel(sg) {
+      const parts = [];
+      if (sg.amountVarianceDollars > 0) parts.push(`${FUNDS.money(sg.amountVarianceDollars)} off amount`);
+      if (sg.dateVarianceDays > 0) parts.push(`${sg.dateVarianceDays} day${sg.dateVarianceDays === 1 ? '' : 's'} off date`);
+      return parts.length > 0 ? parts.join(' · ') : 'Exact amount and date';
+    }
+
+    function defaultLinkSearch(item) {
+      if (item.notes) {
+        const seg = item.notes.split(/[\s—–-]+/)[0].trim();
+        if (seg.length >= 3) return seg;
+      }
+      const words = item.name.split(/\s+/).map((w) => w.replace(/[^a-zA-Z0-9]/g, '')).filter((w) => w.length >= 4);
+      return words[0] || '';
+    }
+
+    function defaultCustomRange() {
+      const year = Number(TODAY_ISO.slice(0, 4));
+      return { start: TODAY_ISO, end: `${year}-12-31` };
+    }
+
+    function showToast(text) {
+      const el = document.getElementById('toast');
+      document.getElementById('toast-text').textContent = text;
+      el.classList.add('is-visible');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('is-visible'), 2600);
+    }
+
+    function setKindFilter(value) {
+      kindFilter = value;
+      document.querySelectorAll('#kind-filter button').forEach((b) => {
+        const on = b.dataset.value === value;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      const wrap = document.getElementById('account-filter-wrap');
+      const isLoans = value === 'loans';
+      wrap.classList.toggle('is-loan', isLoans);
+      wrap.classList.toggle('is-context', !isLoans);
+      const sel = document.getElementById('pl-account');
+      sel.setAttribute('aria-label', isLoans
+        ? 'Account filter — applies to redraw destination accounts'
+        : 'Account filter — context only for cashflow plans');
+      sel.title = isLoans
+        ? 'Filters loan redraws by destination account.'
+        : 'Shown for context — cashflow plans are global and are not filtered by account.';
+    }
+
+    function renderFiltersChrome() {
+      document.getElementById('period').hidden = rangeMode === 'custom';
+      document.getElementById('custom-dates').classList.toggle('is-on', rangeMode === 'custom');
+      document.getElementById('date-from').value = customRange.start;
+      document.getElementById('date-to').value = customRange.end;
+    }
+
+    function renderKpi(range, invalid, dateItems, searchItems, searchActive) {
+      const card = document.getElementById('planned-total');
+      card.hidden = invalid;
+      if (invalid) return;
+      const pool = searchActive ? searchItems : dateItems;
+      const cashflow = pool.filter((i) => i.kind === 'cashflow');
+      const total = cashflow.reduce((sum, i) => sum + i.amount, 0);
+      const valueEl = document.getElementById('pt-value');
+      valueEl.textContent = FUNDS.money(total);
+      valueEl.classList.toggle('pos', total >= 0);
+      valueEl.classList.toggle('neg', total < 0);
+      const loanCount = pool.filter((i) => isLoanKind(i.kind)).length;
+      document.getElementById('pt-hint').textContent =
+        `${cashflow.length} cashflow · ${loanCount} loan event${loanCount === 1 ? '' : 's'} · ` +
+        scopeHint(range, searchActive, dateItems.length, searchItems.length);
+    }
+
+    function renderMatchCallout() {
+      const callout = document.getElementById('match-callout');
+      const visible = MATCH_SUGGESTIONS.filter((sg) => {
+        const item = findItem(sg.plannedId);
+        return item && item.kind === 'cashflow' && matchesKindFilter(item);
+      });
+      if (visible.length === 0) {
+        callout.hidden = true;
+        return;
+      }
+      callout.hidden = false;
+      document.getElementById('match-badge').textContent = String(visible.length);
+      document.getElementById('match-callout-title').textContent =
+        `${visible.length} cashflow plan${visible.length === 1 ? '' : 's'} may match imported transactions`;
+
+      document.getElementById('match-list').innerHTML = visible.map((sg) => {
+        const planned = findItem(sg.plannedId);
+        const txn = CANDIDATES.find((c) => c.id === sg.txnId);
+        if (!planned || !txn) return '';
+        const plannedCat = catLabel(planned.categoryId);
+        return `<div class="match-pair" data-od-id="match-pair-${sg.id}">
+          <div class="match-pair-grid">
+            <div class="match-side">
+              <span class="match-side-label">Cashflow plan</span>
+              <p class="match-side-name" title="${planned.name}">${planned.name}</p>
+              <p class="match-side-meta">${FUNDS.money(planned.amount)} · ${FUNDS.formatDate(planned.date)}${plannedCat ? ' · ' + plannedCat : ''}</p>
+              ${planned.notes ? `<p class="match-side-notes" title="${planned.notes}">${planned.notes}</p>` : ''}
+            </div>
+            <span class="match-link-icon" aria-hidden="true">${LINK_ICON}</span>
+            <div class="match-side">
+              <span class="match-side-label">Bank transaction</span>
+              <p class="match-side-name" title="${txn.description}">${txn.description}</p>
+              <p class="match-side-meta">${FUNDS.money(txn.amount)} · ${FUNDS.formatDate(txn.date)} · ${txn.account}</p>
+            </div>
+          </div>
+          <div class="match-footer">
+            <div class="match-chips">
+              <span class="match-chip">${formatVarianceLabel(sg)}</span>
+              ${sg.reasons.slice(0, 3).map((r) => `<span class="match-chip">${matchReasonLabel(r)}</span>`).join('')}
+            </div>
+            <div class="match-actions">
+              <button type="button" class="btn btn-sm btn-accent" data-add-link="${sg.id}" data-od-id="match-add-link-${sg.id}">Add payment link</button>
+              <button type="button" class="btn btn-sm" data-dismiss="${sg.id}" data-od-id="match-dismiss-${sg.id}">Not a match</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function renderRow(item, index) {
+      const isCash = item.kind === 'cashflow';
+      const total = isCash ? linkedTotal(item) : 0;
+      const hasLinks = isCash && item.linked.length > 0;
+      const hasSuggestion = isCash && MATCH_SUGGESTIONS.some((sg) => sg.plannedId === item.id);
+      const sign = amountSignClass(item);
+      const amt = displayAmount(item);
+      const liab = liabilityName(item.liabilityId);
+
+      const nameCell = `<div class="name-cell">
+          <span class="name-text">${item.name}</span>
+          ${hasSuggestion ? '<span class="pill warn sm">Match found</span>' : ''}
+        </div>
+        ${hasLinks ? `<p class="linked-progress">${FUNDS.money(total)} of ${FUNDS.money(item.amount)} linked (${item.linked.length} payment${item.linked.length === 1 ? '' : 's'})</p>` : ''}`;
+
+      const actions = [];
+      if (hasLinks) actions.push(`<button type="button" class="btn btn-sm btn-accent" data-complete="${item.id}" data-od-id="complete-item-${index}">${CHECK_ICON}Mark complete</button>`);
+      if (isCash) actions.push(`<button type="button" class="btn btn-sm" data-link="${item.id}" data-od-id="link-item-${index}">${LINK_ICON}${hasLinks ? 'Add link' : 'Link'}</button>`);
+      actions.push(`<button type="button" class="btn btn-sm" data-edit="${item.id}" data-od-id="edit-item-${index}">${EDIT_ICON}Edit</button>`);
+      actions.push(`<button type="button" class="btn btn-sm btn-danger" data-delete="${item.id}" data-od-id="delete-item-${index}">${DELETE_ICON}Delete</button>`);
+
+      return `<tr data-od-id="plan-row-${index}" data-item-id="${item.id}">
+        <td class="col-kind">${kindBadge(item.kind)}</td>
+        <td class="col-name">${nameCell}</td>
+        <td class="amount money col-amt ${sign}">${FUNDS.money(amt)}</td>
+        <td class="col-date mono">${FUNDS.formatDate(item.date)}</td>
+        <td class="col-liability">${liab ? `<span class="liability-cell" title="${liab}">${liab}</span>` : '<span class="dim">—</span>'}</td>
+        <td class="col-detail"><span class="detail-cell" title="${detailText(item)}">${detailText(item)}</span></td>
+        <td class="col-actions"><div class="actions-cell">${actions.join('')}</div></td>
+      </tr>`;
+    }
+
+    function render() {
+      const range = computeRange();
+      const invalid = isRangeInvalid(range);
+
+      renderFiltersChrome();
+      document.getElementById('range-invalid').hidden = !invalid;
+
+      const dateItems = invalid ? [] : ITEMS.filter((i) =>
+        inRange(i.date, range) && matchesKindFilter(i) && matchesAccountFilter(i)
+      );
+      const searchActive = searchQuery.trim().length > 0;
+      const searchItems = invalid ? [] : dateItems.filter((i) => matchesSearch(i, searchQuery));
+
+      renderKpi(range, invalid, dateItems, searchItems, searchActive);
+      renderMatchCallout();
+
+      document.getElementById('pl-search').hidden = invalid || dateItems.length === 0;
+
+      const showEmpty = !invalid && dateItems.length === 0;
+      const showSearchEmpty = !invalid && dateItems.length > 0 && searchItems.length === 0 && searchActive;
+      const showTable = !invalid && searchItems.length > 0;
+
+      document.getElementById('empty-state').hidden = !showEmpty;
+      document.getElementById('search-empty-state').hidden = !showSearchEmpty;
+      document.getElementById('planning-panel').hidden = !showTable;
+
+      paintSortHeaders();
+      if (showTable) {
+        document.getElementById('planning-body').innerHTML = sortItems(searchItems).map((item, i) => renderRow(item, i)).join('');
+      }
+      document.getElementById('panel-hint').textContent =
+        `${searchItems.length} plan${searchItems.length === 1 ? '' : 's'} · ${scopeHint(range, searchActive, dateItems.length, searchItems.length)}`;
+    }
+
+    function addPaymentLink(sgId) {
+      const sg = MATCH_SUGGESTIONS.find((s) => s.id === sgId);
+      if (!sg) return;
+      const item = findItem(sg.plannedId);
+      const txn = CANDIDATES.find((c) => c.id === sg.txnId);
+      if (!item || !txn) return;
+      item.linked.push(txn);
+      CANDIDATES = CANDIDATES.filter((c) => c.id !== sg.txnId);
+      MATCH_SUGGESTIONS = MATCH_SUGGESTIONS.filter((s) => s.id !== sgId);
+      showToast(`Linked "${txn.description}" to "${item.name}"`);
+      render();
+    }
+
+    function dismissMatch(sgId) {
+      MATCH_SUGGESTIONS = MATCH_SUGGESTIONS.filter((s) => s.id !== sgId);
+      render();
+    }
+
+    function markComplete(itemId) {
+      const item = findItem(itemId);
+      if (!item) return;
+      ITEMS = ITEMS.filter((i) => i.id !== itemId);
+      showToast(`Marked "${item.name}" complete`);
+      render();
+    }
+
+    function populateCategorySelect() {
+      const select = document.getElementById('item-category');
+      select.innerHTML = '<option value="">None</option>' +
+        Object.entries(CATS).map(([id, cat]) => `<option value="${id}">${cat.name}</option>`).join('');
+    }
+
+    function populateLiabilitySelect() {
+      const select = document.getElementById('item-liability');
+      select.innerHTML = LIABILITIES.map((l) =>
+        `<option value="${l.id}">${l.name}</option>`
+      ).join('');
+    }
+
+    function setSegmentedValue(rootId, value) {
+      const root = document.getElementById(rootId);
+      root.querySelectorAll('button').forEach((b) => {
+        const on = b.dataset.value === value;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    function setPlanKind(kind) {
+      planKind = kind;
+      document.querySelectorAll('#kind-picker .kind-option').forEach((b) => {
+        const on = b.dataset.value === kind;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+
+      const isCash = kind === 'cashflow';
+      const isRedraw = kind === 'loan_redraw';
+      const isRefi = kind === 'loan_refinance';
+      const isRepay = kind === 'loan_repayment_change';
+
+      document.getElementById('field-cashflow-amount').hidden = !isCash;
+      document.getElementById('field-redraw-amount').hidden = !isRedraw;
+      document.getElementById('field-category').hidden = !isCash;
+      document.getElementById('field-liability').hidden = isCash;
+      document.getElementById('field-dest-account').hidden = !isRedraw;
+      document.getElementById('field-new-liability').hidden = !isRefi;
+      document.getElementById('field-rate-terms').hidden = !(isRefi || isRepay);
+      document.getElementById('not-income-callout').hidden = !isRedraw;
+
+      document.getElementById('field-liability-label').textContent =
+        isRefi ? 'Settle / close liability' : 'Liability';
+
+      document.getElementById('item-dialog-sub').textContent =
+        isCash ? 'When you expect this cashflow to occur.'
+        : isRedraw ? 'Credits the destination account and increases the loan balance.'
+        : isRefi ? 'Close the old facility and start new rate / repayment terms from the date.'
+        : 'Update repayment or rate on a liability from the given date.';
+
+      updateImpactPreview();
+    }
+
+    function updateImpactPreview() {
+      const preview = document.getElementById('impact-preview');
+      const body = document.getElementById('impact-preview-body');
+      const note = document.getElementById('impact-preview-note');
+
+      if (planKind === 'cashflow') {
+        preview.hidden = true;
+        return;
+      }
+
+      const liab = findLiability(document.getElementById('item-liability').value);
+      const liabName = liab ? liab.name : 'Selected liability';
+
+      if (planKind === 'loan_redraw') {
+        const amt = Number(document.getElementById('item-redraw-amount').value) || 0;
+        const dest = accountName(document.getElementById('item-dest-account').value);
+        preview.hidden = false;
+        body.textContent = amt > 0
+          ? `${dest} +${FUNDS.money(amt)} · ${liabName} +${FUNDS.money(amt)}`
+          : `${dest} +amount · ${liabName} +amount`;
+        note.textContent = 'Balance sheet move only — not income, not a cashflow spend.';
+        return;
+      }
+
+      if (planKind === 'loan_refinance') {
+        const rate = document.getElementById('item-rate').value;
+        const rep = Number(document.getElementById('item-repayment').value) || 0;
+        const newName = document.getElementById('item-new-liability').value.trim() || 'New facility';
+        const date = document.getElementById('item-date').value || 'from date';
+        preview.hidden = false;
+        body.textContent = `Close ${liabName} · open ${newName}`;
+        note.textContent = [
+          rate ? `${rate}%` : 'new rate',
+          rep > 0 ? `${FUNDS.money(rep)}/mo` : 'new repayment',
+          `from ${date === 'from date' ? date : FUNDS.formatDate(date)}`,
+        ].join(' · ');
+        return;
+      }
+
+      if (planKind === 'loan_repayment_change') {
+        const rate = document.getElementById('item-rate').value;
+        const rep = Number(document.getElementById('item-repayment').value) || 0;
+        const oldRep = liab ? liab.repayment : null;
+        const date = document.getElementById('item-date').value;
+        preview.hidden = false;
+        body.textContent = oldRep != null && rep > 0
+          ? `${liabName} repayment ${FUNDS.money(oldRep)} → ${FUNDS.money(rep)}/mo`
+          : `${liabName} · new repayment / rate`;
+        note.textContent = [
+          rate ? `Rate ${rate}%` : null,
+          date ? `from ${FUNDS.formatDate(date)}` : 'from date',
+        ].filter(Boolean).join(' · ');
+      }
+    }
+
+    function openAddModal() {
+      modalMode = 'add';
+      editingId = null;
+      amountType = 'spending';
+      document.getElementById('kind-picker-wrap').hidden = false;
+      document.getElementById('item-dialog-title').textContent = 'Add plan';
+      document.getElementById('item-save').textContent = 'Add';
+      document.getElementById('item-name').value = '';
+      document.getElementById('item-amount').value = '';
+      document.getElementById('item-redraw-amount').value = '';
+      document.getElementById('item-date').value = TODAY_ISO;
+      document.getElementById('item-category').value = '';
+      document.getElementById('item-liability').value = LIABILITIES[0] ? LIABILITIES[0].id : '';
+      document.getElementById('item-dest-account').value = 'cba-offset';
+      document.getElementById('item-new-liability').value = '';
+      document.getElementById('item-rate').value = '';
+      document.getElementById('item-repayment').value = '';
+      document.getElementById('item-notes').value = '';
+      document.getElementById('item-error').hidden = true;
+      setSegmentedValue('item-amount-type', 'spending');
+      setPlanKind('cashflow');
+      document.getElementById('item-dialog').showModal();
+    }
+
+    function openEditModal(itemId) {
+      const item = findItem(itemId);
+      if (!item) return;
+      modalMode = 'edit';
+      editingId = itemId;
+      document.getElementById('kind-picker-wrap').hidden = true;
+      document.getElementById('item-dialog-title').textContent = 'Edit plan';
+      document.getElementById('item-save').textContent = 'Save';
+      document.getElementById('item-name').value = item.name;
+      document.getElementById('item-date').value = item.date;
+      document.getElementById('item-notes').value = item.notes || '';
+      document.getElementById('item-error').hidden = true;
+
+      if (item.kind === 'cashflow') {
+        amountType = item.amount < 0 ? 'spending' : 'income';
+        document.getElementById('item-amount').value = Math.abs(item.amount).toFixed(2);
+        document.getElementById('item-category').value = item.categoryId || '';
+        setSegmentedValue('item-amount-type', amountType);
+      } else if (item.kind === 'loan_redraw') {
+        document.getElementById('item-redraw-amount').value = Math.abs(item.amount).toFixed(2);
+        document.getElementById('item-liability').value = item.liabilityId || '';
+        document.getElementById('item-dest-account').value = item.destAccountId || 'cba-offset';
+      } else if (item.kind === 'loan_refinance') {
+        document.getElementById('item-liability').value = item.liabilityId || '';
+        document.getElementById('item-new-liability').value = item.newLiabilityName || '';
+        document.getElementById('item-rate').value = item.rate != null ? String(item.rate) : '';
+        document.getElementById('item-repayment').value = item.repayment != null ? String(item.repayment) : '';
+      } else if (item.kind === 'loan_repayment_change') {
+        document.getElementById('item-liability').value = item.liabilityId || '';
+        document.getElementById('item-rate').value = item.rate != null ? String(item.rate) : '';
+        document.getElementById('item-repayment').value = item.repayment != null ? String(item.repayment) : '';
+      }
+
+      setPlanKind(item.kind);
+      document.getElementById('item-dialog').showModal();
+    }
+
+    function closeItemModal() {
+      document.getElementById('item-dialog').close();
+    }
+
+    function submitItem(e) {
+      e.preventDefault();
+      const name = document.getElementById('item-name').value.trim();
+      const date = document.getElementById('item-date').value;
+      const notes = document.getElementById('item-notes').value.trim() || null;
+      const errorEl = document.getElementById('item-error');
+
+      if (!name) { errorEl.textContent = 'Name is required'; errorEl.hidden = false; return; }
+      if (!date) { errorEl.textContent = 'Date is required'; errorEl.hidden = false; return; }
+
+      let payload = {
+        kind: planKind,
+        name,
+        date,
+        notes,
+        categoryId: null,
+        amount: 0,
+        linked: [],
+        liabilityId: null,
+        destAccountId: null,
+        newLiabilityName: null,
+        rate: null,
+        repayment: null,
+      };
+
+      if (planKind === 'cashflow') {
+        const amountRaw = Number(document.getElementById('item-amount').value);
+        if (!Number.isFinite(amountRaw) || amountRaw <= 0) {
+          errorEl.textContent = 'Enter a non-zero amount'; errorEl.hidden = false; return;
+        }
+        payload.amount = amountType === 'spending' ? -Math.abs(amountRaw) : Math.abs(amountRaw);
+        payload.categoryId = document.getElementById('item-category').value || null;
+      } else if (planKind === 'loan_redraw') {
+        const amountRaw = Number(document.getElementById('item-redraw-amount').value);
+        if (!Number.isFinite(amountRaw) || amountRaw <= 0) {
+          errorEl.textContent = 'Enter a redraw amount'; errorEl.hidden = false; return;
+        }
+        payload.amount = Math.abs(amountRaw);
+        payload.liabilityId = document.getElementById('item-liability').value;
+        payload.destAccountId = document.getElementById('item-dest-account').value;
+      } else if (planKind === 'loan_refinance') {
+        const liab = findLiability(document.getElementById('item-liability').value);
+        const newName = document.getElementById('item-new-liability').value.trim();
+        const rate = Number(document.getElementById('item-rate').value);
+        const repayment = Number(document.getElementById('item-repayment').value);
+        if (!newName) { errorEl.textContent = 'Name the new or linked liability'; errorEl.hidden = false; return; }
+        if (!Number.isFinite(rate) || rate <= 0) { errorEl.textContent = 'Enter a rate'; errorEl.hidden = false; return; }
+        if (!Number.isFinite(repayment) || repayment <= 0) { errorEl.textContent = 'Enter a repayment'; errorEl.hidden = false; return; }
+        payload.liabilityId = liab ? liab.id : null;
+        payload.amount = liab ? liab.balance : 0;
+        payload.newLiabilityName = newName;
+        payload.rate = rate;
+        payload.repayment = repayment;
+      } else if (planKind === 'loan_repayment_change') {
+        const rate = Number(document.getElementById('item-rate').value);
+        const repayment = Number(document.getElementById('item-repayment').value);
+        if (!Number.isFinite(repayment) || repayment <= 0) {
+          errorEl.textContent = 'Enter the new repayment'; errorEl.hidden = false; return;
+        }
+        payload.liabilityId = document.getElementById('item-liability').value;
+        payload.repayment = repayment;
+        payload.rate = Number.isFinite(rate) && rate > 0 ? rate : null;
+        payload.amount = repayment;
+      }
+
+      if (modalMode === 'add') {
+        ITEMS.push({ id: `p${nextItemSeq++}`, ...payload, linked: [] });
+        showToast(`Added "${name}"`);
+      } else if (editingId) {
+        const item = findItem(editingId);
+        if (item) {
+          const linked = item.linked || [];
+          Object.assign(item, payload, { linked: planKind === 'cashflow' ? linked : [] });
+          showToast(`Saved "${name}"`);
+        }
+      }
+
+      closeItemModal();
+      render();
+    }
+
+    function openLinkModal(itemId) {
+      const item = findItem(itemId);
+      if (!item || item.kind !== 'cashflow') return;
+      linkTargetId = itemId;
+      linkSearchQuery = defaultLinkSearch(item);
+      selectedLinkIds.clear();
+      document.getElementById('link-search').value = linkSearchQuery;
+      document.getElementById('link-dialog-title').textContent = 'Link transactions';
+      document.getElementById('link-dialog-desc').textContent =
+        `Select one or more bank transactions for "${item.name}". Same spend/income sign, within ±30 days of ${FUNDS.formatDate(item.date)}.`;
+      renderLinkCandidates();
+      document.getElementById('link-dialog').showModal();
+    }
+
+    function closeLinkModal() {
+      document.getElementById('link-dialog').close();
+      linkTargetId = null;
+      selectedLinkIds.clear();
+    }
+
+    function linkCandidatePool() {
+      const item = findItem(linkTargetId);
+      if (!item) return [];
+      const sameSign = item.amount < 0 ? (n) => n < 0 : (n) => n >= 0;
+      const targetTs = Date.parse(item.date);
+      const q = linkSearchQuery.trim().toLowerCase();
+      return CANDIDATES.filter((c) => {
+        if (!sameSign(c.amount)) return false;
+        const diffDays = Math.abs(Date.parse(c.date) - targetTs) / 86400000;
+        if (diffDays > 30) return false;
+        if (q && !c.description.toLowerCase().includes(q)) return false;
+        return true;
+      });
+    }
+
+    function renderLinkCandidates() {
+      const candidates = linkCandidatePool();
+      const table = document.getElementById('link-table');
+      const empty = document.getElementById('link-empty');
+
+      if (candidates.length === 0) {
+        table.hidden = true;
+        empty.hidden = false;
+        document.getElementById('link-body').innerHTML = '';
+        updateLinkConfirmButton();
+        return;
+      }
+
+      table.hidden = false;
+      empty.hidden = true;
+      document.getElementById('link-body').innerHTML = candidates.map((c) => {
+        const selected = selectedLinkIds.has(c.id);
+        return `<tr class="cand-row${selected ? ' is-selected' : ''}" data-cand-id="${c.id}" data-od-id="link-candidate-${c.id}">
+          <td class="col-check"><input type="checkbox" ${selected ? 'checked' : ''} aria-label="Select ${c.description}" /></td>
+          <td class="col-date mono">${FUNDS.formatDate(c.date)}</td>
+          <td>${c.description}</td>
+          <td>${c.account}</td>
+          <td class="amount money ${c.amount < 0 ? 'neg' : 'pos'}">${FUNDS.money(c.amount)}</td>
+        </tr>`;
+      }).join('');
+      updateLinkConfirmButton();
+    }
+
+    function toggleLinkSelection(id) {
+      if (selectedLinkIds.has(id)) selectedLinkIds.delete(id);
+      else selectedLinkIds.add(id);
+      renderLinkCandidates();
+    }
+
+    function updateLinkConfirmButton() {
+      const btn = document.getElementById('link-confirm');
+      btn.disabled = selectedLinkIds.size === 0;
+      btn.textContent = selectedLinkIds.size > 1 ? `Link ${selectedLinkIds.size} transactions` : 'Link selected';
+    }
+
+    function confirmManualLink() {
+      const item = findItem(linkTargetId);
+      if (!item || selectedLinkIds.size === 0) return;
+      const linkedNow = CANDIDATES.filter((c) => selectedLinkIds.has(c.id));
+      item.linked.push(...linkedNow);
+      CANDIDATES = CANDIDATES.filter((c) => !selectedLinkIds.has(c.id));
+      MATCH_SUGGESTIONS = MATCH_SUGGESTIONS.filter((sg) => !(sg.plannedId === item.id && selectedLinkIds.has(sg.txnId)));
+      showToast(`Linked ${linkedNow.length} transaction${linkedNow.length === 1 ? '' : 's'} to "${item.name}"`);
+      closeLinkModal();
+      render();
+    }
+
+    function openDeleteModal(itemId) {
+      const item = findItem(itemId);
+      if (!item) return;
+      deleteTargetId = itemId;
+      document.getElementById('delete-dialog-desc').textContent = `Remove "${item.name}" from Planning?`;
+      document.getElementById('delete-dialog').showModal();
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-dialog').close();
+      deleteTargetId = null;
+    }
+
+    function confirmDelete() {
+      if (!deleteTargetId) return;
+      const item = findItem(deleteTargetId);
+      ITEMS = ITEMS.filter((i) => i.id !== deleteTargetId);
+      closeDeleteModal();
+      if (item) showToast(`Deleted "${item.name}"`);
+      render();
+    }
+
+    FUNDS.wireSegmented('#range-mode', (val) => { rangeMode = val; render(); });
+    FUNDS.wireSegmented('#period', (val) => { period = val; render(); });
+
+    document.getElementById('kind-filter').addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-value]');
+      if (!btn) return;
+      setKindFilter(btn.dataset.value);
+      render();
+    });
+
+    document.getElementById('pl-account').addEventListener('change', (e) => {
+      accountFilter = e.target.value;
+      render();
+    });
+
+    document.getElementById('date-from').addEventListener('change', (e) => { customRange.start = e.target.value; render(); });
+    document.getElementById('date-to').addEventListener('change', (e) => { customRange.end = e.target.value; render(); });
+    document.getElementById('date-reset').addEventListener('click', () => { customRange = defaultCustomRange(); render(); });
+
+    document.getElementById('pl-search').addEventListener('input', (e) => { searchQuery = e.target.value; render(); });
+
+    document.getElementById('btn-add-plan').addEventListener('click', openAddModal);
+    document.getElementById('btn-add-plan-empty').addEventListener('click', openAddModal);
+
+    document.getElementById('match-list').addEventListener('click', (e) => {
+      const addBtn = e.target.closest('[data-add-link]');
+      if (addBtn) { addPaymentLink(addBtn.dataset.addLink); return; }
+      const dismissBtn = e.target.closest('[data-dismiss]');
+      if (dismissBtn) dismissMatch(dismissBtn.dataset.dismiss);
+    });
+
+    document.getElementById('planning-head').addEventListener('click', (e) => {
+      const button = e.target.closest('.th-sort');
+      if (!button) return;
+      const th = button.closest('[data-sort]');
+      if (!th) return;
+      const key = th.getAttribute('data-sort');
+      if (sortKey === key) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortKey = key;
+        sortDir = key === 'amount' ? 'desc' : 'asc';
+      }
+      render();
+    });
+
+    document.getElementById('planning-body').addEventListener('click', (e) => {
+      const completeBtn = e.target.closest('[data-complete]');
+      if (completeBtn) { markComplete(completeBtn.dataset.complete); return; }
+      const linkBtn = e.target.closest('[data-link]');
+      if (linkBtn) { openLinkModal(linkBtn.dataset.link); return; }
+      const editBtn = e.target.closest('[data-edit]');
+      if (editBtn) { openEditModal(editBtn.dataset.edit); return; }
+      const deleteBtn = e.target.closest('[data-delete]');
+      if (deleteBtn) openDeleteModal(deleteBtn.dataset.delete);
+    });
+
+    document.getElementById('kind-picker').addEventListener('click', (e) => {
+      const opt = e.target.closest('.kind-option');
+      if (!opt) return;
+      setPlanKind(opt.dataset.value);
+    });
+
+    FUNDS.wireSegmented('#item-amount-type', (val) => { amountType = val; });
+    ['item-redraw-amount', 'item-liability', 'item-dest-account', 'item-new-liability', 'item-rate', 'item-repayment', 'item-date'].forEach((id) => {
+      document.getElementById(id).addEventListener('input', updateImpactPreview);
+      document.getElementById(id).addEventListener('change', updateImpactPreview);
+    });
+
+    document.getElementById('item-form').addEventListener('submit', submitItem);
+    document.getElementById('item-cancel').addEventListener('click', closeItemModal);
+    document.getElementById('item-close').addEventListener('click', closeItemModal);
+
+    document.getElementById('link-search').addEventListener('input', (e) => { linkSearchQuery = e.target.value; renderLinkCandidates(); });
+    document.getElementById('link-body').addEventListener('click', (e) => {
+      const row = e.target.closest('.cand-row');
+      if (!row) return;
+      toggleLinkSelection(Number(row.dataset.candId));
+    });
+    document.getElementById('link-cancel').addEventListener('click', closeLinkModal);
+    document.getElementById('link-close').addEventListener('click', closeLinkModal);
+    document.getElementById('link-confirm').addEventListener('click', confirmManualLink);
+    document.getElementById('link-dialog').addEventListener('cancel', () => { linkTargetId = null; selectedLinkIds.clear(); });
+
+    document.getElementById('delete-cancel').addEventListener('click', closeDeleteModal);
+    document.getElementById('delete-close').addEventListener('click', closeDeleteModal);
+    document.getElementById('delete-confirm').addEventListener('click', confirmDelete);
+    document.getElementById('delete-dialog').addEventListener('cancel', () => { deleteTargetId = null; });
+
+    document.getElementById('item-dialog').addEventListener('cancel', () => { editingId = null; });
+
+    populateCategorySelect();
+    populateLiabilitySelect();
+    setKindFilter('all');
+
+    const PLAN_KINDS = ['cashflow', 'loan_redraw', 'loan_refinance', 'loan_repayment_change'];
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('empty') === '1') {
+      ITEMS = [];
+      MATCH_SUGGESTIONS = [];
+    }
+    render();
+
+    // Command palette / deep links: ?add=1 | ?add=cashflow | ?add=loan_redraw | …
+    const addParam = params.get('add');
+    if (addParam === '1') {
+      openAddModal();
+    } else if (addParam && PLAN_KINDS.includes(addParam)) {
+      openAddModal();
+      setPlanKind(addParam);
+    }
+  </script>
+</body>
+</html>

@@ -1027,7 +1027,7 @@ dependencies = [
 
 [[package]]
 name = "database"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "argon2",
  "automod",
@@ -3281,7 +3281,7 @@ dependencies = [
 
 [[package]]
 name = "server_v2"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "actix-cors",
  "actix-multipart",
@@ -3299,7 +3299,7 @@ dependencies = [
  "enum-iterator",
  "env_logger",
  "futures-util",
- "hmac 0.13.0",
+ "hmac 0.12.1",
  "html-escape",
  "html_parser",
  "jwt",
@@ -3319,7 +3319,7 @@ dependencies = [
  "serde_json",
  "serde_qs",
  "serde_urlencoded",
- "sha2 0.11.0",
+ "sha2 0.10.9",
  "statement-parser",
  "strum",
  "strum_macros",
@@ -3452,7 +3452,7 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "statement-parser"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "once_cell",
@@ -3464,7 +3464,7 @@ dependencies = [
 
 [[package]]
 name = "statement-parser-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "clap",
  "serde_json",

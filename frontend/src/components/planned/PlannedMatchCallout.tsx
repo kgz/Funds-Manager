@@ -95,8 +95,8 @@ export function PlannedMatchCallout({
 
 	const title =
 		suggestions.length === 1
-			? '1 planned item may match an imported transaction'
-			: `${suggestions.length} planned items may match imported transactions`;
+			? '1 cashflow plan may match an imported transaction'
+			: `${suggestions.length} cashflow plans may match imported transactions`;
 
 	return (
 		<div
@@ -113,7 +113,8 @@ export function PlannedMatchCallout({
 					<span className="text-[13px] font-semibold text-paper-fg">{title}</span>
 				</div>
 				<p className="m-0 mt-1.5 text-xs text-paper-muted">
-					Review each pair and link manually — nothing is applied until you confirm.
+					Review each pair and link manually — cashflow plans only. Nothing is applied
+					until you confirm.
 				</p>
 			</div>
 
@@ -133,7 +134,7 @@ export function PlannedMatchCallout({
 							<div className="grid items-center gap-3.5 lg:grid-cols-[1fr_auto_1fr]">
 								<div className="min-w-0">
 									<span className="mb-0.5 block text-[9.5px] font-semibold uppercase tracking-[0.06em] text-paper-muted">
-										Planned
+										Cashflow plan
 									</span>
 									<p className="m-0 truncate text-[13px] font-medium text-paper-fg">
 										{suggestion.planned.name}

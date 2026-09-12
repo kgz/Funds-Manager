@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "funds-planning.html",
+  "entry": "funds-planning.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-08-15T07:07:42.589Z",
+  "updatedAt": "2026-08-15T07:07:42.589Z",
+  "metadata": {
+    "inferred": true,
+    "reconciled": true
+  }
+}

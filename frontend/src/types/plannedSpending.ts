@@ -1,12 +1,24 @@
 import axios from 'axios';
 
+export type PlanKind =
+	| 'cashflow'
+	| 'loan_redraw'
+	| 'loan_refinance'
+	| 'loan_repayment_change';
+
 export type PlannedSpendingItem = {
 	id: string;
+	plan_kind: PlanKind;
 	name: string;
 	amount_cents: number;
 	start_date: string;
 	end_date: string | null;
 	category_id: string | null;
+	liability_id: string | null;
+	financial_account_id: string | null;
+	new_liability_name: string | null;
+	interest_rate_bps: number | null;
+	repayment_cents: number | null;
 	notes: string | null;
 	created_at: string;
 	deleted_at: string | null;
@@ -65,6 +77,29 @@ function readFiniteNumber(value: unknown): number | null {
 	return null;
 }
 
+function readNullableId(value: unknown): string | null {
+	if (value === null || value === undefined) {
+		return null;
+	}
+	return readIdAsString(value);
+}
+
+function readNullableInt(value: unknown): number | null {
+	if (value === null || value === undefined) {
+		return null;
+	}
+	const number = readFiniteNumber(value);
+	return number === null ? null : Math.trunc(number);
+}
+
+function readPlanKind(value: unknown): PlanKind {
+	return value === 'loan_redraw' ||
+		value === 'loan_refinance' ||
+		value === 'loan_repayment_change'
+		? value
+		: 'cashflow';
+}
+
 export function normalizePlannedSpendingItem(raw: unknown): PlannedSpendingItem | null {
 	if (!raw || typeof raw !== 'object') {
 		return null;
@@ -99,11 +134,17 @@ export function normalizePlannedSpendingItem(raw: unknown): PlannedSpendingItem 
 
 	return {
 		id,
+		plan_kind: readPlanKind(Reflect.get(raw, 'plan_kind')),
 		name,
 		amount_cents: Math.trunc(amountCents),
 		start_date: startDate,
 		end_date: endDate,
 		category_id: categoryId,
+		liability_id: readNullableId(Reflect.get(raw, 'liability_id')),
+		financial_account_id: readNullableId(Reflect.get(raw, 'financial_account_id')),
+		new_liability_name: readNullableString(Reflect.get(raw, 'new_liability_name')),
+		interest_rate_bps: readNullableInt(Reflect.get(raw, 'interest_rate_bps')),
+		repayment_cents: readNullableInt(Reflect.get(raw, 'repayment_cents')),
 		notes,
 		created_at: createdAt,
 		deleted_at: deletedAt,
@@ -227,20 +268,32 @@ export type PlannedSpendingQuery = {
 };
 
 export type CreatePlannedSpendingPayload = {
+	plan_kind: PlanKind;
 	name: string;
 	amount_cents: number;
 	start_date: string;
 	end_date?: string | null;
 	category_id?: number | null;
+	liability_id?: number | null;
+	financial_account_id?: number | null;
+	new_liability_name?: string | null;
+	interest_rate_bps?: number | null;
+	repayment_cents?: number | null;
 	notes?: string | null;
 };
 
 export type UpdatePlannedSpendingPayload = {
+	plan_kind?: PlanKind;
 	name?: string;
 	amount_cents?: number;
 	start_date?: string;
 	end_date?: string | null;
 	category_id?: number | null;
+	liability_id?: number | null;
+	financial_account_id?: number | null;
+	new_liability_name?: string | null;
+	interest_rate_bps?: number | null;
+	repayment_cents?: number | null;
 	notes?: string | null;
 };
 
@@ -259,14 +312,14 @@ function buildQuery(params: PlannedSpendingQuery): string {
 export async function fetchPlannedSpending(
 	params: PlannedSpendingQuery
 ): Promise<PlannedSpendingListResult> {
-	const response = await axios.get(`/api/planned-spending${buildQuery(params)}`);
+	const response = await axios.get(`/api/planning${buildQuery(params)}`);
 	return normalizePlannedSpendingList(response.data);
 }
 
 export async function createPlannedSpendingItem(
 	payload: CreatePlannedSpendingPayload
 ): Promise<PlannedSpendingItem> {
-	const response = await axios.post('/api/planned-spending', payload);
+	const response = await axios.post('/api/planning', payload);
 	const item = normalizePlannedSpendingItem(response.data);
 	if (!item) {
 		throw new Error('Invalid planned spending response');
@@ -278,7 +331,7 @@ export async function updatePlannedSpendingItem(
 	id: string,
 	payload: UpdatePlannedSpendingPayload
 ): Promise<PlannedSpendingItem> {
-	const response = await axios.put(`/api/planned-spending/${id}`, payload);
+	const response = await axios.put(`/api/planning/${id}`, payload);
 	const item = normalizePlannedSpendingItem(response.data);
 	if (!item) {
 		throw new Error('Invalid planned spending response');
@@ -287,11 +340,11 @@ export async function updatePlannedSpendingItem(
 }
 
 export async function deletePlannedSpendingItem(id: string): Promise<void> {
-	await axios.delete(`/api/planned-spending/${id}`);
+	await axios.delete(`/api/planning/${id}`);
 }
 
 export async function fetchPlannedMatchSuggestions(): Promise<PlannedMatchSuggestion[]> {
-	const response = await axios.get('/api/planned-spending/match-suggestions');
+	const response = await axios.get('/api/planning/match-suggestions');
 	if (!Array.isArray(response.data)) {
 		throw new Error('Invalid planned match suggestions response');
 	}
@@ -307,7 +360,7 @@ export async function fetchPlannedMatchSuggestions(): Promise<PlannedMatchSugges
 }
 
 export async function fetchPlannedMatchSuggestionCount(): Promise<number> {
-	const response = await axios.get('/api/planned-spending/match-suggestions/count');
+	const response = await axios.get('/api/planning/match-suggestions/count');
 	if (!response.data || typeof response.data !== 'object') {
 		throw new Error('Invalid planned match count response');
 	}
@@ -336,8 +389,8 @@ export async function fetchPlannedLinkCandidates(
 	const query = searchParams.toString();
 	const url =
 		query.length > 0
-			? `/api/planned-spending/${plannedId}/link-candidates?${query}`
-			: `/api/planned-spending/${plannedId}/link-candidates`;
+			? `/api/planning/${plannedId}/link-candidates?${query}`
+			: `/api/planning/${plannedId}/link-candidates`;
 	const response = await axios.get(url);
 	if (!Array.isArray(response.data)) {
 		throw new Error('Invalid link candidates response');
@@ -364,7 +417,7 @@ export async function resolvePlannedMatch(
 	if (transactionId !== null) {
 		payload.transaction_id = transactionId;
 	}
-	await axios.post(`/api/planned-spending/${plannedId}/resolve-match`, payload);
+	await axios.post(`/api/planning/${plannedId}/resolve-match`, payload);
 }
 
 export async function markPlannedComplete(plannedId: string): Promise<void> {

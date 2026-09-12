@@ -49,7 +49,7 @@ Upload PDF bank statements, assign categories, and build a picture of spending, 
 
 Published Docker image: `ghcr.io/kgz/funds-manager` (tagged per release).
 
-Product how-tos (with screenshots over time) live under **Features** on the docs site. Source: `docs-site/`.
+Product how-tos live under **User guide** on the docs site (`docs-site/user-guide/`).
 
 ## Contributing
 

@@ -16,6 +16,8 @@ use serde::Serialize;
 pub const MAX_DAY_VARIANCE: i64 = 7;
 pub const MAX_AMOUNT_ABS_CENTS: i64 = 500;
 pub const MAX_AMOUNT_PCT: f64 = 0.05;
+/// Partials must cover at least this fraction of remaining (blocks tiny unrelated spends).
+pub const MIN_PARTIAL_FRACTION: f64 = 0.25;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -125,7 +127,12 @@ fn score_candidate(
         None => return Ok(None),
     };
 
-    let _amount_variance = (remaining_cents - candidate.amount).abs();
+    // Partials without shared name/notes tokens are almost always noise (e.g. Uber vs a bill).
+    let description_hit = text_signals_match(planned, &candidate.description);
+    if amount_kind == "partial_payment" && !description_hit {
+        return Ok(None);
+    }
+
     let mut reasons = Vec::new();
     let mut score = 0i64;
 
@@ -161,7 +168,7 @@ fn score_candidate(
         return Ok(None);
     }
 
-    if text_signals_match(planned, &candidate.description) {
+    if description_hit {
         reasons.push("description_match".to_string());
         score += 15;
     }
@@ -183,17 +190,24 @@ pub fn amount_matches_remaining(
     if amount_within_tolerance(remaining_cents, candidate_cents) {
         return Some("exact_remaining");
     }
-    if candidate_cents.abs() < remaining_cents.abs() {
-        return Some("partial_payment");
+    let remaining_abs = remaining_cents.unsigned_abs();
+    let candidate_abs = candidate_cents.unsigned_abs();
+    if candidate_abs < remaining_abs {
+        let fraction = f64::from(candidate_abs) / f64::from(remaining_abs);
+        if fraction >= MIN_PARTIAL_FRACTION {
+            return Some("partial_payment");
+        }
     }
     None
 }
 
 fn unresolved_planned_items() -> Result<Vec<PlannedSpending>, diesel::result::Error> {
+    use crate::models::planned_spending::PLAN_KIND_CASHFLOW;
     let conn = &mut get_dbo();
     planned_spending::table
         .filter(planned_spending::deleted_at.is_null())
         .filter(planned_spending::resolved_at.is_null())
+        .filter(planned_spending::plan_kind.eq(PLAN_KIND_CASHFLOW))
         .order((
             planned_spending::start_date.asc(),
             planned_spending::name.asc(),
@@ -702,6 +716,12 @@ mod tests {
                 .expect("time"),
             deleted_at: None,
             resolved_at: None,
+            plan_kind: "cashflow".to_string(),
+            liability_id: None,
+            financial_account_id: None,
+            new_liability_name: None,
+            interest_rate_bps: None,
+            repayment_cents: None,
         }
     }
 
@@ -739,6 +759,24 @@ mod tests {
             amount_matches_remaining(-100_00, -40_00),
             Some("partial_payment")
         );
+    }
+
+    #[test]
+    fn tiny_partial_rejected() {
+        assert_eq!(amount_matches_remaining(-1_592_63, -5_88), None);
+        assert_eq!(amount_matches_remaining(-1_592_63, -22_48), None);
+    }
+
+    #[test]
+    fn unrelated_description_tokens_do_not_match() {
+        let planned = sample_planned(
+            "Hanrob HFFKG – Koda relocation",
+            Some("Deposit paid. Balance due Nov."),
+        );
+        assert!(!text_signals_match(
+            &planned,
+            "EFTPOSPURCHASE UBER *TRIP HELP.UBER. 5041"
+        ));
     }
 
     #[test]

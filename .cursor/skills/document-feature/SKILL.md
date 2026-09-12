@@ -1,115 +1,156 @@
 ---
 name: document-feature
 description: >-
-  Write or update product docs for a Funds Manager feature using VitePress,
-  Playwright screenshots from seeded/demo data, and screenshot manifests with
-  alt text for refresh detection. Use when documenting a ticket/MVP, adding
-  feature guide pages, refreshing docs screenshots, or when the user mentions
-  product docs, docs-site, or screenshot docs.
+  Write or update Funds Manager VitePress docs (Guide + User guide) with
+  Playwright screenshots from mocked/demo data and screenshot manifests.
+  Use when documenting a ticket/MVP, user-guide pages, setup docs, refreshing
+  screenshots, dead-end review, or when the user mentions docs-site / product docs.
 ---
 
 # Document a feature (product docs)
 
 ## Stack
 
-- Site: VitePress under `docs-site/` → GitHub Pages (`https://kgz.github.io/Funds-Manager/`)
-- One Pages site per repo — put **Guide** (install/dev) and **Features** (product how-tos) in the same site
-- Screenshots: Playwright (`frontend/e2e/docs/` or `docs-site/scripts/capture/`) against seeded demo data
-- Do not use live production DB; seed via `demo_seed` / known fixtures
+- Site: VitePress under `docs-site/` -> GitHub Pages (`https://kgz.github.io/Funds-Manager/`)
+- **Guide** = install / run. **User guide** = how to use the app (`docs-site/user-guide/`)
+- Screenshots: Playwright (`frontend/e2e/docs/`) with mocks or demo seed. Never real PII.
 
 ## When to run
 
-After an MVP lands (or mid-PR when the UI is stable):
+1. Add/update `docs-site/user-guide/<slug>.md` (or Guide pages for setup)
+2. Capture screenshots; register in `screenshots.manifest.json`
+3. Wire User guide sidebar in `.vitepress/config.ts`
+4. Cross-link related pages both ways (see Effects below)
+5. Dead-end review (see below)
+6. PR can reference the ticket for maintainers; **never** put issue/epic/board links in published user-facing pages
 
-1. Open/create the feature page under `docs-site/features/<slug>.md`
-2. Capture or refresh screenshots
-3. Wire nav in VitePress config
-4. PR references the ticket (`Docs for #N` / part of same PR)
+## Effects first + cross-links
+
+User guide copy should answer: **if I do this, what changes elsewhere in the app?**
+
+For each action or plan kind:
+
+1. Brief how-to (fields / clicks)
+2. **Effect** - what it drives (predictions, balances, matching, etc.)
+3. Link to the User guide page for that effect
+4. On the **other** page, add or update a short "Related" / inbound blurb that links back
+
+Example (Planning -> Future predictions):
+
+```markdown
+### Cashflow
+
+A one-off spend or income on a date - for example a holiday deposit or a bonus.
+
+- Enter the amount as spending or income.
+- Optionally pick a category.
+- **Effect:** counts as money in or out on that date in [Future predictions](/user-guide/predictions).
+- When a matching bank transaction shows up, you can link it so the plan is marked done.
+```
+
+And on the Future predictions page:
+
+```markdown
+## Related
+
+- [Planning](/user-guide/planning) cashflow and redraw plans show up on the projection for their dates.
+```
+
+If the linked page does not exist yet, add a short stub page + sidebar entry in the same PR (honest `TO COME` for missing screenshots is fine) so links are not dead.
+
+## Voice (no AI watermark)
+
+Published docs must read like a normal product guide.
+
+**Do:**
+- Short sentences, concrete UI labels matching the app
+- ASCII punctuation only: `-` `'` `"` `...` (three dots). No em/en dashes, curly quotes, ellipsis character, nbsp, zero-width, thin spaces
+- Say `Ctrl+K` (and mention Command on Mac in prose if needed). Do not use fancy keyboard glyphs
+- Plain `TO COME` warning boxes for unfinished behaviour
+
+**Do not:**
+- Issue numbers, epic links, project board, OpenSpec, "v1", "Phase 3", PR links
+- Routes/redirects/API paths in User guide
+- Filler ("seamless", "robust", "leverage", "empower", "in today's...")
+- Fancy Unicode dashes/quotes/spaces that look machine-generated
+- Meta asides about "the docs pipeline" or "coverage tracked in..."
+
+## Dead-end review
+
+Before the PR is "ready":
+
+List every new capability and what it **drives**.
+
+| Outcome | Action |
+|---------|--------|
+| Drives something real | Document effect + bidirectional User guide links |
+| Intentionally reminder-only | Say so in the User guide (no fake "it updates X") |
+| UI exists but drives nothing, and more is planned | File follow-up GitHub issue, board it, link from parent ticket + PR; `TO COME` in User guide |
+
+Silent dead ends (ship UI that implies an effect with no follow-up and no honesty in docs) are not allowed.
 
 ## Screenshot contract
 
-Store images next to the page or under `docs-site/public/screenshots/<feature>/`.
+Images under `docs-site/public/screenshots/<feature>/`.
 
-Every image needs:
-
-1. **Markdown alt text** — what the UI shows (enough for an agent to spot drift)
-2. **Manifest entry** in `docs-site/screenshots.manifest.json`
+1. Markdown **alt** describes what the user sees
+2. Manifest entry (internal; `ticket` ok here, not in the page):
 
 ```json
 {
   "id": "planning-list",
   "file": "public/screenshots/planning/list.png",
-  "alt": "Planning page with All/Cashflow/Loans tabs and a table of plans including kind badges",
+  "alt": "Planning page with All/Cashflow/Loans tabs and a table of plans",
   "route": "/planning",
-  "seed": "demo",
-  "capture": "frontend/e2e/docs/planning.screenshots.ts",
-  "expects": [
-    "heading:Planning",
-    "tab:Cashflow",
-    "text:Add plan"
-  ],
-  "ticket": 143
+  "seed": "mock",
+  "capture": "frontend/e2e/docs/planning-screenshots.spec.ts",
+  "expects": ["heading:Planning", "tab:Cashflow", "text:Add plan"]
 }
 ```
 
-- `alt` + `expects` = refresh criteria. If UI copy/layout no longer matches, re-capture.
-- Prefer stable `data-testid` on key chrome when writing new UI (optional but helps capture scripts).
+`cd frontend && pnpm exec playwright test e2e/docs/<feature>-screenshots.spec.ts`
 
-### Capture script pattern
-
-Reuse Playwright + `page.route` mocks **or** a running app with demo seed.
-
-```ts
-// frontend/e2e/docs/<feature>.screenshots.ts
-test('docs: planning list', async ({ page }) => {
-  await page.goto('/planning');
-  await expect(page.getByRole('heading', { name: 'Planning' })).toBeVisible();
-  await page.screenshot({
-    path: '../../docs-site/public/screenshots/planning/list.png',
-    fullPage: false,
-  });
-});
-```
-
-Run: `cd frontend && pnpm exec playwright test e2e/docs/<feature>.screenshots.ts`
-
-## Page template
+## Page shape
 
 ```markdown
 # Planning
 
-Short what/why (1–2 sentences).
+One or two sentences on what this screen is for.
 
-![Planning page with All/Cashflow/Loans tabs and plan table](/screenshots/planning/list.png)
+![...](/screenshots/planning/list.png)
 
-## Create a cashflow plan
+## Add a plan
 
-Steps…
+1. Click **Add plan**.
+2. ...
 
-![Add plan modal with Cashflow kind selected](/screenshots/planning/add-cashflow.png)
+### Cashflow
 
-## Create a loan redraw
+How to fill it in.
 
-…
+- **Effect:** ... See [Future predictions](/user-guide/predictions).
 
-## What each kind does
+::: warning TO COME
+Honest limit in plain language.
+:::
 
-| Kind | Effect today |
-|------|----------------|
-| …    | …              |
+## Related
 
-Link related tickets (#143, #294).
+- [Future predictions](/user-guide/predictions) - ...
 ```
 
-## Update vs create
+## Delivery gate
 
-1. Find existing page by feature slug / ticket
-2. Diff UI against `alt` + `expects` in the manifest
-3. If drifted: re-run capture script, update alt/expects, edit prose
-4. If new feature: add page + captures + nav + manifest entries
+Docs + e2e + dead-end review are part of the normal ticket loop (`.cursor/rules/funds-manager-workflow.mdc` step 5). Do **not** mark In review without them unless the user explicitly waives.
 
-## Do not
+OpenSpec `tasks.md` for UI work should include:
 
-- Commit screenshots of real personal finance data
-- Document Phase-N behaviour as shipped (match OpenSpec / ticket plan tables)
-- Stand up a second GH Pages site for this repo — extend the one VitePress site
+```markdown
+## Docs + e2e
+
+- [ ] User guide page - effects + cross-links both ways
+- [ ] Screenshots + manifest
+- [ ] Playwright e2e happy path
+- [ ] Dead-end review (follow-up issue if needed)
+- [ ] `cd docs-site && pnpm build`
+```

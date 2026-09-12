@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, Loader2, Trash2 } from 'lucide-react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { AccountFilter } from '@/components/account-filter';
 import {
 	BREAKDOWN_PRESET_PERIODS,
@@ -57,6 +57,8 @@ import {
 
 export function ReportSnapshotsPage() {
 	const { accountIdNumber, selectedLabel } = useAccountFilter();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const nameInputRef = useRef<HTMLInputElement>(null);
 	const [period, setPeriod] = useState<DashboardPeriod>(() => readStoredSnapshotPeriod());
 	const [name, setName] = useState('');
 	const [items, setItems] = useState<ReportSnapshotListItem[]>([]);
@@ -72,6 +74,16 @@ export function ReportSnapshotsPage() {
 
 	const dateRange = useMemo(() => periodDateRange(period), [period]);
 
+	useEffect(() => {
+		if (searchParams.get('create') !== '1') {
+			return;
+		}
+		nameInputRef.current?.focus();
+		nameInputRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+		const next = new URLSearchParams(searchParams);
+		next.delete('create');
+		setSearchParams(next, { replace: true });
+	}, [searchParams, setSearchParams]);
 	const loadCoverage = useCallback(async () => {
 		const start = dateRange.start;
 		const end = dateRange.end;
@@ -289,6 +301,7 @@ export function ReportSnapshotsPage() {
 										Name
 									</label>
 									<input
+										ref={nameInputRef}
 										id="snapshot-name"
 										type="text"
 										value={name}

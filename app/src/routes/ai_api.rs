@@ -1066,7 +1066,7 @@ fn catalog() -> ApiCatalog {
                     },
                     EndpointDoc {
                         method: "GET",
-                        path: "/api/planned-spending",
+                        path: "/api/planning",
                         query: vec![
                             QueryParamDoc {
                                 name: "from",
@@ -1089,17 +1089,17 @@ fn catalog() -> ApiCatalog {
                     },
                     EndpointDoc {
                         method: "POST",
-                        path: "/api/planned-spending",
+                        path: "/api/planning",
                         query: vec![],
-                        body: Some("{ name, amount_cents, start_date, end_date?, category_id?, notes? }"),
-                        response: "Created planned item.",
-                        purpose: "Add planned expense.",
-                        ai_use: "Record planned spend from conversation.",
+                        body: Some("{ name, amount_cents, start_date, plan_kind?, end_date?, category_id?, notes?, liability_id?, financial_account_id?, new_liability_name?, interest_rate_bps?, repayment_cents? }"),
+                        response: "Created planning item.",
+                        purpose: "Add cashflow or loan plan (redraw/refinance/repayment).",
+                        ai_use: "Record planned cashflow or loan event from conversation.",
                         read_only: false,
                     },
                     EndpointDoc {
                         method: "PUT",
-                        path: "/api/planned-spending/{id}",
+                        path: "/api/planning/{id}",
                         query: vec![],
                         body: Some("{ name?, amount_cents?, start_date?, end_date?, category_id?, notes? }"),
                         response: "Updated planned item.",
@@ -1109,7 +1109,7 @@ fn catalog() -> ApiCatalog {
                     },
                     EndpointDoc {
                         method: "DELETE",
-                        path: "/api/planned-spending/{id}",
+                        path: "/api/planning/{id}",
                         query: vec![],
                         body: None,
                         response: "204 No Content.",

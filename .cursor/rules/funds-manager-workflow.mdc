@@ -52,11 +52,42 @@ Use:
 
 Requires OD dev server (`pnpm exec tools-dev run web --web-port 29013 --daemon-port 28585`). Watch URL is printed after start.
 
-## 5. Test & quality
+## 5. Test, docs & quality
+
+User-facing changes are **not done** until docs (and e2e where applicable) ship in the **same PR** as the code.
+
+### Code
 
 - `cargo test` in `app/`, `database/`, and affected `crates/`
 - `cd frontend && pnpm run build` before PR when UI changes
 - Manual QA for affected routes before PR
+
+### Docs + e2e (required for UI / behaviour users can see)
+
+Follow `.cursor/skills/document-feature/SKILL.md`:
+
+- [ ] Update or add **User guide** page(s) under `docs-site/user-guide/` (setup changes → `docs-site/guide/`)
+- [ ] Lead with **what doing this does** (effects), and **cross-link** related User guide pages both ways
+- [ ] Screenshots from Playwright mocks/demo data + `screenshots.manifest.json` (alt + expects)
+- [ ] Playwright e2e for the happy path (`frontend/e2e/…`) when the ticket changes interactive flow
+- [ ] `TO COME` callouts for anything not shipped yet
+- [ ] No issue/epic/board links or AI-ish Unicode in published pages
+- [ ] `cd docs-site && pnpm build` passes
+- [ ] Wire sidebar/nav if a new User guide page was added
+
+### Dead-end review (required before In review)
+
+For each new user-facing capability, list what it **drives** (predictions, liabilities, KPIs, another screen, export, etc.).
+
+| Outcome | Action |
+|---------|--------|
+| Drives something real | Document the effect + link to that User guide page (and update the other page to link back) |
+| Intentionally reminder / calendar-only | OK if that is the product intent - say so clearly; use `TO COME` only if more is planned |
+| Looks finished but drives nothing | **Not done** - file a follow-up GitHub issue, link it from the parent ticket, board it (`Ready` or `Backlog`), mention the follow-up in the PR |
+
+OpenSpec `tasks.md` for UI work **must** include docs + e2e + dead-end review checklist items (not a follow-up ticket by default, unless the dead-end review creates one).
+
+GitHub Pages deploys from `main` via `.github/workflows/deploy-docs.yml` when `docs-site/**` changes merge.
 
 ## Git commits & PRs
 

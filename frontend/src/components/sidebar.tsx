@@ -185,10 +185,19 @@ export function Sidebar() {
 					navigate('/transactions');
 					break;
 				case 'create-snapshot':
-					navigate('/report-snapshots');
+					navigate('/report-snapshots?create=1');
 					break;
-				case 'plan-spending':
-					navigate('/planned?add=1');
+				case 'add-plan-cashflow':
+					navigate('/planning?add=cashflow');
+					break;
+				case 'add-plan-redraw':
+					navigate('/planning?add=loan_redraw');
+					break;
+				case 'add-plan-refinance':
+					navigate('/planning?add=loan_refinance');
+					break;
+				case 'add-plan-repayment':
+					navigate('/planning?add=loan_repayment_change');
 					break;
 			}
 		},

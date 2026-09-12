@@ -28,3 +28,6 @@ dataset_info.json
 # Local DB dumps
 backups/
 *.dump
+
+# Playwright
+frontend/test-results/

@@ -218,6 +218,14 @@ diesel::table! {
         created_at -> Timestamp,
         deleted_at -> Nullable<Timestamp>,
         resolved_at -> Nullable<Timestamp>,
+        #[max_length = 32]
+        plan_kind -> Varchar,
+        liability_id -> Nullable<Bigint>,
+        financial_account_id -> Nullable<Bigint>,
+        #[max_length = 200]
+        new_liability_name -> Nullable<Varchar>,
+        interest_rate_bps -> Nullable<Integer>,
+        repayment_cents -> Nullable<Bigint>,
     }
 }
 
@@ -347,6 +355,8 @@ diesel::joinable!(broker_report_snapshots -> financial_accounts (account_id));
 diesel::joinable!(liabilities -> financial_accounts (financial_account_id));
 diesel::joinable!(liability_balances -> liabilities (liability_id));
 diesel::joinable!(planned_spending -> categories (category_id));
+diesel::joinable!(planned_spending -> liabilities (liability_id));
+diesel::joinable!(planned_spending -> financial_accounts (financial_account_id));
 diesel::joinable!(planned_spending_dismissed_matches -> planned_spending (planned_spending_id));
 diesel::joinable!(planned_spending_dismissed_matches -> transaction_data (transaction_id));
 diesel::joinable!(planned_spending_links -> planned_spending (planned_spending_id));

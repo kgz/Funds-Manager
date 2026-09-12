@@ -258,13 +258,29 @@ pub fn line_effect_in_month(line: &AdjustmentLine, year: i32, month: u32) -> i64
     }
 }
 
-pub fn planned_to_adjustment(item: &PlannedSpending) -> AdjustmentLine {
-    AdjustmentLine {
-        amount_cents: i64::from(item.amount_cents),
-        frequency: LineFrequency::Once,
-        start_date: item.start_date,
-        end_date: item.end_date,
+pub fn planned_to_adjustment(item: &PlannedSpending) -> Option<AdjustmentLine> {
+    use crate::models::planned_spending::{
+        is_cashflow_kind, PLAN_KIND_LOAN_REDRAW,
+    };
+
+    if is_cashflow_kind(&item.plan_kind) {
+        return Some(AdjustmentLine {
+            amount_cents: i64::from(item.amount_cents),
+            frequency: LineFrequency::Once,
+            start_date: item.start_date,
+            end_date: item.end_date,
+        });
     }
+    // Redraw credits cash (destination account) on the plan date — not income KPIs.
+    if item.plan_kind == PLAN_KIND_LOAN_REDRAW {
+        return Some(AdjustmentLine {
+            amount_cents: i64::from(item.amount_cents.abs()),
+            frequency: LineFrequency::Once,
+            start_date: item.start_date,
+            end_date: item.end_date,
+        });
+    }
+    None
 }
 
 pub fn project_balance(
@@ -458,7 +474,7 @@ pub fn compute_baseline(
     let planned_item_count = planned.len();
     let extra_lines: Vec<AdjustmentLine> = planned
         .iter()
-        .map(planned_to_adjustment)
+        .filter_map(planned_to_adjustment)
         .collect();
     // Monthly net already includes recurring spend/income from history; do not
     // also apply repeat_adjustments or the same flows are double-counted.

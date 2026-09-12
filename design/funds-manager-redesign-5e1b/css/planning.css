@@ -1,0 +1,239 @@
+/* Planning hub — cashflow + loan lifecycle events (extends planned.css) */
+
+.kind-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.kind-tabs button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 140ms var(--ease), color 140ms var(--ease);
+}
+
+.kind-tabs button:hover { color: var(--fg); }
+
+.kind-tabs button.is-on {
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: 0 1px 2px color-mix(in oklch, var(--fg) 8%, transparent);
+}
+
+.filters-row .kind-tabs { flex-shrink: 0; }
+
+.account-filter-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-filter-wrap.is-loan .context-note { display: none; }
+.account-filter-wrap.is-context .context-note { display: inline; }
+
+.kind-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.kind-badge.is-cashflow {
+  border-color: color-mix(in oklch, var(--accent) 28%, var(--border));
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface));
+  color: color-mix(in oklch, var(--accent) 70%, var(--fg));
+}
+
+.kind-badge.is-redraw {
+  border-color: color-mix(in oklch, var(--warn) 36%, var(--border));
+  background: color-mix(in oklch, var(--warn) 10%, var(--surface));
+  color: oklch(42% 0.1 75);
+}
+
+.kind-badge.is-refinance {
+  border-color: color-mix(in oklch, var(--fg) 18%, var(--border));
+  background: color-mix(in oklch, var(--fg) 4%, var(--surface));
+  color: var(--fg);
+}
+
+.kind-badge.is-repayment {
+  border-color: color-mix(in oklch, var(--success) 32%, var(--border));
+  background: color-mix(in oklch, var(--success) 8%, var(--surface));
+  color: color-mix(in oklch, var(--success) 75%, var(--fg));
+}
+
+.planning-panel table.data .col-kind { width: 108px; }
+.planning-panel table.data .col-liability { min-width: 140px; max-width: 200px; }
+.planning-panel table.data .col-detail { min-width: 160px; max-width: 240px; }
+
+.liability-cell {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--fg);
+}
+
+.detail-cell {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.impact-preview {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in oklch, var(--warn) 28%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--warn) 6%, var(--surface));
+}
+
+.impact-preview[hidden] { display: none; }
+
+.impact-preview-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.impact-preview-body {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  line-height: 1.4;
+}
+
+.impact-preview-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.not-income-callout {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in oklch, var(--warn) 30%, var(--border));
+  background: color-mix(in oklch, var(--warn) 7%, var(--surface));
+  font-size: 12.5px;
+  color: var(--fg);
+  line-height: 1.45;
+}
+
+.not-income-callout[hidden] { display: none; }
+
+.not-income-callout strong {
+  font-weight: 600;
+  color: oklch(42% 0.1 75);
+}
+
+.kind-picker {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.kind-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+  transition: border-color 140ms var(--ease), background 140ms var(--ease);
+}
+
+.kind-option:hover {
+  border-color: color-mix(in oklch, var(--fg) 22%, var(--border));
+}
+
+.kind-option.is-on {
+  border-color: color-mix(in oklch, var(--accent) 45%, var(--border));
+  background: color-mix(in oklch, var(--accent) 7%, var(--surface));
+}
+
+.kind-option-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.kind-option-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.modal-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.modal-dialog.is-plan {
+  width: min(520px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 48px));
+}
+
+.route-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  margin-left: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+.planned-total .pt-label { letter-spacing: 0.05em; }
+
+.empty-state.is-education p { max-width: 42ch; }
+
+@media (max-width: 900px) {
+  .kind-tabs { width: 100%; }
+  .kind-tabs button { flex: 1; justify-content: center; }
+  .modal-field-row { grid-template-columns: 1fr; }
+  .kind-picker { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+  .planning-panel table.data .col-detail,
+  .planning-panel table.data .col-notes { display: none; }
+}

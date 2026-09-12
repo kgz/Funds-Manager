@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Route, Routes } from "react-router";
+import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router";
 import { Sidebar } from "./components/sidebar";
 import { Dashboard } from "./components/dashboard";
 import { Settings } from "./pages/settings";
@@ -9,7 +9,7 @@ import { AccountsPage } from "./pages/accounts";
 import TransactionsPage from "./pages/transactions";
 import RecurringExpensesPage from "./pages/recurring";
 import BreakdownPage from "./pages/breakdown";
-import PlannedSpendingPage from "./pages/planned";
+import PlanningPage from "./pages/planned";
 import PredictionsPage from "./pages/predictions";
 import LiabilitiesPage from "./pages/liabilities";
 import AssetsPage from "./pages/assets";
@@ -46,7 +46,8 @@ function AppLayout() {
           <Route path="/report-snapshots/:id/report" element={<BrokerReportPage />} />
           <Route path="/report-snapshots/:id" element={<ReportSnapshotDetailPage />} />
           <Route path="/breakdown" element={<BreakdownPage />} />
-          <Route path="/planned" element={<PlannedSpendingPage />} />
+          <Route path="/planning" element={<PlanningPage />} />
+          <Route path="/planned" element={<Navigate to="/planning" replace />} />
           <Route path="/predictions" element={<PredictionsPage />} />
           <Route path="/liabilities" element={<LiabilitiesPage />} />
           <Route path="/assets" element={<AssetsPage />} />

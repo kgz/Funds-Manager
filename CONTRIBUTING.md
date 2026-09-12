@@ -7,7 +7,7 @@ Thanks for helping improve Funds Manager.
 1. Open or find a [GitHub issue](https://github.com/kgz/Funds-Manager/issues) — features and larger changes should be discussed first.
 2. For non-trivial work, read [docs/openspec.md](docs/openspec.md) and add a change under `openspec/changes/` before implementing.
 3. Set up the app locally: [docs/local-development.md](docs/local-development.md) or the [docs site](https://kgz.github.io/Funds-Manager/guide/local-development).
-4. Product feature docs: VitePress under `docs-site/`. When an MVP lands, follow `.cursor/skills/document-feature/SKILL.md` (screenshots + alt manifest).
+4. Product docs are part of delivery: VitePress under `docs-site/` (User guide + Guide). Follow `.cursor/skills/document-feature/SKILL.md` in the **same PR** as the feature — screenshots, e2e, sidebar.
 
 ## Branch and PR flow
 
@@ -19,10 +19,11 @@ git checkout -b feature/<issue-num>-<short-slug>
 Examples: `feature/63-transaction-notes`, `fix/59-monthly-pl-drilldown`.
 
 1. Implement on your branch; keep commits focused.
-2. Run checks locally (see below).
-3. Push and open a PR against `main`.
-4. Reference the issue in the PR body: `Closes #123`.
-5. Wait for review and CI before merge.
+2. For UI/behaviour users can see: update User guide (effects + cross-links both ways), dead-end review, and Playwright e2e/screenshots before opening the PR.
+3. Run checks locally (see below).
+4. Push and open a PR against `main` (fill the PR template docs checklist).
+5. Reference the issue in the PR body: `Closes #123`.
+6. Wait for review and CI before merge.
 
 Forks: push to your fork and open a PR from there — same branch naming and `Closes #N` convention.
 
@@ -32,8 +33,14 @@ Forks: push to your fork and open a PR from there — same branch naming and `Cl
 # Frontend — production embed build (CI)
 cd frontend && pnpm install && pnpm run build:embed
 
+# Docs site
+cd docs-site && pnpm install && pnpm build
+
 # Rust — run locally before PR (not in CI)
 cargo test --workspace
+
+# E2E (example)
+cd frontend && pnpm exec playwright test
 
 # Stricter typecheck (optional until TS debt is cleared)
 pnpm run build
