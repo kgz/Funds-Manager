@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import lightbox from 'vitepress-plugin-lightbox';
 
 export default defineConfig({
 	title: 'Funds Manager',
@@ -6,6 +7,11 @@ export default defineConfig({
 	base: '/Funds-Manager/',
 	cleanUrls: true,
 	ignoreDeadLinks: true,
+	markdown: {
+		config: (md) => {
+			md.use(lightbox, {});
+		},
+	},
 	themeConfig: {
 		nav: [
 			{ text: 'Guide', link: '/guide/getting-started' },
