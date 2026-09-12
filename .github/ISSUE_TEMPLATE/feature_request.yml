@@ -23,3 +23,12 @@ body:
       options:
         - label: I am willing to add an `openspec/changes/<name>/` proposal before implementation
           required: false
+  - type: checkboxes
+    id: docs_e2e
+    attributes:
+      label: Docs + e2e (same PR as the feature)
+      options:
+        - label: User guide / Guide page under `docs-site/` (screenshots via document-feature skill)
+          required: false
+        - label: Playwright e2e for the main happy path
+          required: false

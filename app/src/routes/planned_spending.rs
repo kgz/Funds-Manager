@@ -1,6 +1,10 @@
 use actix_web::{error, web, HttpResponse, Responder, Result, Scope};
 use chrono::NaiveDate;
-use database::models::planned_spending::{PlannedSpending, PlannedSpendingChanges};
+use database::models::planned_spending::{
+    is_cashflow_kind, is_valid_plan_kind, InsertPlannedSpending, PlannedSpending,
+    PlannedSpendingChanges, PLAN_KIND_CASHFLOW, PLAN_KIND_LOAN_REDRAW, PLAN_KIND_LOAN_REFINANCE,
+    PLAN_KIND_LOAN_REPAYMENT_CHANGE,
+};
 use database::models::planned_spending_match;
 use diesel::result::Error as DbError;
 use serde::Deserialize;
@@ -32,6 +36,17 @@ pub struct CreatePlannedSpendingPayload {
     pub end_date: Option<String>,
     pub category_id: Option<i64>,
     pub notes: Option<String>,
+    #[serde(default = "default_plan_kind")]
+    pub plan_kind: String,
+    pub liability_id: Option<i64>,
+    pub financial_account_id: Option<i64>,
+    pub new_liability_name: Option<String>,
+    pub interest_rate_bps: Option<i32>,
+    pub repayment_cents: Option<i64>,
+}
+
+fn default_plan_kind() -> String {
+    PLAN_KIND_CASHFLOW.to_string()
 }
 
 #[derive(Deserialize, Debug)]
@@ -42,6 +57,12 @@ pub struct UpdatePlannedSpendingPayload {
     pub end_date: Option<Option<String>>,
     pub category_id: Option<Option<i64>>,
     pub notes: Option<Option<String>>,
+    pub plan_kind: Option<String>,
+    pub liability_id: Option<Option<i64>>,
+    pub financial_account_id: Option<Option<i64>>,
+    pub new_liability_name: Option<Option<String>>,
+    pub interest_rate_bps: Option<Option<i32>>,
+    pub repayment_cents: Option<Option<i64>>,
 }
 
 fn map_db_error(err: DbError) -> error::Error {
@@ -87,6 +108,97 @@ fn validate_date_order(
         }
     }
     Ok(())
+}
+
+fn validate_plan_fields(
+    plan_kind: &str,
+    amount_cents: i32,
+    category_id: Option<i64>,
+    liability_id: Option<i64>,
+    financial_account_id: Option<i64>,
+    new_liability_name: Option<&str>,
+    interest_rate_bps: Option<i32>,
+    repayment_cents: Option<i64>,
+) -> Result<(), error::Error> {
+    if !is_valid_plan_kind(plan_kind) {
+        return Err(error::ErrorBadRequest(
+            "plan_kind must be cashflow, loan_redraw, loan_refinance, or loan_repayment_change",
+        ));
+    }
+    validate_amount(amount_cents)?;
+    if let Some(bps) = interest_rate_bps {
+        if bps < 0 {
+            return Err(error::ErrorBadRequest("interest_rate_bps must be >= 0"));
+        }
+    }
+    if let Some(repay) = repayment_cents {
+        if repay < 0 {
+            return Err(error::ErrorBadRequest("repayment_cents must be >= 0"));
+        }
+    }
+
+    match plan_kind {
+        PLAN_KIND_CASHFLOW => Ok(()),
+        PLAN_KIND_LOAN_REDRAW => {
+            if liability_id.is_none() {
+                return Err(error::ErrorBadRequest(
+                    "liability_id is required for loan_redraw",
+                ));
+            }
+            if financial_account_id.is_none() {
+                return Err(error::ErrorBadRequest(
+                    "financial_account_id is required for loan_redraw",
+                ));
+            }
+            if amount_cents < 0 {
+                return Err(error::ErrorBadRequest(
+                    "loan_redraw amount_cents must be positive",
+                ));
+            }
+            let _ = category_id;
+            Ok(())
+        }
+        PLAN_KIND_LOAN_REFINANCE => {
+            if liability_id.is_none() {
+                return Err(error::ErrorBadRequest(
+                    "liability_id is required for loan_refinance",
+                ));
+            }
+            let name = new_liability_name.map(str::trim).filter(|v| !v.is_empty());
+            if name.is_none() {
+                return Err(error::ErrorBadRequest(
+                    "new_liability_name is required for loan_refinance",
+                ));
+            }
+            Ok(())
+        }
+        PLAN_KIND_LOAN_REPAYMENT_CHANGE => {
+            if liability_id.is_none() {
+                return Err(error::ErrorBadRequest(
+                    "liability_id is required for loan_repayment_change",
+                ));
+            }
+            if repayment_cents.is_none() {
+                return Err(error::ErrorBadRequest(
+                    "repayment_cents is required for loan_repayment_change",
+                ));
+            }
+            Ok(())
+        }
+        _ => Err(error::ErrorBadRequest("invalid plan_kind")),
+    }
+}
+
+fn require_cashflow_plan(id: i64) -> Result<PlannedSpending, error::Error> {
+    let item = PlannedSpending::find_active(id)
+        .map_err(map_db_error)?
+        .ok_or_else(|| error::ErrorNotFound("Planning item not found"))?;
+    if !is_cashflow_kind(&item.plan_kind) {
+        return Err(error::ErrorBadRequest(
+            "Match and link actions are only available for cashflow plans",
+        ));
+    }
+    Ok(item)
 }
 
 async fn list_planned_spending(
@@ -147,6 +259,7 @@ async fn resolve_planned_match(
     payload: web::Json<ResolvePlannedMatchPayload>,
 ) -> Result<impl Responder, error::Error> {
     let planned_id = path.into_inner();
+    require_cashflow_plan(planned_id)?;
     let data = payload.into_inner();
     match data.action.as_str() {
         "confirm" | "link" => {
@@ -218,7 +331,22 @@ async fn create_planned_spending(
     if name.is_empty() {
         return Err(error::ErrorBadRequest("name is required"));
     }
-    validate_amount(data.amount_cents)?;
+    let plan_kind = data.plan_kind.trim();
+    let new_liability_name = data
+        .new_liability_name
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    validate_plan_fields(
+        plan_kind,
+        data.amount_cents,
+        data.category_id,
+        data.liability_id,
+        data.financial_account_id,
+        new_liability_name,
+        data.interest_rate_bps,
+        data.repayment_cents,
+    )?;
     let start_date = parse_date(&data.start_date, "start_date")?;
     let end_date = parse_optional_date(data.end_date.as_ref(), "end_date")?;
     validate_date_order(start_date, end_date)?;
@@ -228,14 +356,26 @@ async fn create_planned_spending(
         .map(str::trim)
         .filter(|value| !value.is_empty());
 
-    let row = PlannedSpending::insert(
+    let category_id = if is_cashflow_kind(plan_kind) {
+        data.category_id
+    } else {
+        None
+    };
+
+    let row = PlannedSpending::insert(InsertPlannedSpending {
         name,
-        data.amount_cents,
+        amount_cents: data.amount_cents,
         start_date,
         end_date,
-        data.category_id,
+        category_id,
         notes,
-    )
+        plan_kind,
+        liability_id: data.liability_id,
+        financial_account_id: data.financial_account_id,
+        new_liability_name,
+        interest_rate_bps: data.interest_rate_bps,
+        repayment_cents: data.repayment_cents,
+    })
     .map_err(map_db_error)?;
     Ok(HttpResponse::Created().json(row))
 }
@@ -249,11 +389,53 @@ async fn update_planned_spending(
 
     let existing = PlannedSpending::find_active(id)
         .map_err(map_db_error)?
-        .ok_or_else(|| error::ErrorNotFound("Planned spending item not found"))?;
+        .ok_or_else(|| error::ErrorNotFound("Planning item not found"))?;
 
-    if let Some(amount_cents) = data.amount_cents {
-        validate_amount(amount_cents)?;
-    }
+    let next_kind = data
+        .plan_kind
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(existing.plan_kind.as_str());
+    let next_amount = data.amount_cents.unwrap_or(existing.amount_cents);
+    let next_liability = match data.liability_id {
+        Some(value) => value,
+        None => existing.liability_id,
+    };
+    let next_account = match data.financial_account_id {
+        Some(value) => value,
+        None => existing.financial_account_id,
+    };
+    let next_new_name = match &data.new_liability_name {
+        Some(value) => value
+            .as_deref()
+            .map(str::trim)
+            .filter(|note| !note.is_empty()),
+        None => existing.new_liability_name.as_deref(),
+    };
+    let next_rate = match data.interest_rate_bps {
+        Some(value) => value,
+        None => existing.interest_rate_bps,
+    };
+    let next_repay = match data.repayment_cents {
+        Some(value) => value,
+        None => existing.repayment_cents,
+    };
+    let next_category = match data.category_id {
+        Some(value) => value,
+        None => existing.category_id,
+    };
+
+    validate_plan_fields(
+        next_kind,
+        next_amount,
+        next_category,
+        next_liability,
+        next_account,
+        next_new_name,
+        next_rate,
+        next_repay,
+    )?;
 
     let start_date = match data.start_date.as_deref() {
         Some(value) => Some(parse_date(value, "start_date")?),
@@ -282,6 +464,7 @@ async fn update_planned_spending(
         ),
     };
 
+    let owned_new_name = data.new_liability_name.clone();
     let changes = PlannedSpendingChanges {
         name: data
             .name
@@ -291,8 +474,32 @@ async fn update_planned_spending(
         amount_cents: data.amount_cents,
         start_date,
         end_date,
-        category_id: data.category_id,
+        category_id: if is_cashflow_kind(next_kind) {
+            data.category_id
+        } else if data.plan_kind.is_some() {
+            Some(None)
+        } else {
+            data.category_id
+        },
         notes,
+        plan_kind: data
+            .plan_kind
+            .as_deref()
+            .map(str::trim)
+            .filter(|value| !value.is_empty()),
+        liability_id: data.liability_id,
+        financial_account_id: data.financial_account_id,
+        new_liability_name: match &owned_new_name {
+            None => None,
+            Some(value) => Some(
+                value
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|note| !note.is_empty()),
+            ),
+        },
+        interest_rate_bps: data.interest_rate_bps,
+        repayment_cents: data.repayment_cents,
     };
 
     if changes.name == Some("") {
@@ -308,12 +515,10 @@ async fn list_link_candidates(
     query: web::Query<LinkCandidatesQuery>,
 ) -> Result<impl Responder, error::Error> {
     let planned_id = path.into_inner();
+    require_cashflow_plan(planned_id)?;
     let search = query.search.clone();
     let candidates = web::block(move || {
-        planned_spending_match::link_candidates(
-            planned_id,
-            search.as_deref(),
-        )
+        planned_spending_match::link_candidates(planned_id, search.as_deref())
     })
     .await
     .map_err(|e| {
@@ -330,14 +535,25 @@ async fn delete_planned_spending(path: web::Path<i64>) -> Result<impl Responder,
     Ok(HttpResponse::NoContent().finish())
 }
 
-pub fn planned_spending_service() -> Scope {
-    web::scope("/planned-spending")
+fn planning_routes(scope: Scope) -> Scope {
+    scope
         .route("/match-suggestions", web::get().to(list_match_suggestions))
-        .route("/match-suggestions/count", web::get().to(match_suggestion_count))
+        .route(
+            "/match-suggestions/count",
+            web::get().to(match_suggestion_count),
+        )
         .route("", web::get().to(list_planned_spending))
         .route("", web::post().to(create_planned_spending))
         .route("/{id}/link-candidates", web::get().to(list_link_candidates))
         .route("/{id}/resolve-match", web::post().to(resolve_planned_match))
         .route("/{id}", web::put().to(update_planned_spending))
         .route("/{id}", web::delete().to(delete_planned_spending))
+}
+
+pub fn planned_spending_service() -> Scope {
+    planning_routes(web::scope("/planned-spending"))
+}
+
+pub fn planning_service() -> Scope {
+    planning_routes(web::scope("/planning"))
 }

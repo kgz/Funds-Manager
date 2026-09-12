@@ -6,7 +6,7 @@ use database::models::assets::{Asset, AssetInput};
 use database::models::category::Category;
 use database::models::financial_account::FinancialAccount;
 use database::models::liabilities::{Liability, LiabilityInput};
-use database::models::planned_spending::PlannedSpending;
+use database::models::planned_spending::{InsertPlannedSpending, PlannedSpending, PLAN_KIND_CASHFLOW};
 use database::models::planned_spending_match;
 use database::models::prediction_goal::PredictionGoal;
 use database::models::prediction_scenario::{PredictionScenario, ScenarioLineInput};
@@ -423,17 +423,37 @@ fn seed_planned_spending(
     let housing_i32 = category_i32(categories, "housing");
     let health_i32 = category_i32(categories, "health");
 
+    let insert_cashflow = |name: &str,
+                           amount_cents: i32,
+                           start_date: NaiveDate,
+                           category_id: Option<i64>,
+                           notes: Option<&str>| {
+        PlannedSpending::insert(InsertPlannedSpending {
+            name,
+            amount_cents,
+            start_date,
+            end_date: None,
+            category_id,
+            notes,
+            plan_kind: PLAN_KIND_CASHFLOW,
+            liability_id: None,
+            financial_account_id: None,
+            new_liability_name: None,
+            interest_rate_bps: None,
+            repayment_cents: None,
+        })
+        .unwrap_or_else(|err| panic!("planned insert {name}: {err}"))
+    };
+
     // Suggested match — exact amount and close date
     let rego_date = today.checked_add_days(Days::new(14)).unwrap_or(today);
-    PlannedSpending::insert(
+    insert_cashflow(
         "Annual car rego",
         -850_00,
         rego_date,
-        None,
         transport,
         Some("Due mid-month"),
-    )
-    .expect("car rego");
+    );
     insert_demo_transaction(
         conn,
         everyday,
@@ -446,15 +466,13 @@ fn seed_planned_spending(
 
     // Partially linked — one payment linked, second txn should surface as a suggestion
     let fees_date = today.checked_add_days(Days::new(30)).unwrap_or(today);
-    let fees_planned = PlannedSpending::insert(
+    let fees_planned = insert_cashflow(
         "School fees — term 3",
         -2_400_00,
         fees_date,
-        None,
         housing,
         Some("St Joseph's invoice #4421"),
-    )
-    .expect("school fees");
+    );
     let fees_txn1 = insert_demo_transaction(
         conn,
         everyday,
@@ -477,15 +495,13 @@ fn seed_planned_spending(
 
     // Fully linked — shows linked progress subline, no match suggestion
     let kitchen_date = today.checked_add_days(Days::new(90)).unwrap_or(today);
-    let kitchen_planned = PlannedSpending::insert(
+    let kitchen_planned = insert_cashflow(
         "Kitchen renovation deposit",
         -8_000_00,
         kitchen_date,
-        None,
         housing,
         Some("Builder quote accepted"),
-    )
-    .expect("kitchen renovation");
+    );
     let kitchen_txn = insert_demo_transaction(
         conn,
         everyday,
@@ -500,15 +516,13 @@ fn seed_planned_spending(
 
     // Suggested match — amount within tolerance, date within tolerance
     let dentist_date = today.checked_add_days(Days::new(7)).unwrap_or(today);
-    PlannedSpending::insert(
+    insert_cashflow(
         "Dentist visit",
         -285_00,
         dentist_date,
-        None,
         health,
         Some("Check-up and clean"),
-    )
-    .expect("dentist");
+    );
     insert_demo_transaction(
         conn,
         everyday,
@@ -520,15 +534,13 @@ fn seed_planned_spending(
     );
 
     // No nearby transaction — table row only
-    PlannedSpending::insert(
+    insert_cashflow(
         "Holiday spending money",
         -3_500_00,
         today.checked_add_days(Days::new(45)).unwrap_or(today),
-        None,
         entertainment,
         None,
-    )
-    .expect("holiday");
+    );
 
     eprintln!(
         "  planned spending: 3 match suggestions, 1 partial link, 1 full link, 1 unmatched"

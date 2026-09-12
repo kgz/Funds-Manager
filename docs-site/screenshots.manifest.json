@@ -1,4 +1,48 @@
 {
   "version": 1,
-  "screenshots": []
+  "screenshots": [
+    {
+      "id": "planning-list",
+      "file": "public/screenshots/planning/list.png",
+      "alt": "Planning page showing All, Cashflow, and Loans filters, an Add plan button, and a table of upcoming plans with kind badges",
+      "route": "/planning",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/planning-screenshots.spec.ts",
+      "expects": [
+        "heading:Planning",
+        "tab:Cashflow",
+        "text:Add plan",
+        "text:Bali holiday"
+      ],
+      "ticket": 143
+    },
+    {
+      "id": "planning-add-cashflow",
+      "file": "public/screenshots/planning/add-cashflow.png",
+      "alt": "Add plan dialog with Cashflow selected in the plan kind picker, name and amount fields below",
+      "route": "/planning",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/planning-screenshots.spec.ts",
+      "expects": [
+        "heading:Add plan",
+        "radio:Cashflow checked",
+        "text:When you expect this cashflow to occur"
+      ],
+      "ticket": 143
+    },
+    {
+      "id": "planning-add-redraw",
+      "file": "public/screenshots/planning/add-redraw.png",
+      "alt": "Add plan dialog with Loan redraw selected, showing redraw amount, liability, and destination account fields",
+      "route": "/planning",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/planning-screenshots.spec.ts",
+      "expects": [
+        "radio:Loan redraw checked",
+        "text:Credits the destination account",
+        "label:Destination account"
+      ],
+      "ticket": 143
+    }
+  ]
 }

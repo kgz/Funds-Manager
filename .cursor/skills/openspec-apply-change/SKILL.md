@@ -73,6 +73,8 @@ Implement tasks from an OpenSpec change.
    - Mark task complete in the tasks file: `- [ ]` → `- [x]`
    - Continue to next task
 
+   If the change is user-facing and `tasks.md` has no Docs + e2e section, **add one** (User guide effects + cross-links, screenshots, Playwright, dead-end review) and implement it before treating the change as complete. Follow `.cursor/skills/document-feature/SKILL.md`.
+
    **Pause if:**
    - Task is unclear → ask for clarification
    - Implementation reveals a design issue → suggest updating artifacts

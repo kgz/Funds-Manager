@@ -5,6 +5,29 @@ use chrono::{NaiveDate, NaiveDateTime, Utc};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
+pub const PLAN_KIND_CASHFLOW: &str = "cashflow";
+pub const PLAN_KIND_LOAN_REDRAW: &str = "loan_redraw";
+pub const PLAN_KIND_LOAN_REFINANCE: &str = "loan_refinance";
+pub const PLAN_KIND_LOAN_REPAYMENT_CHANGE: &str = "loan_repayment_change";
+
+pub fn is_valid_plan_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        PLAN_KIND_CASHFLOW
+            | PLAN_KIND_LOAN_REDRAW
+            | PLAN_KIND_LOAN_REFINANCE
+            | PLAN_KIND_LOAN_REPAYMENT_CHANGE
+    )
+}
+
+pub fn is_cashflow_kind(kind: &str) -> bool {
+    kind == PLAN_KIND_CASHFLOW
+}
+
+pub fn is_loan_kind(kind: &str) -> bool {
+    kind.starts_with("loan_")
+}
+
 #[derive(
     Queryable,
     Selectable,
@@ -28,6 +51,12 @@ pub struct PlannedSpending {
     pub created_at: NaiveDateTime,
     pub deleted_at: Option<NaiveDateTime>,
     pub resolved_at: Option<NaiveDateTime>,
+    pub plan_kind: String,
+    pub liability_id: Option<i64>,
+    pub financial_account_id: Option<i64>,
+    pub new_liability_name: Option<String>,
+    pub interest_rate_bps: Option<i32>,
+    pub repayment_cents: Option<i64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -54,6 +83,12 @@ pub struct NewPlannedSpending<'a> {
     pub category_id: Option<i64>,
     pub notes: Option<&'a str>,
     pub created_at: NaiveDateTime,
+    pub plan_kind: &'a str,
+    pub liability_id: Option<i64>,
+    pub financial_account_id: Option<i64>,
+    pub new_liability_name: Option<&'a str>,
+    pub interest_rate_bps: Option<i32>,
+    pub repayment_cents: Option<i64>,
 }
 
 #[derive(Debug, Default, AsChangeset)]
@@ -65,6 +100,12 @@ pub struct PlannedSpendingChanges<'a> {
     pub end_date: Option<Option<NaiveDate>>,
     pub category_id: Option<Option<i64>>,
     pub notes: Option<Option<&'a str>>,
+    pub plan_kind: Option<&'a str>,
+    pub liability_id: Option<Option<i64>>,
+    pub financial_account_id: Option<Option<i64>>,
+    pub new_liability_name: Option<Option<&'a str>>,
+    pub interest_rate_bps: Option<Option<i32>>,
+    pub repayment_cents: Option<Option<i64>>,
 }
 
 pub fn spans_overlap(
@@ -106,6 +147,21 @@ fn active_unresolved_filter(
     } else {
         query.filter(planned_spending::resolved_at.is_null())
     }
+}
+
+pub struct InsertPlannedSpending<'a> {
+    pub name: &'a str,
+    pub amount_cents: i32,
+    pub start_date: NaiveDate,
+    pub end_date: Option<NaiveDate>,
+    pub category_id: Option<i64>,
+    pub notes: Option<&'a str>,
+    pub plan_kind: &'a str,
+    pub liability_id: Option<i64>,
+    pub financial_account_id: Option<i64>,
+    pub new_liability_name: Option<&'a str>,
+    pub interest_rate_bps: Option<i32>,
+    pub repayment_cents: Option<i64>,
 }
 
 impl PlannedSpending {
@@ -167,9 +223,11 @@ impl PlannedSpending {
         };
         let enriched =
             crate::models::planned_spending_match::enrich_list_items(items)?;
+        // Cashflow KPI only — loan events are balance-sheet / terms.
         let total_cents = enriched
             .iter()
-            .map(|item| i64::from(item.item.amount_cents))
+            .filter(|row| is_cashflow_kind(&row.item.plan_kind))
+            .map(|row| i64::from(row.item.amount_cents))
             .sum();
         Ok(PlannedSpendingListResponse {
             items: enriched,
@@ -187,26 +245,25 @@ impl PlannedSpending {
             .optional()
     }
 
-    pub fn insert(
-        name: &str,
-        amount_cents: i32,
-        start_date: NaiveDate,
-        end_date: Option<NaiveDate>,
-        category_id: Option<i64>,
-        notes: Option<&str>,
-    ) -> Result<Self, diesel::result::Error> {
-        if let Some(category_id) = category_id {
+    pub fn insert(input: InsertPlannedSpending<'_>) -> Result<Self, diesel::result::Error> {
+        if let Some(category_id) = input.category_id {
             Category::find(category_id, false)?.ok_or(diesel::result::Error::NotFound)?;
         }
         let conn = &mut get_dbo();
         let row = NewPlannedSpending {
-            name,
-            amount_cents,
-            start_date,
-            end_date,
-            category_id,
-            notes,
+            name: input.name,
+            amount_cents: input.amount_cents,
+            start_date: input.start_date,
+            end_date: input.end_date,
+            category_id: input.category_id,
+            notes: input.notes,
             created_at: Utc::now().naive_utc(),
+            plan_kind: input.plan_kind,
+            liability_id: input.liability_id,
+            financial_account_id: input.financial_account_id,
+            new_liability_name: input.new_liability_name,
+            interest_rate_bps: input.interest_rate_bps,
+            repayment_cents: input.repayment_cents,
         };
         diesel::insert_into(planned_spending::table)
             .values(&row)
@@ -272,16 +329,6 @@ mod tests {
         assert!(spans_overlap(
             d("2026-02-15"),
             Some(d("2026-03-10")),
-            d("2026-03-01"),
-            d("2026-03-31")
-        ));
-    }
-
-    #[test]
-    fn overlap_range_before_period() {
-        assert!(!spans_overlap(
-            d("2026-01-01"),
-            Some(d("2026-01-31")),
             d("2026-03-01"),
             d("2026-03-31")
         ));

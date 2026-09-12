@@ -53,7 +53,7 @@ export const NAV_GROUPS: NavGroupConfig[] = [
 			{ to: '/serviceability', label: 'Serviceability', icon: Scale },
 			{ to: '/report-snapshots', label: 'Report snapshots', icon: Camera },
 			{ to: '/recurring', label: 'Repeat payments', icon: Repeat },
-			{ to: '/planned', label: 'Planned spending', icon: CalendarRange, actionableKey: 'plannedMatches' },
+			{ to: '/planning', label: 'Planning', icon: CalendarRange, actionableKey: 'plannedMatches' },
 		],
 	},
 	{
@@ -80,7 +80,10 @@ export type CommandActionId =
 	| 'upload-statement'
 	| 'add-transaction'
 	| 'create-snapshot'
-	| 'plan-spending';
+	| 'add-plan-cashflow'
+	| 'add-plan-redraw'
+	| 'add-plan-refinance'
+	| 'add-plan-repayment';
 
 export type CommandActionConfig = {
 	id: CommandActionId;
@@ -109,9 +112,27 @@ export const COMMAND_ACTIONS: CommandActionConfig[] = [
 		icon: Camera,
 	},
 	{
-		id: 'plan-spending',
-		label: 'Plan spending',
-		detail: 'Add a future expense',
+		id: 'add-plan-cashflow',
+		label: 'Add cashflow plan',
+		detail: 'Plan dated spending or income',
+		icon: CalendarRange,
+	},
+	{
+		id: 'add-plan-redraw',
+		label: 'Add loan redraw',
+		detail: 'Credit an account from a loan',
+		icon: CalendarRange,
+	},
+	{
+		id: 'add-plan-refinance',
+		label: 'Add refinance plan',
+		detail: 'Settle a loan and record new terms',
+		icon: CalendarRange,
+	},
+	{
+		id: 'add-plan-repayment',
+		label: 'Add repayment change',
+		detail: 'Plan a new loan repayment or rate',
 		icon: CalendarRange,
 	},
 ];

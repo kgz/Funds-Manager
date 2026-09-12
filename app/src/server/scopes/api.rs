@@ -19,7 +19,7 @@ use crate::routes::{
     serviceability::serviceability_service,
     settings_api::settings_service,
     liabilities::liabilities_service,
-    planned_spending::planned_spending_service,
+    planned_spending::{planned_spending_service, planning_service},
     predictions_api::{
         prediction_goals_service, prediction_scenarios_service, predictions_service,
     },
@@ -45,6 +45,7 @@ pub fn api() -> Scope {
         .service(category_mappings_routes()) // <-- Add the category mappings routes
         .service(accounts_service())
         .service(categories_service())
+        .service(planning_service())
         .service(planned_spending_service())
         .service(liabilities_service())
         .service(assets_service())

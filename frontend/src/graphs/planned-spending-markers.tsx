@@ -31,6 +31,9 @@ export function buildPlannedSpendingChartEvents(
 	const grouped = new Map<string, PlannedSpendingItem[]>();
 
 	for (const item of items) {
+		if (item.plan_kind !== 'cashflow') {
+			continue;
+		}
 		const balance = balanceByDate.get(item.start_date);
 		if (balance === undefined) {
 			continue;
