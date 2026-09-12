@@ -26,7 +26,7 @@ A one-off spend or income on a date - for example a holiday deposit or a bonus.
 - Enter the amount as spending or income.
 - Optionally pick a category.
 - **Effect:** [Future predictions](/user-guide/predictions) treats this as money in or out on that date.
-- When a matching bank transaction shows up, you can link it so the plan is marked done. See [Transactions](/user-guide/transactions) once that guide is filled out.
+- When a matching bank transaction shows up, you can link it so the plan is marked done. See [Transactions](/user-guide/transactions).
 
 ### Loan redraw
 
@@ -76,5 +76,9 @@ Repayment change does **not** update [Liabilities](/user-guide/liabilities) or [
 ## Related
 
 - [Future predictions](/user-guide/predictions) - where cashflow and redraw plans show up on the projection
-- [Liabilities](/user-guide/liabilities) - loans you pick for redraw / refinance / repayment change (full guide still growing)
-- [Accounts](/user-guide/accounts) - destination accounts for redraws (full guide still growing)
+- [Dashboard](/user-guide/dashboard) - recent spending, income, and balances (plans do not appear here until bank transactions exist)
+- [Breakdown](/user-guide/breakdown) - category totals from imported transactions
+- [Liabilities](/user-guide/liabilities) - loans you pick for redraw, refinance, and repayment change
+- [Accounts](/user-guide/accounts) - destination accounts for redraws
+- [Assets](/user-guide/assets) - property and other valuations (separate from redraw cash landing in an account)
+- [Transactions](/user-guide/transactions) - categorise imports and link matching bank lines to cashflow plans

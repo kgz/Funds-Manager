@@ -10,13 +10,17 @@
   },
   "packageManager": "pnpm@10.11.0",
   "devDependencies": {
+    "medium-zoom": "^1.1.0",
     "vitepress": "^1.6.4",
+    "vitepress-plugin-lightbox": "^1.0.3",
     "vue": "^3.5.22"
   },
   "dependencies": {
     "shiki": "^3.13.0"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

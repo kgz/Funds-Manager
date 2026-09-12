@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress';
+import lightbox from 'vitepress-plugin-lightbox';
 
 export default defineConfig({
 	title: 'Funds Manager',
@@ -6,6 +7,11 @@ export default defineConfig({
 	base: '/Funds-Manager/',
 	cleanUrls: true,
 	ignoreDeadLinks: true,
+	markdown: {
+		config: (md) => {
+			md.use(lightbox, {});
+		},
+	},
 	themeConfig: {
 		nav: [
 			{ text: 'Guide', link: '/guide/getting-started' },
@@ -30,14 +36,40 @@ export default defineConfig({
 			],
 			'/user-guide/': [
 				{
-					text: 'User guide',
+					text: 'Overview',
 					items: [
-						{ text: 'Overview', link: '/user-guide/' },
-						{ text: 'Planning', link: '/user-guide/planning' },
+						{ text: 'User guide', link: '/user-guide/' },
+						{ text: 'Dashboard', link: '/user-guide/dashboard' },
+						{ text: 'Breakdown', link: '/user-guide/breakdown' },
 						{ text: 'Future predictions', link: '/user-guide/predictions' },
+					],
+				},
+				{
+					text: 'Cash flow',
+					items: [
 						{ text: 'Transactions', link: '/user-guide/transactions' },
+						{ text: 'Income', link: '/user-guide/income' },
+						{ text: 'Living expenses', link: '/user-guide/living-expenses' },
+						{ text: 'Serviceability', link: '/user-guide/serviceability' },
+						{ text: 'Report snapshots', link: '/user-guide/report-snapshots' },
+						{ text: 'Repeat payments', link: '/user-guide/repeat-payments' },
+						{ text: 'Planning', link: '/user-guide/planning' },
+					],
+				},
+				{
+					text: 'Net worth',
+					items: [
 						{ text: 'Accounts', link: '/user-guide/accounts' },
+						{ text: 'Assets', link: '/user-guide/assets' },
 						{ text: 'Liabilities', link: '/user-guide/liabilities' },
+					],
+				},
+				{
+					text: 'Data & setup',
+					items: [
+						{ text: 'Statements', link: '/user-guide/statements' },
+						{ text: 'Categories', link: '/user-guide/categories' },
+						{ text: 'Settings', link: '/user-guide/settings' },
 					],
 				},
 			],

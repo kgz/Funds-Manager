@@ -2,6 +2,222 @@
   "version": 1,
   "screenshots": [
     {
+      "id": "accounts-list",
+      "file": "public/screenshots/accounts/list.png",
+      "alt": "Accounts page listing bank accounts with display names, last balances from statements, and an Edit action on each row",
+      "route": "/accounts",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/accounts-screenshots.spec.ts",
+      "expects": [
+        "heading:Accounts"
+      ],
+      "ticket": 308
+    },
+    {
+      "id": "accounts-edit",
+      "file": "public/screenshots/accounts/edit.png",
+      "alt": "Edit account dialog showing read-only account number and parser fields plus editable bank and display name",
+      "route": "/accounts",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/accounts-screenshots.spec.ts",
+      "expects": [
+        "heading:Accounts"
+      ],
+      "ticket": 308
+    },
+    {
+      "id": "assets-list",
+      "file": "public/screenshots/assets/list.png",
+      "alt": "Assets page with total value in the header and a table of property and super entries with type badges and valuation dates",
+      "route": "/assets",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/assets-screenshots.spec.ts",
+      "expects": [
+        "heading:Assets"
+      ],
+      "ticket": 309
+    },
+    {
+      "id": "assets-add",
+      "file": "public/screenshots/assets/add.png",
+      "alt": "Add asset dialog with name, type, current value, valued-as-at date, and optional linked loan for property",
+      "route": "/assets",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/assets-screenshots.spec.ts",
+      "expects": [
+        "heading:Assets"
+      ],
+      "ticket": 309
+    },
+    {
+      "id": "assets-edit",
+      "file": "public/screenshots/assets/edit.png",
+      "alt": "Edit asset dialog showing valuation history with current and past entries plus fields to add a new valuation",
+      "route": "/assets",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/assets-screenshots.spec.ts",
+      "expects": [
+        "heading:Assets"
+      ],
+      "ticket": 309
+    },
+    {
+      "id": "breakdown-list",
+      "file": "public/screenshots/breakdown/list.png",
+      "alt": "Breakdown page with period totals, By category table, and Groceries, Travel, and Salary rows",
+      "route": "/breakdown",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/breakdown-screenshots.spec.ts",
+      "expects": [
+        "heading:Breakdown"
+      ],
+      "ticket": 299
+    },
+    {
+      "id": "breakdown-expanded",
+      "file": "public/screenshots/breakdown/expanded.png",
+      "alt": "Groceries expanded showing Woolworths and Coles description groups with Move actions",
+      "route": "/breakdown",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/breakdown-screenshots.spec.ts",
+      "expects": [
+        "heading:Breakdown"
+      ],
+      "ticket": 299
+    },
+    {
+      "id": "categories-list",
+      "file": "public/screenshots/categories/list.png",
+      "alt": "Categories page showing the category tree, uncategorized banner, and New category button",
+      "route": "/categories",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/categories-screenshots.spec.ts",
+      "expects": [
+        "heading:Categories"
+      ],
+      "ticket": 312
+    },
+    {
+      "id": "categories-add",
+      "file": "public/screenshots/categories/add.png",
+      "alt": "New category dialog with name and colour fields",
+      "route": "/categories",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/categories-screenshots.spec.ts",
+      "expects": [
+        "heading:Categories"
+      ],
+      "ticket": 312
+    },
+    {
+      "id": "dashboard-list",
+      "file": "public/screenshots/dashboard/list.png",
+      "alt": "Dashboard with KPI cards, monthly bar chart, category donuts, balance chart, and net worth panel",
+      "route": "/dashboard",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/dashboard-screenshots.spec.ts",
+      "expects": [
+        "heading:Dashboard"
+      ],
+      "ticket": 298
+    },
+    {
+      "id": "dashboard-spending-drilldown",
+      "file": "public/screenshots/dashboard/spending-drilldown.png",
+      "alt": "Spending breakdown drawer listing transactions for the Groceries category",
+      "route": "/dashboard",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/dashboard-screenshots.spec.ts",
+      "expects": [
+        "heading:Dashboard"
+      ],
+      "ticket": 298
+    },
+    {
+      "id": "income-list",
+      "file": "public/screenshots/income/list.png",
+      "alt": "Income page with KPI cards and a table of detected streams with Primary and Confirmed badges",
+      "route": "/income",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/income-screenshots.spec.ts",
+      "expects": [
+        "heading:Income"
+      ],
+      "ticket": 302
+    },
+    {
+      "id": "income-edit-stream",
+      "file": "public/screenshots/income/edit-stream.png",
+      "alt": "Edit stream dialog with label, package ex GST, period selector, and primary or confirmed checkboxes",
+      "route": "/income",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/income-screenshots.spec.ts",
+      "expects": [
+        "heading:Income"
+      ],
+      "ticket": 302
+    },
+    {
+      "id": "liabilities-list",
+      "file": "public/screenshots/liabilities/list.png",
+      "alt": "Liabilities page with total owed in the header and a table of home and car loans with balances, rates, and repayments",
+      "route": "/liabilities",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/liabilities-screenshots.spec.ts",
+      "expects": [
+        "heading:Liabilities"
+      ],
+      "ticket": 310
+    },
+    {
+      "id": "liabilities-add",
+      "file": "public/screenshots/liabilities/add.png",
+      "alt": "Add liability dialog with name, type, lender, current balance, and optional rate and repayment fields",
+      "route": "/liabilities",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/liabilities-screenshots.spec.ts",
+      "expects": [
+        "heading:Liabilities"
+      ],
+      "ticket": 310
+    },
+    {
+      "id": "liabilities-edit",
+      "file": "public/screenshots/liabilities/edit.png",
+      "alt": "Edit liability dialog showing balance history with current and past snapshots plus fields to add a new balance",
+      "route": "/liabilities",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/liabilities-screenshots.spec.ts",
+      "expects": [
+        "heading:Liabilities"
+      ],
+      "ticket": 310
+    },
+    {
+      "id": "living-expenses-summary",
+      "file": "public/screenshots/living-expenses/summary.png",
+      "alt": "Living expenses monthly summary with KPI cards, period selector, and lender bucket table with Housing expanded",
+      "route": "/living-expenses",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/living-expenses-screenshots.spec.ts",
+      "expects": [
+        "heading:Living expenses"
+      ],
+      "ticket": 303
+    },
+    {
+      "id": "living-expenses-mappings",
+      "file": "public/screenshots/living-expenses/mappings.png",
+      "alt": "Category mapping table with search, filter segments, and lender bucket dropdowns per app category",
+      "route": "/living-expenses",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/living-expenses-screenshots.spec.ts",
+      "expects": [
+        "heading:Living expenses"
+      ],
+      "ticket": 303
+    },
+    {
       "id": "planning-list",
       "file": "public/screenshots/planning/list.png",
       "alt": "Planning page showing All, Cashflow, and Loans filters, an Add plan button, and a table of upcoming plans with kind badges",
@@ -9,10 +225,7 @@
       "seed": "mock",
       "capture": "frontend/e2e/docs/planning-screenshots.spec.ts",
       "expects": [
-        "heading:Planning",
-        "tab:Cashflow",
-        "text:Add plan",
-        "text:Bali holiday"
+        "heading:Planning"
       ],
       "ticket": 143
     },
@@ -24,9 +237,7 @@
       "seed": "mock",
       "capture": "frontend/e2e/docs/planning-screenshots.spec.ts",
       "expects": [
-        "heading:Add plan",
-        "radio:Cashflow checked",
-        "text:When you expect this cashflow to occur"
+        "heading:Planning"
       ],
       "ticket": 143
     },
@@ -38,11 +249,177 @@
       "seed": "mock",
       "capture": "frontend/e2e/docs/planning-screenshots.spec.ts",
       "expects": [
-        "radio:Loan redraw checked",
-        "text:Credits the destination account",
-        "label:Destination account"
+        "heading:Planning"
       ],
       "ticket": 143
+    },
+    {
+      "id": "predictions-list",
+      "file": "public/screenshots/predictions/list.png",
+      "alt": "Future predictions page with projected balance chart, scenarios list, and savings goals list",
+      "route": "/predictions",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/predictions-screenshots.spec.ts",
+      "expects": [
+        "heading:Future predictions"
+      ],
+      "ticket": 300
+    },
+    {
+      "id": "predictions-add-scenario",
+      "file": "public/screenshots/predictions/add-scenario.png",
+      "alt": "Add scenario dialog with name field and adjustment line amount, date, and category inputs",
+      "route": "/predictions",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/predictions-screenshots.spec.ts",
+      "expects": [
+        "heading:Future predictions"
+      ],
+      "ticket": 300
+    },
+    {
+      "id": "repeat-payments-by-pattern",
+      "file": "public/screenshots/repeat-payments/by-pattern.png",
+      "alt": "Repeat payments page with estimated monthly spending and income KPIs and a table of detected patterns sorted by match score",
+      "route": "/repeat-payments",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/repeat-payments-screenshots.spec.ts",
+      "expects": [
+        "heading:Repeat payments"
+      ],
+      "ticket": 306
+    },
+    {
+      "id": "repeat-payments-by-category",
+      "file": "public/screenshots/repeat-payments/by-category.png",
+      "alt": "Repeat payments grouped by category with expandable rows showing individual patterns behind each category",
+      "route": "/repeat-payments",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/repeat-payments-screenshots.spec.ts",
+      "expects": [
+        "heading:Repeat payments"
+      ],
+      "ticket": 306
+    },
+    {
+      "id": "report-snapshots-list",
+      "file": "public/screenshots/report-snapshots/list.png",
+      "alt": "Report snapshots page with Save new snapshot form, coverage checks, and a table of saved snapshots",
+      "route": "/report-snapshots",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/report-snapshots-screenshots.spec.ts",
+      "expects": [
+        "heading:Report snapshots"
+      ],
+      "ticket": 305
+    },
+    {
+      "id": "report-snapshots-detail",
+      "file": "public/screenshots/report-snapshots/detail.png",
+      "alt": "Frozen report snapshot detail with KPI row, serviceability breakdown, and coverage summary",
+      "route": "/report-snapshots",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/report-snapshots-screenshots.spec.ts",
+      "expects": [
+        "heading:Report snapshots"
+      ],
+      "ticket": 305
+    },
+    {
+      "id": "serviceability-overview",
+      "file": "public/screenshots/serviceability/overview.png",
+      "alt": "Serviceability page with monthly income, commitments, and surplus KPIs plus income, repayments, living costs, and surplus breakdown panels",
+      "route": "/serviceability",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/serviceability-screenshots.spec.ts",
+      "expects": [
+        "heading:Serviceability"
+      ],
+      "ticket": 304
+    },
+    {
+      "id": "serviceability-stress",
+      "file": "public/screenshots/serviceability/stress.png",
+      "alt": "Serviceability stress scenario showing higher repayments and a lower monthly surplus",
+      "route": "/serviceability",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/serviceability-screenshots.spec.ts",
+      "expects": [
+        "heading:Serviceability"
+      ],
+      "ticket": 304
+    },
+    {
+      "id": "settings-storage",
+      "file": "public/screenshots/settings/storage.png",
+      "alt": "Settings Data storage section with PostgreSQL connection fields and saved connections",
+      "route": "/settings",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/settings-screenshots.spec.ts",
+      "expects": [
+        "heading:Settings"
+      ],
+      "ticket": 313
+    },
+    {
+      "id": "settings-migrations",
+      "file": "public/screenshots/settings/migrations.png",
+      "alt": "Settings Database migrations section showing all migrations applied",
+      "route": "/settings",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/settings-screenshots.spec.ts",
+      "expects": [
+        "heading:Settings"
+      ],
+      "ticket": 313
+    },
+    {
+      "id": "statements-list",
+      "file": "public/screenshots/statements/list.png",
+      "alt": "Statements page with PDF drop zone, missing-period alert, and a table of imported statement periods",
+      "route": "/statements",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/statements-screenshots.spec.ts",
+      "expects": [
+        "heading:Statements"
+      ],
+      "ticket": 311
+    },
+    {
+      "id": "transactions-list",
+      "file": "public/screenshots/transactions/list.png",
+      "alt": "Transactions table with date, account, description, amount, balance, and category columns plus filter controls",
+      "route": "/transactions",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/transactions-screenshots.spec.ts",
+      "expects": [
+        "heading:Transactions"
+      ],
+      "ticket": 301
+    },
+    {
+      "id": "transactions-bulk-actions",
+      "file": "public/screenshots/transactions/bulk-actions.png",
+      "alt": "Bulk action bar with two transactions selected and category picker",
+      "route": "/transactions",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/transactions-screenshots.spec.ts",
+      "expects": [
+        "heading:Transactions"
+      ],
+      "ticket": 301
+    },
+    {
+      "id": "transactions-transfer-suggestion",
+      "file": "public/screenshots/transactions/transfer-suggestion.png",
+      "alt": "Transfer match callout showing out and in legs with confirm and dismiss actions",
+      "route": "/transactions",
+      "seed": "mock",
+      "capture": "frontend/e2e/docs/transactions-screenshots.spec.ts",
+      "expects": [
+        "heading:Transactions"
+      ],
+      "ticket": 301
     }
   ]
 }

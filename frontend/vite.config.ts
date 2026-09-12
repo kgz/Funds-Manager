@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import tailwindcss from '@tailwindcss/vite'
 import mkcert from 'vite-plugin-mkcert'
+import IstanbulPlugin from 'vite-plugin-istanbul'
 import fs from 'fs'
 import https from 'node:https'
 
@@ -36,12 +37,26 @@ export default defineConfig(({ mode }) => {
         }
       : undefined
 
+  const e2eCoverage = process.env.E2E_COVERAGE === '1'
+
   return {
     base,
     plugins: [
       react(),
       tailwindcss(),
       ...(mode !== 'production' && !devHttp ? [mkcert()] : []),
+      ...(e2eCoverage
+        ? [
+            IstanbulPlugin({
+              include: 'src/**/*',
+              exclude: ['node_modules', 'e2e'],
+              extension: ['.js', '.ts', '.tsx'],
+              requireEnv: false,
+              cypress: false,
+              checkProd: true,
+            }),
+          ]
+        : []),
     ],
     build:
       mode === 'production'

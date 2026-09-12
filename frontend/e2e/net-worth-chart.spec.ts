@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test';
 
 test.describe('Net worth chart', () => {
 	test('renders chart series on dashboard', async ({ page }) => {
@@ -12,7 +12,10 @@ test.describe('Net worth chart', () => {
 		const response = await netWorthResponse;
 		const payload: unknown = await response.json();
 		expect(Array.isArray(payload)).toBe(true);
-		expect((payload as unknown[]).length).toBeGreaterThan(0);
+		if (!Array.isArray(payload)) {
+			throw new Error('expected net-worth payload to be an array');
+		}
+		expect(payload.length).toBeGreaterThan(0);
 
 		const chart = page.getByTestId('net-worth-chart');
 		await expect(chart).toBeVisible();
