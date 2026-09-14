@@ -29,7 +29,7 @@ moka = { version = "0.12.8", features = ["future"] }
 rand = "0.10.1"
 serde = { version = "1.0.210", features = ["derive"] }
 sha2 = "0.11.0"
-strum = "0.26.3"
+strum = "0.28.0"
 strum_macros = "0.26.4"
 uuid = "1.10.0"
 fake = { version = "5.1.0", features = ["chrono", "derive", "dummy"] }
